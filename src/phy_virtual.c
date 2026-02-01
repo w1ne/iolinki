@@ -19,12 +19,14 @@ static void virtual_set_baudrate(iolink_baudrate_t baudrate)
 
 static int virtual_send(const uint8_t *data, size_t len)
 {
+    (void)data;
     printf("[PHY-VIRTUAL] Sending %zu bytes\n", len);
     return (int)len;
 }
 
 static int virtual_recv_byte(uint8_t *byte)
 {
+    (void)byte;
     /* Placeholder for socket receive logic */
     return 0;
 }

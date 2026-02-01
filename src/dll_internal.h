@@ -1,6 +1,7 @@
 #ifndef IOLINK_DLL_INTERNAL_H
 #define IOLINK_DLL_INTERNAL_H
 
+#include <stdint.h>
 #include "iolinki/dll.h"
 
 /**
