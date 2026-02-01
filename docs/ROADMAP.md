@@ -12,24 +12,26 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [x] Zephyr module structure definition
 
 ### 1.2 Physical Layer (PHY) Abstraction
-- [ ] **PHY Interface Definition**: Define `iolink_phy_api` struct for hardware decoupling.
+- [ ] **PHY Interface Definition**: Define `iolink_phy_api` struct for complete hardware decoupling.
 - [ ] **Drivers**:
-    - [ ] `gpio_bitbang`: For initial testing/low-speed debug.
-    - [ ] `max2251x`: Driver for Maxim integrated transceivers (SPI).
-    - [ ] `uart_generic`: Driver using standard MCU UART + Level Shifter.
+    - [ ] `phy_mock`: Mock driver for unit testing state machines.
+    - [ ] `phy_emu`: Emulated PHY for testing against simulated masters.
+    - [ ] `phy_generic`: Template driver for standard UART-based integration.
 
-### 1.3 Data Link Layer (DLL) - Basic
+### 1.3 Data Link Layer (DLL) - Core
 - [ ] **State Machine**: Implement the "Startup" and "Pre-operate" state transitions.
 - [ ] **M-Sequence Handling**:
     - [ ] M-Type 0 (On-request data).
     - [ ] M-Type 1_x & 2_x (Cyclic data exchange).
 - [ ] **Timing Control**:
-    - [ ] Implement `t_A` (Response time) enforcement logic.
+    - [ ] Implement abstract timer interface for `t_A` (Response time) enforcement.
     - [ ] Checksum calculation and verification (V1.1 CRC).
 
 ### 1.4 Reference Implementation
-- [ ] **"Hello World" Device**: A simple sensor simulation on STM32 (Nuclo) or nRF52 (DK).
-- [ ] **Master Tool Verification**: Validate communication with a standard USB Master (e.g., IFM, TEConcept).
+- [ ] **Reference Stack**: Core logic decoupled from Zephyr/HW dependencies.
+- [ ] **Simulation Environment**:
+    - [ ] "Virtual Device" running on Host (Linux/Windows) via validation suite.
+    - [ ] Integration with open-source IO-Link Master simulators.
 
 ## Phase 2: Compliance & Feature Completeness
 
