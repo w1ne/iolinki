@@ -7,7 +7,12 @@ RUN apt-get update && apt-get install -y \
     libcmocka-dev \
     git \
     python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Python Virtual Master dependencies
+COPY tools/virtual_master/requirements.txt /tmp/
+RUN pip3 install -r /tmp/requirements.txt
 
 WORKDIR /workspace
 
@@ -15,4 +20,4 @@ WORKDIR /workspace
 COPY . .
 
 # Build and test
-CMD ["bash", "-c", "cmake -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build && cd build && ctest --output-on-failure --verbose"]
+CMD ["bash", "-c", "cmake -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build && cd build && ctest --output-on-failure --verbose && cd ../tools/virtual_master && python3 test_manual.py && python3 test_master.py"]
