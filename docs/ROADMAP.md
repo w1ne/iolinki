@@ -49,9 +49,9 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [x] Standard command implementation (Vendor Name, etc.).
 
 ### 2.2 Advanced V1.1 Features
-- [ ] **Data Storage (DS)**: 
-    - [ ] Implement parameter checksum generation.
-    - [ ] "Upload/Download" state machine for automatic parameter server.
+- [x] **Data Storage (DS)**: 
+    - [x] Implement parameter checksum generation.
+    - [x] "Upload/Download" state machine for automatic parameter server.
 - [ ] **Block Parameterization**: Efficient bulk data transfer.
 - [x] **Events**: Diagnostic event queue and transmission logic.
 

@@ -5,7 +5,7 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] — 2026-02-01 (Planned)
+## [0.2.0] — 2026-02-01
 
 ### Added
 - **Application Layer API**: Introduced `iolink_pd_input_update` and `iolink_pd_output_read`.
@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ISDU Support**: Acyclic messaging engine with segmentation/reassembly.
 - **Standard Services**: Implementation of Vendor Name (Index 0x10) reading.
 - **Events**: Diagnostic signaling mechanism with FIFO queue and ISDU Index 2 integration.
+- **Data Storage (DS)**: Parameter backup/restore state machine with storage abstraction.
 - **Architecture Documentation**: Added `docs/ARCHITECTURE.md` detailing the layered design.
 - **Unit Tests**: Added `test_pd.c` and `test_isdu.c`.
 
