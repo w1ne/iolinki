@@ -13,8 +13,10 @@ if(CMOCKA_FOUND)
         add_test(NAME ${name} COMMAND ${name})
     endmacro()
 
-    # Initial test: basic initialization
+    # Initial tests
     add_iolink_test(test_init test_init.c)
+    add_iolink_test(test_crc test_crc.c)
+    add_iolink_test(test_dll test_dll.c)
 else()
     message(WARNING "CMocka not found, unit tests will be skipped. Install libcmocka-dev to enable them.")
 endif()

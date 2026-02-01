@@ -17,4 +17,11 @@
  */
 int iolink_init(const iolink_phy_api_t *phy);
 
+/**
+ * @brief Process the IO-Link stack logic
+ * 
+ * This must be called periodically (e.g. every 1ms).
+ */
+void iolink_process(void);
+
 #endif // IOLINK_H
