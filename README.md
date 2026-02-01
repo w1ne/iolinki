@@ -51,6 +51,21 @@ cmake --build build
 ./build/examples/host_demo/host_demo
 ```
 
+## Running Tests
+
+### Docker (Recommended - No Dependencies Required)
+```bash
+./tools/run_tests_docker.sh
+```
+
+### Local (Requires CMocka)
+```bash
+sudo apt-get install libcmocka-dev
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+cd build && ctest --output-on-failure
+```
+
 ### Building for Bare Metal
 
 ```bash

@@ -1,0 +1,18 @@
+FROM ubuntu:22.04
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    cmake \
+    build-essential \
+    libcmocka-dev \
+    git \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Copy project files
+COPY . .
+
+# Build and test
+CMD ["bash", "-c", "cmake -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build && cd build && ctest --output-on-failure --verbose"]
