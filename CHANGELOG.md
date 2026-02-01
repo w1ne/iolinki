@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Process Data (PD)**: Cyclic exchange support in `OPERATE` state.
 - **ISDU Support**: Acyclic messaging engine with segmentation/reassembly.
 - **Standard Services**: Implementation of Vendor Name (Index 0x10) reading.
+- **Events**: Diagnostic signaling mechanism with FIFO queue and ISDU Index 2 integration.
 - **Architecture Documentation**: Added `docs/ARCHITECTURE.md` detailing the layered design.
 - **Unit Tests**: Added `test_pd.c` and `test_isdu.c`.
 

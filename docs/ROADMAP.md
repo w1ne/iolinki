@@ -53,7 +53,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [ ] Implement parameter checksum generation.
     - [ ] "Upload/Download" state machine for automatic parameter server.
 - [ ] **Block Parameterization**: Efficient bulk data transfer.
-- [ ] **Events**: Diagnostic event queue and transmission logic.
+- [x] **Events**: Diagnostic event queue and transmission logic.
 
 ### 2.3 Direct Operating Mode (DOM)
 - [ ] **SIO Mode**: Fallback to standard digital I/O when validation fails.
