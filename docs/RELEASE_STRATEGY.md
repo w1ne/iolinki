@@ -23,30 +23,88 @@ Format: `MAJOR.MINOR.PATCH`
 - **MINOR**: Backward-compatible new functionality (e.g., new standard definitions).
 - **PATCH**: Backward-compatible bug fixes.
 
-## 3. CI/CD (Planned)
+## 3. CI/CD
 
-### Stages
-1. **Quality Gate**:
-   - `clang-format` check.
-   - Static analysis.
-2. **Build**:
-   - CMake build for host (Linux).
-   - Zephyr `native_sim` build.
-   - ARM cross-compile verification (STM32/nRF).
-3. **Tests**:
-   - Unit tests (e.g., Unity/CMock).
-   - Integration tests.
+Automated pipelines run on every push to `main` or `develop`.
+
+### Quality Gate (runs on all pushes/PRs)
+1. **Code Formatting**: `clang-format` check (enforces `.clang-format` style).
+2. **Static Analysis**: `cppcheck` with all checks enabled.
+3. **MISRA Check**: Planned for future compliance.
+4. **Unit Tests**: All CMocka tests must pass.
+5. **Integration Tests**: Planned - virtual IO-Link Master conformance.
+
+### Build Stages
+1. **Build**: CMake build for host (Linux).
+2. **Test**: Run all unit tests via `ctest`.
+3. **Example Build**: Verify example projects compile.
+
+### Zephyr Build (Planned)
+- Build verification on `native_sim` target.
+- Cross-compile verification for ARM targets.
 
 ## 4. Release Process
 
-1. **Freeze**: Create a `release/x.y.z` branch from `develop`.
-2. **Audit & Documentation**:
-   - Update `CHANGELOG.md`.
-   - Update `README.md`.
-   - Update version numbers in `CMakeLists.txt` and headers.
-   - Verify IODD file generation links/templates.
-3. **Validate**: Ensure CI passes on the release branch.
-4. **Publish**:
-   - Merge `release/x.y.z` into `main`.
-   - Tag the release: `git tag -a vx.y.z -m "Release vx.y.z"`.
-   - Merge `main` back into `develop`.
+### Automated Release (Recommended)
+
+Releases are automated via GitHub Actions. Simply push a version tag:
+
+```bash
+git tag -a v0.1.0 -m "Release version 0.1.0"
+git push origin v0.1.0
+```
+
+The workflow automatically:
+1. Builds the project in Release mode
+2. Runs all tests
+3. Generates formatted release notes including:
+   - Test results summary
+   - Build artifacts list
+   - Documentation links
+4. Packages binaries (examples + tests)
+5. Creates GitHub Release
+
+### Manual Release (if needed)
+
+1. **Prepare Release Branch**:
+   ```bash
+   git checkout develop
+   git checkout -b release/x.y.z
+   ```
+
+2. **Update Documentation**:
+   - Update version in `CMakeLists.txt`
+   - Update `CHANGELOG.md` (if exists)
+   - Update `ROADMAP.md` milestones
+
+3. **Verify Quality**:
+   ```bash
+   cmake -B build -DCMAKE_BUILD_TYPE=Release
+   cmake --build build
+   cd build && ctest --output-on-failure
+   ```
+
+4. **Merge to Main**:
+   ```bash
+   git checkout main
+   git merge release/x.y.z
+   git tag -a vx.y.z -m "Release vx.y.z"
+   git push origin main --tags
+   ```
+
+5. **Back-merge to Develop**:
+   ```bash
+   git checkout develop
+   git merge main
+   git push origin develop
+   ```
+
+## 5. Release Artifacts
+
+Each GitHub Release includes:
+- **Test Results**: Test count and pass/fail summary
+- **Build Artifacts**: 
+  - `simple_device` - Example executable
+  - `test_init` - Unit test executable
+- **Documentation**: Links to all project docs
+- **Source Code**: Automatic archive by GitHub
