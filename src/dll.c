@@ -1,5 +1,6 @@
 #include "iolinki/dll.h"
 #include "iolinki/crc.h"
+#include "iolinki/isdu.h"
 #include "dll_internal.h"
 #include <string.h>
 
@@ -9,6 +10,7 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
     memset(ctx, 0, sizeof(iolink_dll_ctx_t));
     ctx->state = IOLINK_DLL_STATE_STARTUP;
     ctx->phy = phy;
+    iolink_isdu_init();
 }
 
 static void handle_startup(iolink_dll_ctx_t *ctx)
@@ -33,12 +35,16 @@ static void handle_preoperate(iolink_dll_ctx_t *ctx)
             uint8_t ck = buf[1];
             
             if (iolink_checksum_ck(mc, 0) == ck) {
-                uint8_t response[2] = {0x00, 0x00}; /* Placeholder Device Response */
+                /* Hand over MC to ISDU engine (simplified) */
+                iolink_isdu_collect_byte(mc);
+
+                uint8_t response[2] = {0, 0};
+                iolink_isdu_get_response_byte(&response[0]);
+                response[1] = iolink_checksum_ck(0, response[0]);
+
                 ctx->phy->send(response, 2);
                 
-                /* Transition to OPERATE for demonstration purpose 
-                   In real stack, this requires specific Master commands. */
-                ctx->state = IOLINK_DLL_STATE_OPERATE;
+                /* Keep in PREOPERATE or move to OPERATE */
             }
         }
     }
