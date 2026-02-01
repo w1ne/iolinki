@@ -61,9 +61,28 @@ cmake --build build_bare
 
 ### Building for Zephyr
 
+**Option 1: Docker (Recommended for testing)**
+If you have Docker installed, you can build the Zephyr example without installing the SDK on your host:
 ```bash
-# Ensure Zephyr SDK is active
-west build -b native_sim examples/zephyr_app
+./tools/build_zephyr_docker.sh
+```
+
+**Option 2: Local SDK**
+**Prerequisite**: You must have the [Zephyr SDK and tools installed](https://docs.zephyrproject.org/latest/develop/getting_started/index.html) and be running in an initialized Zephyr workspace (or have `ZEPHYR_BASE` set).
+
+```bash
+# From your Zephyr workspace root
+west build -b native_sim modules/lib/iolinki/examples/zephyr_app
+```
+
+> **Troubleshooting**: If you see `west: error: argument <command>: invalid choice: 'build'`, it means `west` is installed but the build extensions are not loaded. This happens if you are not in a valid Zephyr workspace.
+
+### Building for Bare Metal
+
+```bash
+cmake -B build_bare -DIOLINK_PLATFORM=BAREMETAL
+cmake --build build_bare
+./build_bare/examples/bare_metal_app/bare_metal_app
 ```
 
 ## Project Status
