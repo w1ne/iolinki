@@ -25,6 +25,10 @@ add_library(iolinki STATIC
     src/phy_virtual.c
     src/crc.c
     src/dll.c
+    src/isdu.c
+    src/events.c
+    src/data_storage.c
+    src/time_utils.c
 )
 
 # Examples
@@ -36,4 +40,26 @@ option(BUILD_TESTING "Build unit tests" ON)
 if(BUILD_TESTING)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+# Documentation
+find_package(Doxygen)
+if(DOXYGEN_FOUND)
+    add_custom_target(doc
+        COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Generating API documentation with Doxygen"
+        VERBATIM
+    )
+endif()
+
+# IODD Generation
+find_package(Python3)
+if(Python3_FOUND)
+    add_custom_target(iodd
+        COMMAND ${Python3_EXECUTABLE} tools/iodd_gen.py examples/simple_device/simple_device.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Generating IODD XML for simple_device"
+        VERBATIM
+    )
 endif()

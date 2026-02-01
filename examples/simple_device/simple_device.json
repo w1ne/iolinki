@@ -1,0 +1,35 @@
+{
+    "vendorId": 1234,
+    "vendorName": "iolinki-project",
+    "deviceId": 5678,
+    "output": "examples/simple_device/simple_device.xml",
+    "variables": [
+        {
+            "id": "V_VendorName",
+            "index": 16,
+            "name": "Vendor Name",
+            "accessRights": "ro",
+            "bitLength": 128
+        },
+        {
+            "id": "V_MockParam",
+            "index": 64,
+            "name": "Mock Parameter",
+            "accessRights": "rw",
+            "bitLength": 8
+        }
+    ],
+    "processData": [
+        {
+            "id": "PD_Simple",
+            "in": {
+                "id": "PD_IN",
+                "bitLength": 16
+            },
+            "out": {
+                "id": "PD_OUT",
+                "bitLength": 16
+            }
+        }
+    ]
+}

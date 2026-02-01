@@ -1,0 +1,40 @@
+<?xml version="1.0" ?>
+<IODevice xmlns="http://www.io-link.com/IODD/2010/11" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.io-link.com/IODD/2010/11 IODD1.1.xsd">
+  <DocumentInfo copyright="iolinki-project" releaseDate="2026-02-01" version="V1.1"/>
+  <ProfileHeader>
+    <ProfileIdentification>IO-Link Device Profile</ProfileIdentification>
+    <ProfileRevision>1.1</ProfileRevision>
+  </ProfileHeader>
+  <ProfileBody>
+    <DeviceIdentity vendorId="1234" vendorName="iolinki-project" deviceId="5678"/>
+    <DeviceFunction>
+      <VariableCollection>
+        <Variable index="16" accessRights="ro" id="V_VendorName">
+          <Datatype xsi:type="IntegerT" bitLength="128"/>
+          <Name>
+            <PrimaryLanguage>Vendor Name</PrimaryLanguage>
+          </Name>
+        </Variable>
+        <Variable index="64" accessRights="rw" id="V_MockParam">
+          <Datatype xsi:type="IntegerT" bitLength="8"/>
+          <Name>
+            <PrimaryLanguage>Mock Parameter</PrimaryLanguage>
+          </Name>
+        </Variable>
+      </VariableCollection>
+      <ProcessDataCollection>
+        <ProcessData id="PD_Simple">
+          <ProcessDataIn id="PD_IN" bitLength="16">
+            <Datatype xsi:type="RecordT" bitLength="16"/>
+          </ProcessDataIn>
+          <ProcessDataOut id="PD_OUT" bitLength="16">
+            <Datatype xsi:type="RecordT" bitLength="16"/>
+          </ProcessDataOut>
+        </ProcessData>
+      </ProcessDataCollection>
+    </DeviceFunction>
+  </ProfileBody>
+  <ExternalResources>
+    <Language xml:lang="en-US"/>
+  </ExternalResources>
+</IODevice>
