@@ -14,29 +14,29 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [x] Directory structure and build system (CMake)
 - [x] CI/CD pipeline groundwork (Linting, Doxygen)
 - [x] Zephyr module structure definition
-- [ ] Test framework setup (Unity/CMock or equivalent)
+- [x] Test framework setup (CMocka)
 
 ### 1.2 Physical Layer (PHY) Abstraction
-- [ ] **PHY Interface Definition**: Define `iolink_phy_api` struct for complete hardware decoupling.
-- [ ] **Mock PHY Driver**: `phy_mock` for unit testing (built FIRST).
-- [ ] **Virtual PHY Driver**: `phy_virtual` for integration with virtual IO-Link Master.
-- [ ] **Generic PHY Template**: `phy_generic` as reference for real hardware ports.
+- [x] **PHY Interface Definition**: Define `iolink_phy_api` struct for complete hardware decoupling.
+- [x] **Mock PHY Driver**: `phy_mock` for unit testing (built FIRST).
+- [x] **Virtual PHY Driver**: `phy_virtual` for integration with virtual IO-Link Master.
+- [x] **Generic PHY Template**: `phy_generic` as reference for real hardware ports.
 
 ### 1.3 Data Link Layer (DLL) - Core
-- [ ] **State Machine**: Implement "Startup" and "Pre-operate" transitions.
-    - [ ] Unit tests using `phy_mock` for each state transition.
-- [ ] **M-Sequence Handling**:
-    - [ ] M-Type 0 (On-request data) with mock testing.
+- [x] **State Machine**: Implement "Startup" and "Pre-operate" transitions.
+    - [x] Unit tests using `phy_mock` for each state transition.
+- [x] **M-Sequence Handling**:
+    - [x] M-Type 0 (On-request data) with mock testing.
     - [ ] M-Type 1_x & 2_x (Cyclic data) with mock testing.
 - [ ] **Timing Control**:
     - [ ] Abstract timer interface for `t_A` enforcement.
     - [ ] Mock timer for deterministic unit testing.
-    - [ ] Checksum calculation and verification (V1.1 CRC).
+    - [x] Checksum calculation and verification (V1.1 CRC).
 
 ### 1.4 Virtual Test Environment
 - [ ] **Virtual IO-Link Master**: Implement or integrate open-source master simulator.
 - [ ] **Integration Test Suite**: Python-based test runner executing protocol scenarios.
-- [ ] **Reference Stack Demo**: Host-based executable demonstrating protocol without any hardware.
+- [x] **Reference Stack Demo**: Host-based executable demonstrating protocol without any hardware.
 
 ## Phase 2: Compliance & Feature Completeness
 

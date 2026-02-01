@@ -20,10 +20,16 @@ include_directories(include)
 set(IOLINKI_SOURCES
     src/iolink_core.c
 )
-add_library(iolinki STATIC ${IOLINKI_SOURCES})
+add_library(iolinki STATIC
+    src/iolink_core.c
+    src/phy_virtual.c
+    src/crc.c
+    src/dll.c
+)
 
 # Examples
 add_subdirectory(examples/simple_device)
+add_subdirectory(examples/host_demo)
 
 # Testing
 option(BUILD_TESTING "Build unit tests" ON)
