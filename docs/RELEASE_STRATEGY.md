@@ -42,6 +42,7 @@ Format: `MAJOR.MINOR.PATCH`
 1. **Freeze**: Create a `release/x.y.z` branch from `develop`.
 2. **Audit & Documentation**:
    - Update `CHANGELOG.md`.
+   - Update `README.md`.
    - Update version numbers in `CMakeLists.txt` and headers.
    - Verify IODD file generation links/templates.
 3. **Validate**: Ensure CI passes on the release branch.
