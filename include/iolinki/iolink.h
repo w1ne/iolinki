@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "iolinki/phy.h"
+#include "iolinki/application.h"
 
 /**
  * @file iolink.h

@@ -20,6 +20,12 @@ typedef struct {
     iolink_dll_state_t state;
     const iolink_phy_api_t *phy;
     uint32_t last_activity_ms;
+    
+    /* Process Data Buffers */
+    uint8_t pd_in[32];  /* Device -> Master */
+    uint8_t pd_in_len;
+    uint8_t pd_out[32]; /* Master -> Device */
+    uint8_t pd_out_len;
 } iolink_dll_ctx_t;
 
 /**

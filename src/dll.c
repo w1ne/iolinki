@@ -1,23 +1,20 @@
 #include "iolinki/dll.h"
 #include "iolinki/crc.h"
 #include "dll_internal.h"
-#include <stddef.h>
+#include <string.h>
 
 void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
 {
     if (ctx == NULL) return;
+    memset(ctx, 0, sizeof(iolink_dll_ctx_t));
     ctx->state = IOLINK_DLL_STATE_STARTUP;
     ctx->phy = phy;
-    ctx->last_activity_ms = 0;
 }
 
 static void handle_startup(iolink_dll_ctx_t *ctx)
 {
     uint8_t byte;
-    /* In a real scenario, we wait for a Wake-up or baudrate detection.
-       For the reference stack, we assume the Master sends bytes. */
     if (ctx->phy->recv_byte(&byte) > 0) {
-        /* Transition to PREOPERATE on first byte received (simplification) */
         ctx->state = IOLINK_DLL_STATE_PREOPERATE;
     }
 }
@@ -32,16 +29,35 @@ static void handle_preoperate(iolink_dll_ctx_t *ctx)
         buf[index++] = byte;
         if (index >= IOLINK_M_SEQ_TYPE0_LEN) {
             index = 0;
-            /* Validate M-Sequence Type 0 */
             uint8_t mc = buf[0];
             uint8_t ck = buf[1];
             
-            if (iolink_checksum_ck(mc, 0) == ck) { /* Simplistic check */
-                /* Reply with Device Response */
-                uint8_t response[2] = {0x00, 0x00}; /* Placeholder */
+            if (iolink_checksum_ck(mc, 0) == ck) {
+                uint8_t response[2] = {0x00, 0x00}; /* Placeholder Device Response */
                 ctx->phy->send(response, 2);
+                
+                /* Transition to OPERATE for demonstration purpose 
+                   In real stack, this requires specific Master commands. */
+                ctx->state = IOLINK_DLL_STATE_OPERATE;
             }
         }
+    }
+}
+
+static void handle_operate(iolink_dll_ctx_t *ctx)
+{
+    uint8_t byte;
+    
+    /* 
+     * In OPERATE state, we perform cyclic PD exchange.
+     * Simplification: Master sends 1 byte PD, Device responds with 1 byte PD.
+     */
+    if (ctx->phy->recv_byte(&byte) > 0) {
+        ctx->pd_out[0] = byte;
+        ctx->pd_out_len = 1;
+        
+        uint8_t resp = ctx->pd_in[0];
+        ctx->phy->send(&resp, 1);
     }
 }
 
@@ -57,7 +73,7 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx)
             handle_preoperate(ctx);
             break;
         case IOLINK_DLL_STATE_OPERATE:
-            /* TODO: Cyclic data exchange */
+            handle_operate(ctx);
             break;
     }
 }
