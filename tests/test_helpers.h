@@ -4,22 +4,16 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "iolinki/iolink.h"
+#include "iolinki/phy.h"
 
 /* Test buffers */
 extern uint8_t g_tx_buf[1024];
 extern uint8_t g_rx_buf[1024];
 
-/* Mock PHY operations */
-typedef struct {
-    int (*send_byte)(uint8_t byte);
-    int (*recv_byte)(uint8_t *byte);
-    void (*set_mode)(int mode);
-} mock_phy_ops_t;
+/* Mock PHY driver */
+extern const iolink_phy_api_t g_phy_mock;
 
-extern mock_phy_ops_t g_mock_phy;
-
-/* Mock timer functions */
-uint32_t mock_get_time_ms(void);
-void mock_delay_ms(uint32_t ms);
+/* Helper to setup mock expectations */
+void setup_mock_phy(void);
 
 #endif  // TEST_HELPERS_H_

@@ -1,22 +1,20 @@
-#ifndef IOLINKI_IOLINK_H_
-#define IOLINKI_IOLINK_H_
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifndef IOLINK_H
+#define IOLINK_H
 
 #include <stdint.h>
-#include <stdbool.h>
+#include "iolinki/phy.h"
+
+/**
+ * @file iolink.h
+ * @brief Main header for iolinki IO-Link stack
+ */
 
 /**
  * @brief Initialize the IO-Link stack
- *
- * @return 0 on success, error code otherwise
+ * 
+ * @param phy Pointer to the PHY implementation to use
+ * @return int 0 on success, negative error code otherwise
  */
-int iolink_init(void);
+int iolink_init(const iolink_phy_api_t *phy);
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif  // IOLINKI_IOLINK_H_
+#endif // IOLINK_H
