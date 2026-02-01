@@ -8,11 +8,11 @@
 
 ### Key Features
 
-- **🎯 Hardware-Agnostic**: Runs on any platform via clean PHY abstraction
-- **✅ Test-Driven**: 100% mock-based unit testing from day one
-- **🔌 Portable**: Zephyr-native with bare-metal compatibility
-- **🚀 Virtual Testing**: Conformance verification against virtual IO-Link Master
-- **📖 Open Source**: Transparent, vendor-agnostic implementation
+- **Hardware-Agnostic**: Runs on any platform via clean PHY abstraction
+- **Test-Driven**: 100% mock-based unit testing from day one
+- **Portable**: Zephyr-native with bare-metal compatibility
+- **Virtual Testing**: Conformance verification against virtual IO-Link Master
+- **Open Source**: Transparent, vendor-agnostic implementation
 
 ## Quick Start
 
@@ -69,9 +69,9 @@ See [ROADMAP.md](./docs/ROADMAP.md) for detailed development phases.
 Official releases are available on [GitHub Releases](https://github.com/yourusername/iolinki/releases).
 
 Each release includes:
-- **✅ Test Results**: Complete test suite validation
-- **📦 Build Artifacts**: Pre-compiled examples and test binaries
-- **📚 Documentation**: Updated docs and guides
+- **Test Results**: Complete test suite validation
+- **Build Artifacts**: Pre-compiled examples and test binaries
+- **Documentation**: Updated docs and guides
 
 To create a new release:
 ```bash

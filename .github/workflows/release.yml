@@ -52,23 +52,23 @@ jobs:
           cat > release-notes.md << 'EOF'
           # iolinki ${{ steps.version.outputs.version }}
           
-          ## ✅ Test Results
+          ## Test Results
           - **Total Tests**: ${{ steps.results.outputs.total }}
           - **Passed**: ${{ steps.results.outputs.passed }}
           - **Failed**: ${{ steps.results.outputs.failed }}
           
-          ## 📦 Build Artifacts
+          ## Build Artifacts
           This release includes:
           - `simple_device` - Example IO-Link device
           - `test_init` - Unit test executable
           
-          ## 📚 Documentation
+          ## Documentation
           See [docs/](./docs/) for complete documentation:
           - [ROADMAP.md](./docs/ROADMAP.md) - Development roadmap
           - [VISION.md](./docs/VISION.md) - Project vision
           - [RELEASE_STRATEGY.md](./docs/RELEASE_STRATEGY.md) - Release process
           
-          ## 🚀 Getting Started
+          ## Getting Started
           See [INSTALL.md](./INSTALL.md) for installation instructions.
           EOF
       
