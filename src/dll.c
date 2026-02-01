@@ -2,8 +2,10 @@
 #include "iolinki/crc.h"
 #include "iolinki/isdu.h"
 #include "iolinki/events.h"
+#include "iolinki/time_utils.h"
 #include "dll_internal.h"
 #include <string.h>
+#include <stdio.h>
 
 void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
 {
@@ -28,11 +30,22 @@ static void handle_preoperate(iolink_dll_ctx_t *ctx)
     uint8_t buf[IOLINK_M_SEQ_TYPE0_LEN];
     static uint8_t index = 0;
     uint8_t byte;
+    static uint64_t last_frame_us = 0;
 
     while (ctx->phy->recv_byte(&byte) > 0) {
+        uint64_t now = iolink_time_get_us();
+        
+        /* Measure t_A (Master to Device delay) on first byte of frame */
+        if (index == 0 && last_frame_us != 0) {
+            uint64_t t_a = now - last_frame_us;
+            /* In a real stack, check t_a vs requested cycle time */
+            (void)t_a; 
+        }
+
         buf[index++] = byte;
         if (index >= IOLINK_M_SEQ_TYPE0_LEN) {
             index = 0;
+            last_frame_us = now;
             uint8_t mc = buf[0];
             uint8_t ck = buf[1];
             
@@ -52,8 +65,18 @@ static void handle_preoperate(iolink_dll_ctx_t *ctx)
                 response[1] = iolink_checksum_ck(status, response[0]);
 
                 ctx->phy->send(response, 2);
+            } else {
+                /* CRC Error: Signal via event or reset state machine */
+                iolink_event_trigger(0x5000, IOLINK_EVENT_TYPE_ERROR); /* 0x5000: Device software error (placeholder for frame error) */
             }
         }
+    }
+
+    /* Timeout check: If no data received for too long, reset to STARTUP */
+    if (ctx->last_activity_ms != 0 && (iolink_time_get_ms() - ctx->last_activity_ms > 1000)) {
+        printf("[DLL] Communication timeout detected, resetting to STARTUP\n");
+        ctx->state = IOLINK_DLL_STATE_STARTUP;
+        ctx->last_activity_ms = 0;
     }
 }
 

@@ -1,0 +1,21 @@
+#ifndef IOLINK_TIME_UTILS_H
+#define IOLINK_TIME_UTILS_H
+
+#include <stdint.h>
+
+/**
+ * @file time_utils.h
+ * @brief Time abstractions for IO-Link timing enforcement
+ */
+
+/**
+ * @brief Get system time in milliseconds
+ */
+uint32_t iolink_time_get_ms(void);
+
+/**
+ * @brief Get system time in microseconds
+ */
+uint64_t iolink_time_get_us(void);
+
+#endif // IOLINK_TIME_UTILS_H
