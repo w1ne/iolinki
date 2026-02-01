@@ -1,0 +1,4 @@
+name: iolinki
+build:
+  cmake: .
+  kconfig: zephyr/Kconfig

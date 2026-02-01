@@ -1,0 +1,20 @@
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+*.exe
+*.bin
+*.hex
+*.map
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*~
+
+# Zephyr specific
+.zephyr/
+west.yml
+Open-Source IO-Link Stack Business Case.md
