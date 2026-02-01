@@ -1,0 +1,68 @@
+name: iolinki CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format cppcheck libcmocka-dev
+      
+      - name: Code Formatting Check
+        run: |
+          find src include tests examples -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror
+      
+      - name: Static Analysis
+        run: |
+          cppcheck --enable=all --error-exitcode=1 --suppress=missingIncludeSystem -I include src/
+
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libcmocka-dev
+      
+      - name: Build
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build
+      
+      - name: Run Unit Tests
+        run: |
+          cd build
+          ctest --output-on-failure
+      
+      - name: Archive Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: build/Testing/
+
+  build-example:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+      
+      - name: Build Example
+        run: |
+          cmake -B build
+          cmake --build build --target simple_device
