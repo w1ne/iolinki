@@ -21,9 +21,19 @@ jobs:
         run: |
           find src include tests examples -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror
       
-      - name: Static Analysis
+      - name: Static Analysis (MISRA oriented)
         run: |
           cppcheck --enable=all --error-exitcode=1 --suppress=missingIncludeSystem -I include src/
+      
+      - name: Doxygen Warning Check
+        run: |
+          sudo apt-get install -y doxygen
+          doxygen Doxyfile 2>&1 | tee doxygen.log
+          if grep -q "warning:" doxygen.log; then 
+            echo "Doxygen warnings found:"
+            grep "warning:" doxygen.log
+            exit 1
+          fi
 
   build-and-test:
     runs-on: ubuntu-latest
