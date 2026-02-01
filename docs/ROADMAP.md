@@ -23,10 +23,13 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [x] **Generic PHY Template**: `phy_generic` as reference for real hardware ports.
 - [ ] **SIO Mode Support**: PHY-level SIO/SDCI mode switching.
 - [ ] **Wake-up Pulse**: Device wake-up request handling.
+- [ ] **C/Q Line Control**: Pin state management abstraction.
 
 ### 1.3 Data Link Layer (DLL) - Core
 - [x] **State Machine**: Implement "Startup" and "Pre-operate" transitions.
     - [x] Unit tests using `phy_mock` for each state transition.
+    - [ ] **ESTAB_COM State**: Communication establishment handshake.
+    - [ ] **State Transition Validation**: Guards for illegal transitions.
 - [x] **M-Sequence Handling**:
     - [x] M-Type 0 (On-request data) with mock testing.
     - [ ] M-Type 1_1 (Process Data, 8-bit OD).
@@ -35,12 +38,18 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [ ] M-Type 2_1 (Process Data, 16/32-bit OD).
     - [ ] M-Type 2_2 (Process Data, 16/32-bit OD with ISDU).
     - [ ] M-Type 2_V (Process Data, variable OD with ISDU).
+- [ ] **On-Request Data (OD)**:
+    - [ ] OD length negotiation (8/16/32 bits).
+    - [ ] OD content definition (status, events).
+    - [ ] OD consistency mechanism.
 - [x] **Timing Control**:
     - [x] Abstract timer interface for `t_A` enforcement.
     - [x] Mock timer for deterministic unit testing.
     - [x] Checksum calculation and verification (V1.1 CRC).
-    - [ ] `t_ren` (Device response time) enforcement.
+    - [ ] `t_ren` (Device response time) enforcement (max 230μs @ COM3).
+    - [ ] `t_cycle` validation.
 - [ ] **Frame Retry Logic**: Automatic retransmission on CRC errors.
+- [ ] **Error Counters**: Track CRC, timeout, framing errors.
 
 ### 1.4 Virtual Test Environment
 - [x] **Virtual IO-Link Master**: Mock-based master simulation in integration tests.
@@ -55,12 +64,16 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [x] **Process Data (PD)**: API for application to update/read cyclic data.
 - [ ] **Variable PD Length**: Support 2-32 byte PD (currently fixed 1-byte).
 - [ ] **PD Consistency**: Toggle bit mechanism.
-- [ ] **PD Validity**: Data quality status flags.
+- [ ] **PD Validity**: Data quality status flags (Valid bit, Qualifier).
 
 ### 2.2 Application Layer - ISDU
 - [x] **ISDU Framework**:
-    - [x] Segmentation and reassembly of large parameters.
+    - [x] Basic segmentation and reassembly.
     - [x] Basic Read/Write services.
+    - [ ] **Segmentation Control**: First/Last/Middle segment handling.
+    - [ ] **Flow Control**: Busy/Retry mechanisms.
+    - [ ] **16-bit Index Support**: Currently limited to 8-bit.
+    - [ ] **Write Verification**: Readback after write.
 - [ ] **Mandatory ISDU Indices**:
     - [ ] 0x0000: Direct Parameter Page 1
     - [ ] 0x0001: Direct Parameter Page 2
@@ -69,8 +82,11 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
         - [ ] Subcommand 0x81: Application Reset
         - [ ] Subcommand 0x82: Restore Factory Settings
         - [ ] Subcommand 0x83: Restore Application Defaults
-        - [ ] Subcommand 0x95-0x97: Parameter Server commands
-    - [ ] 0x000C: Device Access Locks (Parameterization, DS, UI)
+        - [ ] Subcommand 0x84: Set Communication Mode
+        - [ ] Subcommand 0x95: Parameter Upload to Master
+        - [ ] Subcommand 0x96: Parameter Download from Master
+        - [ ] Subcommand 0x97: Parameter Break
+    - [ ] 0x000C: Device Access Locks (Parameterization, DS, UI, Communication)
     - [x] 0x0010: Vendor Name
     - [ ] 0x0011: Vendor Text
     - [ ] 0x0012: Product Name
@@ -80,20 +96,45 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [ ] 0x0016: Hardware Revision
     - [ ] 0x0017: Firmware Revision
     - [ ] 0x0018: Application-specific Tag
-    - [ ] 0x0019-0x001F: Reserved/Optional indices
+    - [ ] 0x0019: Function Tag
+    - [ ] 0x001A: Location Tag
+    - [ ] 0x001B: Device Status
+    - [ ] 0x001C: Detailed Device Status
+    - [ ] 0x001D: Process Data Input Descriptor
+    - [ ] 0x001E: Process Data Output Descriptor
+    - [ ] 0x0024: Min Cycle Time
 
 ### 2.3 Advanced V1.1 Features
 - [x] **Data Storage (DS)**: 
     - [x] Implement parameter checksum generation.
     - [x] "Upload/Download" state machine for automatic parameter server.
     - [ ] Integration with Device Access Locks (0x000C).
+    - [ ] DS Commands: Upload Start/End, Download Start/End.
+    - [ ] Checksum mismatch recovery.
 - [ ] **Block Parameterization**: Efficient bulk data transfer.
 - [x] **Events**: Diagnostic event queue and transmission logic.
-    - [ ] **Standard Event Codes**: Map 0x1xxx-0x8xxx ranges per spec.
+    - [ ] **Standard Event Codes**:
+        - [ ] 0x1xxx: Device events
+        - [ ] 0x2xxx: Communication events
+        - [ ] 0x4xxx: Process events
+        - [ ] 0x5xxx: Application events
+    - [ ] Event Mode: Single/Multiple event mode.
+    - [ ] Event Qualifier: Additional event context.
 
-### 2.4 Direct Operating Mode (DOM)
+### 2.4 Communication Modes & Timing
 - [ ] **SIO Mode**: Fallback to standard digital I/O when validation fails.
-- [ ] **Dual Mode**: Support for SIO/SDCI switching via PHY.
+- [ ] **Mode Switching**: Dynamic SIO ↔ SDCI transitions.
+- [ ] **AutoComm**: Automatic communication startup.
+- [ ] **Baudrate Management**:
+    - [ ] Baudrate negotiation with Master.
+    - [ ] Runtime baudrate switching.
+    - [ ] Fallback to COM1 on errors.
+
+### 2.5 Error Handling & Robustness
+- [ ] **Error Events**: Trigger events on CRC, timeout, framing errors.
+- [ ] **Error Recovery**: Retry logic, state reset mechanisms.
+- [ ] **Error Reporting**: ISDU index for error statistics.
+- [ ] **Timing Violation Events**: Trigger on t_ren, t_cycle violations.
 
 ## Phase 3: Ecosystem & Verification
 
@@ -128,13 +169,14 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 **Goal:** Close all gaps identified in compliance analysis to achieve certification readiness.
 
 ### 5.1 Mandatory Commands (High Priority)
-- [ ] Implement System Command handlers (0x0002: Reset, Factory Restore)
-- [ ] Implement Mandatory ID Indices (0x11-0x17: Vendor Text, Product Name, Serial, etc.)
+- [ ] Implement System Command handlers (0x0002: Reset, Factory Restore, Mode Set)
+- [ ] Implement Mandatory ID Indices (0x11-0x1E: Vendor Text, Product Name, Serial, etc.)
 - [ ] Implement Device Access Locks (Index 0x000C)
 
 ### 5.2 Protocol Completion (High Priority)
 - [ ] Implement M-sequence Type 1_x (8-bit OD variants)
 - [ ] Implement M-sequence Type 2_x (ISDU + PD combined)
+- [ ] Implement On-Request Data (OD) mechanism
 - [ ] Implement SIO Mode switching logic
 - [ ] Implement Wake-up pulse handling
 
@@ -142,11 +184,13 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [ ] Map Standard Event Codes (0x1xxx-0x8xxx ranges)
 - [ ] Implement timing enforcement (t_ren response time)
 - [ ] Add frame retry logic for communication errors
+- [ ] Implement error counters and reporting
 
 ### 5.4 Optional Features (Low Priority)
 - [ ] Implement Block Parameterization
 - [ ] Implement AutoComm feature
 - [ ] Support variable PD lengths (2-32 bytes)
+- [ ] Implement Diagnosis features
 
 ## Phase 6: Embedded System Portability
 
