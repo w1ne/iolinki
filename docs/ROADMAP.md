@@ -27,7 +27,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [x] Unit tests using `phy_mock` for each state transition.
 - [x] **M-Sequence Handling**:
     - [x] M-Type 0 (On-request data) with mock testing.
-    - [ ] M-Type 1_x & 2_x (Cyclic data) with mock testing.
+    - [x] M-Type 1_x & 2_x (Cyclic data) with mock testing.
 - [ ] **Timing Control**:
     - [ ] Abstract timer interface for `t_A` enforcement.
     - [ ] Mock timer for deterministic unit testing.
@@ -43,10 +43,10 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 **Goal:** Achieve full compliance with IO-Link Interface Specification V1.1.5.
 
 ### 2.1 Application Layer
-- [ ] **Process Data (PD)**: API for application to update/read cyclic data.
-- [ ] **Indexed Service Data Unit (ISDU)**:
-    - [ ] Segmentation and reassembly of large parameters.
-    - [ ] Standard command implementation (Restore Factory, etc.).
+- [x] **Process Data (PD)**: API for application to update/read cyclic data.
+- [x] **Indexed Service Data Unit (ISDU)**:
+    - [x] Segmentation and reassembly of large parameters.
+    - [x] Standard command implementation (Vendor Name, etc.).
 
 ### 2.2 Advanced V1.1 Features
 - [ ] **Data Storage (DS)**: 
