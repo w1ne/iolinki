@@ -1,5 +1,6 @@
 #include "iolinki/isdu.h"
 #include "iolinki/crc.h"
+#include "iolinki/events.h"
 #include <string.h>
 
 /* 
@@ -71,8 +72,19 @@ int iolink_isdu_collect_byte(uint8_t byte)
 
 static void handle_standard_commands(void)
 {
-    /* Standard Index 0x10: Vendor Name */
-    if (g_isdu.header.index == 0x10) {
+    if (g_isdu.header.index == 0x02) {
+        /* System Event Read */
+        iolink_event_t ev;
+        if (iolink_events_pop(&ev)) {
+            g_isdu.response_buf[0] = (uint8_t)((ev.type << 6) | 0x20); /* Qualifier */
+            g_isdu.response_buf[1] = (uint8_t)(ev.code >> 8);
+            g_isdu.response_buf[2] = (uint8_t)(ev.code & 0xFF);
+            g_isdu.response_len = 3;
+        } else {
+            g_isdu.response_buf[0] = 0; /* No event */
+            g_isdu.response_len = 1;
+        }
+    } else if (g_isdu.header.index == 0x10) {
         const char *name = "iolinki-project";
         g_isdu.response_len = strlen(name);
         memcpy(g_isdu.response_buf, name, g_isdu.response_len);

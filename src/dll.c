@@ -1,6 +1,7 @@
 #include "iolinki/dll.h"
 #include "iolinki/crc.h"
 #include "iolinki/isdu.h"
+#include "iolinki/events.h"
 #include "dll_internal.h"
 #include <string.h>
 
@@ -11,6 +12,7 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
     ctx->state = IOLINK_DLL_STATE_STARTUP;
     ctx->phy = phy;
     iolink_isdu_init();
+    iolink_events_init();
 }
 
 static void handle_startup(iolink_dll_ctx_t *ctx)
@@ -40,11 +42,16 @@ static void handle_preoperate(iolink_dll_ctx_t *ctx)
 
                 uint8_t response[2] = {0, 0};
                 iolink_isdu_get_response_byte(&response[0]);
-                response[1] = iolink_checksum_ck(0, response[0]);
+                
+                /* Set Event bit (bit 2 of Status/CKT) if pending */
+                uint8_t status = 0;
+                if (iolink_events_pending()) {
+                    status |= 0x04;
+                }
+                
+                response[1] = iolink_checksum_ck(status, response[0]);
 
                 ctx->phy->send(response, 2);
-                
-                /* Keep in PREOPERATE or move to OPERATE */
             }
         }
     }
