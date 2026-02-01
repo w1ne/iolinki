@@ -1,0 +1,5 @@
+menuconfig IOLINKI
+    bool "IO-Link Device Stack"
+    default y
+    help
+      Enable iolinki IO-Link Device Stack.

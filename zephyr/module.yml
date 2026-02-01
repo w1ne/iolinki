@@ -1,4 +1,4 @@
-name: iolinki
 build:
-  cmake: .
+  cmake-ext: True
   kconfig: zephyr/Kconfig
+  cmake: zephyr

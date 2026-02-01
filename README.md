@@ -43,10 +43,27 @@ cd build
 ctest --output-on-failure
 ```
 
-### Running Example
+### Running Hosts (Linux)
 
 ```bash
-./build/examples/simple_device/simple_device
+cmake -B build -DIOLINK_PLATFORM=LINUX
+cmake --build build
+./build/examples/host_demo/host_demo
+```
+
+### Building for Bare Metal
+
+```bash
+cmake -B build_bare -DIOLINK_PLATFORM=BAREMETAL
+cmake --build build_bare
+./build_bare/examples/bare_metal_app/bare_metal_app
+```
+
+### Building for Zephyr
+
+```bash
+# Ensure Zephyr SDK is active
+west build -b native_sim examples/zephyr_app
 ```
 
 ## Project Status

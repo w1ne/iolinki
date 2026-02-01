@@ -28,12 +28,28 @@ add_library(iolinki STATIC
     src/isdu.c
     src/events.c
     src/data_storage.c
-    src/time_utils.c
+    src/data_storage.c
 )
+
+# Platform Selection
+set(IOLINK_PLATFORM "LINUX" CACHE STRING "Target platform: LINUX, BAREMETAL (Zephyr builds use module.yml)")
+
+if(IOLINK_PLATFORM STREQUAL "LINUX")
+    target_sources(iolinki PRIVATE src/platform/linux/time_utils.c)
+    message(STATUS "Building for Linux host")
+elseif(IOLINK_PLATFORM STREQUAL "BAREMETAL")
+    target_sources(iolinki PRIVATE src/platform/baremetal/time_utils.c)
+    message(STATUS "Building for Bare Metal (Stub)")
+endif()
+# Note: Zephyr builds don't use this CMakeLists.txt directly for sources if integrated via module.yml
 
 # Examples
 add_subdirectory(examples/simple_device)
-add_subdirectory(examples/host_demo)
+if(IOLINK_PLATFORM STREQUAL "LINUX")
+    add_subdirectory(examples/host_demo)
+elseif(IOLINK_PLATFORM STREQUAL "BAREMETAL")
+    add_subdirectory(examples/bare_metal_app)
+endif()
 
 # Testing
 option(BUILD_TESTING "Build unit tests" ON)
