@@ -22,13 +22,18 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [x] **Virtual PHY Driver**: `phy_virtual` for integration with virtual IO-Link Master.
 - [x] **Generic PHY Template**: `phy_generic` as reference for real hardware ports.
 - [ ] **SIO Mode Support**: PHY-level SIO/SDCI mode switching.
-- [ ] **Wake-up Pulse**: Device wake-up request handling.
+- [ ] **Wake-up Pulse**: Device wake-up request handling (80μs pulse detection).
 - [ ] **C/Q Line Control**: Pin state management abstraction.
+- [ ] **L+ Voltage Monitoring**: Power supply monitoring (18-30V).
+- [ ] **Short Circuit Detection**: Pin protection and current limiting.
+- [ ] **Baudrate Switching Protocol**: Full handshake sequence for baudrate changes.
 
 ### 1.3 Data Link Layer (DLL) - Core
 - [x] **State Machine**: Implement "Startup" and "Pre-operate" transitions.
     - [x] Unit tests using `phy_mock` for each state transition.
+    - [ ] **Awaiting Communication State**: Pre-startup state.
     - [ ] **ESTAB_COM State**: Communication establishment handshake.
+    - [ ] **Fallback State**: Error recovery state.
     - [ ] **State Transition Validation**: Guards for illegal transitions.
 - [x] **M-Sequence Handling**:
     - [x] M-Type 0 (On-request data) with mock testing.
@@ -46,10 +51,16 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [x] Abstract timer interface for `t_A` enforcement.
     - [x] Mock timer for deterministic unit testing.
     - [x] Checksum calculation and verification (V1.1 CRC).
+    - [ ] **CRC Frame**: 6-bit CRC for M-sequence Type 2_x.
     - [ ] `t_ren` (Device response time) enforcement (max 230μs @ COM3).
     - [ ] `t_cycle` validation.
+    - [ ] `t_byte`, `t_bit`: Inter-byte and bit timing.
+    - [ ] `t_dwu`: Wake-up delay (80μs).
+    - [ ] `t_pd`: Power-on delay.
 - [ ] **Frame Retry Logic**: Automatic retransmission on CRC errors.
+- [ ] **Frame Synchronization**: Bit-level synchronization.
 - [ ] **Error Counters**: Track CRC, timeout, framing errors.
+- [ ] **Communication Quality Metrics**: Link quality and error rate tracking.
 
 ### 1.4 Virtual Test Environment
 - [x] **Virtual IO-Link Master**: Mock-based master simulation in integration tests.
@@ -86,7 +97,19 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
         - [ ] Subcommand 0x95: Parameter Upload to Master
         - [ ] Subcommand 0x96: Parameter Download from Master
         - [ ] Subcommand 0x97: Parameter Break
+    - [ ] 0x0003: Master Command (optional)
+    - [ ] 0x0004: Master Cycle Time
+    - [ ] 0x0005: Min Cycle Time
+    - [ ] 0x0006: M-sequence Capability
+    - [ ] 0x0007: Revision ID
+    - [ ] 0x0008: Process Data In
+    - [ ] 0x0009: Process Data Out
+    - [ ] 0x000A: Vendor ID (16-bit)
+    - [ ] 0x000B: Device ID (32-bit)
     - [ ] 0x000C: Device Access Locks (Parameterization, DS, UI, Communication)
+    - [ ] 0x000D: Profile Characteristic (16-bit)
+    - [ ] 0x000E: PDIn Descriptor
+    - [ ] 0x000F: PDOut Descriptor
     - [x] 0x0010: Vendor Name
     - [ ] 0x0011: Vendor Text
     - [ ] 0x0012: Product Name
@@ -103,6 +126,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [ ] 0x001D: Process Data Input Descriptor
     - [ ] 0x001E: Process Data Output Descriptor
     - [ ] 0x0024: Min Cycle Time
+    - [ ] 0x0025-0x0028: Alternate Identification (Vendor/Product Name/Text)
 
 ### 2.3 Advanced V1.1 Features
 - [x] **Data Storage (DS)**: 
@@ -118,8 +142,12 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
         - [ ] 0x2xxx: Communication events
         - [ ] 0x4xxx: Process events
         - [ ] 0x5xxx: Application events
+        - [ ] 0x6xxx: Reserved
+        - [ ] 0x8xxx: Manufacturer-specific
     - [ ] Event Mode: Single/Multiple event mode.
     - [ ] Event Qualifier: Additional event context.
+    - [ ] **Event Instance**: Multiple instances of same event.
+    - [ ] **Event Acknowledgment**: Master ACK mechanism.
 
 ### 2.4 Communication Modes & Timing
 - [ ] **SIO Mode**: Fallback to standard digital I/O when validation fails.
@@ -190,6 +218,13 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [ ] Implement Block Parameterization
 - [ ] Implement AutoComm feature
 - [ ] Support variable PD lengths (2-32 bytes)
+- [ ] **Device Profiles**: Generic Device, Smart Sensor, IO-Link Safety
+- [ ] **Isochrone Mode**: Synchronized operation with Master
+- [ ] **Device Variant**: Multiple device configurations
+- [ ] **Condition Monitoring**: Advanced diagnostics and predictive maintenance
+- [ ] **Backup/Restore**: Full parameter backup and restore
+- [ ] **Test Mode**: Factory test and loopback support
+- [ ] **Operating Hours**: Device runtime tracking
 - [ ] Implement Diagnosis features
 
 ## Phase 6: Embedded System Portability
