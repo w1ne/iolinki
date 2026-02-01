@@ -63,9 +63,11 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [ ] **Communication Quality Metrics**: Link quality and error rate tracking.
 
 ### 1.4 Virtual Test Environment
-- [x] **Virtual IO-Link Master**: Mock-based master simulation in integration tests.
+- [x] **Virtual IO-Link Master**: Python-based virtual Master with pty UART.
 - [x] **Integration Test Suite**: Full-stack lifecycle testing (`test_integration_full.c`).
 - [x] **Reference Stack Demo**: Host-based executable demonstrating protocol without any hardware.
+- [x] **Python Virtual Master**: Phase 1 complete (M-sequence Type 0, CRC, UART).
+- [x] **Docker Test Suite**: Virtual Master integrated into automated tests.
 
 ## Phase 2: Compliance & Feature Completeness
 
@@ -190,6 +192,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [x] **Zephyr RTOS Integration**: Module structure, Kconfig, example app.
 - [x] **Bare Metal Support**: Platform abstraction for no-OS environments.
 - [x] **Linux Host Simulation**: POSIX-based testing environment.
+- [x] **Docker Test Environment**: Automated testing with CMocka and Virtual Master.
 - [ ] **Hardware Ports**: Reference implementations for STM32, NXP, Nordic, Espressif.
 
 ## Phase 5: V1.1.5 Full Compliance
