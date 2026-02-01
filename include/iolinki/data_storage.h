@@ -10,6 +10,9 @@
  * @brief IO-Link Data Storage (DS) for parameter backup and restore
  */
 
+/**
+ * @brief DS engine states
+ */
 typedef enum {
     IOLINK_DS_STATE_IDLE,
     IOLINK_DS_STATE_UPLOAD_REQ,
@@ -23,14 +26,14 @@ typedef enum {
  * @brief Storage Abstraction Layer for DS persistence
  */
 typedef struct {
-    int (*read)(uint32_t addr, uint8_t *buf, size_t len);
-    int (*write)(uint32_t addr, const uint8_t *buf, size_t len);
-    int (*erase)(uint32_t addr, size_t len);
+    int (*read)(uint32_t addr, uint8_t *buf, size_t len);      /**< Read data from storage */
+    int (*write)(uint32_t addr, const uint8_t *buf, size_t len); /**< Write data to storage */
+    int (*erase)(uint32_t addr, size_t len);                   /**< Erase storage (optional) */
 } iolink_ds_storage_api_t;
 
 /**
  * @brief Initialize Data Storage engine
- * @param storage Storage implementation hooks
+ * @param storage Storage implementation hooks (can be NULL for volatile storage)
  */
 void iolink_ds_init(const iolink_ds_storage_api_t *storage);
 

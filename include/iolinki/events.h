@@ -34,6 +34,7 @@ void iolink_event_trigger(uint16_t code, iolink_event_type_t type);
 
 /**
  * @brief Check if any events are pending for Master reading
+ * @return true if events are in queue, false otherwise
  */
 bool iolink_events_pending(void);
 

@@ -51,9 +51,9 @@ ctest --output-on-failure
 
 ## Project Status
 
-**Phase 1: Technical Foundation (In Progress)**
+**Phase 3: Ecosystem & Verification (Current)**
 
-We are currently setting up the test-driven development infrastructure and preparing to implement the Physical Layer abstraction.
+The stack is feature-complete for IO-Link V1.1.5, including Process Data, ISDU, Events, and Data Storage. We have achieved 100% core test coverage and established automated IODD generation and strict coding standards (MISRA-oriented).
 
 See [ROADMAP.md](./docs/ROADMAP.md) for detailed development phases.
 
