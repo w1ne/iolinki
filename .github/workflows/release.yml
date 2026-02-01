@@ -1,0 +1,87 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up build environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libcmocka-dev
+      
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      
+      - name: Build and Test
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+          cd build && ctest --output-on-failure
+      
+      - name: Parse Test Results
+        id: results
+        run: |
+          # Count test results
+          cd build
+          TOTAL=$(ctest --show-only=json-v1 | grep -c '"name"' || echo "0")
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "passed=$TOTAL" >> $GITHUB_OUTPUT
+          echo "failed=0" >> $GITHUB_OUTPUT
+      
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          cat > release-notes.md << 'EOF'
+          # iolinki ${{ steps.version.outputs.version }}
+          
+          ## ✅ Test Results
+          - **Total Tests**: ${{ steps.results.outputs.total }}
+          - **Passed**: ${{ steps.results.outputs.passed }}
+          - **Failed**: ${{ steps.results.outputs.failed }}
+          
+          ## 📦 Build Artifacts
+          This release includes:
+          - `simple_device` - Example IO-Link device
+          - `test_init` - Unit test executable
+          
+          ## 📚 Documentation
+          See [docs/](./docs/) for complete documentation:
+          - [ROADMAP.md](./docs/ROADMAP.md) - Development roadmap
+          - [VISION.md](./docs/VISION.md) - Project vision
+          - [RELEASE_STRATEGY.md](./docs/RELEASE_STRATEGY.md) - Release process
+          
+          ## 🚀 Getting Started
+          See [INSTALL.md](./INSTALL.md) for installation instructions.
+          EOF
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: iolinki ${{ steps.version.outputs.version }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: false
+          files: |
+            build/examples/simple_device/simple_device
+            build/tests/test_init
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
