@@ -1,0 +1,53 @@
+/**
+ * @file test_ds.c
+ * @brief Unit tests for Data Storage (DS)
+ */
+
+#include <stdarg.h>
+#include <stddef.h>
+#include <setjmp.h>
+#include <cmocka.h>
+#include <stdint.h>
+#include <string.h>
+
+#include "iolinki/data_storage.h"
+
+static void test_ds_checksum_calculation(void **state)
+{
+    (void)state;
+    uint8_t data[] = {0x01, 0x02, 0x03, 0x04};
+    uint16_t cs1 = iolink_ds_calc_checksum(data, sizeof(data));
+    uint16_t cs2 = iolink_ds_calc_checksum(data, sizeof(data));
+    
+    assert_int_equal(cs1, cs2);
+    assert_true(cs1 != 0);
+    
+    data[0] = 0xFF;
+    uint16_t cs3 = iolink_ds_calc_checksum(data, sizeof(data));
+    assert_true(cs1 != cs3);
+}
+
+static void test_ds_state_transitions(void **state)
+{
+    (void)state;
+    iolink_ds_init(NULL);
+    
+    /* 1. Mismatch -> Download */
+    iolink_ds_check(0xABCD);
+    iolink_ds_process(); /* Req -> Downloading */
+    iolink_ds_process(); /* Downloading -> Idle */
+    
+    /* 2. No data -> Upload */
+    iolink_ds_check(0x0000);
+    iolink_ds_process(); /* Req -> Uploading */
+    iolink_ds_process(); /* Uploading -> Idle */
+}
+
+int main(void)
+{
+    const struct CMUnitTest tests[] = {
+        cmocka_unit_test(test_ds_checksum_calculation),
+        cmocka_unit_test(test_ds_state_transitions),
+    };
+    return cmocka_run_group_tests(tests, NULL, NULL);
+}
