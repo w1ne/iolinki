@@ -2,36 +2,41 @@
 
 This roadmap outlines the development path for `iolinki`, enabling a fully compliant, open-source IO-Link Device Stack (Spec V1.1.5).
 
+## Development Philosophy
+
+**Test-Driven from Ground Zero**: All development is built on mocks and abstractions. Every component is testable without hardware. Conformance verification runs against a virtual IO-Link Master on each release.
+
 ## Phase 1: Technical Foundation (MVP)
 
-**Goal:** Establish a minimum viable product (MVP) capable of basic IO-Link communication on reference hardware.
+**Goal:** Establish core protocol logic with complete hardware independence and comprehensive test coverage.
 
 ### 1.1 Project Bootstrapping
 - [x] Directory structure and build system (CMake)
 - [x] CI/CD pipeline groundwork (Linting, Doxygen)
 - [x] Zephyr module structure definition
+- [ ] Test framework setup (Unity/CMock or equivalent)
 
 ### 1.2 Physical Layer (PHY) Abstraction
 - [ ] **PHY Interface Definition**: Define `iolink_phy_api` struct for complete hardware decoupling.
-- [ ] **Drivers**:
-    - [ ] `phy_mock`: Mock driver for unit testing state machines.
-    - [ ] `phy_emu`: Emulated PHY for testing against simulated masters.
-    - [ ] `phy_generic`: Template driver for standard UART-based integration.
+- [ ] **Mock PHY Driver**: `phy_mock` for unit testing (built FIRST).
+- [ ] **Virtual PHY Driver**: `phy_virtual` for integration with virtual IO-Link Master.
+- [ ] **Generic PHY Template**: `phy_generic` as reference for real hardware ports.
 
 ### 1.3 Data Link Layer (DLL) - Core
-- [ ] **State Machine**: Implement the "Startup" and "Pre-operate" state transitions.
+- [ ] **State Machine**: Implement "Startup" and "Pre-operate" transitions.
+    - [ ] Unit tests using `phy_mock` for each state transition.
 - [ ] **M-Sequence Handling**:
-    - [ ] M-Type 0 (On-request data).
-    - [ ] M-Type 1_x & 2_x (Cyclic data exchange).
+    - [ ] M-Type 0 (On-request data) with mock testing.
+    - [ ] M-Type 1_x & 2_x (Cyclic data) with mock testing.
 - [ ] **Timing Control**:
-    - [ ] Implement abstract timer interface for `t_A` (Response time) enforcement.
+    - [ ] Abstract timer interface for `t_A` enforcement.
+    - [ ] Mock timer for deterministic unit testing.
     - [ ] Checksum calculation and verification (V1.1 CRC).
 
-### 1.4 Reference Implementation
-- [ ] **Reference Stack**: Core logic decoupled from Zephyr/HW dependencies.
-- [ ] **Simulation Environment**:
-    - [ ] "Virtual Device" running on Host (Linux/Windows) via validation suite.
-    - [ ] Integration with open-source IO-Link Master simulators.
+### 1.4 Virtual Test Environment
+- [ ] **Virtual IO-Link Master**: Implement or integrate open-source master simulator.
+- [ ] **Integration Test Suite**: Python-based test runner executing protocol scenarios.
+- [ ] **Reference Stack Demo**: Host-based executable demonstrating protocol without any hardware.
 
 ## Phase 2: Compliance & Feature Completeness
 
@@ -58,9 +63,12 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 **Goal:** Simplify adoption, ensure quality, and prepare for official certification.
 
 ### 3.1 Verification Suite
-- [ ] **Unit Tests**: Full coverage of state machines using Unity/CMock.
-- [ ] **Integration Tests**: Python-based test runner controlling a master (e.g., via specialized hardware or simulation).
-- [ ] **Timing Analysis**: Logic analyzer traces to verify COM3 (230.4 kbit/s) jitter compliance.
+- [ ] **Unit Tests**: 100% coverage of state machines using mocks.
+- [ ] **Virtual Conformance Testing**: 
+    - [ ] Automated test suite against virtual IO-Link Master.
+    - [ ] Run on every release candidate.
+    - [ ] Covers all IO-Link specification test cases (V1.1.5).
+- [ ] **Timing Analysis**: Virtual timing verification for COM1/COM2/COM3 compliance.
 
 ### 3.2 IODD & Tooling
 - [ ] **IODD Generator**: Python script to generate XML from C header definitions.
