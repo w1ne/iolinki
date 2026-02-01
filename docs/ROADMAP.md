@@ -148,7 +148,36 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [ ] Implement AutoComm feature
 - [ ] Support variable PD lengths (2-32 bytes)
 
-## Phase 6: Commercialization & Services
+## Phase 6: Embedded System Portability
+
+**Goal:** Make stack production-ready for resource-constrained embedded systems.
+
+### 6.1 Core Portability (CRITICAL - Blockers)
+- [ ] **Context-Based API**: Remove all global state (`g_dll_ctx`, `g_isdu`, etc.), pass context pointers to all functions.
+- [ ] **Logging Abstraction**: Replace `printf()` calls with configurable logging hooks or compile-time disable.
+- [ ] **Configuration System**: Create `iolink_config.h` for compile-time tuning (buffer sizes, queue depths).
+- [ ] **Memory Documentation**: Document RAM/ROM budgets and provide memory calculator tool.
+
+### 6.2 RTOS Integration
+- [ ] **Critical Sections**: Add `enter_critical()` / `exit_critical()` hooks for thread safety.
+- [ ] **Reentrancy**: Eliminate static locals in functions, make all APIs reentrant.
+- [ ] **FreeRTOS Example**: Demonstrate multi-task integration with proper synchronization.
+- [ ] **ISR Safety**: Document which APIs are interrupt-safe vs require task context.
+
+### 6.3 Hardware Abstraction
+- [ ] **DMA Support**: Extend PHY API for DMA-based transfers (zero-copy).
+- [ ] **IRQ Mode**: Add interrupt-driven receive mode to PHY abstraction.
+- [ ] **GPIO Control**: Abstract C/Q line control for PHY implementations.
+- [ ] **Timer Abstraction**: Formalize timer requirements beyond time_utils.
+
+### 6.4 Production Hardening
+- [ ] **Error Callbacks**: Implement `iolink_error_t` enum and user-provided error callback system.
+- [ ] **Power Management**: Add `iolink_suspend()` / `iolink_resume()` APIs for low-power modes.
+- [ ] **Watchdog Integration**: Define watchdog kick points in processing loop.
+- [ ] **MISRA Audit**: Full MISRA C:2012 compliance check and fixes.
+- [ ] **Stack Analysis**: Document worst-case stack depth for each API call.
+
+## Phase 7: Commercialization & Services
 
 **Goal:** Leverage the stack for business opportunities (as per Business Case).
 
