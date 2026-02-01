@@ -57,6 +57,16 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 
 ### 2.3 Direct Operating Mode (DOM)
 - [ ] **SIO Mode**: Fallback to standard digital I/O when validation fails.
+- [ ] **Dual Mode**: Support for SIO/SDCI switching via PHY.
+
+### 2.4 Mandatory V1.1.5 Commands & Hierarchy
+- [ ] **Device Access Locks** (Index 0x000C): Parameterization/Data Storage locking.
+- [ ] **System Commands** (Index 0x0002):
+    - [ ] Device Reset / Application Reset (0x80/0x81).
+    - [ ] Restore Factory Settings (0x82).
+- [ ] **Identification**:
+    - [ ] Full mandatory table (Vendor Text, Product ID, Serial Number, etc.).
+- [ ] **Error Codes**: Full V1.1 error code mapping (0x80xx range).
 
 ## Phase 3: Ecosystem & Verification
 
