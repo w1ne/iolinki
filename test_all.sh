@@ -50,6 +50,17 @@ if [ -d ../tools/virtual_master ]; then
         fi
         echo "   ✅ Mandatory Indices Test Passed"
     fi
+
+    # 3. Variable PD & Persistence Test
+    if [ -f ../tools/virtual_master/test_pd_variable.py ]; then
+        echo "   🏃 Running Variable PD & Persistence Integration Test..."
+        python3 ../tools/virtual_master/test_pd_variable.py
+        if [ $? -ne 0 ]; then
+            echo "   ❌ Variable PD Test FAILED"
+            exit 1
+        fi
+        echo "   ✅ Variable PD Test Passed"
+    fi
 else
     echo "   ⚠️ Skipping Integration Tests (Tools directory not found)"
 fi

@@ -1,0 +1,9 @@
+build/
+build_linux/
+build_baremetal/
+build_zephyr/
+.git/
+.venv/
+__pycache__/
+*.bin
+*.log

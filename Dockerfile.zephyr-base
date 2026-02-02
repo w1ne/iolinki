@@ -1,0 +1,11 @@
+FROM zephyrprojectrtos/zephyr-build:latest
+
+WORKDIR /workdir
+
+# Initialize Zephyr workspace (v3.5.0)
+# This layer is large (approx 3-5GB) and should be cached.
+RUN west init -m https://github.com/zephyrproject-rtos/zephyr --mr v3.5.0 .
+RUN west update --narrow
+
+# Setup environment
+ENV ZEPHYR_BASE=/workdir/zephyr

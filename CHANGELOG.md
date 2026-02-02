@@ -5,6 +5,22 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] — 2026-02-03
+
+### Added
+- **Parametrization Manager**: New module (`src/params.c`) for persistent storage of ISDU parameters (e.g., Application Tag).
+- **NVM Abstraction**: Added Non-Volatile Memory read/write hooks to the platform layer for cross-reboot persistence.
+- **Dockerized Validation Suite**: Integrated optimized, two-stage Docker testing infrastructure for both Linux and Zephyr targets.
+- **GitHub Actions Optimization**: Enhanced CI with Docker image caching for 5GB+ Zephyr environments.
+- **Variable PD Verification**: Fully verified Type 1_V and 2_V frames using the updated Virtual Master automation.
+
+### Changed
+- **ISDU Response Logic**: Improved state machine robustness by resetting response buffers and flags on a per-request basis.
+
+### Fixed
+- **Platform Headers**: Corrected missing `size_t` definitions and header guards in `platform.h`.
+- **Zephyr CI Paths**: Fixed `west` workspace initialization issues in automated testing scripts.
+
 ## [0.6.0] — 2026-02-02
 
 ### Added

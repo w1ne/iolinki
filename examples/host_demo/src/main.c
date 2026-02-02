@@ -32,6 +32,12 @@ int main(int argc, char *argv[])
         } else if (type == 2) {
             config.m_seq_type = IOLINK_M_SEQ_TYPE_2_2;
             printf("Config: Type 2_2 (PD + OD 2 bytes)\n");
+        } else if (type == 3) {
+            config.m_seq_type = IOLINK_M_SEQ_TYPE_1_V;
+            printf("Config: Type 1_V (Variable PD + OD 1 byte)\n");
+        } else if (type == 4) {
+            config.m_seq_type = IOLINK_M_SEQ_TYPE_2_V;
+            printf("Config: Type 2_V (Variable PD + OD 1 byte + ISDU)\n");
         }
     }
     

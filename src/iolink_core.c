@@ -2,6 +2,7 @@
 #include "iolinki/dll.h"
 #include "iolinki/application.h"
 #include "iolinki/data_storage.h"
+#include "iolinki/params.h"
 #include "iolinki/platform.h"
 #include <string.h>
 
@@ -29,6 +30,7 @@ int iolink_init(const iolink_phy_api_t *phy, const iolink_config_t *config)
     }
 
     iolink_dll_init(&g_dll_ctx, phy);
+    iolink_params_init();
     g_dll_ctx.m_seq_type = (uint8_t)g_config.m_seq_type;
     g_dll_ctx.pd_in_len = g_config.pd_in_len;
     g_dll_ctx.pd_out_len = g_config.pd_out_len;

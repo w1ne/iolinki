@@ -89,3 +89,33 @@ jobs:
         run: |
           cmake -B build
           cmake --build build --target simple_device
+
+  docker-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Zephyr Base Image
+        id: cache-zephyr
+        uses: actions/cache@v4
+        with:
+          path: zephyr-base-image.tar
+          key: ${{ runner.os }}-zephyr-base-3.5.0
+          
+      - name: Load Zephyr Base Image
+        if: steps.cache-zephyr.outputs.cache-hit == 'true'
+        run: docker load -i zephyr-base-image.tar
+
+      - name: Run All Tests in Docker
+        run: |
+          chmod +x run_all_tests_docker.sh
+          ./run_all_tests_docker.sh
+
+      - name: Save Zephyr Base Image for Cache
+        if: steps.cache-zephyr.outputs.cache-hit != 'true'
+        run: |
+          # Ensure image name matches what run_all_tests_docker.sh builds
+          docker save iolinki-zephyr-base > zephyr-base-image.tar

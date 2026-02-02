@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(iolinki VERSION 0.6.0 LANGUAGES C)
+project(iolinki VERSION 0.7.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
@@ -28,6 +28,7 @@ add_library(iolinki STATIC
     src/isdu.c
     src/events.c
     src/platform.c
+    src/params.c
     src/data_storage.c
     src/device_info.c
 )
@@ -36,7 +37,10 @@ add_library(iolinki STATIC
 set(IOLINK_PLATFORM "LINUX" CACHE STRING "Target platform: LINUX, BAREMETAL (Zephyr builds use module.yml)")
 
 if(IOLINK_PLATFORM STREQUAL "LINUX")
-    target_sources(iolinki PRIVATE src/platform/linux/time_utils.c)
+    target_sources(iolinki PRIVATE 
+        src/platform/linux/time_utils.c
+        src/platform/linux/nvm_mock.c
+    )
     message(STATUS "Building for Linux host")
 elseif(IOLINK_PLATFORM STREQUAL "BAREMETAL")
     target_sources(iolinki PRIVATE src/platform/baremetal/time_utils.c)

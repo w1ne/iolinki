@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include "iolinki/config.h"
 
 /**
@@ -24,12 +25,16 @@ typedef struct {
 
 typedef enum {
     ISDU_STATE_IDLE,
+    ISDU_STATE_HEADER_INITIAL,   /* First byte of a new Request (Read/Write + Length) */
+    ISDU_STATE_HEADER_EXT_LEN,   /* Extended length byte (if Initial Length == 0) */
     ISDU_STATE_HEADER_INDEX_HIGH,
     ISDU_STATE_HEADER_INDEX_LOW,
     ISDU_STATE_HEADER_SUBINDEX,
-    ISDU_STATE_DATA_COLLECT,
+    ISDU_STATE_DATA_COLLECT,     /* Collecting data bytes for WRITE */
+    ISDU_STATE_SEGMENT_COLLECT,  /* Collecting next segment for multi-frame WRITE */
     ISDU_STATE_SERVICE_EXECUTE,
-    ISDU_STATE_RESPONSE_READY
+    ISDU_STATE_RESPONSE_READY,
+    ISDU_STATE_BUSY              /* Internal processing, Master should retry */
 } isdu_state_t;
 
 typedef struct {
@@ -41,8 +46,15 @@ typedef struct {
     size_t response_idx;
     size_t response_len;
     
-    /* Pointers to external dependencies if needed */
-    void *event_ctx; /* (void*) to avoid circular dependency, usually iolink_events_ctx_t* */
+    /* Segmentation and Flow Control */
+    isdu_state_t next_state;     /* State to resume after SEGMENT_COLLECT */
+    uint8_t segment_seq;         /* Expected sequence number for next segment */
+    bool is_segmented;           /* True if current request/response is segmented */
+    bool is_response_control_sent; /* True if Control Byte was sent for current segment */
+    uint8_t error_code;          /* 0 if OK, otherwise IO-Link ISDU error code */
+    
+    /* Pointers to external dependencies */
+    void *event_ctx;
 } iolink_isdu_ctx_t;
 
 /**

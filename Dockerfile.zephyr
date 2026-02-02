@@ -1,0 +1,14 @@
+FROM iolinki-zephyr-base
+
+# Copy project files into the workspace
+COPY . modules/lib/iolinki
+
+# Environment
+ENV ZEPHYR_BASE=/workdir/zephyr
+WORKDIR /workdir/modules/lib/iolinki
+
+# Build and Run
+CMD ["bash", "-c", "west build -p auto -b native_sim examples/zephyr_app && \
+    chmod +x tools/zephyr_wrapper.sh && \
+    export IOLINK_DEVICE_PATH=/workdir/modules/lib/iolinki/tools/zephyr_wrapper.sh && \
+    python3 tools/virtual_master/test_type1.py"]

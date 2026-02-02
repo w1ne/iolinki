@@ -35,6 +35,19 @@ class MasterCommand:
         """Check if MC is an ISDU command."""
         return mc in [MasterCommand.MC_ISDU_READ, MasterCommand.MC_ISDU_WRITE]
 
+class ISDUControlByte:
+    """IO-Link V1.1.5 ISDU Control Byte bits."""
+    START = 0x80
+    LAST = 0x40
+    SEQ_MASK = 0x3F
+
+    @staticmethod
+    def generate(start: bool, last: bool, seq: int) -> int:
+        cb = (seq & ISDUControlByte.SEQ_MASK)
+        if start: cb |= ISDUControlByte.START
+        if last: cb |= ISDUControlByte.LAST
+        return cb
+
 
 class MSequenceGenerator:
     """Generate IO-Link M-sequences (Master frames)."""
@@ -66,30 +79,37 @@ class MSequenceGenerator:
     
     def generate_isdu_read(self, index: int, subindex: int = 0) -> list[bytes]:
         """
-        Generate ISDU Read request frames.
-        
-        Args:
-            index: ISDU index (0-65535)
-            subindex: ISDU subindex (0-255)
-            
-        Returns:
-            List of M-sequence frames for ISDU read (Start, Index H, Index L, Subindex)
+        Generate ISDU Read request frames (Old Type 0 / Type 1 legacy).
         """
         frames = []
-        
-        # Frame 1: Start Read (Identifier=0x90: Service 9=Read, Len 0)
         frames.append(self.generate_type0(0x90))
-        
-        # Frame 2: Index High
         frames.append(self.generate_type0((index >> 8) & 0xFF))
-        
-        # Frame 3: Index Low
         frames.append(self.generate_type0(index & 0xFF))
-        
-        # Frame 4: Subindex
         frames.append(self.generate_type0(subindex))
-        
         return frames
+
+    def generate_isdu_read_v11(self, index: int, subindex: int = 0) -> list[int]:
+        """
+        Generate ISDU Read request BYTES (excluding M-seq framing) for V1.1.5.
+        Interleaves Control Bytes.
+        """
+        data = [
+            0x90, # Read Service, Len 0
+            (index >> 8) & 0xFF,
+            index & 0xFF,
+            subindex
+        ]
+        
+        interleaved = []
+        for i, val in enumerate(data):
+            is_start = (i == 0)
+            is_last = (i == len(data) - 1)
+            # Control Byte
+            interleaved.append(ISDUControlByte.generate(is_start, is_last, i))
+            # Data Byte
+            interleaved.append(val)
+            
+        return interleaved
     
     def generate_type1(self, mc: int, ckt: int, pd: bytes, od: int) -> bytes:
         """

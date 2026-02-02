@@ -45,14 +45,14 @@ static uint8_t get_req_len(iolink_dll_ctx_t *ctx)
             return IOLINK_M_SEQ_TYPE0_LEN;
         case IOLINK_M_SEQ_TYPE_1_1:
         case IOLINK_M_SEQ_TYPE_1_2:
+        case IOLINK_M_SEQ_TYPE_1_V:
             return IOLINK_M_SEQ_TYPE1_LEN(ctx->pd_out_len);
         case IOLINK_M_SEQ_TYPE_2_1:
         case IOLINK_M_SEQ_TYPE_2_2:
             return IOLINK_M_SEQ_TYPE2_LEN(ctx->pd_out_len, 2);
         case IOLINK_M_SEQ_TYPE_2_V:
-            /* For 2_V, OD length is negotiated/configured. Standard is 1 byte PD. 
-               This needs better logic for dynamic lengths, but for now we follow config. */
-            return IOLINK_M_SEQ_TYPE2_LEN(ctx->pd_out_len, 1);
+            /* For 2_V, OD length is negotiated/configured. In V1.1.5 it is typically 1 byte. */
+            return IOLINK_M_SEQ_TYPE1_LEN(ctx->pd_out_len);
         default:
             return IOLINK_M_SEQ_TYPE0_LEN;
     }
@@ -74,6 +74,7 @@ static void handle_preoperate(iolink_dll_ctx_t *ctx, uint8_t byte)
                 ctx->req_len = get_req_len(ctx);
             } else {
                 iolink_isdu_collect_byte(&ctx->isdu, mc);
+                iolink_isdu_process(&ctx->isdu);
                 
                 uint8_t resp[2];
                 iolink_isdu_get_response_byte(&ctx->isdu, &resp[0]);
@@ -97,6 +98,7 @@ static void handle_operate(iolink_dll_ctx_t *ctx, uint8_t byte)
             uint8_t ck = ctx->frame_buf[1];
             if (iolink_checksum_ck(mc, 0) == ck) {
                 iolink_isdu_collect_byte(&ctx->isdu, mc);
+                iolink_isdu_process(&ctx->isdu);
                 uint8_t resp[2];
                 iolink_isdu_get_response_byte(&ctx->isdu, &resp[0]);
                 uint8_t status = iolink_events_pending(&ctx->events) ? 0x04 : 0;

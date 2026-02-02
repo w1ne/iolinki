@@ -6,7 +6,7 @@ from enum import Enum
 import time
 from typing import Optional
 from .uart import VirtualUART
-from .protocol import MSequenceGenerator, DeviceResponse
+from .protocol import MSequenceGenerator, DeviceResponse, ISDUControlByte
 
 
 class MasterState(Enum):
@@ -75,86 +75,74 @@ class VirtualMaster:
     
     def read_isdu(self, index: int, subindex: int = 0) -> Optional[bytes]:
         """
-        Read ISDU parameter from Device (supports Type 0 and Type 1).
-        
-        Args:
-            index: ISDU index
-            subindex: ISDU subindex
-            
-        Returns:
-            Parameter data or None if failed
+        Read ISDU parameter from Device (supports V1.1.5 Segmented).
         """
-        print(f"[Master] ISDU Read request: Index=0x{index:02X}, Subindex=0x{subindex:02X}")
-        frames = self.generator.generate_isdu_read(index, subindex)
+        print(f"[Master] ISDU Read request: Index=0x{index:04X}, Subindex=0x{subindex:02X}")
         
-        data_bytes = bytearray()
+        # Use V1.1.5 logic
+        bytes_to_send = self.generator.generate_isdu_read_v11(index, subindex)
         
-        # Helper to send frame based on M-seq type
         def send_and_recv(byte_to_send: int):
             if self.m_seq_type == 0:
-                # Type 0: MC = byte_to_send
                 frame = self.generator.generate_type0(byte_to_send)
                 self.uart.send_bytes(frame)
                 resp = self.uart.recv_bytes(2, timeout_ms=100)
                 return DeviceResponse(resp) if resp else None
             else:
-                # Type 1: Send byte in OD channel, with dummy PD
-                # MC = 0x00 (IDLE)
-                pd_dummy = bytes([0] * self.pd_out_len)
-                return self.run_cycle(pd_out=pd_dummy, od_req=byte_to_send)
+                return self.run_cycle(od_req=byte_to_send)
 
-        # 1. Send Request Frames
-        for i, frame_bytes in enumerate(frames):
-            # Extract 'MC' from the generated Type 0 frame
-            # frame_bytes is [MC, CK]. We only need MC for Type 1 OD.
-            mc_byte = frame_bytes[0]
-            
-            resp = send_and_recv(mc_byte)
+        # 1. Send Request
+        for val in bytes_to_send:
+            resp = send_and_recv(val)
             if not resp or not resp.valid:
-                print(f"[Master] ISDU Req failed at frame {i}")
+                print("[Master] ISDU Req failed")
                 return None
-            
-            # Last request frame (Subindex) triggers first response byte in OD
-            if i == len(frames) - 1:
-                # For Type 1, the response OD is the byte
-                if self.m_seq_type == 0:
-                     if resp.payload: data_bytes.extend(resp.payload)
-                else:
-                     # Type 1: Payload is PD, OD is separate
-                     # But our DeviceResponse parser puts OD in .od
-                     if hasattr(resp, 'od'):
-                         byte_val = resp.od
-                         # 0x00 might be valid data, or idle. 
-                         # ISDU protocol needs flow control bits to be robust.
-                         # Simplified: Just collect it.
-                         data_bytes.append(byte_val)
 
-        # 2. Clock out data
-        # We need to send IDLE commands (0x00) to clock out the rest
-        # In Type 1, that means sending 0x00 in OD channel
+        # 2. Receive Response
+        data_bytes = bytearray()
         
-        # Read up to 32 bytes or until we get 0x00 (simplified)
-        for _ in range(32):
-            resp = send_and_recv(0x00) # MC_IDLE / OD_IDLE
+        # Check if the first response byte (Control Byte) arrived in the last request cycle
+        ctrl = 0
+        if resp:
+            if hasattr(resp, 'od') and resp.od != 0:
+                ctrl = resp.od
+            elif resp.payload and resp.payload[0] != 0:
+                ctrl = resp.payload[0]
+        
+        if ctrl != 0:
+            print(f"[Master] Captured initial Control Byte from request cycle: 0x{ctrl:02X}")
+        
+        if ctrl == 0:
+            # Read Response Control Byte first
+            resp = send_and_recv(0x00) # IDLE to clock out response
+            if not resp or not resp.valid: return None
+            ctrl = resp.od if hasattr(resp, 'od') else resp.payload[0]
+            print(f"[Master] Read Control Byte from first IDLE cycle: 0x{ctrl:02X}")
+        # V1.1.5 response framing: [Ctrl] [Data] [Ctrl] [Data] ...
+        is_start = bool(ctrl & 0x80)
+        is_last = bool(ctrl & 0x40)
+        
+        if not is_start:
+             print(f"[Master] ISDU Response error: Expected Start bit, got 0x{ctrl:02X}")
+        
+        while True:
+            # Data Byte
+            resp = send_and_recv(0x00)
             if not resp or not resp.valid: break
             
-            val = 0
-            if self.m_seq_type == 0:
-                if resp.payload: val = resp.payload[0]
-            else:
-                if hasattr(resp, 'od'): val = resp.od
-            
-            # Simple termination check for strings (or if 0 is received?)
-            # Ideally we check 'ISDU Service' state.
-            # Host demo returns 0 when no data.
-            # But 0 is valid for binary.
-            # Let's assume string for now (Vendor Name)
-            if val == 0:
-                break
-            
+            val = resp.od if hasattr(resp, 'od') else resp.payload[0]
             data_bytes.append(val)
             
-        print(f"[Master] ISDU Read collected {len(data_bytes)} bytes: {data_bytes.hex()}")
+            if is_last:
+                break
+                
+            # Next Control Byte
+            resp = send_and_recv(0x00)
+            if not resp or not resp.valid: break
+            ctrl = resp.od if hasattr(resp, 'od') else resp.payload[0]
+            is_last = bool(ctrl & 0x40)
+
+        print(f"[Master] ISDU Read collected {len(data_bytes)} bytes")
         return bytes(data_bytes)
     
     def request_event(self) -> Optional[int]:
@@ -235,13 +223,6 @@ class VirtualMaster:
             ckt = 0x00 
             
             # Generate frame
-            # MC is usually OPERATE mode command or IDLE?
-            # In Operate, MC is usually interleaved or IDLE?
-            # Spec says: MC byte controls logic. 
-            # If we just want cyclic exchange, we can use valid MC or keep using IDLE (0) if supported.
-            # But standard Operate usually implies specific MC flow.
-            # Let's use MC_IDLE (0x00) for basic cyclic exchange.
-            # Note: MC byte logic differs in Operate.
             frame = self.generator.generate_type1(0x00, ckt, pd_out, od_req)
             
             self.uart.send_bytes(frame)
@@ -285,53 +266,44 @@ class VirtualMaster:
     
     def write_isdu(self, index: int, subindex: int, data: bytes) -> bool:
         """
-        Write ISDU parameter to Device.
-        
-        Args:
-            index: ISDU index
-            subindex: ISDU subindex
-            data: Data to write (max 15 bytes for now)
-            
-        Returns:
-            True if successful
+        Write ISDU parameter to Device (supports V1.1.5 Segmented).
         """
-        print(f"[Master] ISDU Write request: Index=0x{index:02X}, Subindex=0x{subindex:02X}, Data={data.hex()}")
+        print(f"[Master] ISDU Write request: Index=0x{index:04X}, Subindex=0x{subindex:02X}, Data={data.hex()}")
         
-        if len(data) > 15:
-            print("[Master] Error: Data length > 15 not supported yet")
-            return False
+        # Identifier: [CB] [Ident] [CB] [IndexH] [CB] [IndexL] [CB] [Subindex] [CB] [Data1] ...
+        request_data = [
+            0xA0 | (len(data) & 0x0F), # Identifier (V1.1.5 Service Write)
+            (index >> 8) & 0xFF,
+            index & 0xFF,
+            subindex
+        ] + list(data)
+        
+        interleaved = []
+        for i, val in enumerate(request_data):
+            is_start = (i == 0)
+            is_last = (i == len(request_data) - 1)
+            interleaved.append(ISDUControlByte.generate(is_start, is_last, i % 64))
+            interleaved.append(val)
             
-        # Helper to send frame based on M-seq type
-        def send_frame(byte_to_send: int):
+        def send_and_recv(byte_to_send: int):
             if self.m_seq_type == 0:
                 frame = self.generator.generate_type0(byte_to_send)
                 self.uart.send_bytes(frame)
-                self.uart.recv_bytes(2, timeout_ms=100)
+                resp = self.uart.recv_bytes(2, timeout_ms=100)
+                return DeviceResponse(resp) if resp else None
             else:
-                pd_dummy = bytes([0] * self.pd_out_len)
-                self.run_cycle(pd_out=pd_dummy, od_req=byte_to_send)
+                return self.run_cycle(od_req=byte_to_send)
+
+        for val in interleaved:
+            resp = send_and_recv(val)
+            if not resp or not resp.valid:
+                print("[Master] ISDU Write Req failed")
+                return False
+                
+        # Wait for Response Control Byte
+        resp = send_and_recv(0x00)
+        if not resp or not resp.valid: return False
         
-        # 1. Start Write (Identifier=0xA0 | Length)
-        ident = 0xA0 | (len(data) & 0x0F)
-        send_frame(ident)
-        
-        # 2. Index High
-        send_frame((index >> 8) & 0xFF)
-        
-        # 3. Index Low
-        send_frame(index & 0xFF)
-        
-        # 4. Subindex
-        send_frame(subindex)
-        
-        # 5. Data Bytes
-        for b in data:
-            send_frame(b)
-            
-        # 6. Wait for response/ACK?
-        # Device assumes Write is pushed.
-        # Flow control in real stack would indicate Busy/Ready.
-        # Here we just assume it worked.
         return True
 
     def close(self) -> None:
