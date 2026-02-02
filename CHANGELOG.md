@@ -5,6 +5,18 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-02-02
+
+### Added
+- **Mandatory ISDU Indices**: Full support for IO-Link V1.1.5 mandatory indices (0x0010-0x0018, 0x001E, 0x0024).
+- **V1.1.5 Compliance**: Implemented strict Control Byte interleaving/multiplexing for 1-byte OD systems.
+- **Automated Integration Testing**: New Python Virtual Master test suite for verifying mandatory indices and protocol conformance.
+- **CI Enforcement**: Integrated Virtual Master tests into the project validation suite (`test_all.sh`).
+
+### Fixed
+- **DLL State Machine**: Fixed missing `isdu_process` calls in Type 0 and Preoperate states that caused acyclic messaging hangs.
+- **ISDU Response State**: Fixed a bug preventing the reset of response control flags between transactions.
+
 ## [0.5.0] — 2026-02-02
 
 ### Added

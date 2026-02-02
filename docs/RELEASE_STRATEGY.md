@@ -32,7 +32,7 @@ Automated pipelines run on every push to `main` or `develop`.
 2. **Static Analysis**: `cppcheck` with all checks enabled.
 3. **MISRA Check**: Planned for future compliance.
 4. **Unit Tests**: All CMocka tests must pass.
-5. **Integration Tests**: Planned - virtual IO-Link Master conformance.
+5. **Integration Tests**: Enforced - Virtual IO-Link Master conformance (V1.1.5).
 
 ### Build Stages
 1. **Build**: CMake build for host (Linux).

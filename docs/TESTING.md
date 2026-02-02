@@ -45,11 +45,16 @@ To run locally, you need the Zephyr SDK and `west` installed.
 
 ## ✅ Continuous Integration (CI)
 
+> [!IMPORTANT]
+> **Release Requirement**: Passing the Virtual Master integration tests is a HARD requirement for any production release. Automated release tags will fail if these tests do not pass.
+
 The CI pipeline (via Docker) enforces:
 
 1.  **Strict Compilation**: Builds with `-Werror` on Linux and Bare Metal (ARM cross-compiler simulation).
 2.  **Static Analysis**: Runs `cppcheck` to detect memory leaks, undefined behavior, and style issues.
-3.  **Integration Tests**: Runs `test_type1.py` with the Virtual Master to verify protocol logic (ISDU, Process Data, CRC).
+3.  **Integration Tests**: 
+    - `test_type1.py`: Basic protocol logic (Process Data, CRC).
+    - `test_automated_mandatory.py`: Verification of all mandatory ISDU indices (0x0010-0x0018, etc.).
 4.  **Zephyr Simulation**: Verifies the stack runs on Zephyr `native_sim` (if SDK available).
 
 ## 📊 Code Standards

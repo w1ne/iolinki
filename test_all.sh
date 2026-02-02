@@ -26,18 +26,32 @@ make -j$(nproc)
 echo "   ✅ Linux Build Successful"
 
 # Run Integration Tests
-if [ -f ../tools/virtual_master/test_type1.py ]; then
-    echo "   🏃 Running Type 1 Integration Test..."
+if [ -d ../tools/virtual_master ]; then
     export IOLINK_DEVICE_PATH="./examples/host_demo/host_demo"
-    python3 ../tools/virtual_master/test_type1.py
-    if [ $? -eq 0 ]; then
-        echo "   ✅ Integration Test Passed"
-    else
-        echo "   ❌ Integration Test FAILED"
-        exit 1
+    
+    # 1. Type 1 Test
+    if [ -f ../tools/virtual_master/test_type1.py ]; then
+        echo "   🏃 Running Type 1 Integration Test..."
+        python3 ../tools/virtual_master/test_type1.py
+        if [ $? -ne 0 ]; then
+            echo "   ❌ Type 1 Integration Test FAILED"
+            exit 1
+        fi
+        echo "   ✅ Type 1 Integration Test Passed"
+    fi
+
+    # 2. Mandatory Indices Test
+    if [ -f ../tools/virtual_master/test_automated_mandatory.py ]; then
+        echo "   🏃 Running Mandatory Indices Integration Test..."
+        python3 ../tools/virtual_master/test_automated_mandatory.py
+        if [ $? -ne 0 ]; then
+            echo "   ❌ Mandatory Indices Test FAILED"
+            exit 1
+        fi
+        echo "   ✅ Mandatory Indices Test Passed"
     fi
 else
-    echo "   ⚠️ Skipping Integration Test (Script not found)"
+    echo "   ⚠️ Skipping Integration Tests (Tools directory not found)"
 fi
 cd ..
 
