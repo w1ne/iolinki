@@ -100,6 +100,7 @@ CMakeFiles/iolinki.dir/src/dll.c.o: /home/andrii/Projects/iolinki/src/dll.c \
   /home/andrii/Projects/iolinki/include/iolinki/application.h \
   /home/andrii/Projects/iolinki/include/iolinki/dll.h \
   /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h \
+  /home/andrii/Projects/iolinki/include/iolinki/config.h \
   /home/andrii/Projects/iolinki/include/iolinki/events.h \
   /home/andrii/Projects/iolinki/include/iolinki/isdu.h \
   /home/andrii/Projects/iolinki/include/iolinki/data_storage.h \
@@ -143,6 +144,7 @@ CMakeFiles/iolinki.dir/src/events.c.o: /home/andrii/Projects/iolinki/src/events.
   /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
   /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
   /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h \
+  /home/andrii/Projects/iolinki/include/iolinki/config.h \
   /usr/include/string.h \
   /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h \
   /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
@@ -174,6 +176,7 @@ CMakeFiles/iolinki.dir/src/iolink_core.c.o: /home/andrii/Projects/iolinki/src/io
   /home/andrii/Projects/iolinki/include/iolinki/application.h \
   /home/andrii/Projects/iolinki/include/iolinki/dll.h \
   /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h \
+  /home/andrii/Projects/iolinki/include/iolinki/config.h \
   /home/andrii/Projects/iolinki/include/iolinki/events.h \
   /home/andrii/Projects/iolinki/include/iolinki/isdu.h \
   /home/andrii/Projects/iolinki/include/iolinki/data_storage.h \
@@ -203,6 +206,7 @@ CMakeFiles/iolinki.dir/src/isdu.c.o: /home/andrii/Projects/iolinki/src/isdu.c \
   /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
   /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
   /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h \
+  /home/andrii/Projects/iolinki/include/iolinki/config.h \
   /home/andrii/Projects/iolinki/include/iolinki/crc.h \
   /home/andrii/Projects/iolinki/include/iolinki/events.h \
   /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h \
@@ -434,8 +438,6 @@ CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o: /home/andrii/Projects/
 
 /usr/include/x86_64-linux-gnu/bits/types/FILE.h:
 
-/usr/include/x86_64-linux-gnu/gnu/stubs.h:
-
 /usr/include/x86_64-linux-gnu/bits/stat.h:
 
 /usr/include/x86_64-linux-gnu/bits/types.h:
@@ -484,9 +486,19 @@ CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o: /home/andrii/Projects/
 
 /home/andrii/Projects/iolinki/include/iolinki/application.h:
 
+/usr/include/x86_64-linux-gnu/gnu/stubs.h:
+
+/home/andrii/Projects/iolinki/include/iolinki/config.h:
+
 /home/andrii/Projects/iolinki/include/iolinki/events.h:
 
 /home/andrii/Projects/iolinki/include/iolinki/isdu.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h:
+
+/usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h:
+
+/home/andrii/Projects/iolinki/include/iolinki/time_utils.h:
 
 /home/andrii/Projects/iolinki/src/dll_internal.h:
 
@@ -507,9 +519,3 @@ CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o: /home/andrii/Projects/
 /usr/include/linux/errno.h:
 
 /usr/include/x86_64-linux-gnu/bits/fcntl.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h:
-
-/home/andrii/Projects/iolinki/include/iolinki/time_utils.h:
-
-/usr/include/x86_64-linux-gnu/bits/types/struct_timespec.h:

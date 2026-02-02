@@ -252,24 +252,20 @@ void SysTick_Handler(void) {
 
 ## Memory Requirements
 
-### Minimum Requirements
+For detailed RAM/ROM calculations and stack depth analysis, please refer to the [Memory Usage Guide](MEMORY_GUIDE.md).
 
-- **RAM**: ~2 KB (stack + buffers)
-  - DLL context: ~256 bytes
-  - ISDU buffer: 256 bytes
-  - Event queue: ~64 bytes
-  - Stack usage: ~1 KB
-  
-- **Flash**: ~10 KB (code)
-  - Core stack: ~6 KB
-  - CRC tables: ~256 bytes
-  - PHY implementation: ~2 KB
+### Quick Summary
 
-### Optimization Tips
+- **Minimum RAM**: ~300 bytes (with optimized config)
+- **Minimum Flash**: ~5 KB
 
-1. **Reduce ISDU buffer**: Edit `IOLINK_ISDU_BUFFER_SIZE` (future config)
-2. **Disable features**: Comment out unused ISDU handlers
-3. **Use -Os**: Optimize for size in compiler flags
+### Configuration
+
+The stack can be tuned via `include/iolinki/config.h`. Override the defaults by defining these macros in your build system (e.g., `-DIOLINK_ISDU_BUFFER_SIZE=64`):
+
+- `IOLINK_ISDU_BUFFER_SIZE`: Size of ISDU transfer buffers.
+- `IOLINK_EVENT_QUEUE_SIZE`: Number of events to queue.
+- `IOLINK_PD_IN_MAX_SIZE`: Max process data input size.
 
 ## Hardware Requirements
 
