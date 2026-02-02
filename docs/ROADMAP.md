@@ -237,14 +237,14 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 ### 6.1 Core Portability (CRITICAL - Blockers)
 - [x] **Context-Based API**: Remove all global state (`g_dll_ctx`, `g_isdu`, etc.), pass context pointers to all functions.
 - [x] **Logging Abstraction**: Replace `printf()` calls with configurable logging hooks or compile-time disable.
-- [ ] **Configuration System**: Create `iolink_config.h` for compile-time tuning (buffer sizes, queue depths).
-- [ ] **Memory Documentation**: Document RAM/ROM budgets and provide memory calculator tool.
+- [x] **Configuration System**: Create `iolink_config.h` for compile-time tuning (buffer sizes, queue depths).
+- [x] **Memory Documentation**: Document RAM/ROM budgets and provide memory calculator tool.
 
 ### 6.2 RTOS Integration
-- [ ] **Critical Sections**: Add `enter_critical()` / `exit_critical()` hooks for thread safety.
-- [ ] **Reentrancy**: Eliminate static locals in functions, make all APIs reentrant.
-- [ ] **FreeRTOS Example**: Demonstrate multi-task integration with proper synchronization.
-- [ ] **ISR Safety**: Document which APIs are interrupt-safe vs require task context.
+- [x] **Critical Sections**: Add `enter_critical()` / `exit_critical()` hooks for thread safety.
+- [x] **Reentrancy**: Eliminate static locals in functions, make all APIs reentrant.
+- [x] **FreeRTOS Example**: Demonstrate multi-task integration with proper synchronization.
+- [x] **ISR Safety**: Document which APIs are interrupt-safe vs require task context.
 
 ### 6.3 Hardware Abstraction
 - [ ] **DMA Support**: Extend PHY API for DMA-based transfers (zero-copy).
