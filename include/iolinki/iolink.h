@@ -17,8 +17,10 @@ typedef enum {
     IOLINK_M_SEQ_TYPE_0,    /**< On-request data only */
     IOLINK_M_SEQ_TYPE_1_1,  /**< PD (fixed) + OD (1 byte) */
     IOLINK_M_SEQ_TYPE_1_2,  /**< PD (fixed) + OD (1 byte) + ISDU */
+    IOLINK_M_SEQ_TYPE_1_V,  /**< PD (variable) + OD (1 byte) */
     IOLINK_M_SEQ_TYPE_2_1,  /**< PD (fixed) + OD (2 bytes) */
     IOLINK_M_SEQ_TYPE_2_2,  /**< PD (fixed) + OD (2 bytes) + ISDU */
+    IOLINK_M_SEQ_TYPE_2_V,  /**< PD (variable) + OD (1 byte) + ISDU */
 } iolink_m_seq_type_t;
 
 /**

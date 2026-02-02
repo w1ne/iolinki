@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
             for (int i=0; i<len; i++) {
                 pd_buffer[i]++;
             }
-            iolink_pd_input_update(pd_buffer, (size_t)len);
+            iolink_pd_input_update(pd_buffer, (size_t)len, true);
         }
         
         /* 1ms cycle time simulation */

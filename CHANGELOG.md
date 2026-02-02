@@ -5,6 +5,18 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-02-02
+
+### Added
+- **Variable Process Data**: Full support for IO-Link V1.1.5 frame types (Type 1_V, 2_V) supporting 2-32 bytes.
+- **Data Validity**: Added mandatory `valid` flag to `iolink_pd_input_update` and `PDStatus` bit propagation in status byte.
+- **Thread Safety**: Wrapped all Process Data input/output in platform critical sections.
+- **Extended M-Sequences**: Supported Type 1_V and Type 2_V in DLL.
+- **New Tests**: Added `tests/test_pd_variable.c` for multi-byte PD exchange validation.
+
+### Changed
+- **API (BREAKING)**: `iolink_pd_input_update` now requires a third `bool valid` argument.
+
 ## [0.3.0] — 2026-02-02
 
 ### Added
@@ -48,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Host Demo**: `examples/host_demo` showing stack execution without hardware.
 - **Documentation**: Initial README, ROADMAP, VISION, and RELEASE_STRATEGY.
 
+[0.4.0]: https://github.com/w1ne/iolinki/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/w1ne/iolinki/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/w1ne/iolinki/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/w1ne/iolinki/releases/tag/v0.1.0

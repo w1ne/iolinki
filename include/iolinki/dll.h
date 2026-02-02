@@ -33,6 +33,7 @@ typedef struct {
     uint8_t m_seq_type; /* iolink_m_seq_type_t */
     uint8_t pd_in_len;
     uint8_t pd_out_len;
+    bool pd_valid; /* Input Data Validity */
     
     /* Unified Frame Assembly */
     uint8_t frame_buf[48];

@@ -98,14 +98,15 @@ CMakeFiles/iolinki.dir/src/dll.c.o: /home/andrii/Projects/iolinki/src/dll.c \
   /home/andrii/Projects/iolinki/include/iolinki/phy.h \
   /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h \
   /home/andrii/Projects/iolinki/include/iolinki/application.h \
-  /home/andrii/Projects/iolinki/include/iolinki/dll.h \
   /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h \
+  /home/andrii/Projects/iolinki/include/iolinki/dll.h \
   /home/andrii/Projects/iolinki/include/iolinki/config.h \
   /home/andrii/Projects/iolinki/include/iolinki/events.h \
   /home/andrii/Projects/iolinki/include/iolinki/isdu.h \
   /home/andrii/Projects/iolinki/include/iolinki/data_storage.h \
   /home/andrii/Projects/iolinki/include/iolinki/crc.h \
   /home/andrii/Projects/iolinki/include/iolinki/time_utils.h \
+  /home/andrii/Projects/iolinki/include/iolinki/platform.h \
   /home/andrii/Projects/iolinki/src/dll_internal.h \
   /usr/include/string.h \
   /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
@@ -175,12 +176,13 @@ CMakeFiles/iolinki.dir/src/iolink_core.c.o: /home/andrii/Projects/iolinki/src/io
   /home/andrii/Projects/iolinki/include/iolinki/phy.h \
   /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h \
   /home/andrii/Projects/iolinki/include/iolinki/application.h \
-  /home/andrii/Projects/iolinki/include/iolinki/dll.h \
   /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h \
+  /home/andrii/Projects/iolinki/include/iolinki/dll.h \
   /home/andrii/Projects/iolinki/include/iolinki/config.h \
   /home/andrii/Projects/iolinki/include/iolinki/events.h \
   /home/andrii/Projects/iolinki/include/iolinki/isdu.h \
   /home/andrii/Projects/iolinki/include/iolinki/data_storage.h \
+  /home/andrii/Projects/iolinki/include/iolinki/platform.h \
   /usr/include/string.h \
   /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
@@ -507,6 +509,8 @@ CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o: /home/andrii/Projects/
 
 /home/andrii/Projects/iolinki/include/iolinki/time_utils.h:
 
+/home/andrii/Projects/iolinki/include/iolinki/platform.h:
+
 /home/andrii/Projects/iolinki/src/dll_internal.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/clock_t.h:
@@ -518,8 +522,6 @@ CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o: /home/andrii/Projects/
 /usr/include/features-time64.h:
 
 /home/andrii/Projects/iolinki/include/iolinki/phy_virtual.h:
-
-/home/andrii/Projects/iolinki/include/iolinki/platform.h:
 
 /home/andrii/Projects/iolinki/src/iolink_core.c:
 

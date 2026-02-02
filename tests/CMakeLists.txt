@@ -29,6 +29,7 @@ if(CMOCKA_FOUND)
     # Portability Verification
     add_iolink_test(test_locking test_locking.c)
     add_iolink_test(test_config test_config_verification.c)
+    add_iolink_test(test_pd_variable test_pd_variable.c)
 else()
     message(WARNING "CMocka not found, unit tests will be skipped. Install libcmocka-dev to enable them.")
 endif()

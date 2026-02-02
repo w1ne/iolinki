@@ -69,8 +69,11 @@ examples/host_demo/CMakeFiles/host_demo.dir/src/main.c.o: /home/andrii/Projects/
   /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
   /home/andrii/Projects/iolinki/include/iolinki/phy.h \
   /home/andrii/Projects/iolinki/include/iolinki/application.h \
+  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h \
   /home/andrii/Projects/iolinki/include/iolinki/phy_virtual.h
 
+
+/usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h:
 
 /home/andrii/Projects/iolinki/include/iolinki/application.h:
 

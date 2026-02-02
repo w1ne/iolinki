@@ -40,7 +40,7 @@ static void test_pd_cyclic_exchange(void **state)
 
     /* 3. PD Exchange in OPERATE */
     uint8_t test_pd_in = 0xAA;
-    iolink_pd_input_update(&test_pd_in, 1);
+    iolink_pd_input_update(&test_pd_in, 1, true);
     
     /* Master sends 0x55 (PD output) */
     will_return(g_phy_mock.recv_byte, 0x55);

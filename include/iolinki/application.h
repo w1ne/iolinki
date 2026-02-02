@@ -1,8 +1,7 @@
 #ifndef IOLINK_APPLICATION_H
 #define IOLINK_APPLICATION_H
 
-#include <stdint.h>
-#include <stddef.h>
+#include <stdbool.h>
 
 /**
  * @file application.h
@@ -14,9 +13,10 @@
  * 
  * @param data Pointer to input data
  * @param len Length in bytes
+ * @param valid Data validity flag (true = valid, false = invalid)
  * @return int 0 on success, negative on error
  */
-int iolink_pd_input_update(const uint8_t *data, size_t len);
+int iolink_pd_input_update(const uint8_t *data, size_t len, bool valid);
 
 /**
  * @brief Read Process Data Output (Master -> Device)

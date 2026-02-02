@@ -2,6 +2,7 @@
 #include "iolinki/dll.h"
 #include "iolinki/application.h"
 #include "iolinki/data_storage.h"
+#include "iolinki/platform.h"
 #include <string.h>
 
 static iolink_dll_ctx_t g_dll_ctx;
@@ -38,20 +39,27 @@ int iolink_init(const iolink_phy_api_t *phy, const iolink_config_t *config)
 void iolink_process(void)
 {
     iolink_dll_process(&g_dll_ctx);
-    iolink_ds_process(&g_dll_ctx.ds);
 }
 
-int iolink_pd_input_update(const uint8_t *data, size_t len)
+int iolink_pd_input_update(const uint8_t *data, size_t len, bool valid)
 {
     if (len > sizeof(g_dll_ctx.pd_in)) return -1;
+    
+    iolink_critical_enter();
     memcpy(g_dll_ctx.pd_in, data, len);
     g_dll_ctx.pd_in_len = (uint8_t)len;
+    g_dll_ctx.pd_valid = valid;
+    iolink_critical_exit();
+    
     return 0;
 }
 
 int iolink_pd_output_read(uint8_t *data, size_t len)
 {
+    iolink_critical_enter();
     uint8_t read_len = (len < g_dll_ctx.pd_out_len) ? (uint8_t)len : g_dll_ctx.pd_out_len;
     memcpy(data, g_dll_ctx.pd_out, read_len);
+    iolink_critical_exit();
+    
     return (int)read_len;
 }

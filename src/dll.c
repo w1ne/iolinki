@@ -4,6 +4,7 @@
 #include "iolinki/isdu.h"
 #include "iolinki/events.h"
 #include "iolinki/time_utils.h"
+#include "iolinki/platform.h"
 #include "dll_internal.h"
 #include <string.h>
 #include <stdio.h>
@@ -37,6 +38,26 @@ static void handle_startup(iolink_dll_ctx_t *ctx, uint8_t byte)
     ctx->req_len = IOLINK_M_SEQ_TYPE0_LEN;
 }
 
+static uint8_t get_req_len(iolink_dll_ctx_t *ctx)
+{
+    switch (ctx->m_seq_type) {
+        case IOLINK_M_SEQ_TYPE_0:
+            return IOLINK_M_SEQ_TYPE0_LEN;
+        case IOLINK_M_SEQ_TYPE_1_1:
+        case IOLINK_M_SEQ_TYPE_1_2:
+            return IOLINK_M_SEQ_TYPE1_LEN(ctx->pd_out_len);
+        case IOLINK_M_SEQ_TYPE_2_1:
+        case IOLINK_M_SEQ_TYPE_2_2:
+            return IOLINK_M_SEQ_TYPE2_LEN(ctx->pd_out_len, 2);
+        case IOLINK_M_SEQ_TYPE_2_V:
+            /* For 2_V, OD length is negotiated/configured. Standard is 1 byte PD. 
+               This needs better logic for dynamic lengths, but for now we follow config. */
+            return IOLINK_M_SEQ_TYPE2_LEN(ctx->pd_out_len, 1);
+        default:
+            return IOLINK_M_SEQ_TYPE0_LEN;
+    }
+}
+
 static void handle_preoperate(iolink_dll_ctx_t *ctx, uint8_t byte)
 {
     ctx->frame_buf[ctx->frame_index++] = byte;
@@ -50,12 +71,7 @@ static void handle_preoperate(iolink_dll_ctx_t *ctx, uint8_t byte)
             /* Handle Transition Command (0x0F) or standard ISDU MC */
             if (mc == 0x0F) {
                 ctx->state = IOLINK_DLL_STATE_OPERATE;
-                /* Initialize req_len for OPERATE based on config */
-                if (ctx->m_seq_type == IOLINK_M_SEQ_TYPE_0) {
-                    ctx->req_len = IOLINK_M_SEQ_TYPE0_LEN;
-                } else {
-                    ctx->req_len = 4 + ctx->pd_out_len;
-                }
+                ctx->req_len = get_req_len(ctx);
             } else {
                 iolink_isdu_collect_byte(&ctx->isdu, mc);
                 
@@ -77,7 +93,6 @@ static void handle_operate(iolink_dll_ctx_t *ctx, uint8_t byte)
         ctx->frame_index = 0;
         
         if (ctx->m_seq_type == IOLINK_M_SEQ_TYPE_0) {
-            /* Same as Preoperate Type 0 but in OPERATE mode */
             uint8_t mc = ctx->frame_buf[0];
             uint8_t ck = ctx->frame_buf[1];
             if (iolink_checksum_ck(mc, 0) == ck) {
@@ -94,34 +109,46 @@ static void handle_operate(iolink_dll_ctx_t *ctx, uint8_t byte)
             uint8_t calculated_ck = iolink_crc6(ctx->frame_buf, ctx->req_len-1);
             
             if (calculated_ck == received_ck) {
-                /* Extract PD */
+                iolink_critical_enter();
+                /* Extract PD (Starts after MC and CKT) */
                 if (ctx->pd_out_len > 0) {
                     memcpy(ctx->pd_out, &ctx->frame_buf[2], ctx->pd_out_len);
                 }
                 
                 /* Extract OD and feed ISDU */
-                uint8_t od = ctx->frame_buf[2 + ctx->pd_out_len];
+                uint8_t od_idx = 2 + ctx->pd_out_len;
+                uint8_t od = ctx->frame_buf[od_idx];
                 iolink_isdu_collect_byte(&ctx->isdu, od);
                 
                 /* Run ISDU engine */
                 iolink_isdu_process(&ctx->isdu);
                 
                 /* Prepare Response: Status + PD_In + OD + CK */
-                uint8_t resp_len = 1 + ctx->pd_in_len + 1 + 1;
-                uint8_t resp[48];
+                uint8_t resp[IOLINK_PD_IN_MAX_SIZE + 4];
+                uint8_t resp_idx = 0;
                 
-                uint8_t status = iolink_events_pending(&ctx->events) ? 0x20 : 0;
-                resp[0] = status;
+                /* Status Byte: [Event(7)] [R(6)] [PDStatus(5)] [ODStatus(4-0)] */
+                uint8_t status = 0;
+                if (iolink_events_pending(&ctx->events)) status |= 0x80;
+                if (ctx->pd_valid) status |= 0x20;
+                
+                resp[resp_idx++] = status;
+                
                 if (ctx->pd_in_len > 0) {
-                    memcpy(&resp[1], ctx->pd_in, ctx->pd_in_len);
+                    memcpy(&resp[resp_idx], ctx->pd_in, ctx->pd_in_len);
+                    resp_idx += ctx->pd_in_len;
                 }
                 
                 uint8_t od_in = 0;
                 iolink_isdu_get_response_byte(&ctx->isdu, &od_in);
-                resp[1 + ctx->pd_in_len] = od_in;
-                resp[resp_len-1] = iolink_crc6(resp, resp_len-1);
+                resp[resp_idx++] = od_in;
                 
-                ctx->phy->send(resp, resp_len);
+                /* CK */
+                resp[resp_idx] = iolink_crc6(resp, resp_idx);
+                resp_idx++;
+                
+                ctx->phy->send(resp, resp_idx);
+                iolink_critical_exit();
             }
         }
     }
