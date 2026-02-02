@@ -5,19 +5,21 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] — 2026-02-02
 
 ### Added
 - **Core Portability**: Refactored entire stack to use Context-Based API (no global state).
+- **Embedded Config**: Centralized `iolink_config.h` for tuning buffer sizes and memory usage.
+- **RTOS Integration**: Added `platform.h` with critical section hooks (`iolink_critical_enter/exit`) for thread safety.
+- **FreeRTOS Support**: Added `examples/freertos_app` demonstrating multi-task usage.
 - **Zephyr Support**: Native simulation integration (`test_zephyr.sh`) and module manifest (`west.yml`).
 - **Docker Environment**: Unified build/test container for Linux, Bare Metal, and Zephyr.
-- **Strict Quality**: Enforced `-Werror`, `-Wconversion`, and removed `printf()` usage in core.
-- **Timing Analysis**: Added `time_utils.h` for protocol timing enforcement.
-- **Community Standards**: Added `SECURITY.md`, `.editorconfig`, and Issue Templates.
+- **Strict Quality**: Enforced `-Werror`, `-Wconversion` across codebase.
+- **Documentation**: Added `MEMORY_GUIDE.md` and `SECURITY.md`.
 
 ### Changed
-- **CI/CD Pipeline**: Added Doxygen warning check and enhanced static analysis.
-- **Documentation**: Updated ROADMAP, README, and added CODING_STANDARDS.md.
+- **Logging**: Removed `printf` from core logic; introduced logging abstraction.
+- **CI/CD**: Added locking verification tests and static analysis enhancements.
 
 ## [0.2.0] — 2026-02-01
 
@@ -46,5 +48,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Host Demo**: `examples/host_demo` showing stack execution without hardware.
 - **Documentation**: Initial README, ROADMAP, VISION, and RELEASE_STRATEGY.
 
-[0.2.0]: https://github.com/w1ne/iolinki/compare/v0.1.0...develop
+[0.3.0]: https://github.com/w1ne/iolinki/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/w1ne/iolinki/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/w1ne/iolinki/releases/tag/v0.1.0
