@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "iolinki/phy.h"
+#include "iolinki/config.h"
 
 /**
  * @file dll.h
@@ -40,8 +41,8 @@ typedef struct {
     uint64_t last_frame_us;
 
     /* Process Data Buffers */
-    uint8_t pd_in[32];  /* Device -> Master */
-    uint8_t pd_out[32]; /* Master -> Device */
+    uint8_t pd_in[IOLINK_PD_IN_MAX_SIZE];  /* Device -> Master */
+    uint8_t pd_out[IOLINK_PD_OUT_MAX_SIZE]; /* Master -> Device */
 
     /* Sub-modules */
     iolink_events_ctx_t events;

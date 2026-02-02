@@ -17,6 +17,7 @@ CMakeFiles/iolinki.dir/src/isdu.c.o: \
  /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h \
+ /home/andrii/Projects/iolinki/include/iolinki/config.h \
  /home/andrii/Projects/iolinki/include/iolinki/crc.h \
  /home/andrii/Projects/iolinki/include/iolinki/events.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h \

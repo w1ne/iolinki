@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "iolinki/config.h"
 
 /**
  * @file events.h
@@ -20,7 +21,6 @@ typedef struct {
     iolink_event_type_t type;
 } iolink_event_t;
 
-#define IOLINK_EVENT_QUEUE_SIZE 8
 
 typedef struct {
     iolink_event_t queue[IOLINK_EVENT_QUEUE_SIZE];

@@ -22,6 +22,7 @@ CMakeFiles/iolinki.dir/src/iolink_core.c.o: \
  /home/andrii/Projects/iolinki/include/iolinki/application.h \
  /home/andrii/Projects/iolinki/include/iolinki/dll.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h \
+ /home/andrii/Projects/iolinki/include/iolinki/config.h \
  /home/andrii/Projects/iolinki/include/iolinki/events.h \
  /home/andrii/Projects/iolinki/include/iolinki/isdu.h \
  /home/andrii/Projects/iolinki/include/iolinki/data_storage.h \

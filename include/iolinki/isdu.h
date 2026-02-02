@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "iolinki/config.h"
 
 /**
  * @file isdu.h
@@ -33,10 +34,10 @@ typedef enum {
 
 typedef struct {
     isdu_state_t state;
-    uint8_t buffer[256];
+    uint8_t buffer[IOLINK_ISDU_BUFFER_SIZE];
     size_t buffer_idx;
     iolink_isdu_header_t header;
-    uint8_t response_buf[256];
+    uint8_t response_buf[IOLINK_ISDU_BUFFER_SIZE];
     size_t response_idx;
     size_t response_len;
     

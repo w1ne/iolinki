@@ -200,9 +200,9 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 **Goal:** Close all gaps identified in compliance analysis to achieve certification readiness.
 
 ### 5.1 Mandatory Commands (High Priority)
-- [ ] Implement System Command handlers (0x0002: Reset, Factory Restore, Mode Set)
-- [ ] Implement Mandatory ID Indices (0x11-0x1E: Vendor Text, Product Name, Serial, etc.)
-- [ ] Implement Device Access Locks (Index 0x000C)
+- [x] Implement System Command handlers (0x0002: Reset, Factory Restore, Mode Set)
+- [x] Implement Mandatory ID Indices (0x11-0x1E: Vendor Text, Product Name, Serial, etc.)
+- [x] Implement Device Access Locks (Index 0x000C)
 
 ### 5.2 Protocol Completion (High Priority)
 - [ ] Implement M-sequence Type 1_x (8-bit OD variants)

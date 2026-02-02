@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Docker Environment**: Unified build/test container for Linux, Bare Metal, and Zephyr.
 - **Strict Quality**: Enforced `-Werror`, `-Wconversion`, and removed `printf()` usage in core.
 - **Timing Analysis**: Added `time_utils.h` for protocol timing enforcement.
+- **Community Standards**: Added `SECURITY.md`, `.editorconfig`, and Issue Templates.
 
 ### Changed
 - **CI/CD Pipeline**: Added Doxygen warning check and enhanced static analysis.
