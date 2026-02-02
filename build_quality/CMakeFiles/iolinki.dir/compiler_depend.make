@@ -145,6 +145,7 @@ CMakeFiles/iolinki.dir/src/events.c.o: /home/andrii/Projects/iolinki/src/events.
   /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h \
   /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h \
   /home/andrii/Projects/iolinki/include/iolinki/config.h \
+  /home/andrii/Projects/iolinki/include/iolinki/platform.h \
   /usr/include/string.h \
   /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h \
   /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
@@ -288,6 +289,10 @@ CMakeFiles/iolinki.dir/src/phy_virtual.c.o: /home/andrii/Projects/iolinki/src/ph
   /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
   /usr/include/strings.h
 
+CMakeFiles/iolinki.dir/src/platform.c.o: /home/andrii/Projects/iolinki/src/platform.c \
+  /usr/include/stdc-predef.h \
+  /home/andrii/Projects/iolinki/include/iolinki/platform.h
+
 CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o: /home/andrii/Projects/iolinki/src/platform/linux/time_utils.c \
   /usr/include/stdc-predef.h \
   /home/andrii/Projects/iolinki/include/iolinki/time_utils.h \
@@ -338,6 +343,8 @@ CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o: /home/andrii/Projects/
 
 /usr/include/x86_64-linux-gnu/sys/ttydefaults.h:
 
+/home/andrii/Projects/iolinki/src/platform.c:
+
 /usr/include/x86_64-linux-gnu/bits/termios-c_cflag.h:
 
 /usr/include/x86_64-linux-gnu/bits/termios-c_oflag.h:
@@ -363,6 +370,8 @@ CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o: /home/andrii/Projects/
 /usr/include/x86_64-linux-gnu/bits/struct_stat.h:
 
 /usr/include/x86_64-linux-gnu/bits/endianness.h:
+
+/usr/include/x86_64-linux-gnu/bits/fcntl-linux.h:
 
 /home/andrii/Projects/iolinki/src/device_info.c:
 
@@ -399,8 +408,6 @@ CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o: /home/andrii/Projects/
 /usr/include/x86_64-linux-gnu/bits/types/time_t.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h:
-
-/usr/include/x86_64-linux-gnu/bits/fcntl-linux.h:
 
 /usr/include/x86_64-linux-gnu/bits/stdint-intn.h:
 
@@ -511,6 +518,8 @@ CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o: /home/andrii/Projects/
 /usr/include/features-time64.h:
 
 /home/andrii/Projects/iolinki/include/iolinki/phy_virtual.h:
+
+/home/andrii/Projects/iolinki/include/iolinki/platform.h:
 
 /home/andrii/Projects/iolinki/src/iolink_core.c:
 

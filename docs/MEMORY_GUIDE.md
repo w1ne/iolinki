@@ -49,7 +49,13 @@ The stack is designed to be shallow. The deepest call path typically occurs duri
 
 > **Recommendation**: Allocate at least **512 bytes** for the stack to be safe.
 
-## 3. Flash (ROM) Usage
+### RTOS Stack Guidelines
+
+When using an RTOS (e.g., FreeRTOS, Zephyr), `iolink_process` typically runs in its own thread.
+
+- **Stack Size**: 1024 bytes recommended (allow overhead for context switching and platform API calls).
+- **Critical Sections**: The stack uses `iolink_critical_enter/exit`. These should map to fast IRQ-disable routines to minimize latency.
+- **Queue Storage**: Events are stored in `iolink_events_ctx_t` (RAM), not on the task stack.
 
 Code size varies heavily by architecture (ARM Cortex-M vs AVR vs RISC-V) and compiler optimization (`-Os`, `-O3`).
 

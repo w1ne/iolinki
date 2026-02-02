@@ -135,12 +135,12 @@ tests/clean:
 CMakeFiles/iolinki.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/iolinki.dir/build.make CMakeFiles/iolinki.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/iolinki.dir/build.make CMakeFiles/iolinki.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/iolinki/build_linux/CMakeFiles --progress-num=4,5,6,7,8,9,10,11,12,13 "Built target iolinki"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/iolinki/build_linux/CMakeFiles --progress-num=4,5,6,7,8,9,10,11,12,13,14 "Built target iolinki"
 .PHONY : CMakeFiles/iolinki.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/iolinki.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/iolinki/build_linux/CMakeFiles 10
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/iolinki/build_linux/CMakeFiles 11
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/iolinki.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/iolinki/build_linux/CMakeFiles 0
 .PHONY : CMakeFiles/iolinki.dir/rule
@@ -187,12 +187,12 @@ CMakeFiles/iodd.dir/clean:
 examples/simple_device/CMakeFiles/simple_device.dir/all: CMakeFiles/iolinki.dir/all
 	$(MAKE) $(MAKESILENT) -f examples/simple_device/CMakeFiles/simple_device.dir/build.make examples/simple_device/CMakeFiles/simple_device.dir/depend
 	$(MAKE) $(MAKESILENT) -f examples/simple_device/CMakeFiles/simple_device.dir/build.make examples/simple_device/CMakeFiles/simple_device.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/iolinki/build_linux/CMakeFiles --progress-num=14,15 "Built target simple_device"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/iolinki/build_linux/CMakeFiles --progress-num=15,16 "Built target simple_device"
 .PHONY : examples/simple_device/CMakeFiles/simple_device.dir/all
 
 # Build rule for subdir invocation for target.
 examples/simple_device/CMakeFiles/simple_device.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/iolinki/build_linux/CMakeFiles 12
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/iolinki/build_linux/CMakeFiles 13
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 examples/simple_device/CMakeFiles/simple_device.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/iolinki/build_linux/CMakeFiles 0
 .PHONY : examples/simple_device/CMakeFiles/simple_device.dir/rule
@@ -218,7 +218,7 @@ examples/host_demo/CMakeFiles/host_demo.dir/all: CMakeFiles/iolinki.dir/all
 
 # Build rule for subdir invocation for target.
 examples/host_demo/CMakeFiles/host_demo.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/iolinki/build_linux/CMakeFiles 12
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/iolinki/build_linux/CMakeFiles 13
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 examples/host_demo/CMakeFiles/host_demo.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/iolinki/build_linux/CMakeFiles 0
 .PHONY : examples/host_demo/CMakeFiles/host_demo.dir/rule

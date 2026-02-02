@@ -153,10 +153,24 @@ CMakeFiles/iolinki.dir/src/events.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/iolinki.dir/src/events.c.s"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/andrii/Projects/iolinki/src/events.c -o CMakeFiles/iolinki.dir/src/events.c.s
 
+CMakeFiles/iolinki.dir/src/platform.c.o: CMakeFiles/iolinki.dir/flags.make
+CMakeFiles/iolinki.dir/src/platform.c.o: /home/andrii/Projects/iolinki/src/platform.c
+CMakeFiles/iolinki.dir/src/platform.c.o: CMakeFiles/iolinki.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/andrii/Projects/iolinki/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building C object CMakeFiles/iolinki.dir/src/platform.c.o"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/iolinki.dir/src/platform.c.o -MF CMakeFiles/iolinki.dir/src/platform.c.o.d -o CMakeFiles/iolinki.dir/src/platform.c.o -c /home/andrii/Projects/iolinki/src/platform.c
+
+CMakeFiles/iolinki.dir/src/platform.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing C source to CMakeFiles/iolinki.dir/src/platform.c.i"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/andrii/Projects/iolinki/src/platform.c > CMakeFiles/iolinki.dir/src/platform.c.i
+
+CMakeFiles/iolinki.dir/src/platform.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/iolinki.dir/src/platform.c.s"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/andrii/Projects/iolinki/src/platform.c -o CMakeFiles/iolinki.dir/src/platform.c.s
+
 CMakeFiles/iolinki.dir/src/data_storage.c.o: CMakeFiles/iolinki.dir/flags.make
 CMakeFiles/iolinki.dir/src/data_storage.c.o: /home/andrii/Projects/iolinki/src/data_storage.c
 CMakeFiles/iolinki.dir/src/data_storage.c.o: CMakeFiles/iolinki.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/andrii/Projects/iolinki/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building C object CMakeFiles/iolinki.dir/src/data_storage.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/andrii/Projects/iolinki/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building C object CMakeFiles/iolinki.dir/src/data_storage.c.o"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/iolinki.dir/src/data_storage.c.o -MF CMakeFiles/iolinki.dir/src/data_storage.c.o.d -o CMakeFiles/iolinki.dir/src/data_storage.c.o -c /home/andrii/Projects/iolinki/src/data_storage.c
 
 CMakeFiles/iolinki.dir/src/data_storage.c.i: cmake_force
@@ -170,7 +184,7 @@ CMakeFiles/iolinki.dir/src/data_storage.c.s: cmake_force
 CMakeFiles/iolinki.dir/src/device_info.c.o: CMakeFiles/iolinki.dir/flags.make
 CMakeFiles/iolinki.dir/src/device_info.c.o: /home/andrii/Projects/iolinki/src/device_info.c
 CMakeFiles/iolinki.dir/src/device_info.c.o: CMakeFiles/iolinki.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/andrii/Projects/iolinki/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building C object CMakeFiles/iolinki.dir/src/device_info.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/andrii/Projects/iolinki/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building C object CMakeFiles/iolinki.dir/src/device_info.c.o"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/iolinki.dir/src/device_info.c.o -MF CMakeFiles/iolinki.dir/src/device_info.c.o.d -o CMakeFiles/iolinki.dir/src/device_info.c.o -c /home/andrii/Projects/iolinki/src/device_info.c
 
 CMakeFiles/iolinki.dir/src/device_info.c.i: cmake_force
@@ -184,7 +198,7 @@ CMakeFiles/iolinki.dir/src/device_info.c.s: cmake_force
 CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o: CMakeFiles/iolinki.dir/flags.make
 CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o: /home/andrii/Projects/iolinki/src/platform/linux/time_utils.c
 CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o: CMakeFiles/iolinki.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/andrii/Projects/iolinki/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building C object CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/andrii/Projects/iolinki/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building C object CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o -MF CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o.d -o CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o -c /home/andrii/Projects/iolinki/src/platform/linux/time_utils.c
 
 CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.i: cmake_force
@@ -203,6 +217,7 @@ iolinki_OBJECTS = \
 "CMakeFiles/iolinki.dir/src/dll.c.o" \
 "CMakeFiles/iolinki.dir/src/isdu.c.o" \
 "CMakeFiles/iolinki.dir/src/events.c.o" \
+"CMakeFiles/iolinki.dir/src/platform.c.o" \
 "CMakeFiles/iolinki.dir/src/data_storage.c.o" \
 "CMakeFiles/iolinki.dir/src/device_info.c.o" \
 "CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o"
@@ -216,12 +231,13 @@ libiolinki.a: CMakeFiles/iolinki.dir/src/crc.c.o
 libiolinki.a: CMakeFiles/iolinki.dir/src/dll.c.o
 libiolinki.a: CMakeFiles/iolinki.dir/src/isdu.c.o
 libiolinki.a: CMakeFiles/iolinki.dir/src/events.c.o
+libiolinki.a: CMakeFiles/iolinki.dir/src/platform.c.o
 libiolinki.a: CMakeFiles/iolinki.dir/src/data_storage.c.o
 libiolinki.a: CMakeFiles/iolinki.dir/src/device_info.c.o
 libiolinki.a: CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o
 libiolinki.a: CMakeFiles/iolinki.dir/build.make
 libiolinki.a: CMakeFiles/iolinki.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/andrii/Projects/iolinki/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Linking C static library libiolinki.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/andrii/Projects/iolinki/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Linking C static library libiolinki.a"
 	$(CMAKE_COMMAND) -P CMakeFiles/iolinki.dir/cmake_clean_target.cmake
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/iolinki.dir/link.txt --verbose=$(VERBOSE)
 

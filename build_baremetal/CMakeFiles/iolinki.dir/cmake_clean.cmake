@@ -15,6 +15,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/iolinki.dir/src/isdu.c.o.d"
   "CMakeFiles/iolinki.dir/src/phy_virtual.c.o"
   "CMakeFiles/iolinki.dir/src/phy_virtual.c.o.d"
+  "CMakeFiles/iolinki.dir/src/platform.c.o"
+  "CMakeFiles/iolinki.dir/src/platform.c.o.d"
   "CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o"
   "CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o.d"
   "libiolinki.a"

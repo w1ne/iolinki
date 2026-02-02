@@ -370,6 +370,30 @@ src/phy_virtual.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/iolinki.dir/build.make CMakeFiles/iolinki.dir/src/phy_virtual.c.s
 .PHONY : src/phy_virtual.c.s
 
+src/platform.o: src/platform.c.o
+.PHONY : src/platform.o
+
+# target to build an object file
+src/platform.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/iolinki.dir/build.make CMakeFiles/iolinki.dir/src/platform.c.o
+.PHONY : src/platform.c.o
+
+src/platform.i: src/platform.c.i
+.PHONY : src/platform.i
+
+# target to preprocess a source file
+src/platform.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/iolinki.dir/build.make CMakeFiles/iolinki.dir/src/platform.c.i
+.PHONY : src/platform.c.i
+
+src/platform.s: src/platform.c.s
+.PHONY : src/platform.s
+
+# target to generate assembly for a file
+src/platform.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/iolinki.dir/build.make CMakeFiles/iolinki.dir/src/platform.c.s
+.PHONY : src/platform.c.s
+
 src/platform/linux/time_utils.o: src/platform/linux/time_utils.c.o
 .PHONY : src/platform/linux/time_utils.o
 
@@ -431,6 +455,9 @@ help:
 	@echo "... src/phy_virtual.o"
 	@echo "... src/phy_virtual.i"
 	@echo "... src/phy_virtual.s"
+	@echo "... src/platform.o"
+	@echo "... src/platform.i"
+	@echo "... src/platform.s"
 	@echo "... src/platform/linux/time_utils.o"
 	@echo "... src/platform/linux/time_utils.i"
 	@echo "... src/platform/linux/time_utils.s"

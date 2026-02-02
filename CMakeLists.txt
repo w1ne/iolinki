@@ -27,6 +27,7 @@ add_library(iolinki STATIC
     src/dll.c
     src/isdu.c
     src/events.c
+    src/platform.c
     src/data_storage.c
     src/device_info.c
 )

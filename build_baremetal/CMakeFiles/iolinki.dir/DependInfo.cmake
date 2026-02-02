@@ -16,6 +16,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/andrii/Projects/iolinki/src/iolink_core.c" "CMakeFiles/iolinki.dir/src/iolink_core.c.o" "gcc" "CMakeFiles/iolinki.dir/src/iolink_core.c.o.d"
   "/home/andrii/Projects/iolinki/src/isdu.c" "CMakeFiles/iolinki.dir/src/isdu.c.o" "gcc" "CMakeFiles/iolinki.dir/src/isdu.c.o.d"
   "/home/andrii/Projects/iolinki/src/phy_virtual.c" "CMakeFiles/iolinki.dir/src/phy_virtual.c.o" "gcc" "CMakeFiles/iolinki.dir/src/phy_virtual.c.o.d"
+  "/home/andrii/Projects/iolinki/src/platform.c" "CMakeFiles/iolinki.dir/src/platform.c.o" "gcc" "CMakeFiles/iolinki.dir/src/platform.c.o.d"
   "/home/andrii/Projects/iolinki/src/platform/linux/time_utils.c" "CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o" "gcc" "CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o.d"
   )
 
