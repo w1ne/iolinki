@@ -1,0 +1,86 @@
+# iolinki Commercial License
+
+## Overview
+
+This document outlines the commercial licensing options for **iolinki**, a production-ready IO-Link Device protocol stack.
+
+## License Tiers
+
+### 🔧 Single Developer License
+**Price**: $1,499 (One-time, Royalty-Free)
+
+**Includes**:
+- Full source code access
+- Unlimited commercial deployments
+- 1 year of updates and bug fixes
+- Email support (48h response time)
+- Single developer seat
+
+**Ideal for**: Independent developers, startups, small product lines
+
+---
+
+### 🏢 Team License
+**Price**: $4,999 (One-time, Royalty-Free)
+
+**Includes**:
+- Everything in Single Developer License
+- Up to 5 developer seats
+- Priority email support (24h response time)
+- Quarterly technical reviews
+- Custom integration assistance (up to 8 hours)
+
+**Ideal for**: Engineering teams, consultancies, mid-size manufacturers
+
+---
+
+### 🏭 Enterprise License
+**Price**: Custom (Site-wide, Royalty-Free)
+
+**Includes**:
+- Everything in Team License
+- Unlimited developer seats (single site)
+- Dedicated support channel
+- Custom feature development (negotiable)
+- On-site training options
+- Extended warranty and SLA
+
+**Ideal for**: OEMs, large manufacturers, multi-product deployments
+
+---
+
+## Evaluation Period
+
+You may evaluate iolinki under the GPLv3 license (see LICENSE file) for up to **90 days** in a non-production environment. After this period, or for any production deployment, a commercial license is required.
+
+## Purchase Process
+
+1. **Contact**: Email andrii@shylenko.com with your requirements
+2. **Quote**: Receive a formal quote within 48 hours
+3. **Agreement**: Sign the license agreement
+4. **Payment**: One-time payment via wire transfer or invoice
+5. **Delivery**: Receive license key and commercial support access
+
+## Frequently Asked Questions
+
+**Q: What happens after the 1-year update period?**
+A: You retain perpetual rights to use the version you licensed. Extended support contracts available at 20% of original license fee per year.
+
+**Q: Can I use iolinki in open-source hardware projects?**
+A: Yes, under the GPLv3 license. Commercial licensing is only required if you're selling closed-source products.
+
+**Q: Do you offer volume discounts?**
+A: Yes, for Enterprise licenses or multiple Team licenses. Contact us for details.
+
+**Q: What payment methods do you accept?**
+A: Wire transfer, ACH, and invoicing (Net 30 for established companies).
+
+## Contact
+
+**Email**: andrii@shylenko.com  
+**Web**: https://iolinki.com  
+**GitHub**: https://github.com/w1ne/iolinki
+
+---
+
+© 2026 Andrii Shylenko. All rights reserved.

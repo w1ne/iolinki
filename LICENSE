@@ -1,0 +1,35 @@
+GNU GENERAL PUBLIC LICENSE
+Version 3, 29 June 2007
+
+Copyright (C) 2026 Andrii Shylenko
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+---
+
+ADDITIONAL TERMS FOR COMMERCIAL USE
+
+This software is dual-licensed:
+
+1. GPLv3 License (this file) - For evaluation and non-commercial use
+2. Commercial License - Required for commercial deployment
+
+For commercial licensing options, see LICENSE.COMMERCIAL or contact:
+Email: andrii@shylenko.com
+Web: https://iolinki.com
+
+EVALUATION NOTICE:
+You may use this software under GPLv3 for evaluation purposes in a 
+non-production environment for up to 90 days. Any commercial deployment
+or production use requires a commercial license.
