@@ -26,7 +26,8 @@
     ```bash
     ./check_quality.sh
     ```
-5.  **Submit Pull Request**: CI will automatically run the above checks.
+5.  **Update Changelog**: Add a matching entry in `CHANGELOG.md` under `[Unreleased]`.
+6.  **Submit Pull Request**: CI will automatically run the above checks.
 
 ## Coding Guidelines
 

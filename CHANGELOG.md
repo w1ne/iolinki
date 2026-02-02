@@ -8,12 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Timing Analysis**: Added `time_utils.h` for protocol timing enforcement and jitter analysis.
-- **Error Recovery**: Implemented communication timeout watchdog and CRC frame validation in DLL.
-- **IODD Generator**: Python-based tool to generate XML metadata from JSON configurations.
-- **Full-Stack Integration Test**: Comprehensive lifecycle simulation from Startup to Operate.
-- **Coding Standards**: Formalised MISRA C:2012 orientation and strict Doxygen enforcement.
-- **Mock Storage**: Added persistent storage simulation for Data Storage (DS) verification.
+- **Core Portability**: Refactored entire stack to use Context-Based API (no global state).
+- **Zephyr Support**: Native simulation integration (`test_zephyr.sh`) and module manifest (`west.yml`).
+- **Docker Environment**: Unified build/test container for Linux, Bare Metal, and Zephyr.
+- **Strict Quality**: Enforced `-Werror`, `-Wconversion`, and removed `printf()` usage in core.
+- **Timing Analysis**: Added `time_utils.h` for protocol timing enforcement.
 
 ### Changed
 - **CI/CD Pipeline**: Added Doxygen warning check and enhanced static analysis.

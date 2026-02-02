@@ -62,7 +62,10 @@ The workflow automatically:
    - Build artifacts list
    - Documentation links
 4. Packages binaries (examples + tests)
-5. Creates GitHub Release
+5. Creates GitHub Release (using content from `CHANGELOG.md`)
+
+> [!IMPORTANT]
+> Ensure `CHANGELOG.md` is updated and the `[Unreleased]` section is renamed to the version number **before** tagging.
 
 ### Manual Release (if needed)
 
