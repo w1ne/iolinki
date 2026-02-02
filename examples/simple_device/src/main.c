@@ -16,7 +16,8 @@ int main(void)
 {
     printf("IO-Link Simple Device Example\n");
 
-    if (iolink_init(&g_hw_phy) != 0) {
+    /* Use default configuration */
+    if (iolink_init(&g_hw_phy, NULL) != 0) {
         printf("Failed to initialize IO-Link stack\n");
         return -1;
     }

@@ -1,0 +1,7 @@
+/home/andrii/Projects/iolinki/build_zephyr_verify/CMakeFiles/app.dir
+/home/andrii/Projects/iolinki/build_zephyr_verify/CMakeFiles/edit_cache.dir
+/home/andrii/Projects/iolinki/build_zephyr_verify/CMakeFiles/rebuild_cache.dir
+/home/andrii/Projects/iolinki/build_zephyr_verify/build_module/CMakeFiles/edit_cache.dir
+/home/andrii/Projects/iolinki/build_zephyr_verify/build_module/CMakeFiles/rebuild_cache.dir
+/home/andrii/Projects/iolinki/build_zephyr_verify/build_app/CMakeFiles/edit_cache.dir
+/home/andrii/Projects/iolinki/build_zephyr_verify/build_app/CMakeFiles/rebuild_cache.dir

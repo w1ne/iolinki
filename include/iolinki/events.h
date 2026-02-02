@@ -20,29 +20,42 @@ typedef struct {
     iolink_event_type_t type;
 } iolink_event_t;
 
+#define IOLINK_EVENT_QUEUE_SIZE 8
+
+typedef struct {
+    iolink_event_t queue[IOLINK_EVENT_QUEUE_SIZE];
+    uint8_t head;
+    uint8_t tail;
+    uint8_t count;
+} iolink_events_ctx_t;
+
 /**
  * @brief Initialize event engine
+ * @param ctx Event context
  */
-void iolink_events_init(void);
+void iolink_events_init(iolink_events_ctx_t *ctx);
 
 /**
  * @brief Trigger a new event
+ * @param ctx Event context
  * @param code 16-bit IO-Link EventCode
  * @param type severity level
  */
-void iolink_event_trigger(uint16_t code, iolink_event_type_t type);
+void iolink_event_trigger(iolink_events_ctx_t *ctx, uint16_t code, iolink_event_type_t type);
 
 /**
  * @brief Check if any events are pending for Master reading
+ * @param ctx Event context
  * @return true if events are in queue, false otherwise
  */
-bool iolink_events_pending(void);
+bool iolink_events_pending(iolink_events_ctx_t *ctx);
 
 /**
  * @brief Pop oldest event for ISDU Index 2 reading
+ * @param ctx Event context
  * @param event Pointer to store event details
  * @return true if event popped, false if queue empty
  */
-bool iolink_events_pop(iolink_event_t *event);
+bool iolink_events_pop(iolink_events_ctx_t *ctx, iolink_event_t *event);
 
 #endif // IOLINK_EVENTS_H

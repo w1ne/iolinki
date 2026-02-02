@@ -1,208 +1,72 @@
-# Testing Guide
+# Testing & Quality Assurance
 
-## Overview
+This document describes the testing strategy, quality standards, and CI/CD workflow for the `iolinki` project.
 
-iolinki provides multiple testing approaches to ensure protocol compliance and robustness across different environments.
+## 🏆 Philosophy
+We adhere to **Strict Coding Standards** to ensure safety, portability, and reliability in embedded environments.
+- **Zero Warnings**: Code must compile with `-Wall -Wextra -Werror`.
+- **Static Analysis**: All code must pass `cppcheck` with no errors.
+- **Portable C**: Code must be strictly C99/C11 compliant, with no hidden global state (Context-based API).
+- **Automated Verification**: Every commit is verified against Linux, Bare Metal, and Quality checks.
 
-## Test Types
+## 🛠️ Local Testing
 
-### 1. Unit Tests (CMocka)
-
-Located in `tests/`, these test individual components in isolation using mocks.
-
-**Prerequisites**:
+### 1. Run All Tests
+Use the helper script to run the full validation suite (Linux Build + Type 1 Integration Test + Bare Metal compilation check).
 ```bash
-sudo apt-get install libcmocka-dev
+./test_all.sh
 ```
 
-**Running**:
+### 2. Run Quality Checks
+Verify code against warnings and static analysis tools.
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build
-cd build && ctest --output-on-failure
+./check_quality.sh
 ```
 
-**Available Tests**:
-- `test_crc` - CRC calculation verification
-- `test_dll` - Data Link Layer state machine
-- `test_isdu` - ISDU services
-- `test_events` - Event system
-- `test_ds` - Data Storage
-- `test_application` - Application layer
-- `test_integration_full` - Full stack lifecycle
+### 3. Docker Environment
+To ensure a reproducible environment matching CI, run tests inside Docker.
 
-### 2. Docker Tests (Recommended)
-
-Run all tests in isolated Docker environment with all dependencies pre-installed.
-
-**Running**:
+**Build Image:**
 ```bash
-./tools/run_tests_docker.sh
+docker build -t iolinki-test .
 ```
 
-**What it tests**:
-- All CMocka unit tests
-- Virtual Master CRC validation
-- Virtual Master unit tests
-- Integration tests (if Device available)
-
-### 3. Virtual Master Integration Tests
-
-Python-based Virtual IO-Link Master for protocol testing without hardware.
-
-**Manual Test** (requires 2 terminals):
+**Run Tests:**
 ```bash
-# Terminal 1: Start Virtual Master
-cd tools/virtual_master
-python3 test_integration.py
-
-# Terminal 2: Start Device (use TTY from Terminal 1)
-./build/examples/host_demo/host_demo /dev/pts/X
+docker run --rm iolinki-test
 ```
 
-**Automated Test** (Docker):
+### 4. Zephyr Integration Test
+Included automatically in the Docker environment.
+To run locally, you need the Zephyr SDK and `west` installed.
 ```bash
-cd tools/virtual_master
-python3 test_automated.py
+./tests/test_zephyr.sh
 ```
 
-**What it tests**:
-- Startup sequence
-- Communication cycles
-- Event handling
-- ISDU operations
-- CRC validation
+## ✅ Continuous Integration (CI)
 
-### 4. Platform-Specific Tests
+The CI pipeline (via Docker) enforces:
 
-#### Zephyr RTOS
-```bash
-./tools/build_zephyr_docker.sh
-# Runs in QEMU or deploy to hardware
-```
+1.  **Strict Compilation**: Builds with `-Werror` on Linux and Bare Metal (ARM cross-compiler simulation).
+2.  **Static Analysis**: Runs `cppcheck` to detect memory leaks, undefined behavior, and style issues.
+3.  **Integration Tests**: Runs `test_type1.py` with the Virtual Master to verify protocol logic (ISDU, Process Data, CRC).
+4.  **Zephyr Simulation**: Verifies the stack runs on Zephyr `native_sim` (if SDK available).
 
-#### Bare Metal
-```bash
-cmake -B build_bare -DIOLINK_PLATFORM=BAREMETAL
-cmake --build build_bare
-./build_bare/examples/bare_metal_app/bare_metal_app
-```
+## 📊 Code Standards
 
-## Test Coverage
+### Syntax & Style
+- **Indentation**: 4 spaces (no tabs).
+- **Naming**: `snake_case` for variables/functions, `PASCAL_CASE` for macros/enums.
+- **Prefixes**: All public API must use `iolink_` prefix.
 
-### Current Coverage
+### Safety Rules
+- **No Global State**: All module state must be encapsulated in a context structure (e.g., `iolink_dll_ctx_t`).
+- **Input Validation**: All public API functions must check pointer validity (`if (!ctx) return;`).
+- **Memory**: No dynamic memory allocation (`malloc`/`free`) allowed in the core stack.
+- **Types**: Use `<stdint.h>` types (`uint8_t`, `int32_t`) explicitly.
 
-| Component | Unit Tests | Integration | Platform Tests |
-|-----------|------------|-------------|----------------|
-| CRC | ✅ | ✅ | ✅ |
-| DLL State Machine | ✅ | ✅ | ✅ |
-| ISDU | ✅ | ✅ | ⚠️ |
-| Events | ✅ | ✅ | ❌ |
-| Data Storage | ✅ | ✅ | ❌ |
-| Process Data | ❌ | ❌ | ❌ |
-| M-sequence Type 1_x | ❌ | ❌ | ❌ |
-
-### Coverage Goals
-
-- **Phase 1**: 80% unit test coverage for core components ✅
-- **Phase 2**: 90% integration test coverage
-- **Phase 3**: 100% V1.1.5 compliance test coverage
-
-## Writing Tests
-
-### CMocka Unit Test Example
-
-```c
-#include <stdarg.h>
-#include <stddef.h>
-#include <setjmp.h>
-#include <cmocka.h>
-
-#include "iolinki/dll.h"
-#include "test_helpers.h"
-
-static void test_dll_startup(void **state) {
-    (void)state;
-    
-    // Setup
-    iolink_dll_ctx_t ctx;
-    iolink_dll_init(&ctx, &g_phy_mock);
-    
-    // Execute
-    iolink_dll_process(&ctx);
-    
-    // Verify
-    assert_int_equal(ctx.state, DLL_STATE_STARTUP);
-}
-
-int main(void) {
-    const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_dll_startup),
-    };
-    return cmocka_run_group_tests(tests, NULL, NULL);
-}
-```
-
-### Virtual Master Test Example
-
-```python
-from virtual_master.master import VirtualMaster
-
-def test_startup():
-    master = VirtualMaster()
-    assert master.run_startup_sequence()
-    master.close()
-```
-
-## Continuous Integration
-
-Tests run automatically on every commit via GitHub Actions:
-
-```yaml
-- name: Build and Test
-  run: |
-    cmake -B build -DCMAKE_BUILD_TYPE=Debug
-    cmake --build build
-    cd build && ctest --output-on-failure
-```
-
-## Debugging Failed Tests
-
-### CMocka Tests
-
-```bash
-# Run specific test with verbose output
-cd build
-./tests/test_dll --verbose
-
-# Run with GDB
-gdb ./tests/test_dll
-```
-
-### Virtual Master Tests
-
-```bash
-# Enable debug logging
-cd tools/virtual_master
-python3 -m pdb test_master.py
-```
-
-## Test Artifacts
-
-Test results are stored in:
-- `build/Testing/` - CMocka test results
-- `build/test-results.xml` - JUnit XML format (CI)
-
-## Known Limitations
-
-1. **No hardware tests**: All tests use mocks or virtual UART
-2. **Timing tests**: Not validated on real hardware
-3. **M-sequence Type 1_x/2_x**: Not yet implemented
-4. **Process Data**: No test coverage yet
-
-## Next Steps
-
-- Add Process Data tests
-- Implement M-sequence Type 1_x tests
-- Add timing validation tests
-- Create hardware-in-the-loop tests
+### MISRA C Compatibility
+The code allows for a subset of MISRA C:2012 rules (checked via cppcheck/PC-lint where available). 
+- **Rule 8.4**: Objects/functions shall be defined.
+- **Rule 11.4**: No conversion between pointer and integer.
+- **Rule 17.2**: No recursion.

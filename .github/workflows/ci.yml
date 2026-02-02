@@ -62,6 +62,19 @@ jobs:
           name: test-results
           path: build/Testing/
 
+  build-bare-metal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Dependencies
+        run: sudo apt-get install -y cmake build-essential python3
+      - name: Build Bare Metal Prototype
+        run: |
+            cmake -B build_bare -DIOLINK_PLATFORM=BAREMETAL
+            cmake --build build_bare
+      - name: Run Prototype
+        run: ./build_bare/examples/bare_metal_app/bare_metal_app
+
   build-example:
     runs-on: ubuntu-latest
     steps:

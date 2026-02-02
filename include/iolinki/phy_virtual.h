@@ -15,6 +15,12 @@
  * 
  * @return const iolink_phy_api_t* 
  */
+/**
+ * @brief Set the serial port for virtual PHY
+ * @param port TTY path (e.g., "/dev/pts/5")
+ */
+void iolink_phy_virtual_set_port(const char *port);
+
 const iolink_phy_api_t* iolink_phy_virtual_get(void);
 
 #endif // IOLINK_PHY_VIRTUAL_H

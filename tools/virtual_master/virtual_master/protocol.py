@@ -44,17 +44,17 @@ class MSequenceGenerator:
     
     def generate_type0(self, mc: int, ckt: int = 0x00) -> bytes:
         """
-        Generate Type 0 M-sequence: MC + CKT + CK
+        Generate Type 0 M-sequence: MC + CK
         
         Args:
             mc: Master Command byte
             ckt: Checksum Type (usually 0x00)
             
         Returns:
-            3-byte frame: [MC, CKT, CK]
+            2-byte frame: [MC, CK]
         """
         ck = calculate_checksum_type0(mc, ckt)
-        return bytes([mc, ckt, ck])
+        return bytes([mc, ck])
     
     def generate_wakeup(self) -> bytes:
         """Generate wake-up sequence."""
@@ -64,22 +64,49 @@ class MSequenceGenerator:
         """Generate idle sequence."""
         return self.generate_type0(MasterCommand.MC_IDLE)
     
-    def generate_isdu_read(self, index: int, subindex: int = 0) -> bytes:
+    def generate_isdu_read(self, index: int, subindex: int = 0) -> list[bytes]:
         """
-        Generate ISDU Read request.
+        Generate ISDU Read request frames.
         
         Args:
-            index: ISDU index (0-255)
+            index: ISDU index (0-65535)
             subindex: ISDU subindex (0-255)
             
         Returns:
-            M-sequence for ISDU read
+            List of M-sequence frames for ISDU read (Start, Index H, Index L, Subindex)
         """
-        # For Type 0, we encode index in MC byte
-        # Full implementation would use Type 1_2 or 2_2
-        mc = MasterCommand.MC_ISDU_READ
-        return self.generate_type0(mc)
+        frames = []
+        
+        # Frame 1: Start Read (Identifier=0x90: Service 9=Read, Len 0)
+        frames.append(self.generate_type0(0x90))
+        
+        # Frame 2: Index High
+        frames.append(self.generate_type0((index >> 8) & 0xFF))
+        
+        # Frame 3: Index Low
+        frames.append(self.generate_type0(index & 0xFF))
+        
+        # Frame 4: Subindex
+        frames.append(self.generate_type0(subindex))
+        
+        return frames
     
+    def generate_type1(self, mc: int, ckt: int, pd: bytes, od: int) -> bytes:
+        """
+        Generate Type 1 M-sequence: MC + CKT + PD + OD + CK
+        
+        Args:
+            mc: Master Command byte
+            ckt: Command/Key/Type byte
+            pd: Process Data bytes
+            od: On-request Data byte
+            
+        Returns:
+            Frame bytes
+        """
+        ck = calculate_checksum_type1(mc, ckt, pd, od)
+        return bytes([mc, ckt]) + pd + bytes([od, ck])
+
     def generate_event_request(self) -> bytes:
         """Generate event request sequence."""
         return self.generate_type0(MasterCommand.MC_EVENT_REQ)
@@ -99,9 +126,18 @@ class DeviceResponse:
         self.valid = len(data) >= 2
         
         if self.valid:
-            self.status = data[0] if len(data) > 0 else 0
-            self.checksum = data[-1] if len(data) > 1 else 0
-            self.payload = data[1:-1] if len(data) > 2 else b''
+            if len(data) == 2:
+                # Type 0 Response: [OD, Checksum]
+                # Status is encoded in checksum
+                self.payload = data[0:1]
+                self.checksum = data[1]
+                self.status = 0 # Cannot extract easily without brute forcing checksum
+            else:
+                # Type 1/2 Response: [Status, PD_In..., OD, Checksum]
+                self.status = data[0]
+                self.payload = data[1:-2]
+                self.od = data[-2]
+                self.checksum = data[-1]
     
     def has_event(self) -> bool:
         """Check if Device has pending event."""

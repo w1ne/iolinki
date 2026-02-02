@@ -5,11 +5,21 @@
 #include <string.h>
 
 static iolink_dll_ctx_t g_dll_ctx;
+static iolink_config_t g_config;
 
-int iolink_init(const iolink_phy_api_t *phy)
+int iolink_init(const iolink_phy_api_t *phy, const iolink_config_t *config)
 {
     if (phy == NULL) {
         return -1;
+    }
+
+    if (config != NULL) {
+        memcpy(&g_config, config, sizeof(iolink_config_t));
+    } else {
+        /* Default config */
+        memset(&g_config, 0, sizeof(iolink_config_t));
+        g_config.m_seq_type = IOLINK_M_SEQ_TYPE_0;
+        g_config.min_cycle_time = 0; /* Min */
     }
 
     if (phy->init) {
@@ -18,7 +28,9 @@ int iolink_init(const iolink_phy_api_t *phy)
     }
 
     iolink_dll_init(&g_dll_ctx, phy);
-    iolink_ds_init(NULL); /* Storage hooks optional for now */
+    g_dll_ctx.m_seq_type = (uint8_t)g_config.m_seq_type;
+    g_dll_ctx.pd_in_len = g_config.pd_in_len;
+    g_dll_ctx.pd_out_len = g_config.pd_out_len;
 
     return 0;
 }
@@ -26,7 +38,7 @@ int iolink_init(const iolink_phy_api_t *phy)
 void iolink_process(void)
 {
     iolink_dll_process(&g_dll_ctx);
-    iolink_ds_process();
+    iolink_ds_process(&g_dll_ctx.ds);
 }
 
 int iolink_pd_input_update(const uint8_t *data, size_t len)

@@ -1,45 +1,40 @@
 #include "iolinki/events.h"
 #include <string.h>
 
-#define EVENT_QUEUE_SIZE 8
-
-static struct {
-    iolink_event_t queue[EVENT_QUEUE_SIZE];
-    uint8_t head;
-    uint8_t tail;
-    uint8_t count;
-} g_event_q;
-
-void iolink_events_init(void)
+void iolink_events_init(iolink_events_ctx_t *ctx)
 {
-    memset(&g_event_q, 0, sizeof(g_event_q));
+    if (ctx) {
+        memset(ctx, 0, sizeof(iolink_events_ctx_t));
+    }
 }
 
-void iolink_event_trigger(uint16_t code, iolink_event_type_t type)
+void iolink_event_trigger(iolink_events_ctx_t *ctx, uint16_t code, iolink_event_type_t type)
 {
-    if (g_event_q.count >= EVENT_QUEUE_SIZE) {
-        /* Drop oldest or ignore? Usually drop oldest in industrial stacks. */
+    if (!ctx) return;
+
+    if (ctx->count >= IOLINK_EVENT_QUEUE_SIZE) {
+        /* Drop oldest */
         iolink_event_t dummy;
-        iolink_events_pop(&dummy);
+        iolink_events_pop(ctx, &dummy);
     }
 
-    g_event_q.queue[g_event_q.tail].code = code;
-    g_event_q.queue[g_event_q.tail].type = type;
-    g_event_q.tail = (g_event_q.tail + 1) % EVENT_QUEUE_SIZE;
-    g_event_q.count++;
+    ctx->queue[ctx->tail].code = code;
+    ctx->queue[ctx->tail].type = type;
+    ctx->tail = (uint8_t)((ctx->tail + 1) % IOLINK_EVENT_QUEUE_SIZE);
+    ctx->count++;
 }
 
-bool iolink_events_pending(void)
+bool iolink_events_pending(iolink_events_ctx_t *ctx)
 {
-    return (g_event_q.count > 0);
+    return (ctx && ctx->count > 0);
 }
 
-bool iolink_events_pop(iolink_event_t *event)
+bool iolink_events_pop(iolink_events_ctx_t *ctx, iolink_event_t *event)
 {
-    if (g_event_q.count == 0) return false;
+    if (!ctx || ctx->count == 0) return false;
 
-    *event = g_event_q.queue[g_event_q.head];
-    g_event_q.head = (g_event_q.head + 1) % EVENT_QUEUE_SIZE;
-    g_event_q.count--;
+    *event = ctx->queue[ctx->head];
+    ctx->head = (uint8_t)((ctx->head + 1) % IOLINK_EVENT_QUEUE_SIZE);
+    ctx->count--;
     return true;
 }

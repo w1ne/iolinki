@@ -34,10 +34,26 @@ static void test_isdu_vendor_name_read(void **state)
     assert_string_equal(name, "iolinki-project");
 }
 
+static void test_isdu_write_request(void **state)
+{
+    (void)state;
+    iolink_isdu_init();
+    
+    /* Master Sends: Write (0x80), Index (0x40), Subindex (0x00) */
+    assert_int_equal(iolink_isdu_collect_byte(0x80), 0);
+    assert_int_equal(iolink_isdu_collect_byte(0x40), 0);
+    assert_int_equal(iolink_isdu_collect_byte(0x00), 1);
+    
+    /* Device Responds: Expected behavior is accepting the write */
+    uint8_t byte;
+    assert_int_equal(iolink_isdu_get_response_byte(&byte), 0); /* No data payload for write ack */
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_isdu_vendor_name_read),
+        cmocka_unit_test(test_isdu_write_request),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

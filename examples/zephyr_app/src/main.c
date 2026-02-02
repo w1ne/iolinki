@@ -9,14 +9,28 @@
 #include "iolinki/iolink.h"
 #include "iolinki/phy_virtual.h"
 
+#include <stdlib.h>
+
 LOG_MODULE_REGISTER(iolink_demo, LOG_LEVEL_INF);
 
 int main(void)
 {
     LOG_INF("Starting IO-Link Zephyr Demo");
 
+    const char *port = getenv("IOLINK_PORT");
+    if (port) {
+        iolink_phy_virtual_set_port(port);
+        LOG_INF("Connecting to %s", port);
+    } else {
+        LOG_WRN("IOLINK_PORT not set, using default");
+        /* phy_virtual default is /dev/pts/1 or similar? */
+    }
+
     /* Use virtual PHY for demo */
-    iolink_init(iolink_phy_virtual_get());
+    if (iolink_init(iolink_phy_virtual_get(), NULL) != 0) {
+        LOG_ERR("Failed to init IO-Link");
+        return -1;
+    }
 
     while (1) {
         iolink_process();

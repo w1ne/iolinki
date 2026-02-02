@@ -1,0 +1,16 @@
+/home/andrii/Projects/iolinki/build_bare_verify/CMakeFiles/iolinki.dir
+/home/andrii/Projects/iolinki/build_bare_verify/CMakeFiles/iodd.dir
+/home/andrii/Projects/iolinki/build_bare_verify/CMakeFiles/test.dir
+/home/andrii/Projects/iolinki/build_bare_verify/CMakeFiles/edit_cache.dir
+/home/andrii/Projects/iolinki/build_bare_verify/CMakeFiles/rebuild_cache.dir
+/home/andrii/Projects/iolinki/build_bare_verify/examples/simple_device/CMakeFiles/simple_device.dir
+/home/andrii/Projects/iolinki/build_bare_verify/examples/simple_device/CMakeFiles/test.dir
+/home/andrii/Projects/iolinki/build_bare_verify/examples/simple_device/CMakeFiles/edit_cache.dir
+/home/andrii/Projects/iolinki/build_bare_verify/examples/simple_device/CMakeFiles/rebuild_cache.dir
+/home/andrii/Projects/iolinki/build_bare_verify/examples/bare_metal_app/CMakeFiles/bare_metal_app.dir
+/home/andrii/Projects/iolinki/build_bare_verify/examples/bare_metal_app/CMakeFiles/test.dir
+/home/andrii/Projects/iolinki/build_bare_verify/examples/bare_metal_app/CMakeFiles/edit_cache.dir
+/home/andrii/Projects/iolinki/build_bare_verify/examples/bare_metal_app/CMakeFiles/rebuild_cache.dir
+/home/andrii/Projects/iolinki/build_bare_verify/tests/CMakeFiles/test.dir
+/home/andrii/Projects/iolinki/build_bare_verify/tests/CMakeFiles/edit_cache.dir
+/home/andrii/Projects/iolinki/build_bare_verify/tests/CMakeFiles/rebuild_cache.dir

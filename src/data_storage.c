@@ -1,19 +1,12 @@
 #include "iolinki/data_storage.h"
 #include <string.h>
-#include <stdio.h>
 
-static struct {
-    iolink_ds_state_t state;
-    const iolink_ds_storage_api_t *storage;
-    uint16_t current_checksum;
-    uint16_t master_checksum;
-} g_ds;
-
-void iolink_ds_init(const iolink_ds_storage_api_t *storage)
+void iolink_ds_init(iolink_ds_ctx_t *ctx, const iolink_ds_storage_api_t *storage)
 {
-    memset(&g_ds, 0, sizeof(g_ds));
-    g_ds.storage = storage;
-    g_ds.state = IOLINK_DS_STATE_IDLE;
+    if (!ctx) return;
+    memset(ctx, 0, sizeof(iolink_ds_ctx_t));
+    ctx->storage = storage;
+    ctx->state = IOLINK_DS_STATE_IDLE;
 }
 
 uint16_t iolink_ds_calc_checksum(const uint8_t *data, size_t len)
@@ -22,54 +15,54 @@ uint16_t iolink_ds_calc_checksum(const uint8_t *data, size_t len)
     uint16_t sum1 = 0;
     uint16_t sum2 = 0;
     for (size_t i = 0; i < len; ++i) {
-        sum1 = (sum1 + data[i]) % 255;
-        sum2 = (sum2 + sum1) % 255;
+        sum1 = (uint16_t)((sum1 + data[i]) % 255);
+        sum2 = (uint16_t)((sum2 + sum1) % 255);
     }
     return (uint16_t)((sum2 << 8) | sum1);
 }
 
-void iolink_ds_check(uint16_t master_checksum)
+void iolink_ds_check(iolink_ds_ctx_t *ctx, uint16_t master_checksum)
 {
-    g_ds.master_checksum = master_checksum;
+    if (!ctx) return;
     
-    if (g_ds.state != IOLINK_DS_STATE_IDLE) return;
+    ctx->master_checksum = master_checksum;
+    
+    if (ctx->state != IOLINK_DS_STATE_IDLE) return;
 
     if (master_checksum == 0) {
         /* Master has no data -> Upload request */
-        g_ds.state = IOLINK_DS_STATE_UPLOAD_REQ;
-    } else if (master_checksum != g_ds.current_checksum) {
+        ctx->state = IOLINK_DS_STATE_UPLOAD_REQ;
+    } else if (master_checksum != ctx->current_checksum) {
         /* Checksum mismatch -> Download request (Update device) */
-        g_ds.state = IOLINK_DS_STATE_DOWNLOAD_REQ;
+        ctx->state = IOLINK_DS_STATE_DOWNLOAD_REQ;
     }
 }
 
-void iolink_ds_process(void)
+void iolink_ds_process(iolink_ds_ctx_t *ctx)
 {
-    switch (g_ds.state) {
+    if (!ctx) return;
+    
+    switch (ctx->state) {
         case IOLINK_DS_STATE_UPLOAD_REQ:
             /* Master indicated it has no data -> Device sends parameters */
-            printf("[DS] Starting Upload to Master (Checksum: %04X)\n", g_ds.current_checksum);
             /* Byte-by-byte transfer would happen here */
-            g_ds.state = IOLINK_DS_STATE_UPLOADING;
+            ctx->state = IOLINK_DS_STATE_UPLOADING;
             break;
 
         case IOLINK_DS_STATE_UPLOADING:
             /* Complete upload simulation */
-            g_ds.state = IOLINK_DS_STATE_IDLE;
-            printf("[DS] Upload Complete\n");
+            ctx->state = IOLINK_DS_STATE_IDLE;
             break;
             
         case IOLINK_DS_STATE_DOWNLOAD_REQ:
             /* Master indicated a mismatch -> Device receives parameters */
-            printf("[DS] Starting Download from Master (Master CS: %04X)\n", g_ds.master_checksum);
-            g_ds.state = IOLINK_DS_STATE_DOWNLOADING;
+            ctx->state = IOLINK_DS_STATE_DOWNLOADING;
             break;
 
         case IOLINK_DS_STATE_DOWNLOADING:
             /* Update local parameters and storage */
-            g_ds.current_checksum = g_ds.master_checksum;
-            g_ds.state = IOLINK_DS_STATE_IDLE;
-            printf("[DS] Download Complete, New Checksum: %04X\n", g_ds.current_checksum);
+            ctx->current_checksum = ctx->master_checksum;
+            ctx->state = IOLINK_DS_STATE_IDLE;
             break;
 
         default:

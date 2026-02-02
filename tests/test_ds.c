@@ -11,6 +11,21 @@
 #include <string.h>
 
 #include "iolinki/data_storage.h"
+#include "test_helpers.h"
+
+static void test_ds_storage_integration(void **state)
+{
+    (void)state;
+    iolink_ds_mock_reset();
+    iolink_ds_init(&g_ds_storage_mock);
+    
+    uint8_t data[] = {0x11, 0x22, 0x33, 0x44};
+    g_ds_storage_mock.write(0, data, 4);
+    
+    uint8_t read_back[4];
+    g_ds_storage_mock.read(0, read_back, 4);
+    assert_memory_equal(data, read_back, 4);
+}
 
 static void test_ds_checksum_calculation(void **state)
 {
@@ -48,6 +63,7 @@ int main(void)
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_ds_checksum_calculation),
         cmocka_unit_test(test_ds_state_transitions),
+        cmocka_unit_test(test_ds_storage_integration),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/app.dir/mock_kernel_entry.c.o CMakeFiles/app.dir/home/andrii/Projects/iolinki/examples/zephyr_app/src/main.c.o -o app 

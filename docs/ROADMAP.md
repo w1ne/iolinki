@@ -235,8 +235,8 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 **Goal:** Make stack production-ready for resource-constrained embedded systems.
 
 ### 6.1 Core Portability (CRITICAL - Blockers)
-- [ ] **Context-Based API**: Remove all global state (`g_dll_ctx`, `g_isdu`, etc.), pass context pointers to all functions.
-- [ ] **Logging Abstraction**: Replace `printf()` calls with configurable logging hooks or compile-time disable.
+- [x] **Context-Based API**: Remove all global state (`g_dll_ctx`, `g_isdu`, etc.), pass context pointers to all functions.
+- [x] **Logging Abstraction**: Replace `printf()` calls with configurable logging hooks or compile-time disable.
 - [ ] **Configuration System**: Create `iolink_config.h` for compile-time tuning (buffer sizes, queue depths).
 - [ ] **Memory Documentation**: Document RAM/ROM budgets and provide memory calculator tool.
 

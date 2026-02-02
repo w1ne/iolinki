@@ -49,19 +49,20 @@ def calculate_checksum_type0(mc: int, ckt: int = 0x00) -> int:
     return calculate_crc6(bytes([mc, ckt]))
 
 
-def calculate_checksum_type1(mc: int, pd: bytes, od: int) -> int:
+def calculate_checksum_type1(mc: int, ckt: int, pd: bytes, od: int) -> int:
     """
-    Calculate checksum for Type 1 M-sequence (MC + PD + OD).
+    Calculate checksum for Type 1 M-sequence (MC + CKT + PD + OD).
     
     Args:
         mc: Master Command byte
+        ckt: Command/Key/Type byte
         pd: Process Data bytes
         od: On-request Data byte (8-bit)
         
     Returns:
         6-bit checksum
     """
-    data = bytes([mc]) + pd + bytes([od])
+    data = bytes([mc, ckt]) + pd + bytes([od])
     return calculate_crc6(data)
 
 

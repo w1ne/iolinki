@@ -1,0 +1,1 @@
+void _mock_entry(void){}

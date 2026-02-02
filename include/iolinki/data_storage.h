@@ -32,10 +32,21 @@ typedef struct {
 } iolink_ds_storage_api_t;
 
 /**
+ * @brief Data Storage context
+ */
+typedef struct {
+    iolink_ds_state_t state;
+    const iolink_ds_storage_api_t *storage;
+    uint16_t current_checksum;
+    uint16_t master_checksum;
+} iolink_ds_ctx_t;
+
+/**
  * @brief Initialize Data Storage engine
+ * @param ctx DS context
  * @param storage Storage implementation hooks (can be NULL for volatile storage)
  */
-void iolink_ds_init(const iolink_ds_storage_api_t *storage);
+void iolink_ds_init(iolink_ds_ctx_t *ctx, const iolink_ds_storage_api_t *storage);
 
 /**
  * @brief Calculate checksum for a parameter set
@@ -47,13 +58,15 @@ uint16_t iolink_ds_calc_checksum(const uint8_t *data, size_t len);
 
 /**
  * @brief Process DS state machine
+ * @param ctx DS context
  */
-void iolink_ds_process(void);
+void iolink_ds_process(iolink_ds_ctx_t *ctx);
 
 /**
  * @brief Trigger DS Check (Master comparison)
+ * @param ctx DS context
  * @param master_checksum Checksum provided by Master
  */
-void iolink_ds_check(uint16_t master_checksum);
+void iolink_ds_check(iolink_ds_ctx_t *ctx, uint16_t master_checksum);
 
 #endif // IOLINK_DATA_STORAGE_H

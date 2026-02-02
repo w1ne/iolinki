@@ -28,7 +28,7 @@ add_library(iolinki STATIC
     src/isdu.c
     src/events.c
     src/data_storage.c
-    src/data_storage.c
+    src/device_info.c
 )
 
 # Platform Selection

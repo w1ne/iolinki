@@ -7,22 +7,47 @@
 ```c
 #include "iolinki/iolink.h"
 
-int iolink_init(const iolink_phy_api_t *phy);
+int iolink_init(const iolink_phy_api_t *phy, const iolink_config_t *config);
 ```
 
-Initialize the IO-Link stack with a PHY implementation.
+Initialize the IO-Link stack with a PHY implementation and protocol configuration.
 
 **Parameters**:
 - `phy`: Pointer to PHY API structure
+- `config`: Pointer to `iolink_config_t` structure (copied internally)
 
 **Returns**: 0 on success, negative error code otherwise
+
+#### Stack Configuration
+
+```c
+typedef struct {
+    iolink_m_seq_type_t m_seq_type; /**< M-sequence type support */
+    uint8_t min_cycle_time;         /**< Minimum cycle time (encoded per spec) */
+    uint8_t pd_in_len;              /**< Process Data Input length (bytes) */
+    uint8_t pd_out_len;             /**< Process Data Output length (bytes) */
+} iolink_config_t;
+```
+
+**M-Sequence Types**:
+- `IOLINK_M_SEQ_TYPE_0`: On-request data only.
+- `IOLINK_M_SEQ_TYPE_1_1`: PD (fixed) + OD (1 byte).
+- `IOLINK_M_SEQ_TYPE_1_2`: PD (fixed) + OD (1 byte) + ISDU.
+- `IOLINK_M_SEQ_TYPE_2_1`: PD (fixed) + OD (2 bytes).
+- `IOLINK_M_SEQ_TYPE_2_2`: PD (fixed) + OD (2 bytes) + ISDU.
 
 **Example**:
 ```c
 extern const iolink_phy_api_t g_phy_virtual;
 
 int main(void) {
-    if (iolink_init(&g_phy_virtual) != 0) {
+    iolink_config_t config = {
+        .m_seq_type = IOLINK_M_SEQ_TYPE_1_2,
+        .pd_in_len = 2,
+        .pd_out_len = 2
+    };
+
+    if (iolink_init(&g_phy_virtual, &config) != 0) {
         // Handle error
         return -1;
     }

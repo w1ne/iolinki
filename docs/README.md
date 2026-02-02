@@ -18,6 +18,7 @@ Comprehensive documentation for the iolinki IO-Link Device Stack.
 ## Technical Guides
 
 - **[API Reference](API.md)** - Complete API documentation
+- **[Frame Support](FRAMES.md)** - Supported M-sequences and frame structures
 - **[Testing Guide](TESTING.md)** - Unit tests, integration tests, and Virtual Master
 - **[Platform Porting](PORTING.md)** - How to port to new platforms and RTOSes
 
@@ -32,10 +33,21 @@ Comprehensive documentation for the iolinki IO-Link Device Stack.
 
 ## API Documentation (Doxygen)
 
-Generate HTML documentation:
+## Continuous Integration
 
+| Platform | Status |
+|----------|--------|
+| **Linux** | ✅ Verified |
+| **Zephyr** | ✅ Verified (Native Sim) |
+| **Bare Metal** | ✅ Verified (Build) |
+| **Code Quality** | ✅ Pass (MISRA/Cppcheck) |
+
+## Quick Start
+
+### Run Tests (Docker)
 ```bash
-doxygen Doxyfile
+docker build -t iolinki-test .
+docker run --rm iolinki-test
 ```
 
 Output: `docs/html/index.html`

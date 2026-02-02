@@ -52,3 +52,43 @@ const iolink_phy_api_t g_phy_mock = {
     .send = mock_phy_send,
     .recv_byte = mock_phy_recv_byte
 };
+
+void iolink_phy_mock_reset(void)
+{
+    /* Placeholder - CMocka reset logic is usually handled by setup/teardown */
+}
+
+/* Mock Storage for Data Storage (DS) testing */
+#include "iolinki/data_storage.h"
+#define DS_MOCK_SIZE 128
+static uint8_t g_ds_mock_buf[DS_MOCK_SIZE];
+
+static int ds_mock_read(uint32_t addr, uint8_t *buf, size_t len)
+{
+    if (addr + len > DS_MOCK_SIZE) return -1;
+    memcpy(buf, &g_ds_mock_buf[addr], len);
+    return 0;
+}
+
+static int ds_mock_write(uint32_t addr, const uint8_t *buf, size_t len)
+{
+    if (addr + len > DS_MOCK_SIZE) return -1;
+    memcpy(&g_ds_mock_buf[addr], buf, len);
+    return 0;
+}
+
+const iolink_ds_storage_api_t g_ds_storage_mock = {
+    .read = ds_mock_read,
+    .write = ds_mock_write,
+    .erase = NULL
+};
+
+void iolink_ds_mock_reset(void)
+{
+    memset(g_ds_mock_buf, 0, DS_MOCK_SIZE);
+}
+
+uint8_t* iolink_ds_mock_get_buf(void)
+{
+    return g_ds_mock_buf;
+}

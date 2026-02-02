@@ -9,6 +9,8 @@ import os
 import pty
 import select
 import time
+import tty
+import termios
 from typing import Optional
 
 
@@ -19,6 +21,16 @@ class VirtualUART:
         """Create a pty pair for virtual UART communication."""
         self.master_fd, self.device_fd = pty.openpty()
         self.device_tty = os.ttyname(self.device_fd)
+        
+        # Set raw mode to disable echo and line buffering (canonical mode)
+        for fd in [self.master_fd, self.device_fd]:
+            try:
+                attrs = termios.tcgetattr(fd)
+                attrs[3] = attrs[3] & ~termios.ECHO & ~termios.ICANON & ~termios.IEXTEN & ~termios.ISIG
+                attrs[1] = attrs[1] & ~termios.ONLCR # Disable NL to CR-NL conversion
+                termios.tcsetattr(fd, termios.TCSANOW, attrs)
+            except termios.error:
+                pass
         
     def get_device_tty(self) -> str:
         """
