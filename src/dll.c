@@ -27,6 +27,21 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
     ctx->phy = phy;
     ctx->last_activity_ms = 0;
     
+    /* Set OD length based on M-sequence type */
+    if (ctx->m_seq_type == IOLINK_M_SEQ_TYPE_2_1 || 
+        ctx->m_seq_type == IOLINK_M_SEQ_TYPE_2_2) {
+        ctx->od_len = 2;  /* Type 2 uses 2-byte OD */
+    } else {
+        ctx->od_len = 1;  /* Type 0, 1, and 2_V use 1-byte OD */
+    }
+    
+    /* Initialize error handling */
+    ctx->max_retries = 3;  /* Default: 3 retry attempts */
+    ctx->crc_errors = 0;
+    ctx->timeout_errors = 0;
+    ctx->framing_errors = 0;
+    ctx->retry_count = 0;
+    
     /* Init Sub-modules */
     iolink_events_init(&ctx->events);
     iolink_isdu_init(&ctx->isdu);
@@ -54,13 +69,13 @@ static uint8_t get_req_len(iolink_dll_ctx_t *ctx)
         case IOLINK_M_SEQ_TYPE_1_1:
         case IOLINK_M_SEQ_TYPE_1_2:
         case IOLINK_M_SEQ_TYPE_1_V:
-            return IOLINK_M_SEQ_TYPE1_LEN(ctx->pd_out_len);
+            /* Type 1: MC + CKT + PD_OUT + OD(1) + CK */
+            return 2 + ctx->pd_out_len + 1 + 1;
         case IOLINK_M_SEQ_TYPE_2_1:
         case IOLINK_M_SEQ_TYPE_2_2:
-            return IOLINK_M_SEQ_TYPE2_LEN(ctx->pd_out_len, 2);
         case IOLINK_M_SEQ_TYPE_2_V:
-            /* For 2_V, OD length is negotiated/configured. In V1.1.5 it is typically 1 byte. */
-            return IOLINK_M_SEQ_TYPE1_LEN(ctx->pd_out_len);
+            /* Type 2: MC + CKT + PD_OUT + OD(ctx->od_len) + CK */
+            return 2 + ctx->pd_out_len + ctx->od_len + 1;
         default:
             return IOLINK_M_SEQ_TYPE0_LEN;
     }
@@ -105,6 +120,7 @@ static void handle_operate(iolink_dll_ctx_t *ctx, uint8_t byte)
             uint8_t mc = ctx->frame_buf[0];
             uint8_t ck = ctx->frame_buf[1];
             if (iolink_checksum_ck(mc, 0) == ck) {
+                ctx->retry_count = 0;  /* Reset retry counter on success */
                 iolink_isdu_collect_byte(&ctx->isdu, mc);
                 iolink_isdu_process(&ctx->isdu);
                 uint8_t resp[2];
@@ -112,6 +128,14 @@ static void handle_operate(iolink_dll_ctx_t *ctx, uint8_t byte)
                 uint8_t status = iolink_events_pending(&ctx->events) ? 0x04 : 0;
                 resp[1] = iolink_checksum_ck(status, resp[0]);
                 ctx->phy->send(resp, 2);
+            } else {
+                /* CRC error in Type 0 */
+                ctx->crc_errors++;
+                ctx->retry_count++;
+                if (ctx->retry_count >= ctx->max_retries) {
+                    ctx->retry_count = 0;
+                    /* Could trigger error event here */
+                }
             }
         } else {
             /* Type 1/2 Logic */
@@ -119,22 +143,27 @@ static void handle_operate(iolink_dll_ctx_t *ctx, uint8_t byte)
             uint8_t calculated_ck = iolink_crc6(ctx->frame_buf, ctx->req_len-1);
             
             if (calculated_ck == received_ck) {
+                ctx->retry_count = 0;  /* Reset retry counter on success */
+                
                 iolink_critical_enter();
                 /* Extract PD (Starts after MC and CKT) */
                 if (ctx->pd_out_len > 0) {
                     memcpy(ctx->pd_out, &ctx->frame_buf[2], ctx->pd_out_len);
                 }
                 
-                /* Extract OD and feed ISDU */
+                /* Extract OD and feed ISDU (OD can be 1 or 2 bytes) */
                 uint8_t od_idx = 2 + ctx->pd_out_len;
+                
+                /* For Type 1 (od_len=1): Feed single OD byte to ISDU */
+                /* For Type 2 (od_len=2): Feed first OD byte only (second byte reserved for future use) */
                 uint8_t od = ctx->frame_buf[od_idx];
                 iolink_isdu_collect_byte(&ctx->isdu, od);
                 
                 /* Run ISDU engine */
                 iolink_isdu_process(&ctx->isdu);
                 
-                /* Prepare Response: Status + PD_In + OD + CK */
-                uint8_t resp[IOLINK_PD_IN_MAX_SIZE + 4];
+                /* Prepare Response: Status + PD_In + OD(od_len bytes) + CK */
+                uint8_t resp[IOLINK_PD_IN_MAX_SIZE + 5];  /* Status + PD + OD(2) + CK */
                 uint8_t resp_idx = 0;
                 
                 /* Status Byte: [Event(7)] [R(6)] [PDStatus(5)] [ODStatus(4-0)] */
@@ -149,9 +178,15 @@ static void handle_operate(iolink_dll_ctx_t *ctx, uint8_t byte)
                     resp_idx += ctx->pd_in_len;
                 }
                 
+                /* OD response (1 or 2 bytes based on od_len) */
                 uint8_t od_in = 0;
                 iolink_isdu_get_response_byte(&ctx->isdu, &od_in);
                 resp[resp_idx++] = od_in;
+                
+                /* For Type 2, add second OD byte (reserved, set to 0) */
+                if (ctx->od_len == 2) {
+                    resp[resp_idx++] = 0x00;
+                }
                 
                 /* CK */
                 resp[resp_idx] = iolink_crc6(resp, resp_idx);
@@ -159,6 +194,14 @@ static void handle_operate(iolink_dll_ctx_t *ctx, uint8_t byte)
                 
                 ctx->phy->send(resp, resp_idx);
                 iolink_critical_exit();
+            } else {
+                /* CRC error in Type 1/2 */
+                ctx->crc_errors++;
+                ctx->retry_count++;
+                if (ctx->retry_count >= ctx->max_retries) {
+                    ctx->retry_count = 0;
+                    /* Could trigger error event or state transition */
+                }
             }
         }
     }

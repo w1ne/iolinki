@@ -41,6 +41,7 @@ typedef struct {
     uint8_t m_seq_type; /* iolink_m_seq_type_t */
     uint8_t pd_in_len;
     uint8_t pd_out_len;
+    uint8_t od_len;     /* On-request Data length (1 or 2 bytes) */
     bool pd_valid; /* Input Data Validity */
     
     /* Unified Frame Assembly */
@@ -52,6 +53,17 @@ typedef struct {
     /* Process Data Buffers */
     uint8_t pd_in[IOLINK_PD_IN_MAX_SIZE];  /* Device -> Master */
     uint8_t pd_out[IOLINK_PD_OUT_MAX_SIZE]; /* Master -> Device */
+
+    /* Error Counters & Statistics */
+    uint32_t crc_errors;        /* CRC error count */
+    uint32_t timeout_errors;    /* Timeout error count */
+    uint32_t framing_errors;    /* Framing error count */
+    uint8_t retry_count;        /* Current retry attempt */
+    uint8_t max_retries;        /* Maximum retry attempts (default: 3) */
+    
+    /* Timing Statistics */
+    uint64_t last_response_us;  /* Timestamp of last response */
+    uint32_t response_time_us;  /* Last response time in microseconds */
 
     /* Sub-modules */
     iolink_events_ctx_t events;

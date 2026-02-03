@@ -1,1 +1,0 @@
-/usr/bin/cc  -Wall -Wextra CMakeFiles/bare_metal_app.dir/src/main.c.o -o bare_metal_app  ../../libiolinki.a 

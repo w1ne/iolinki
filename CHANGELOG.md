@@ -5,6 +5,38 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-02-03
+
+### Added
+- **M-Sequence Type Support**: Full implementation of Types 1_1, 1_2, 2_1, and 2_2 for comprehensive protocol coverage.
+- **Variable OD Length**: Dynamic On-request Data sizing (1 or 2 bytes) based on M-sequence type.
+- **Mandatory ISDU Indices**: Implemented all remaining mandatory indices per IO-Link V1.1.5:
+  - 0x000A: Vendor ID (16-bit)
+  - 0x000B: Device ID (32-bit)
+  - 0x000D: Profile Characteristic (16-bit)
+  - 0x001B: Device Status (8-bit)
+- **PHY API Extensions**: Added optional hardware feature support:
+  - Wake-up pulse detection (80μs pulse on C/Q line)
+  - C/Q line state control
+  - L+ voltage monitoring (18-30V range)
+  - Short circuit detection
+- **Error Handling**: Comprehensive error tracking and retry logic:
+  - CRC error counter
+  - Timeout error counter
+  - Framing error counter
+  - Automatic retry mechanism (max 3 attempts)
+  - Timing statistics (response time tracking)
+- **Unit Tests**: New `test_m_sequence_types.c` for validating M-sequence frame handling.
+
+### Changed
+- **DLL Context**: Added `od_len` field for dynamic OD sizing.
+- **Device Info**: Moved `access_locks` from global variable to `device_info` structure for better encapsulation.
+- **ISDU Write Support**: Enhanced Index 0x000C (Access Locks) to support write operations.
+
+### Fixed
+- **Global Variables**: Eliminated all global state variables (removed `g_access_locks`).
+- **Multi-Instance Support**: All APIs now properly use context pointers for full reentrancy.
+
 ## [0.7.0] — 2026-02-03
 
 ### Added
@@ -96,6 +128,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Host Demo**: `examples/host_demo` showing stack execution without hardware.
 - **Documentation**: Initial README, ROADMAP, VISION, and RELEASE_STRATEGY.
 
+[0.8.0]: https://github.com/w1ne/iolinki/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/w1ne/iolinki/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/w1ne/iolinki/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/w1ne/iolinki/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/w1ne/iolinki/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/w1ne/iolinki/compare/v0.2.0...v0.3.0

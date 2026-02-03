@@ -34,14 +34,20 @@ typedef struct {
     const char *firmware_revision;  /* Index 0x0017 */
     const char *application_tag;    /* Index 0x0018 (optional) */
     
-    /* Device IDs */
-    uint16_t vendor_id;             /* Index 0x0000 */
-    uint32_t device_id;             /* Index 0x0000 */
+    /* Device IDs (Mandatory Indices) */
+    uint16_t vendor_id;             /* Index 0x000A */
+    uint32_t device_id;             /* Index 0x000B */
     uint16_t function_id;           /* Index 0x001C */
+    uint16_t profile_characteristic; /* Index 0x000D */
     
     /* System Info */
     uint8_t min_cycle_time;         /* Index 0x0024 (in 100μs units) */
     uint16_t revision_id;           /* Index 0x001E */
+    uint8_t device_status;          /* Index 0x001B */
+    uint16_t detailed_device_status; /* Index 0x001C (optional) */
+    
+    /* Access Control */
+    uint16_t access_locks;          /* Index 0x000C - Device Access Locks */
 } iolink_device_info_t;
 
 /**
@@ -63,5 +69,17 @@ const iolink_device_info_t* iolink_device_info_get(void);
  * @return 0 on success, negative on error
  */
 int iolink_device_info_set_application_tag(const char *tag, uint8_t len);
+
+/**
+ * @brief Get Device Access Locks (Index 0x000C)
+ * @return 16-bit access locks value
+ */
+uint16_t iolink_device_info_get_access_locks(void);
+
+/**
+ * @brief Set Device Access Locks (Index 0x000C)
+ * @param locks 16-bit access locks value
+ */
+void iolink_device_info_set_access_locks(uint16_t locks);
 
 #endif // IOLINK_DEVICE_INFO_H

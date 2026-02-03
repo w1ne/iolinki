@@ -11,6 +11,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 /**
  * @file phy.h
@@ -67,6 +68,32 @@ typedef struct {
      * @return 1 if byte received, 0 if no data, negative on error
      */
     int (*recv_byte)(uint8_t *byte);
+    
+    /* Optional Functions (can be NULL if not supported) */
+    
+    /**
+     * @brief Detect wake-up pulse (80μs pulse on C/Q line)
+     * @return 1 if wake-up pulse detected, 0 otherwise
+     */
+    int (*detect_wakeup)(void);
+    
+    /**
+     * @brief Set C/Q line state
+     * @param state 0=low, 1=high
+     */
+    void (*set_cq_line)(uint8_t state);
+    
+    /**
+     * @brief Get L+ voltage in millivolts
+     * @return Voltage in mV (18000-30000 range), negative on error
+     */
+    int (*get_voltage_mv)(void);
+    
+    /**
+     * @brief Check for short circuit condition
+     * @return true if short circuit detected, false otherwise
+     */
+    bool (*is_short_circuit)(void);
 } iolink_phy_api_t;
 
 #endif // IOLINK_PHY_H

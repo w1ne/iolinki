@@ -26,9 +26,14 @@ static iolink_device_info_t g_default_info = {
     .vendor_id = 0xFFFF,        /* Unassigned vendor ID */
     .device_id = 0x00000001,
     .function_id = 0x0000,
+    .profile_characteristic = 0x0000,
     
     .min_cycle_time = 10,       /* 1.0ms (10 * 100μs) */
-    .revision_id = 0x0001
+    .revision_id = 0x0001,
+    .device_status = 0x00,      /* No errors */
+    .detailed_device_status = 0x0000,
+    
+    .access_locks = 0x0000      /* All unlocked by default */
 };
 
 static char g_app_tag_buffer[33] = "DefaultTag";
@@ -68,4 +73,18 @@ const iolink_device_info_t* iolink_device_info_get(void)
         g_device_info = &g_default_info;
     }
     return g_device_info;
+}
+
+uint16_t iolink_device_info_get_access_locks(void)
+{
+    const iolink_device_info_t *info = iolink_device_info_get();
+    return info->access_locks;
+}
+
+void iolink_device_info_set_access_locks(uint16_t locks)
+{
+    /* Only allow modification if using default info */
+    if (g_device_info == &g_default_info) {
+        g_default_info.access_locks = locks;
+    }
 }

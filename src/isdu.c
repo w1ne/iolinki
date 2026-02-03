@@ -166,6 +166,32 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t *ctx)
     
     
     switch (ctx->header.index) {
+        case 0x000A: /* Vendor ID (16-bit) */
+            ctx->response_buf[0] = (uint8_t)(info->vendor_id >> 8);
+            ctx->response_buf[1] = (uint8_t)(info->vendor_id & 0xFF);
+            ctx->response_len = 2;
+            ctx->response_idx = 0;
+            ctx->state = ISDU_STATE_RESPONSE_READY;
+            return;
+            
+        case 0x000B: /* Device ID (32-bit) */
+            ctx->response_buf[0] = (uint8_t)(info->device_id >> 24);
+            ctx->response_buf[1] = (uint8_t)(info->device_id >> 16);
+            ctx->response_buf[2] = (uint8_t)(info->device_id >> 8);
+            ctx->response_buf[3] = (uint8_t)(info->device_id & 0xFF);
+            ctx->response_len = 4;
+            ctx->response_idx = 0;
+            ctx->state = ISDU_STATE_RESPONSE_READY;
+            return;
+            
+        case 0x000D: /* Profile Characteristic (16-bit) */
+            ctx->response_buf[0] = (uint8_t)(info->profile_characteristic >> 8);
+            ctx->response_buf[1] = (uint8_t)(info->profile_characteristic & 0xFF);
+            ctx->response_len = 2;
+            ctx->response_idx = 0;
+            ctx->state = ISDU_STATE_RESPONSE_READY;
+            return;
+            
         case 0x0010: str_data = info->vendor_name; break;
         case 0x0011: str_data = info->vendor_text; break;
         case 0x0012: str_data = info->product_name; break;
@@ -194,17 +220,24 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t *ctx)
             }
             break;
             
-        case 0x0024:
-            ctx->response_buf[0] = info->min_cycle_time;
+        case 0x001B: /* Device Status */
+            ctx->response_buf[0] = info->device_status;
             ctx->response_len = 1;
             ctx->response_idx = 0;
             ctx->state = ISDU_STATE_RESPONSE_READY;
             return;
             
-        case 0x001E:
+        case 0x001E: /* Revision ID (16-bit) */
             ctx->response_buf[0] = (uint8_t)(info->revision_id >> 8);
             ctx->response_buf[1] = (uint8_t)(info->revision_id & 0xFF);
             ctx->response_len = 2;
+            ctx->response_idx = 0;
+            ctx->state = ISDU_STATE_RESPONSE_READY;
+            return;
+            
+        case 0x0024: /* Min Cycle Time */
+            ctx->response_buf[0] = info->min_cycle_time;
+            ctx->response_len = 1;
             ctx->response_idx = 0;
             ctx->state = ISDU_STATE_RESPONSE_READY;
             return;
@@ -242,15 +275,19 @@ static void handle_system_command(iolink_isdu_ctx_t *ctx, uint8_t cmd)
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
-static uint16_t g_access_locks = 0x0000; /* TODO: Move to ctx or device info */
-
 static void handle_access_locks(iolink_isdu_ctx_t *ctx)
 {
     if (ctx->header.type == IOLINK_ISDU_SERVICE_READ) {
-        ctx->response_buf[0] = (uint8_t)(g_access_locks >> 8);
-        ctx->response_buf[1] = (uint8_t)(g_access_locks & 0xFF);
+        uint16_t locks = iolink_device_info_get_access_locks();
+        ctx->response_buf[0] = (uint8_t)(locks >> 8);
+        ctx->response_buf[1] = (uint8_t)(locks & 0xFF);
         ctx->response_len = 2;
     } else {
+        /* Write: Update access locks */
+        if (ctx->buffer_idx >= 2) {
+            uint16_t new_locks = ((uint16_t)ctx->buffer[0] << 8) | ctx->buffer[1];
+            iolink_device_info_set_access_locks(new_locks);
+        }
         ctx->response_len = 0;
     }
     ctx->response_idx = 0;
