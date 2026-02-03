@@ -12,7 +12,7 @@ IO-Link protocol implementation - M-sequence generation and parsing.
 
 from enum import IntEnum
 from typing import Optional, Tuple
-from .crc import calculate_checksum_type0, calculate_checksum_type1
+from .crc import calculate_checksum_type0, calculate_checksum_type1, verify_checksum
 
 
 class MSequenceType(IntEnum):
@@ -178,6 +178,8 @@ class DeviceResponse:
         self.raw = data
         self.od_len = od_len
         self.valid = len(data) >= 2
+        self.checksum_ok = None
+        self.pd_valid = False
         
         if self.valid:
             if len(data) == 2:
@@ -203,15 +205,18 @@ class DeviceResponse:
                     self.od2 = None
                 
                 self.checksum = data[-1]
+                self.checksum_ok = verify_checksum(data[:-1], self.checksum)
+                self.pd_valid = bool(self.status & 0x20)
     
     def has_event(self) -> bool:
         """Check if Device has pending event."""
-        return bool(self.status & 0x01) if self.valid else False
+        return bool(self.status & 0x80) if self.valid else False
     
     def is_valid_checksum(self) -> bool:
         """Verify checksum (simplified)."""
-        # TODO: Implement proper CRC verification
-        return self.valid
+        if self.checksum_ok is None:
+            return self.valid
+        return self.checksum_ok
     
     def __repr__(self) -> str:
         od_str = f"od=0x{self.od:02X}" if hasattr(self, 'od') else ""

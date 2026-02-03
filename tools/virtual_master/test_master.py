@@ -18,8 +18,8 @@ from virtual_master.master import VirtualMaster
 from virtual_master.protocol import MSequenceGenerator
 
 def test_virtual_master():
-    print("=== Testing Virtual Master ===
-")
+    print("=== Testing Virtual Master ===")
+    print()
     
     # Test M-sequence generation
     print("1. Testing M-sequence generation...")
@@ -27,19 +27,19 @@ def test_virtual_master():
     
     wakeup = gen.generate_wakeup()
     print(f"   Wake-up frame: {wakeup.hex()}")
-    assert len(wakeup) == 3, "Wake-up should be 3 bytes"
+    assert len(wakeup) == 2, "Wake-up should be 2 bytes"
     assert wakeup[0] == 0x95, "Wake-up MC should be 0x95"
     print("   ✓ Wake-up frame correct")
     
     idle = gen.generate_idle()
     print(f"   Idle frame: {idle.hex()}")
-    assert len(idle) == 3, "Idle should be 3 bytes"
+    assert len(idle) == 2, "Idle should be 2 bytes"
     assert idle[0] == 0x00, "Idle MC should be 0x00"
     print("   ✓ Idle frame correct")
     
     # Test Virtual Master creation
-    print("
-2. Testing Virtual Master creation...")
+    print()
+    print("2. Testing Virtual Master creation...")
     master = VirtualMaster()
     tty = master.get_device_tty()
     print(f"   Device TTY: {tty}")
@@ -47,8 +47,8 @@ def test_virtual_master():
     print("   ✓ Virtual UART created")
     
     # Test frame sending (no device connected, just verify no crash)
-    print("
-3. Testing frame transmission...")
+    print()
+    print("3. Testing frame transmission...")
     try:
         master.send_wakeup()
         print("   ✓ Wake-up sent successfully")
@@ -57,10 +57,9 @@ def test_virtual_master():
         return 1
     
     master.close()
-    print("
-[SUCCESS] All Virtual Master tests passed!")
-    print(f"
-To test with real Device, run:")
+    print()
+    print("[SUCCESS] All Virtual Master tests passed!")
+    print("To test with real Device, run:")
     print(f"  ./build/examples/host_demo/host_demo {tty}")
     
     return 0

@@ -1,6 +1,6 @@
 # Virtual Master - Supported Services
 
-## Current Implementation (Phase 1)
+## Current Implementation
 
 ### ✅ Implemented Services
 
@@ -10,13 +10,13 @@
 - **Frame Transmission**: Byte-by-byte send/receive
 
 #### Data Link Layer
-- **M-Sequence Type 0**: On-request data only
-  - Wake-up pulse (MC: 0x95)
-  - Idle frame (MC: 0x00)
-  - ISDU Read request (MC: 0xA0) - basic
-  - Event request (MC: 0xA2)
+- **M-Sequence Types**: 0, 1_1, 1_2, 2_1, 2_2
+- **Variable PD Lengths**: Type 1_V / 2_V via `set_pd_length()` and PD len config
+- **Variable OD Length**: 1-byte (Type 1) and 2-byte (Type 2)
+- **Wake-up / Idle**: Type 0 wake-up and idle sequences
+- **Event Request**: Master-side event request (MC: 0xA2)
 - **CRC6 Calculation**: Polynomial 0x1D, seed 0x15 (matches iolinki)
-- **Checksum Verification**: Type 0 frames
+- **Checksum Verification**: Type 1/2 response validation
 
 #### Master State Machine
 - **STARTUP**: Initial state
@@ -26,37 +26,24 @@
 #### Services
 - `send_wakeup()`: Send wake-up pulse
 - `send_idle()`: Send idle frame, receive Device response
-- `read_isdu()`: Request ISDU read (Type 0 only)
+- `read_isdu()`: ISDU Read (V1.1.5 segmentation, Type 0/1/2)
+- `write_isdu()`: ISDU Write (V1.1.5 segmentation, Type 0/1/2)
 - `request_event()`: Request event from Device
 - `run_startup_sequence()`: Automated startup
-- `run_cycle()`: Single communication cycle
+- `run_cycle()`: Single communication cycle (PD + OD)
 
 ### ❌ Not Yet Implemented
 
-#### M-Sequences
-- M-sequence Type 1_1 (PD only, 8-bit OD)
-- M-sequence Type 1_2 (PD + ISDU, 8-bit OD)
-- M-sequence Type 1_V (PD only, variable OD)
-- M-sequence Type 2_1 (PD only, 16/32-bit OD)
-- M-sequence Type 2_2 (PD + ISDU, 16/32-bit OD)
-- M-sequence Type 2_V (PD only, variable OD + ISDU)
-
 #### ISDU Services
-- Full ISDU Read with segmentation
-- ISDU Write service
 - ISDU flow control (Busy/Retry)
-- 16-bit index support
-- Subindex addressing
+- 16-bit index / subindex error injection helpers
 
 #### Process Data
-- PD Input (Device → Master)
-- PD Output (Master → Device)
 - PD consistency (toggle bit)
 - PD validity flags
 
 #### Events
-- Event queue management
-- Event acknowledgment
+- Event acknowledgment (CKT flow control)
 - Event qualifier parsing
 
 #### Data Storage
@@ -119,8 +106,8 @@ from virtual_master.protocol import MSequenceGenerator
 gen = MSequenceGenerator()
 
 # Generate frames
-wakeup = gen.generate_wakeup()      # [0x95, 0x00, CK]
-idle = gen.generate_idle()          # [0x00, 0x00, CK]
+wakeup = gen.generate_wakeup()      # [MC, CK]
+idle = gen.generate_idle()          # [MC, CK]
 isdu_read = gen.generate_isdu_read(0x10)  # ISDU read
 event_req = gen.generate_event_request()  # Event request
 ```

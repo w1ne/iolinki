@@ -232,7 +232,7 @@ class VirtualMaster:
         time.sleep(0.05) # Give device time to switch
         return True
     
-    def run_cycle(self, pd_out: bytes = None, od_req: int = 0) -> DeviceResponse:
+    def run_cycle(self, pd_out: bytes = None, od_req: int = 0, od_req2: int = 0x00, ckt: int = 0x00) -> DeviceResponse:
         """
         Run one communication cycle.
         
@@ -255,11 +255,8 @@ class VirtualMaster:
                  # Resize or warn? For now truncate/pad
                  pd_out = pd_out[:self.pd_out_len].ljust(self.pd_out_len, b'\x00')
             
-            # Use fixed CKT for now: 0x00 (Event flow control bits are here usually)
-            ckt = 0x00 
-            
             # Generate frame (generator knows od_len)
-            frame = self.generator.generate_type1(0x00, ckt, pd_out, od_req)
+            frame = self.generator.generate_type1(0x00, ckt, pd_out, od_req, od_req2)
             
             self.uart.send_bytes(frame)
             
@@ -272,7 +269,7 @@ class VirtualMaster:
             else:
                 return DeviceResponse(b'', od_len=self.od_len)
 
-    def run_cycle_bad_crc(self, pd_out: bytes = None, od_req: int = 0) -> DeviceResponse:
+    def run_cycle_bad_crc(self, pd_out: bytes = None, od_req: int = 0, od_req2: int = 0x00, ckt: int = 0x00) -> DeviceResponse:
         """
         Run one communication cycle with CORRUPTED CRC (for testing).
         """
@@ -282,9 +279,8 @@ class VirtualMaster:
         if pd_out is None:
              pd_out = bytes([0] * self.pd_out_len)
         
-        ckt = 0x00
         # Generate valid frame first
-        frame = bytearray(self.generator.generate_type1(0x00, ckt, pd_out, od_req))
+        frame = bytearray(self.generator.generate_type1(0x00, ckt, pd_out, od_req, od_req2))
         
         # Corrupt the Checksum (last byte)
         frame[-1] ^= 0xFF # Flip all bits
