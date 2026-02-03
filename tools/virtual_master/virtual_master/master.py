@@ -60,6 +60,29 @@ class VirtualMaster:
         """Get the TTY path for connecting the Device."""
         return self.uart.get_device_tty()
     
+    def set_pd_length(self, pd_in_len: int, pd_out_len: int) -> None:
+        """
+        Change PD lengths for variable types (1_V, 2_V).
+        
+        Args:
+            pd_in_len: New PD Input length (2-32 bytes)
+            pd_out_len: New PD Output length (2-32 bytes)
+            
+        Raises:
+            ValueError: If not a variable type or invalid length
+        """
+        from .protocol import MSequenceType
+        
+        if self.m_seq_type not in (MSequenceType.TYPE_1_V, MSequenceType.TYPE_2_V):
+            raise ValueError("PD length change only supported for Type 1_V and 2_V")
+        
+        if not (2 <= pd_in_len <= 32) or not (2 <= pd_out_len <= 32):
+            raise ValueError("PD length must be 2-32 bytes")
+        
+        self.pd_in_len = pd_in_len
+        self.pd_out_len = pd_out_len
+        print(f"[Master] PD length changed: PD_In={pd_in_len}, PD_Out={pd_out_len}")
+    
     def send_wakeup(self) -> None:
         """Send wake-up pulse (simulated by dummy byte) to Device."""
         self.uart.send_bytes(bytes([0x00]))

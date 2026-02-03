@@ -29,10 +29,26 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
     
     /* Set OD length based on M-sequence type */
     if (ctx->m_seq_type == IOLINK_M_SEQ_TYPE_2_1 || 
-        ctx->m_seq_type == IOLINK_M_SEQ_TYPE_2_2) {
+        ctx->m_seq_type == IOLINK_M_SEQ_TYPE_2_2 ||
+        ctx->m_seq_type == IOLINK_M_SEQ_TYPE_2_V) {
         ctx->od_len = 2;  /* Type 2 uses 2-byte OD */
     } else {
-        ctx->od_len = 1;  /* Type 0, 1, and 2_V use 1-byte OD */
+        ctx->od_len = 1;  /* Type 0, 1_x use 1-byte OD */
+    }
+    
+    /* Initialize variable PD fields for Type 1_V and 2_V */
+    if (ctx->m_seq_type == IOLINK_M_SEQ_TYPE_1_V ||
+        ctx->m_seq_type == IOLINK_M_SEQ_TYPE_2_V) {
+        ctx->pd_in_len_current = ctx->pd_in_len;
+        ctx->pd_out_len_current = ctx->pd_out_len;
+        ctx->pd_in_len_max = ctx->pd_in_len;
+        ctx->pd_out_len_max = ctx->pd_out_len;
+    } else {
+        /* For fixed types, current = max = configured */
+        ctx->pd_in_len_current = ctx->pd_in_len;
+        ctx->pd_out_len_current = ctx->pd_out_len;
+        ctx->pd_in_len_max = ctx->pd_in_len;
+        ctx->pd_out_len_max = ctx->pd_out_len;
     }
     
     /* Initialize error handling */
@@ -68,14 +84,18 @@ static uint8_t get_req_len(iolink_dll_ctx_t *ctx)
             return IOLINK_M_SEQ_TYPE0_LEN;
         case IOLINK_M_SEQ_TYPE_1_1:
         case IOLINK_M_SEQ_TYPE_1_2:
-        case IOLINK_M_SEQ_TYPE_1_V:
-            /* Type 1: MC + CKT + PD_OUT + OD(1) + CK */
+            /* Type 1 (fixed): MC + CKT + PD_OUT + OD(1) + CK */
             return 2 + ctx->pd_out_len + 1 + 1;
+        case IOLINK_M_SEQ_TYPE_1_V:
+            /* Type 1_V (variable): MC + CKT + PD_OUT(current) + OD(1) + CK */
+            return 2 + ctx->pd_out_len_current + 1 + 1;
         case IOLINK_M_SEQ_TYPE_2_1:
         case IOLINK_M_SEQ_TYPE_2_2:
-        case IOLINK_M_SEQ_TYPE_2_V:
-            /* Type 2: MC + CKT + PD_OUT + OD(ctx->od_len) + CK */
+            /* Type 2 (fixed): MC + CKT + PD_OUT + OD(2) + CK */
             return 2 + ctx->pd_out_len + ctx->od_len + 1;
+        case IOLINK_M_SEQ_TYPE_2_V:
+            /* Type 2_V (variable): MC + CKT + PD_OUT(current) + OD(2) + CK */
+            return 2 + ctx->pd_out_len_current + ctx->od_len + 1;
         default:
             return IOLINK_M_SEQ_TYPE0_LEN;
     }
@@ -233,5 +253,45 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx)
         ctx->state = IOLINK_DLL_STATE_STARTUP;
         ctx->last_activity_ms = 0;
         ctx->frame_index = 0;
+    }
+}
+
+/* Variable PD API Functions */
+
+int iolink_dll_set_pd_length(iolink_dll_ctx_t *ctx, uint8_t pd_in_len, uint8_t pd_out_len)
+{
+    /* Validate M-sequence type */
+    if (ctx->m_seq_type != IOLINK_M_SEQ_TYPE_1_V &&
+        ctx->m_seq_type != IOLINK_M_SEQ_TYPE_2_V) {
+        return -1;  /* Only variable types support PD length changes */
+    }
+    
+    /* Validate PD lengths (2-32 bytes per IO-Link spec) */
+    if (pd_in_len < 2 || pd_in_len > 32 || pd_out_len < 2 || pd_out_len > 32) {
+        return -1;
+    }
+    
+    /* Validate against maximum lengths */
+    if (pd_in_len > ctx->pd_in_len_max || pd_out_len > ctx->pd_out_len_max) {
+        return -1;
+    }
+    
+    /* Update current lengths */
+    ctx->pd_in_len_current = pd_in_len;
+    ctx->pd_out_len_current = pd_out_len;
+    
+    /* Recalculate request length */
+    ctx->req_len = get_req_len(ctx);
+    
+    return 0;
+}
+
+void iolink_dll_get_pd_length(const iolink_dll_ctx_t *ctx, uint8_t *pd_in_len, uint8_t *pd_out_len)
+{
+    if (pd_in_len) {
+        *pd_in_len = ctx->pd_in_len_current;
+    }
+    if (pd_out_len) {
+        *pd_out_len = ctx->pd_out_len_current;
     }
 }

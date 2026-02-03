@@ -44,6 +44,12 @@ typedef struct {
     uint8_t od_len;     /* On-request Data length (1 or 2 bytes) */
     bool pd_valid; /* Input Data Validity */
     
+    /* Variable PD Support (for Type 1_V and 2_V) */
+    uint8_t pd_in_len_current;   /* Current PD_In length (2-32) */
+    uint8_t pd_out_len_current;  /* Current PD_Out length (2-32) */
+    uint8_t pd_in_len_max;       /* Maximum PD_In length */
+    uint8_t pd_out_len_max;      /* Maximum PD_Out length */
+    
     /* Unified Frame Assembly */
     uint8_t frame_buf[48];
     uint8_t frame_index;
@@ -83,5 +89,15 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy);
  * @param ctx DLL context
  */
 void iolink_dll_process(iolink_dll_ctx_t *ctx);
+
+/**
+ * Set current PD lengths for variable types (1_V, 2_V)
+ */
+int iolink_dll_set_pd_length(iolink_dll_ctx_t *ctx, uint8_t pd_in_len, uint8_t pd_out_len);
+
+/**
+ * Get current PD lengths
+ */
+void iolink_dll_get_pd_length(const iolink_dll_ctx_t *ctx, uint8_t *pd_in_len, uint8_t *pd_out_len);
 
 #endif // IOLINK_DLL_H
