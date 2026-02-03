@@ -1,3 +1,11 @@
+/*
+ * Copyright (C) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This file is part of iolinki.
+ * See LICENSE for details.
+ */
+
 #ifndef IOLINK_DEVICE_INFO_H
 #define IOLINK_DEVICE_INFO_H
 

@@ -1,3 +1,11 @@
+/*
+ * Copyright (C) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This file is part of iolinki.
+ * See LICENSE for details.
+ */
+
 #include <stdio.h>
 /* Mock FreeRTOS headers if not present, but for example we assume they exist in include path */
 /* To make this compile in the CI environment without FreeRTOS, we will guard it or use a stub */

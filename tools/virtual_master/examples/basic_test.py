@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 """
+Copyright (C) 2026 Andrii Shylenko
+SPDX-License-Identifier: GPL-3.0-or-later
+
+This file is part of iolinki.
+See LICENSE for details.
+"""
+
+"""
 Basic example of using the Virtual IO-Link Master.
 
 This demonstrates how to:
@@ -15,19 +23,24 @@ from virtual_master.master import VirtualMaster
 
 
 def main():
-    print("=== Virtual IO-Link Master - Basic Example ===\n")
+    print("=== Virtual IO-Link Master - Basic Example ===
+")
     
     # Create Virtual Master
     with VirtualMaster() as master:
-        print(f"Device should connect to: {master.get_device_tty()}\n")
+        print(f"Device should connect to: {master.get_device_tty()}
+")
         print("Start your Device application with:")
-        print(f"  ./build/examples/host_demo/host_demo {master.get_device_tty()}\n")
+        print(f"  ./build/examples/host_demo/host_demo {master.get_device_tty()}
+")
         print("Waiting 5 seconds for Device to start...")
         time.sleep(5)
         
         # Run startup sequence
         if master.run_startup_sequence():
-            print("\n[SUCCESS] Startup complete!\n")
+            print("
+[SUCCESS] Startup complete!
+")
             
             # Run a few communication cycles
             print("Running 10 communication cycles...")
@@ -42,9 +55,11 @@ def main():
                 
                 time.sleep(0.01)  # 10ms cycle time
             
-            print("\n[DONE] Communication test complete")
+            print("
+[DONE] Communication test complete")
         else:
-            print("\n[FAILED] Startup sequence failed")
+            print("
+[FAILED] Startup sequence failed")
             return 1
     
     return 0

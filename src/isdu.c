@@ -1,3 +1,11 @@
+/*
+ * Copyright (C) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This file is part of iolinki.
+ * See LICENSE for details.
+ */
+
 #include "iolinki/isdu.h"
 #include "iolinki/crc.h"
 #include "iolinki/events.h"
@@ -332,4 +340,3 @@ int iolink_isdu_get_response_byte(iolink_isdu_ctx_t *ctx, uint8_t *byte)
     ctx->state = ISDU_STATE_IDLE;
     return 0;
 }
-

@@ -61,6 +61,56 @@ if [ -d ../tools/virtual_master ]; then
         fi
         echo "   ✅ Variable PD Test Passed"
     fi
+
+    # 4. IO-Link V1.1.5 Conformance Test Suite
+    echo "   🏃 Running IO-Link V1.1.5 Conformance Tests..."
+    
+    if [ -f ../tools/virtual_master/test_conformance_state_machine.py ]; then
+        echo "      → State Machine Conformance..."
+        python3 ../tools/virtual_master/test_conformance_state_machine.py
+        if [ $? -ne 0 ]; then
+            echo "   ❌ State Machine Conformance FAILED"
+            exit 1
+        fi
+    fi
+    
+    if [ -f ../tools/virtual_master/test_conformance_timing.py ]; then
+        echo "      → Timing Requirements..."
+        python3 ../tools/virtual_master/test_conformance_timing.py
+        if [ $? -ne 0 ]; then
+            echo "   ❌ Timing Conformance FAILED"
+            exit 1
+        fi
+    fi
+    
+    if [ -f ../tools/virtual_master/test_conformance_isdu.py ]; then
+        echo "      → ISDU Protocol Validation..."
+        python3 ../tools/virtual_master/test_conformance_isdu.py
+        if [ $? -ne 0 ]; then
+            echo "   ❌ ISDU Conformance FAILED"
+            exit 1
+        fi
+    fi
+    
+    if [ -f ../tools/virtual_master/test_conformance_error_injection.py ]; then
+        echo "      → Error Injection & Recovery..."
+        python3 ../tools/virtual_master/test_conformance_error_injection.py
+        if [ $? -ne 0 ]; then
+            echo "   ❌ Error Injection Conformance FAILED"
+            exit 1
+        fi
+    fi
+    
+    if [ -f ../tools/virtual_master/test_conformance_performance.py ]; then
+        echo "      → Performance & Stress Testing..."
+        python3 ../tools/virtual_master/test_conformance_performance.py
+        if [ $? -ne 0 ]; then
+            echo "   ❌ Performance Conformance FAILED"
+            exit 1
+        fi
+    fi
+    
+    echo "   ✅ All Conformance Tests Passed"
 else
     echo "   ⚠️ Skipping Integration Tests (Tools directory not found)"
 fi

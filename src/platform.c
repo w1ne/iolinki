@@ -1,3 +1,11 @@
+/*
+ * Copyright (C) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This file is part of iolinki.
+ * See LICENSE for details.
+ */
+
 #include "iolinki/platform.h"
 
 /* Weak definitions allow the application to override them without link errors */

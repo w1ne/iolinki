@@ -1,4 +1,12 @@
 """
+Copyright (C) 2026 Andrii Shylenko
+SPDX-License-Identifier: GPL-3.0-or-later
+
+This file is part of iolinki.
+See LICENSE for details.
+"""
+
+"""
 Virtual UART implementation using pseudo-terminals (pty).
 
 Provides a virtual serial connection between the Master and Device

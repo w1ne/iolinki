@@ -1,3 +1,11 @@
+"""
+Copyright (C) 2026 Andrii Shylenko
+SPDX-License-Identifier: GPL-3.0-or-later
+
+This file is part of iolinki.
+See LICENSE for details.
+"""
+
 from virtual_master.crc import calculate_checksum_type0
 
 print(f"CRC(0x00, 0x00) = 0x{calculate_checksum_type0(0x00, 0x00):02X}")

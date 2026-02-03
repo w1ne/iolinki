@@ -1,3 +1,11 @@
+/*
+ * Copyright (C) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This file is part of iolinki.
+ * See LICENSE for details.
+ */
+
 /**
  * @file test_isdu.c
  * @brief Unit tests for ISDU acyclic messaging
