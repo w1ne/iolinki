@@ -14,3 +14,6 @@ of IO-Link Device implementations without requiring physical hardware.
 """
 
 __version__ = "0.1.0"
+
+from .master import VirtualMaster, MasterState
+from .protocol import MSequenceType, DeviceResponse

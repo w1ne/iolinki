@@ -53,6 +53,9 @@ typedef struct {
     /* SIO Mode */
     iolink_phy_mode_t phy_mode;  /* Current PHY mode (SDCI/SIO) */
     
+    /* Baudrate Support */
+    iolink_baudrate_t baudrate;  /* Current baudrate (COM1, COM2, COM3) */
+    
     /* Unified Frame Assembly */
     uint8_t frame_buf[48];
     uint8_t frame_index;
@@ -117,5 +120,15 @@ int iolink_dll_set_sdci_mode(iolink_dll_ctx_t *ctx);
  * Get current PHY mode
  */
 iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t *ctx);
+
+/**
+ * Set communication baudrate
+ */
+int iolink_dll_set_baudrate(iolink_dll_ctx_t *ctx, iolink_baudrate_t baudrate);
+
+/**
+ * Get current baudrate
+ */
+iolink_baudrate_t iolink_dll_get_baudrate(const iolink_dll_ctx_t *ctx);
 
 #endif // IOLINK_DLL_H

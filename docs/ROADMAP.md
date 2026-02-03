@@ -26,7 +26,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [ ] **C/Q Line Control**: Pin state management abstraction.
 - [ ] **L+ Voltage Monitoring**: Power supply monitoring (18-30V).
 - [ ] **Short Circuit Detection**: Pin protection and current limiting.
-- [ ] **Baudrate Switching Protocol**: Full handshake sequence for baudrate changes.
+- [x] **Baudrate Switching Protocol**: Full handshake sequence for baudrate changes.
 
 ### 1.3 Data Link Layer (DLL) - Core
 - [x] **State Machine**: Implement "Startup" and "Pre-operate" transitions.
@@ -155,10 +155,9 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [ ] **SIO Mode**: Fallback to standard digital I/O when validation fails.
 - [ ] **Mode Switching**: Dynamic SIO ↔ SDCI transitions.
 - [ ] **AutoComm**: Automatic communication startup.
-- [ ] **Baudrate Management**:
-    - [ ] Baudrate negotiation with Master.
-    - [ ] Runtime baudrate switching.
-    - [ ] Fallback to COM1 on errors.
+- [x] Baudrate negotiation with Master.
+- [x] Runtime baudrate switching.
+- [ ] Fallback to COM1 on errors.
 
 ### 2.5 Error Handling & Robustness
 - [ ] **Error Events**: Trigger events on CRC, timeout, framing errors.

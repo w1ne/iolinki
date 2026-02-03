@@ -56,6 +56,7 @@ class VirtualMaster:
         self.state = MasterState.STARTUP
         self.cycle_time_ms = 10  # Default cycle time
         self.phy_mode = "SDCI"  # Default PHY mode
+        self.baudrate = "COM2"  # Default baudrate (38.4 kbit/s)
         
     def get_device_tty(self) -> str:
         """Get the TTY path for connecting the Device."""
@@ -107,6 +108,25 @@ class VirtualMaster:
         """
         self.phy_mode = "SDCI"
         print("[Master] Switched to SDCI mode")
+        return True
+    
+    def set_baudrate(self, baudrate: str) -> bool:
+        """
+        Set communication baudrate (COM1, COM2, COM3).
+        
+        Args:
+            baudrate: Baudrate string ("COM1", "COM2", "COM3")
+            
+        Returns:
+            True if successful
+        """
+        if baudrate not in ("COM1", "COM2", "COM3"):
+            print(f"[Master] Invalid baudrate: {baudrate}")
+            return False
+            
+        self.baudrate = baudrate
+        # In Virtual Master, this is mostly for metadata/timing if implemented
+        print(f"[Master] Baudrate set to {baudrate}")
         return True
     
     def send_wakeup(self) -> None:

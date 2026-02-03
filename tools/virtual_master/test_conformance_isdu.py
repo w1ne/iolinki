@@ -153,18 +153,29 @@ class TestISDUConformance(unittest.TestCase):
         locks = int.from_bytes(response, byteorder='big')
         print(f"[PASS] Device Access Locks: 0x{locks:04X}")
 
-    def test_11_profile_characteristic_0x0024(self):
-        """Test mandatory index 0x0024: Profile Characteristic"""
-        print("\n[TEST] ISDU Index 0x0024: Profile Characteristic")
+    def test_11_profile_characteristic_0x000D(self):
+        """Test mandatory index 0x000D: Profile Characteristic"""
+        print("\n[TEST] ISDU Index 0x000D: Profile Characteristic")
         
-        response = self.master.read_isdu(index=0x0024, subindex=0x00)
+        response = self.master.read_isdu(index=0x000D, subindex=0x00)
         self.assertIsNotNone(response, "Profile Characteristic must be readable")
         self.assertGreaterEqual(len(response), 2, "Profile Characteristic should be at least 2 bytes")
         
         profile_id = int.from_bytes(response[:2], byteorder='big')
         print(f"[PASS] Profile Characteristic: 0x{profile_id:04X}")
 
-    def test_12_invalid_index_error_handling(self):
+    def test_12_min_cycle_time_0x0024(self):
+        """Test mandatory index 0x0024: Min Cycle Time"""
+        print("\n[TEST] ISDU Index 0x0024: Min Cycle Time")
+        
+        response = self.master.read_isdu(index=0x0024, subindex=0x00)
+        self.assertIsNotNone(response, "Min Cycle Time must be readable")
+        self.assertGreaterEqual(len(response), 1, "Min Cycle Time should be at least 1 byte")
+        
+        min_cycle_time = response[0]
+        print(f"[PASS] Min Cycle Time: 0x{min_cycle_time:02X}")
+
+    def test_13_invalid_index_error_handling(self):
         """Test error handling for invalid ISDU index"""
         print("\n[TEST] Invalid ISDU Index Error Handling")
         

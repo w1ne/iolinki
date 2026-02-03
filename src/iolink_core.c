@@ -43,6 +43,28 @@ int iolink_init(const iolink_phy_api_t *phy, const iolink_config_t *config)
     g_dll_ctx.pd_in_len = g_config.pd_in_len;
     g_dll_ctx.pd_out_len = g_config.pd_out_len;
 
+    /* Apply config-dependent DLL fields (must run after m_seq_type is set) */
+    if (g_dll_ctx.m_seq_type == IOLINK_M_SEQ_TYPE_2_1 ||
+        g_dll_ctx.m_seq_type == IOLINK_M_SEQ_TYPE_2_2 ||
+        g_dll_ctx.m_seq_type == IOLINK_M_SEQ_TYPE_2_V) {
+        g_dll_ctx.od_len = 2;
+    } else {
+        g_dll_ctx.od_len = 1;
+    }
+
+    if (g_dll_ctx.m_seq_type == IOLINK_M_SEQ_TYPE_1_V ||
+        g_dll_ctx.m_seq_type == IOLINK_M_SEQ_TYPE_2_V) {
+        g_dll_ctx.pd_in_len_current = g_dll_ctx.pd_in_len;
+        g_dll_ctx.pd_out_len_current = g_dll_ctx.pd_out_len;
+        g_dll_ctx.pd_in_len_max = g_dll_ctx.pd_in_len;
+        g_dll_ctx.pd_out_len_max = g_dll_ctx.pd_out_len;
+    } else {
+        g_dll_ctx.pd_in_len_current = g_dll_ctx.pd_in_len;
+        g_dll_ctx.pd_out_len_current = g_dll_ctx.pd_out_len;
+        g_dll_ctx.pd_in_len_max = g_dll_ctx.pd_in_len;
+        g_dll_ctx.pd_out_len_max = g_dll_ctx.pd_out_len;
+    }
+
     return 0;
 }
 

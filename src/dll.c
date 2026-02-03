@@ -71,6 +71,12 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
     
     /* Link Event context to ISDU context */
     ctx->isdu.event_ctx = &ctx->events;
+    
+    /* Initialize baudrate to COM2 (38.4 kbit/s) */
+    ctx->baudrate = IOLINK_BAUDRATE_COM2;
+    if (ctx->phy->set_baudrate) {
+        ctx->phy->set_baudrate(IOLINK_BAUDRATE_COM2);
+    }
 }
 
 
@@ -352,4 +358,31 @@ iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t *ctx)
     }
     
     return ctx->phy_mode;
+}
+
+int iolink_dll_set_baudrate(iolink_dll_ctx_t *ctx, iolink_baudrate_t baudrate)
+{
+    if (!ctx || !ctx->phy) {
+        return -1;
+    }
+    
+    /* Check if PHY supports baudrate switching */
+    if (!ctx->phy->set_baudrate) {
+        return -1;
+    }
+    
+    /* Switch baudrate */
+    ctx->phy->set_baudrate(baudrate);
+    ctx->baudrate = baudrate;
+    
+    return 0;
+}
+
+iolink_baudrate_t iolink_dll_get_baudrate(const iolink_dll_ctx_t *ctx)
+{
+    if (!ctx) {
+        return IOLINK_BAUDRATE_COM2; /* Default */
+    }
+    
+    return ctx->baudrate;
 }
