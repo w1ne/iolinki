@@ -5,6 +5,29 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-02-03
+
+### Added
+- **Variable PD Types (1_V and 2_V)**: Support for dynamic Process Data length changes (2-32 bytes)
+  - `iolink_dll_set_pd_length()` and `iolink_dll_get_pd_length()` API functions
+  - Virtual Master `set_pd_length()` method for dynamic PD length changes
+  - Frame length calculation for variable PD in `get_req_len()`
+- **Integration Testing Infrastructure**:
+  - `test_device_connection.py` - Automated device connectivity tests for Types 0, 1_2, 2_2
+  - `test_integration.sh` - Bash integration test runner
+  - `run_conformance_all_types.sh` - Multi-type conformance test runner
+- **Test Suites**:
+  - `test_pd_variable.py` - Variable PD type tests with dynamic length changes
+  - Updated `test_conformance_isdu.py` with M-sequence type parametrization via environment variables
+
+### Changed
+- Updated Virtual Master README with Variable PD examples and comprehensive M-sequence type table
+- Enhanced conformance tests to support multiple M-sequence types (0, 12, 22)
+- Improved DLL initialization for variable PD field setup (pd_in_len_current, pd_out_len_current)
+
+### Fixed
+- OD length calculation for Type 2_V (now correctly uses 2-byte OD)
+
 ## [0.8.0] — 2026-02-03
 
 ### Added

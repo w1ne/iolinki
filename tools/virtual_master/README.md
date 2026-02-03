@@ -5,11 +5,13 @@ A software-based IO-Link Master simulator for automated testing of IO-Link Devic
 ## Features
 
 - **Virtual UART**: Uses pseudo-terminals (pty) for Master-Device communication
-- **M-Sequence Support**: Full support for Types 0, 1_1, 1_2, 2_1, 2_2
+- **M-Sequence Support**: Full support for Types 0, 1_1, 1_2, 1_V, 2_1, 2_2, 2_V
 - **Variable OD Length**: Automatic handling of 1-byte and 2-byte On-request Data
+- **Variable PD Length**: Dynamic Process Data length changes (2-32 bytes) for Type 1_V and 2_V
 - **CRC Calculation**: Matches iolinki implementation (polynomial 0x1D, seed 0x15)
 - **Master State Machine**: Implements Startup, Preoperate, Operate states
 - **ISDU Operations**: Read/Write with V1.1.5 segmentation support
+- **Integration Testing**: Automated test suites for all M-sequence types
 - **Automated Testing**: Run protocol tests in CI/CD
 
 ## Installation

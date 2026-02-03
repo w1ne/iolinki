@@ -142,16 +142,16 @@ class TestISDUConformance(unittest.TestCase):
         self.assertIsNotNone(readback, "Application Tag should be readable after write")
         print(f"[PASS] Application Tag write/read verified: {readback.decode('ascii', errors='ignore')}")
 
-    def test_10_device_access_locks_0x001E(self):
-        """Test mandatory index 0x001E: Device Access Locks"""
-        print("\n[TEST] ISDU Index 0x001E: Device Access Locks")
+    def test_10_device_access_locks_0x000C(self):
+        """Test mandatory index 0x000C: Device Access Locks"""
+        print("\n[TEST] ISDU Index 0x000C: Device Access Locks")
         
-        response = self.master.read_isdu(index=0x001E, subindex=0x00)
+        response = self.master.read_isdu(index=0x000C, subindex=0x00)
         self.assertIsNotNone(response, "Device Access Locks must be readable")
-        self.assertGreaterEqual(len(response), 1, "Device Access Locks should be at least 1 byte")
+        self.assertEqual(len(response), 2, "Device Access Locks should be 2 bytes")
         
-        locks = response[0] if len(response) > 0 else 0
-        print(f"[PASS] Device Access Locks: 0x{locks:02X}")
+        locks = int.from_bytes(response, byteorder='big')
+        print(f"[PASS] Device Access Locks: 0x{locks:04X}")
 
     def test_11_profile_characteristic_0x0024(self):
         """Test mandatory index 0x0024: Profile Characteristic"""

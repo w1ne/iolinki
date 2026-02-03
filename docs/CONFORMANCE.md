@@ -64,7 +64,7 @@ iolinki includes a comprehensive conformance test suite that validates complianc
 | `test_07_hardware_revision_0x0016` | 0x0016 | Hardware Revision | Read |
 | `test_08_firmware_revision_0x0017` | 0x0017 | Firmware Revision | Read |
 | `test_09_application_tag_0x0018_read_write` | 0x0018 | Application Tag | Read/Write |
-| `test_10_device_access_locks_0x001E` | 0x001E | Device Access Locks | Read |
+| `test_10_device_access_locks_0x000C` | 0x000C | Device Access Locks | Read |
 | `test_11_profile_characteristic_0x0024` | 0x0024 | Profile Characteristic | Read |
 | `test_12_invalid_index_error_handling` | 0xFFFF | (Invalid) | Error handling |
 
@@ -162,7 +162,7 @@ python3 tools/virtual_master/test_conformance_performance.py
 | 0x0016 | Hardware Revision | ✅ Tested |
 | 0x0017 | Firmware Revision | ✅ Tested |
 | 0x0018 | Application Tag | ✅ Tested (R/W + Persistence) |
-| 0x001E | Device Access Locks | ✅ Tested |
+| 0x000C | Device Access Locks | ✅ Tested |
 | 0x0024 | Profile Characteristic | ✅ Tested |
 
 ### IO-Link V1.1.5 Specification Cross-Reference
@@ -178,7 +178,7 @@ The following table maps our conformance tests to specific sections of the **IO-
 | COM1 Support | 6.2.2 | COM1 (4.8 kbaud) is mandatory | `test_04_communication_fallback_behavior` |
 | Concurrent ISDU/PD | 8.1.3 | ISDU must work during PD exchange | `test_06_isdu_during_operate` |
 | ISDU Indices 0x0010-0x0018 | 8.2.1 | Mandatory device identification parameters | `test_01` through `test_09` (ISDU suite) |
-| Device Access Locks | 8.2.1.30 | Index 0x001E must be readable | `test_10_device_access_locks_0x001E` |
+| Device Access Locks | 8.2.1.30 | Index 0x000C must be readable | `test_10_device_access_locks_0x000C` |
 | Profile Characteristic | 8.2.1.36 | Index 0x0024 must indicate device profile | `test_11_profile_characteristic_0x0024` |
 | ISDU Segmentation | 8.1.2 | Support for multi-frame ISDU transfers | `test_05_boundary_condition_max_isdu_size` |
 | Timing Requirements | 6.2.2, Table 12 | Cycle time and response delay limits | All timing tests |

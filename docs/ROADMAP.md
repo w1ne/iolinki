@@ -20,7 +20,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [x] **PHY Interface Definition**: Define `iolink_phy_api` struct for complete hardware decoupling.
 - [x] **Mock PHY Driver**: `phy_mock` for unit testing (built FIRST).
 - [x] **Virtual PHY Driver**: `phy_virtual` for integration with virtual IO-Link Master.
-- [x] **Generic PHY Template**: `phy_generic` as reference for real hardware ports.
+- [ ] **Generic PHY Template**: `phy_generic` as reference for real hardware ports.
 - [ ] **SIO Mode Support**: PHY-level SIO/SDCI mode switching.
 - [ ] **Wake-up Pulse**: Device wake-up request handling (80μs pulse detection).
 - [ ] **C/Q Line Control**: Pin state management abstraction.
@@ -37,12 +37,12 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [ ] **State Transition Validation**: Guards for illegal transitions.
 - [x] **M-Sequence Handling**:
     - [x] M-Type 0 (On-request data) with mock testing.
-    - [ ] M-Type 1_1 (Process Data, 8-bit OD).
-    - [ ] M-Type 1_2 (Process Data, 8-bit OD with ISDU).
-    - [ ] M-Type 1_V (Process Data, variable OD).
-    - [ ] M-Type 2_1 (Process Data, 16/32-bit OD).
-    - [ ] M-Type 2_2 (Process Data, 16/32-bit OD with ISDU).
-    - [ ] M-Type 2_V (Process Data, variable OD with ISDU).
+    - [x] M-Type 1_1 (Process Data, 8-bit OD).
+    - [x] M-Type 1_2 (Process Data, 8-bit OD with ISDU).
+    - [x] M-Type 1_V (Process Data, variable PD, 8-bit OD).
+    - [x] M-Type 2_1 (Process Data, 16-bit OD).
+    - [x] M-Type 2_2 (Process Data, 16-bit OD with ISDU).
+    - [x] M-Type 2_V (Process Data, variable PD, 16-bit OD).
 - [ ] **On-Request Data (OD)**:
     - [ ] OD length negotiation (8/16/32 bits).
     - [ ] OD content definition (status, events).
@@ -51,7 +51,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [x] Abstract timer interface for `t_A` enforcement.
     - [x] Mock timer for deterministic unit testing.
     - [x] Checksum calculation and verification (V1.1 CRC).
-    - [ ] **CRC Frame**: 6-bit CRC for M-sequence Type 2_x.
+    - [x] **CRC Frame**: 6-bit CRC for M-sequence Type 2_x.
     - [ ] `t_ren` (Device response time) enforcement (max 230μs @ COM3).
     - [ ] `t_cycle` validation.
     - [ ] `t_byte`, `t_bit`: Inter-byte and bit timing.
@@ -75,17 +75,17 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 
 ### 2.1 Application Layer - Process Data
 - [x] **Process Data (PD)**: API for application to update/read cyclic data.
-- [ ] **Variable PD Length**: Support 2-32 byte PD (currently fixed 1-byte).
+- [x] **Variable PD Length**: Support 1-32 byte PD via configuration.
 - [ ] **PD Consistency**: Toggle bit mechanism.
-- [ ] **PD Validity**: Data quality status flags (Valid bit, Qualifier).
+- [x] **PD Validity**: Data quality status flags (Valid bit, Qualifier).
 
 ### 2.2 Application Layer - ISDU
 - [x] **ISDU Framework**:
     - [x] Basic segmentation and reassembly.
     - [x] Basic Read/Write services.
-    - [ ] **Segmentation Control**: First/Last/Middle segment handling.
+    - [x] **Segmentation Control**: First/Last/Middle segment handling.
     - [ ] **Flow Control**: Busy/Retry mechanisms.
-    - [ ] **16-bit Index Support**: Currently limited to 8-bit.
+    - [x] **16-bit Index Support**: Support full 16-bit index.
     - [ ] **Write Verification**: Readback after write.
 - [ ] **Mandatory ISDU Indices**:
     - [ ] 0x0000: Direct Parameter Page 1
@@ -106,28 +106,28 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [ ] 0x0007: Revision ID
     - [ ] 0x0008: Process Data In
     - [ ] 0x0009: Process Data Out
-    - [ ] 0x000A: Vendor ID (16-bit)
-    - [ ] 0x000B: Device ID (32-bit)
-    - [ ] 0x000C: Device Access Locks (Parameterization, DS, UI, Communication)
-    - [ ] 0x000D: Profile Characteristic (16-bit)
+    - [x] 0x000A: Vendor ID (16-bit)
+    - [x] 0x000B: Device ID (32-bit)
+    - [x] 0x000C: Device Access Locks (Parameterization, DS, UI, Communication)
+    - [x] 0x000D: Profile Characteristic (16-bit)
     - [ ] 0x000E: PDIn Descriptor
     - [ ] 0x000F: PDOut Descriptor
     - [x] 0x0010: Vendor Name
-    - [ ] 0x0011: Vendor Text
-    - [ ] 0x0012: Product Name
-    - [ ] 0x0013: Product ID
-    - [ ] 0x0014: Product Text
-    - [ ] 0x0015: Serial Number
-    - [ ] 0x0016: Hardware Revision
-    - [ ] 0x0017: Firmware Revision
-    - [ ] 0x0018: Application-specific Tag
+    - [x] 0x0011: Vendor Text
+    - [x] 0x0012: Product Name
+    - [x] 0x0013: Product ID
+    - [x] 0x0014: Product Text
+    - [x] 0x0015: Serial Number
+    - [x] 0x0016: Hardware Revision
+    - [x] 0x0017: Firmware Revision
+    - [x] 0x0018: Application-specific Tag
     - [ ] 0x0019: Function Tag
     - [ ] 0x001A: Location Tag
-    - [ ] 0x001B: Device Status
+    - [x] 0x001B: Device Status
     - [ ] 0x001C: Detailed Device Status
     - [ ] 0x001D: Process Data Input Descriptor
     - [ ] 0x001E: Process Data Output Descriptor
-    - [ ] 0x0024: Min Cycle Time
+    - [x] 0x0024: Min Cycle Time
     - [ ] 0x0025-0x0028: Alternate Identification (Vendor/Product Name/Text)
 
 ### 2.3 Advanced V1.1 Features
@@ -200,7 +200,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 **Goal:** Close all gaps identified in compliance analysis to achieve certification readiness.
 
 ### 5.1 Mandatory Commands (High Priority)
-- [x] Implement System Command handlers (0x0002: Reset, Factory Restore, Mode Set)
+- [ ] Implement System Command handlers (0x0002: Reset, Factory Restore, Mode Set)
 - [x] Implement Mandatory ID Indices (0x11-0x1E: Vendor Text, Product Name, Serial, etc.)
 - [x] Implement Device Access Locks (Index 0x000C)
 
@@ -235,8 +235,8 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 **Goal:** Make stack production-ready for resource-constrained embedded systems.
 
 ### 6.1 Core Portability (CRITICAL - Blockers)
-- [x] **Context-Based API**: Remove all global state (`g_dll_ctx`, `g_isdu`, etc.), pass context pointers to all functions.
-- [x] **Logging Abstraction**: Replace `printf()` calls with configurable logging hooks or compile-time disable.
+- [ ] **Context-Based API**: Remove all global state (`g_dll_ctx`, `g_isdu`, etc.), pass context pointers to all functions.
+- [ ] **Logging Abstraction**: Replace `printf()` calls with configurable logging hooks or compile-time disable.
 - [x] **Configuration System**: Create `iolink_config.h` for compile-time tuning (buffer sizes, queue depths).
 - [x] **Memory Documentation**: Document RAM/ROM budgets and provide memory calculator tool.
 
