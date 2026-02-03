@@ -20,8 +20,8 @@
 
 - **Evaluation**: Free for 90 days under GPLv3 in non-production environments
 - **Commercial**: Required for production deployment
-  - **Single Developer**: $1,499 (Royalty-Free)
-  - **Team (5 seats)**: $4,999 (Royalty-Free)
+  - **Single Developer**: €1,399 (Royalty-Free)
+  - **Team (5 seats)**: €4,699 (Royalty-Free)
   - **Enterprise**: Custom pricing
 
 See [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL) for details or contact andrii@shylenko.com
