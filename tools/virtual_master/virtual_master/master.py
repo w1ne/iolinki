@@ -38,18 +38,23 @@ class VirtualMaster:
         
         Args:
             uart: Virtual UART instance (creates new one if None)
-            m_seq_type: M-sequence type (0, 1, 2)
+            m_seq_type: M-sequence type (0, 11, 12, 21, 22, etc.)
             pd_in_len: Process Data Input length (bytes)
             pd_out_len: Process Data Output length (bytes)
         """
         self.uart = uart or VirtualUART()
-        self.generator = MSequenceGenerator()
-        self.state = MasterState.STARTUP
-        self.cycle_time_ms = 10  # Default cycle time
-        
         self.m_seq_type = m_seq_type
         self.pd_in_len = pd_in_len
         self.pd_out_len = pd_out_len
+        
+        # Calculate OD length based on M-sequence type
+        from .protocol import MSequenceType
+        self.od_len = MSequenceType.get_od_len(m_seq_type)
+        
+        # Initialize generator with correct OD length
+        self.generator = MSequenceGenerator(od_len=self.od_len)
+        self.state = MasterState.STARTUP
+        self.cycle_time_ms = 10  # Default cycle time
         
     def get_device_tty(self) -> str:
         """Get the TTY path for connecting the Device."""
@@ -230,19 +235,19 @@ class VirtualMaster:
             # Use fixed CKT for now: 0x00 (Event flow control bits are here usually)
             ckt = 0x00 
             
-            # Generate frame
+            # Generate frame (generator knows od_len)
             frame = self.generator.generate_type1(0x00, ckt, pd_out, od_req)
             
             self.uart.send_bytes(frame)
             
-            # Receive response: Status(1) + PD_In(n) + OD(1) + CK(1)
-            expected_len = 1 + self.pd_in_len + 1 + 1
+            # Receive response: Status(1) + PD_In(n) + OD(od_len) + CK(1)
+            expected_len = 1 + self.pd_in_len + self.od_len + 1
             response_data = self.uart.recv_bytes(expected_len, timeout_ms=500)
             
             if response_data:
-                return DeviceResponse(response_data)
+                return DeviceResponse(response_data, od_len=self.od_len)
             else:
-                return DeviceResponse(b'')
+                return DeviceResponse(b'', od_len=self.od_len)
 
     def run_cycle_bad_crc(self, pd_out: bytes = None, od_req: int = 0) -> DeviceResponse:
         """
@@ -264,13 +269,13 @@ class VirtualMaster:
         self.uart.send_bytes(frame)
         
         # Expect NO response (Device should drop it)
-        expected_len = 1 + self.pd_in_len + 1 + 1
+        expected_len = 1 + self.pd_in_len + self.od_len + 1
         response_data = self.uart.recv_bytes(expected_len, timeout_ms=100)
         
         if response_data:
-             return DeviceResponse(response_data)
+             return DeviceResponse(response_data, od_len=self.od_len)
         else:
-             return DeviceResponse(b'')
+             return DeviceResponse(b'', od_len=self.od_len)
     
     def write_isdu(self, index: int, subindex: int, data: bytes) -> bool:
         """
