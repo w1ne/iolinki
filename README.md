@@ -78,6 +78,25 @@ cmake --build build
 cd build && ctest --output-on-failure
 ```
 
+### Full Validation Suite (All Platforms + Conformance)
+```bash
+./test_all.sh
+```
+
+## IO-Link V1.1.5 Conformance
+
+iolinki includes **33 automated conformance tests** validating compliance with the IO-Link V1.1.5 specification:
+
+- ✅ **State Machine**: DLL transitions, fallback behavior (6 tests)
+- ✅ **Timing**: Cycle times, response delays (4 tests)
+- ✅ **ISDU Protocol**: All 11 mandatory indices + error handling (12 tests)
+- ✅ **Error Injection**: Recovery, robustness, edge cases (6 tests)
+- ✅ **Performance**: Sustained operation, stress testing (5 tests)
+
+**Coverage**: 100% of mandatory ISDU indices (0x0010-0x0018, 0x001E, 0x0024), state machine transitions, timing requirements, and error handling.
+
+See [docs/CONFORMANCE.md](docs/CONFORMANCE.md) for detailed test specifications and coverage matrix.
+
 ### Building for Bare Metal
 
 ```bash
