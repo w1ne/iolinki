@@ -5,6 +5,27 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] — 2026-02-03
+
+### Added
+- **SIO Mode Support**: Single-wire bidirectional communication mode
+  - `iolink_dll_set_sio_mode()` and `iolink_dll_set_sdci_mode()` API functions
+  - `iolink_dll_get_phy_mode()` to query current PHY mode
+  - Virtual Master `set_sio_mode()` and `set_sdci_mode()` methods
+  - Mode switching only allowed in OPERATE state
+- **Virtual Master Enhancements**:
+  - Added `verify_checksum()` for proper CRC validation
+  - Added `checksum_ok` and `pd_valid` fields to `DeviceResponse`
+  - Enhanced `run_cycle()` with `od_req2` and `ckt` parameters for better control
+  - Improved `run_cycle_bad_crc()` with same parameters
+- **Test Suites**:
+  - `test_sio_mode.py` - SIO mode switching and restrictions tests
+
+### Changed
+- Fixed event detection in `DeviceResponse` (bit 0x80 instead of 0x01)
+- Initialize PHY mode to SDCI in `iolink_dll_init()`
+- Updated ROADMAP to mark SIO mode as complete
+
 ## [0.9.0] — 2026-02-03
 
 ### Added
