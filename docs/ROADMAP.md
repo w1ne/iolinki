@@ -21,7 +21,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [x] **Mock PHY Driver**: `phy_mock` for unit testing (built FIRST).
 - [x] **Virtual PHY Driver**: `phy_virtual` for integration with virtual IO-Link Master.
 - [ ] **Generic PHY Template**: `phy_generic` as reference for real hardware ports.
-- [ ] **SIO Mode Support**: PHY-level SIO/SDCI mode switching.
+- [x] **SIO Mode Support**: PHY-level SIO/SDCI mode switching.
 - [ ] **Wake-up Pulse**: Device wake-up request handling (80μs pulse detection).
 - [ ] **C/Q Line Control**: Pin state management abstraction.
 - [ ] **L+ Voltage Monitoring**: Power supply monitoring (18-30V).

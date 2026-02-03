@@ -50,6 +50,9 @@ typedef struct {
     uint8_t pd_in_len_max;       /* Maximum PD_In length */
     uint8_t pd_out_len_max;      /* Maximum PD_Out length */
     
+    /* SIO Mode */
+    iolink_phy_mode_t phy_mode;  /* Current PHY mode (SDCI/SIO) */
+    
     /* Unified Frame Assembly */
     uint8_t frame_buf[48];
     uint8_t frame_index;
@@ -99,5 +102,20 @@ int iolink_dll_set_pd_length(iolink_dll_ctx_t *ctx, uint8_t pd_in_len, uint8_t p
  * Get current PD lengths
  */
 void iolink_dll_get_pd_length(const iolink_dll_ctx_t *ctx, uint8_t *pd_in_len, uint8_t *pd_out_len);
+
+/**
+ * Set SIO mode (single-wire communication)
+ */
+int iolink_dll_set_sio_mode(iolink_dll_ctx_t *ctx);
+
+/**
+ * Set SDCI mode (separate TX/RX)
+ */
+int iolink_dll_set_sdci_mode(iolink_dll_ctx_t *ctx);
+
+/**
+ * Get current PHY mode
+ */
+iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t *ctx);
 
 #endif // IOLINK_DLL_H

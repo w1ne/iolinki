@@ -55,6 +55,7 @@ class VirtualMaster:
         self.generator = MSequenceGenerator(od_len=self.od_len)
         self.state = MasterState.STARTUP
         self.cycle_time_ms = 10  # Default cycle time
+        self.phy_mode = "SDCI"  # Default PHY mode
         
     def get_device_tty(self) -> str:
         """Get the TTY path for connecting the Device."""
@@ -82,6 +83,31 @@ class VirtualMaster:
         self.pd_in_len = pd_in_len
         self.pd_out_len = pd_out_len
         print(f"[Master] PD length changed: PD_In={pd_in_len}, PD_Out={pd_out_len}")
+    
+    def set_sio_mode(self) -> bool:
+        """
+        Switch to SIO mode (single-wire communication).
+        
+        Returns:
+            True if successful, False if not in OPERATE state
+        """
+        if self.state != MasterState.OPERATE:
+            return False
+        
+        self.phy_mode = "SIO"
+        print("[Master] Switched to SIO mode")
+        return True
+    
+    def set_sdci_mode(self) -> bool:
+        """
+        Switch to SDCI mode (separate TX/RX).
+        
+        Returns:
+            True if successful
+        """
+        self.phy_mode = "SDCI"
+        print("[Master] Switched to SDCI mode")
+        return True
     
     def send_wakeup(self) -> None:
         """Send wake-up pulse (simulated by dummy byte) to Device."""

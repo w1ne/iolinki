@@ -51,6 +51,12 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
         ctx->pd_out_len_max = ctx->pd_out_len;
     }
     
+    /* Initialize PHY mode to SDCI (default) */
+    ctx->phy_mode = IOLINK_PHY_MODE_SDCI;
+    if (ctx->phy->set_mode) {
+        ctx->phy->set_mode(IOLINK_PHY_MODE_SDCI);
+    }
+    
     /* Initialize error handling */
     ctx->max_retries = 3;  /* Default: 3 retry attempts */
     ctx->crc_errors = 0;
@@ -294,4 +300,56 @@ void iolink_dll_get_pd_length(const iolink_dll_ctx_t *ctx, uint8_t *pd_in_len, u
     if (pd_out_len) {
         *pd_out_len = ctx->pd_out_len_current;
     }
+}
+
+/* SIO Mode API Functions */
+
+int iolink_dll_set_sio_mode(iolink_dll_ctx_t *ctx)
+{
+    if (!ctx || !ctx->phy) {
+        return -1;
+    }
+    
+    /* Can only switch modes in OPERATE state */
+    if (ctx->state != IOLINK_DLL_STATE_OPERATE) {
+        return -1;
+    }
+    
+    /* Check if PHY supports mode switching */
+    if (!ctx->phy->set_mode) {
+        return -1;  /* PHY doesn't support mode switching */
+    }
+    
+    /* Switch to SIO mode */
+    ctx->phy->set_mode(IOLINK_PHY_MODE_SIO);
+    ctx->phy_mode = IOLINK_PHY_MODE_SIO;
+    
+    return 0;
+}
+
+int iolink_dll_set_sdci_mode(iolink_dll_ctx_t *ctx)
+{
+    if (!ctx || !ctx->phy) {
+        return -1;
+    }
+    
+    /* Check if PHY supports mode switching */
+    if (!ctx->phy->set_mode) {
+        return -1;
+    }
+    
+    /* Switch to SDCI mode */
+    ctx->phy->set_mode(IOLINK_PHY_MODE_SDCI);
+    ctx->phy_mode = IOLINK_PHY_MODE_SDCI;
+    
+    return 0;
+}
+
+iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t *ctx)
+{
+    if (!ctx) {
+        return IOLINK_PHY_MODE_INACTIVE;
+    }
+    
+    return ctx->phy_mode;
 }
