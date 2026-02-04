@@ -147,10 +147,9 @@ static void test_dll_fallback_on_crc_errors(void **state)
         will_return(mock_phy_recv_byte, 0);
         iolink_process();
     }
-    
-    /* Ensure there are enough mock values for wakeup check or subsequent reads */
+
+    /* Ensure there is exactly one mock value for the final process cycle check */
     will_return(mock_phy_recv_byte, 0);
-    will_return(mock_phy_recv_byte, 0); 
 
     /* Next process call applies fallback */
     iolink_process();

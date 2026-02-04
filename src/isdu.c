@@ -102,9 +102,14 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t *ctx, uint8_t byte)
         }
 
         /* Case 2: Protocol Layer busy (Header/Data Collection) */
-        /* Abort current transaction and restart with this byte */
-        ctx->state = ISDU_STATE_IDLE;
-        return isdu_handle_idle(ctx, byte);
+        /* Respond with BUSY to indicate we can't handle a new request immediately */
+        ctx->response_buf[0] = 0x80U;
+        ctx->response_buf[1] = IOLINK_ISDU_ERROR_BUSY;
+        ctx->response_len = 2U;
+        ctx->response_idx = 0U;
+        ctx->is_response_control_sent = false;
+        ctx->state = ISDU_STATE_RESPONSE_READY;
+        return 1;
     }
 
     switch (ctx->state) {

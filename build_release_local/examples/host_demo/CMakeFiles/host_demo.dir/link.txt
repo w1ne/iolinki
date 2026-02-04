@@ -1,0 +1,1 @@
+/usr/bin/cc  -Wall -Wextra CMakeFiles/host_demo.dir/src/main.c.o -o host_demo  ../../libiolinki.a 

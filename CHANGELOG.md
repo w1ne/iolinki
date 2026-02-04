@@ -5,6 +5,17 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.7] - 2026-02-05
+
+### Fixed
+- **CI/CD**: Fixed unit test regressions in `test_dll` and `test_isdu_segmented`.
+- **CI/CD**: Fixed `clang-format` violations in `time_utils.h`.
+
+## [0.12.6] - 2026-02-05
+
+### Fixed
+- **PHY**: Modified `phy_virtual` to skip `tcgetattr` if the device is not a TTY (allowing `/dev/null` usage in CI).
+
 ## [0.12.5] - 2026-02-05
 
 ### Fixed

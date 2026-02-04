@@ -35,25 +35,29 @@ static int virtual_init(void)
         return -1;
     }
 
-    /* Config for raw mode */
-    struct termios tty;
-    if (tcgetattr(g_fd, &tty) != 0) {
-        printf("[PHY-VIRTUAL] Error from tcgetattr: %s\n", strerror(errno));
-        return -1;
+    /* Config for raw mode if it's a TTY */
+    if (isatty(g_fd)) {
+        struct termios tty;
+        if (tcgetattr(g_fd, &tty) != 0) {
+            printf("[PHY-VIRTUAL] Error from tcgetattr: %s\n", strerror(errno));
+            return -1;
+        }
+
+        cfmakeraw(&tty);
+
+        /* Set timeouts: No blocking */
+        tty.c_cc[VMIN] = 0U;
+        tty.c_cc[VTIME] = 0U;
+
+        if (tcsetattr(g_fd, TCSANOW, &tty) != 0) {
+            printf("[PHY-VIRTUAL] Error from tcsetattr: %s\n", strerror(errno));
+            return -1;
+        }
+        printf("[PHY-VIRTUAL] Initialized TTY connection to %s (fd=%d)\n", g_port_path, g_fd);
     }
-
-    cfmakeraw(&tty);
-
-    /* Set timeouts: No blocking */
-    tty.c_cc[VMIN] = 0U;
-    tty.c_cc[VTIME] = 0U;
-
-    if (tcsetattr(g_fd, TCSANOW, &tty) != 0) {
-        printf("[PHY-VIRTUAL] Error from tcsetattr: %s\n", strerror(errno));
-        return -1;
+    else {
+        printf("[PHY-VIRTUAL] Initialized non-TTY connection to %s (fd=%d)\n", g_port_path, g_fd);
     }
-
-    printf("[PHY-VIRTUAL] Initialized connection to %s (fd=%d)\n", g_port_path, g_fd);
     return 0;
 }
 
