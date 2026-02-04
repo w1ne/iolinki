@@ -65,13 +65,14 @@ class TestErrorInjectionConformance(unittest.TestCase):
         print("[INFO] Simulating 300ms communication dropout...")
         time.sleep(0.3)
         
-        # Try to recover with new startup
-        self.master.send_wakeup()
-        time.sleep(0.1)
+        # Try to recover with fresh startup
+        self.master.m_seq_type = 0
+        success = self.master.run_startup_sequence()
+        self.assertTrue(success, "Device should recover after dropout")
         
         # Verify recovery
         response = self.master.read_isdu(index=0x0012, subindex=0x00)
-        self.assertIsNotNone(response, "Device should recover after dropout")
+        self.assertIsNotNone(response, "Device ISDU should work after recovery")
         print(f"[PASS] Device recovered successfully")
 
     def test_02_rapid_state_transitions(self):
@@ -140,13 +141,17 @@ class TestErrorInjectionConformance(unittest.TestCase):
         """
         print("\n[TEST] Maximum ISDU Size Handling")
         
-        self.process = subprocess.Popen([self.demo_bin, self.device_tty, "0", "0"],
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.process = subprocess.Popen([self.demo_bin, self.device_tty, "1", "2"],
+                                       stdout=None, stderr=None)
         time.sleep(0.5)
         
         self.master.run_startup_sequence()
-        
-        # Application Tag is 16 bytes (good test for segmentation)
+        # Transition to OPERATE to avoid Type 0 MC collision (0x0F)
+        self.master.m_seq_type = 2
+        self.master.pd_out_len = 2
+        self.master.pd_in_len = 2
+        self.master.go_to_operate()
+        time.sleep(0.1)
         large_data = b'LargeDataTest123'
         
         write_result = self.master.write_isdu(index=0x0018, subindex=0x00, data=large_data)
@@ -179,9 +184,9 @@ class TestErrorInjectionConformance(unittest.TestCase):
         # 2. Induce error (communication loss)
         time.sleep(0.2)
         
-        # 3. Recovery attempt
-        self.master.send_wakeup()
-        time.sleep(0.1)
+        # Wake device up
+        self.master.m_seq_type = 0
+        self.master.run_startup_sequence()
         
         # 4. Verify full functionality
         vendor = self.master.read_isdu(index=0x0010, subindex=0x00)

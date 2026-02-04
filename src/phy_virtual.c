@@ -106,7 +106,7 @@ static int virtual_detect_wakeup(void)
 
     /* If we already have a valid peek byte, check it */
     if (g_peek_valid) {
-        if (g_peek_buf == 0x00) {
+        if (g_peek_buf == 0x55) {
             /* Consume wakeup byte */
             g_peek_valid = false;
             return 1;
@@ -118,7 +118,7 @@ static int virtual_detect_wakeup(void)
     uint8_t b;
     ssize_t n = read(g_fd, &b, 1);
     if (n > 0) {
-        if (b == 0x00) {
+        if (b == 0x55) {
             /* Wakeup! Consume it. */
             return 1;
         } else {

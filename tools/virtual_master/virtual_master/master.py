@@ -131,7 +131,7 @@ class VirtualMaster:
     
     def send_wakeup(self) -> None:
         """Send wake-up pulse (simulated by dummy byte) to Device."""
-        self.uart.send_bytes(bytes([0x00]))
+        self.uart.send_bytes(bytes([0x55]))
         print(f"[Master] Sent WAKEUP (dummy byte)")
     
     def send_idle(self) -> DeviceResponse:
@@ -349,12 +349,25 @@ class VirtualMaster:
         print(f"[Master] ISDU Write request: Index=0x{index:04X}, Subindex=0x{subindex:02X}, Data={data.hex()}")
         
         # Identifier: [CB] [Ident] [CB] [IndexH] [CB] [IndexL] [CB] [Subindex] [CB] [Data1] ...
-        request_data = [
-            0xA0 | (len(data) & 0x0F), # Identifier (V1.1.5 Service Write)
-            (index >> 8) & 0xFF,
-            index & 0xFF,
-            subindex
-        ] + list(data)
+        data_len = len(data)
+        if data_len > 15:
+            # Use Extended Length: [Write+Len0(0xA0)] [ExtLen] [IndexH] ...
+            service_id = 0xA0
+            request_data = [
+                service_id,
+                data_len, 
+                (index >> 8) & 0xFF,
+                index & 0xFF,
+                subindex
+            ] + list(data)
+        else:
+            # Use Nibble Length: [Write+Len] [IndexH] ...
+            request_data = [
+                0xA0 | (data_len & 0x0F), 
+                (index >> 8) & 0xFF,
+                index & 0xFF,
+                subindex
+            ] + list(data)
         
         interleaved = []
         for i, val in enumerate(request_data):

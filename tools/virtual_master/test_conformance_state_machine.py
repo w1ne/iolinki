@@ -112,7 +112,7 @@ class TestStateMachineConformance(unittest.TestCase):
         
         # Start device
         self.process = subprocess.Popen([self.demo_bin, self.device_tty, "1", "2"],
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                       stdout=None, stderr=None)
         time.sleep(0.5)
         
         # Enter OPERATE state

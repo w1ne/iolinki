@@ -18,6 +18,7 @@
 #include "iolinki/utils.h"
 #include <string.h>
 #include <stdint.h>
+#include <stdio.h>
 
 /* 
  * IO-Link ISDU Segmentation Engine
@@ -552,6 +553,8 @@ static void handle_detailed_device_status(iolink_isdu_ctx_t *ctx)
         ctx->response_buf[i * 3U + 2U] = (uint8_t)(ev->code & 0xFF);
     }
     ctx->response_len = (uint8_t)(count * 3U);
+    ctx->response_idx = 0U;
+    ctx->state = ISDU_STATE_RESPONSE_READY;
     iolink_critical_exit();
 }
 

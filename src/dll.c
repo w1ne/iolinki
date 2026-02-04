@@ -19,6 +19,13 @@
 #include <string.h>
 #include <stdio.h>
 
+#define DLL_DEBUG 0
+#if DLL_DEBUG
+#define DLL_LOG(...) printf("[DLL] " __VA_ARGS__)
+#else
+#define DLL_LOG(...)
+#endif
+
 #define IOLINK_DLL_TIMEOUT_MS 1000U
 
 static uint32_t dll_get_t_ren_limit_us(const iolink_dll_ctx_t *ctx)
@@ -288,6 +295,7 @@ static void handle_preoperate(iolink_dll_ctx_t *ctx, uint8_t byte)
             if (mc == IOLINK_MC_TRANSITION_COMMAND) {
                 ctx->state = IOLINK_DLL_STATE_ESTAB_COM;
                 ctx->req_len = get_req_len(ctx);
+                DLL_LOG("State -> ESTAB_COM. req_len=%u, m_seq_type=%u\n", ctx->req_len, ctx->m_seq_type);
                 ctx->retry_count = 0U;
             } else {
                 (void)iolink_isdu_collect_byte(&ctx->isdu, mc);
@@ -357,8 +365,6 @@ static bool handle_operate_type0(iolink_dll_ctx_t *ctx)
 
 static bool handle_operate_type1_2(iolink_dll_ctx_t *ctx)
 {
-    uint8_t received_ck = ctx->frame_buf[(uint8_t)(ctx->req_len - 1U)];
-    uint8_t calculated_ck = iolink_crc6(ctx->frame_buf, (uint8_t)(ctx->req_len - 1U));
     uint8_t mc = ctx->frame_buf[0];
     
     /* Guard: Verify MC is valid for state */
@@ -368,8 +374,15 @@ static bool handle_operate_type1_2(iolink_dll_ctx_t *ctx)
         return false;
     }
 
+    /* Calculate CRC */
+    uint8_t received_ck = ctx->frame_buf[(uint8_t)(ctx->req_len - 1U)];
+    uint8_t calculated_ck = iolink_crc6(ctx->frame_buf, (uint8_t)(ctx->req_len - 1U));
+
+    DLL_LOG("Type1/2: Len=%u RecvCK=%02X CalcCK=%02X\n", ctx->req_len, received_ck, calculated_ck);
+
     if (calculated_ck == received_ck) {
         ctx->retry_count = 0U;  /* Reset retry counter on success */
+        // DLL_LOG("Type 1/2 Frame Valid. PD_Out len=%u\n", ctx->pd_out_len);
         
         iolink_critical_enter();
         /* Extract PD (Starts after MC and CKT) */
@@ -433,7 +446,10 @@ static bool handle_operate_type1_2(iolink_dll_ctx_t *ctx)
         if (ctx->retry_count >= ctx->max_retries) {
             ctx->retry_count = 0U;
             iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_CRC, IOLINK_EVENT_TYPE_ERROR);
+            DLL_LOG("CRC Error Limit Reached! -> Fallback. RecvCK=%02X CalcCK=%02X\n", received_ck, calculated_ck);
             enter_fallback(ctx);
+        } else {
+             DLL_LOG("CRC Error. RecvCK=%02X CalcCK=%02X Retry=%u\n", received_ck, calculated_ck, ctx->retry_count);
         }
     }
     return false;
@@ -443,6 +459,7 @@ static void handle_operate(iolink_dll_ctx_t *ctx, uint8_t byte)
 {
     if (ctx->frame_index == 0U) {
         dll_note_frame_start(ctx);
+        DLL_LOG("Operate Frame Start. req_len=%u\n", ctx->req_len);
     }
     ctx->frame_buf[ctx->frame_index++] = byte;
     
@@ -461,6 +478,7 @@ static void handle_estab_com(iolink_dll_ctx_t *ctx, uint8_t byte)
 {
     if (ctx->frame_index == 0U) {
         dll_note_frame_start(ctx);
+        DLL_LOG("EstabCom Frame Start. req_len=%u\n", ctx->req_len);
     }
     ctx->frame_buf[ctx->frame_index++] = byte;
 
@@ -477,6 +495,7 @@ static void handle_estab_com(iolink_dll_ctx_t *ctx, uint8_t byte)
         if (ok) {
             ctx->retry_count = 0U;
             ctx->state = IOLINK_DLL_STATE_OPERATE;
+            DLL_LOG("State -> OPERATE\n");
         }
     }
 }
@@ -508,11 +527,9 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx)
         ctx->state = IOLINK_DLL_STATE_STARTUP;
     }
 
-    /* Wake-up detection (Global - can occur in any state except PREOPERATE/AWAITING/ESTAB where 0x00 might be stale IDLE or partially valid) */
+    /* Wake-up detection (Global - allowed in any state if frame not started) */
+    /* Since we use 0x55 for Wakeup and 0x55 is invalid MC, collision risk is minimal */
     if ((ctx->frame_index == 0U) &&
-        (ctx->state != IOLINK_DLL_STATE_PREOPERATE) && 
-        (ctx->state != IOLINK_DLL_STATE_AWAITING_COMM) &&
-        (ctx->state != IOLINK_DLL_STATE_ESTAB_COM) &&
         (ctx->phy->detect_wakeup != NULL)) {
         int wake = ctx->phy->detect_wakeup();
         if (wake > 0) {
@@ -540,6 +557,7 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx)
     uint8_t byte;
     while ((ctx->phy->recv_byte != NULL) && (ctx->phy->recv_byte(&byte) > 0)) {
         ctx->last_activity_ms = iolink_time_get_ms();
+        DLL_LOG("Rx %02X State %d Idx %u\n", byte, ctx->state, ctx->frame_index);
         
         switch (ctx->state) {
             case IOLINK_DLL_STATE_STARTUP:
