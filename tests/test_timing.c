@@ -25,29 +25,29 @@
 
 static void test_time_get_ms(void **state)
 {
-    (void)state;
+    (void) state;
     uint32_t t1 = iolink_time_get_ms();
     usleep(10000); /* 10ms */
     uint32_t t2 = iolink_time_get_ms();
-    
+
     assert_true(t2 >= t1 + 10);
     assert_true(t2 < t1 + 20); /* Allow some jitter */
 }
 
 static void test_time_get_us(void **state)
 {
-    (void)state;
+    (void) state;
     uint64_t t1 = iolink_time_get_us();
     usleep(1000); /* 1ms */
     uint64_t t2 = iolink_time_get_us();
-    
+
     assert_true(t2 >= t1 + 1000);
     assert_true(t2 < t1 + 2000);
 }
 
 static void test_t_cycle_violation(void **state)
 {
-    (void)state;
+    (void) state;
     iolink_config_t config = {
         .m_seq_type = IOLINK_M_SEQ_TYPE_1_1,
         .pd_in_len = 1,
@@ -96,13 +96,9 @@ static void test_t_cycle_violation(void **state)
 
 static void test_t_ren_violation(void **state)
 {
-    (void)state;
+    (void) state;
     iolink_config_t config = {
-        .m_seq_type = IOLINK_M_SEQ_TYPE_1_1,
-        .pd_in_len = 1,
-        .pd_out_len = 1,
-        .min_cycle_time = 0
-    };
+        .m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1, .min_cycle_time = 0};
 
     setup_mock_phy();
     will_return(mock_phy_init, 0);

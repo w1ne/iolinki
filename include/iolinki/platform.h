@@ -64,4 +64,4 @@ int iolink_nvm_write(uint32_t offset, const uint8_t *data, size_t len);
 }
 #endif
 
-#endif // IOLINK_PLATFORM_H
+#endif  // IOLINK_PLATFORM_H

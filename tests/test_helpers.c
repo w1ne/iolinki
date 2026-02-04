@@ -34,7 +34,7 @@ static uint32_t g_mock_send_delay_us = 0U;
 
 int mock_phy_init(void)
 {
-    return (int)mock();
+    return (int) mock();
 }
 
 void mock_phy_set_mode(iolink_phy_mode_t mode)
@@ -54,14 +54,14 @@ int mock_phy_send(const uint8_t *data, size_t len)
     if (g_mock_send_delay_us > 0U) {
         usleep(g_mock_send_delay_us);
     }
-    return (int)mock();
+    return (int) mock();
 }
 
 int mock_phy_recv_byte(uint8_t *byte)
 {
-    int res = (int)mock();
+    int res = (int) mock();
     if (res > 0) {
-        *byte = (uint8_t)mock();
+        *byte = (uint8_t) mock();
     }
     return res;
 }
@@ -78,22 +78,20 @@ void mock_phy_set_cq_line(uint8_t state)
     g_mock_cq_state = state;
 }
 
-const iolink_phy_api_t g_phy_mock = {
-    .init = mock_phy_init,
-    .set_mode = mock_phy_set_mode,
-    .set_baudrate = mock_phy_set_baudrate,
-    .send = mock_phy_send,
-    .recv_byte = mock_phy_recv_byte,
-    .detect_wakeup = mock_phy_detect_wakeup,
-    .set_cq_line = mock_phy_set_cq_line
-};
+const iolink_phy_api_t g_phy_mock = {.init = mock_phy_init,
+                                     .set_mode = mock_phy_set_mode,
+                                     .set_baudrate = mock_phy_set_baudrate,
+                                     .send = mock_phy_send,
+                                     .recv_byte = mock_phy_recv_byte,
+                                     .detect_wakeup = mock_phy_detect_wakeup,
+                                     .set_cq_line = mock_phy_set_cq_line};
 
 void setup_mock_phy(void)
 {
     /* Use -1 for infinite expectations to avoid errors on earlier test exit. */
     expect_any_count(mock_phy_set_mode, mode, -1);
     expect_any_count(mock_phy_set_baudrate, baudrate, -1);
-    
+
     /* NO default will_return here. Tests must provide them. */
     g_mock_wakeup = 0;
     g_mock_cq_state = 0U;
@@ -103,29 +101,30 @@ void setup_mock_phy(void)
 void move_to_operate(void)
 {
     /* STARTUP -> PREOPERATE (on first byte) */
-    will_return(mock_phy_recv_byte, 1);     /* res=1 */
-    will_return(mock_phy_recv_byte, 0x00);  /* byte=0x00 */
-    will_return(mock_phy_recv_byte, 0);     /* res=0 (end frame) */
+    will_return(mock_phy_recv_byte, 1);    /* res=1 */
+    will_return(mock_phy_recv_byte, 0x00); /* byte=0x00 */
+    will_return(mock_phy_recv_byte, 0);    /* res=0 (end frame) */
     iolink_process();
-    
+
     /* PREOPERATE -> ESTAB_COM (on MC=0x0F + Correct CK) */
     uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;
     uint8_t ck = iolink_checksum_ck(mc, 0U);
-    
-    will_return(mock_phy_recv_byte, 1); 
+
+    will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, mc);
-    will_return(mock_phy_recv_byte, 1); 
+    will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, ck);
-    will_return(mock_phy_recv_byte, 0); 
+    will_return(mock_phy_recv_byte, 0);
     iolink_process();
 
     /* ESTAB_COM -> OPERATE (send first valid frame for configured type) */
     iolink_m_seq_type_t type = iolink_get_m_seq_type();
     uint8_t pd_out_len = iolink_get_pd_out_len();
     uint8_t pd_in_len = iolink_get_pd_in_len();
-    uint8_t od_len = ((type == IOLINK_M_SEQ_TYPE_2_1) ||
-                      (type == IOLINK_M_SEQ_TYPE_2_2) ||
-                      (type == IOLINK_M_SEQ_TYPE_2_V)) ? 2U : 1U;
+    uint8_t od_len = ((type == IOLINK_M_SEQ_TYPE_2_1) || (type == IOLINK_M_SEQ_TYPE_2_2) ||
+                      (type == IOLINK_M_SEQ_TYPE_2_V))
+                         ? 2U
+                         : 1U;
 
     if (type == IOLINK_M_SEQ_TYPE_0) {
         uint8_t idle_mc = 0x00;
@@ -145,10 +144,10 @@ void move_to_operate(void)
 
     uint8_t frame[64];
     memset(frame, 0, sizeof(frame));
-    uint8_t frame_len = (uint8_t)(IOLINK_M_SEQ_HEADER_LEN + pd_out_len + od_len + 1U);
+    uint8_t frame_len = (uint8_t) (IOLINK_M_SEQ_HEADER_LEN + pd_out_len + od_len + 1U);
     frame[0] = 0x80;
     frame[1] = 0x00;
-    frame[frame_len - 1U] = iolink_crc6(frame, (uint8_t)(frame_len - 1U));
+    frame[frame_len - 1U] = iolink_crc6(frame, (uint8_t) (frame_len - 1U));
 
     for (uint8_t i = 0U; i < frame_len; i++) {
         will_return(mock_phy_recv_byte, 1);
@@ -156,7 +155,7 @@ void move_to_operate(void)
     }
     will_return(mock_phy_recv_byte, 0);
 
-    uint8_t resp_len = (uint8_t)(1U + pd_in_len + od_len + 1U);
+    uint8_t resp_len = (uint8_t) (1U + pd_in_len + od_len + 1U);
     expect_any(mock_phy_send, data);
     expect_value(mock_phy_send, len, resp_len);
     will_return(mock_phy_send, 0);
@@ -206,17 +205,14 @@ int ds_mock_write(uint32_t addr, const uint8_t *buf, size_t len)
 }
 
 const iolink_ds_storage_api_t g_ds_storage_mock = {
-    .read = ds_mock_read,
-    .write = ds_mock_write,
-    .erase = NULL
-};
+    .read = ds_mock_read, .write = ds_mock_write, .erase = NULL};
 
 void iolink_ds_mock_reset(void)
 {
     memset(g_ds_mock_buf, 0, DS_MOCK_SIZE);
 }
 
-uint8_t* iolink_ds_mock_get_buf(void)
+uint8_t *iolink_ds_mock_get_buf(void)
 {
     return g_ds_mock_buf;
 }

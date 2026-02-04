@@ -18,11 +18,11 @@
 
 /**
  * @brief Calculate IO-Link 6-bit CRC
- * 
+ *
  * Used for M-sequences and ISDU headers.
  * Polynomial: x^6 + x^4 + x^3 + x^2 + 1 (0x1D)
  * Initial value: 0x15
- * 
+ *
  * @param data Data to checksum
  * @param len Length in bytes
  * @return uint8_t 6-bit CRC
@@ -31,7 +31,7 @@ uint8_t iolink_crc6(const uint8_t *data, uint8_t len);
 
 /**
  * @brief Calculate IO-Link 8-bit Checksum (CK)
- * 
+ *
  * Used in M-sequences.
  * @param mc Master Command byte
  * @param ckt Checksum/Status byte
@@ -39,4 +39,4 @@ uint8_t iolink_crc6(const uint8_t *data, uint8_t len);
  */
 uint8_t iolink_checksum_ck(uint8_t mc, uint8_t ckt);
 
-#endif // IOLINK_CRC_H
+#endif  // IOLINK_CRC_H

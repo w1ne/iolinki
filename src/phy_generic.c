@@ -16,27 +16,27 @@ static int generic_init(void)
 
 static void generic_set_mode(iolink_phy_mode_t mode)
 {
-    (void)mode;
+    (void) mode;
     /* Template: configure transceiver for SIO/SDCI. */
 }
 
 static void generic_set_baudrate(iolink_baudrate_t baudrate)
 {
-    (void)baudrate;
+    (void) baudrate;
     /* Template: configure UART speed for COM1/2/3. */
 }
 
 static int generic_send(const uint8_t *data, size_t len)
 {
-    (void)data;
-    (void)len;
+    (void) data;
+    (void) len;
     /* Template: transmit data over C/Q line. */
     return -1;
 }
 
 static int generic_recv_byte(uint8_t *byte)
 {
-    (void)byte;
+    (void) byte;
     /* Template: non-blocking receive. */
     return 0;
 }
@@ -49,7 +49,7 @@ static int generic_detect_wakeup(void)
 
 static void generic_set_cq_line(uint8_t state)
 {
-    (void)state;
+    (void) state;
     /* Template: drive C/Q line high/low in SIO mode. */
 }
 
@@ -65,19 +65,17 @@ static bool generic_is_short_circuit(void)
     return false;
 }
 
-static const iolink_phy_api_t g_phy_generic = {
-    .init = generic_init,
-    .set_mode = generic_set_mode,
-    .set_baudrate = generic_set_baudrate,
-    .send = generic_send,
-    .recv_byte = generic_recv_byte,
-    .detect_wakeup = generic_detect_wakeup,
-    .set_cq_line = generic_set_cq_line,
-    .get_voltage_mv = generic_get_voltage_mv,
-    .is_short_circuit = generic_is_short_circuit
-};
+static const iolink_phy_api_t g_phy_generic = {.init = generic_init,
+                                               .set_mode = generic_set_mode,
+                                               .set_baudrate = generic_set_baudrate,
+                                               .send = generic_send,
+                                               .recv_byte = generic_recv_byte,
+                                               .detect_wakeup = generic_detect_wakeup,
+                                               .set_cq_line = generic_set_cq_line,
+                                               .get_voltage_mv = generic_get_voltage_mv,
+                                               .is_short_circuit = generic_is_short_circuit};
 
-const iolink_phy_api_t* iolink_phy_generic_get(void)
+const iolink_phy_api_t *iolink_phy_generic_get(void)
 {
     return &g_phy_generic;
 }

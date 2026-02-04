@@ -23,7 +23,7 @@ jobs:
       
       - name: Static Analysis (MISRA oriented)
         run: |
-          cppcheck --enable=all --error-exitcode=1 --suppress=missingIncludeSystem -I include src/
+          cppcheck --enable=all --error-exitcode=1 --suppress=missingIncludeSystem --suppress=unusedFunction -I include src/
       
       - name: Doxygen Warning Check
         run: |

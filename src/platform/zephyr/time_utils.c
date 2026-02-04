@@ -11,7 +11,7 @@
 
 uint32_t iolink_time_get_ms(void)
 {
-    return (uint32_t)k_uptime_get();
+    return (uint32_t) k_uptime_get();
 }
 
 uint64_t iolink_time_get_us(void)

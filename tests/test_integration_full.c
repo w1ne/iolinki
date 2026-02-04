@@ -30,10 +30,10 @@
 
 static void test_full_stack_lifecycle(void **state)
 {
-    (void)state;
+    (void) state;
     iolink_phy_mock_reset();
     iolink_ds_mock_reset();
-    
+
     /* Initialize stack with mock PHY and mock storage */
     setup_mock_phy();
     will_return(mock_phy_init, 0);
@@ -41,22 +41,22 @@ static void test_full_stack_lifecycle(void **state)
     iolink_ds_init(iolink_get_ds_ctx(), &g_ds_storage_mock);
 
     /*** STEP 1: STARTUP -> PREOPERATE ***/
-    will_return(mock_phy_recv_byte, 1);     /* res=1 */
-    will_return(mock_phy_recv_byte, 0x00);  /* byte=0x00 (Wakeup) */
-    will_return(mock_phy_recv_byte, 0);     /* res=0 (end frame) */
+    will_return(mock_phy_recv_byte, 1);    /* res=1 */
+    will_return(mock_phy_recv_byte, 0x00); /* byte=0x00 (Wakeup) */
+    will_return(mock_phy_recv_byte, 0);    /* res=0 (end frame) */
     iolink_process();
 
     /*** STEP 2: PREOPERATE (ISDU Read Index 0x10 - Vendor Name) ***/
     /* Master Sends: MC=0xBB (Read Index 0x10) + CK */
     uint8_t mc = 0xBB;
     uint8_t ck = iolink_checksum_ck(mc, 0);
-    
+
     will_return(mock_phy_recv_byte, 1);
-    will_return(mock_phy_recv_byte, mc); 
+    will_return(mock_phy_recv_byte, mc);
     will_return(mock_phy_recv_byte, 1);
-    will_return(mock_phy_recv_byte, ck); 
+    will_return(mock_phy_recv_byte, ck);
     will_return(mock_phy_recv_byte, 0);
-    
+
     /* Device Responds: OD + CK = 2 bytes */
     expect_any(mock_phy_send, data);
     expect_value(mock_phy_send, len, 2);
@@ -72,29 +72,25 @@ static void test_full_stack_lifecycle(void **state)
     uint8_t idle_mc = 0x00;
     uint8_t idle_ck = iolink_checksum_ck(idle_mc, 0);
     will_return(mock_phy_recv_byte, 1);
-    will_return(mock_phy_recv_byte, idle_mc); 
+    will_return(mock_phy_recv_byte, idle_mc);
     will_return(mock_phy_recv_byte, 1);
-    will_return(mock_phy_recv_byte, idle_ck); 
+    will_return(mock_phy_recv_byte, idle_ck);
     will_return(mock_phy_recv_byte, 0);
-    
+
     /* Device sends response with Event bit set */
     expect_any(mock_phy_send, data);
     expect_value(mock_phy_send, len, 2);
     will_return(mock_phy_send, 0);
     iolink_process();
-    
+
     assert_true(iolink_events_pending(evt_ctx));
 }
 
 static void test_full_stack_timing_enforcement(void **state)
 {
-    (void)state;
+    (void) state;
     iolink_config_t config = {
-        .m_seq_type = IOLINK_M_SEQ_TYPE_1_1,
-        .pd_in_len = 1,
-        .pd_out_len = 1,
-        .min_cycle_time = 50
-    };
+        .m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1, .min_cycle_time = 50};
 
     setup_mock_phy();
     will_return(mock_phy_init, 0);

@@ -23,7 +23,7 @@ static inline bool iolink_ctx_zero(void *ctx, size_t len)
     if (ctx == NULL) {
         return false;
     }
-    (void)memset(ctx, 0, len);
+    (void) memset(ctx, 0, len);
     return true;
 }
 

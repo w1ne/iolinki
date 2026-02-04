@@ -22,15 +22,15 @@ int iolink_nvm_read(uint32_t offset, uint8_t *data, size_t len)
     if (f == NULL) {
         return -1;
     }
-    
-    if (fseek(f, (long)offset, SEEK_SET) != 0) {
-        (void)fclose(f);
+
+    if (fseek(f, (long) offset, SEEK_SET) != 0) {
+        (void) fclose(f);
         return -1;
     }
-    
+
     size_t read = fread(data, 1, len, f);
-    (void)fclose(f);
-    
+    (void) fclose(f);
+
     return (read == len) ? 0 : -1;
 }
 
@@ -44,14 +44,14 @@ int iolink_nvm_write(uint32_t offset, const uint8_t *data, size_t len)
     if (f == NULL) {
         return -1;
     }
-    
-    if (fseek(f, (long)offset, SEEK_SET) != 0) {
-        (void)fclose(f);
+
+    if (fseek(f, (long) offset, SEEK_SET) != 0) {
+        (void) fclose(f);
         return -1;
     }
-    
+
     size_t written = fwrite(data, 1, len, f);
-    (void)fclose(f);
-    
+    (void) fclose(f);
+
     return (written == len) ? 0 : -1;
 }

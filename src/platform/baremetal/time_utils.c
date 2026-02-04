@@ -8,11 +8,11 @@
 
 #include "iolinki/time_utils.h"
 
-/* 
+/*
  * Bare Metal Implementation Check:
- * Ideally this should be linked against a hardware specific driver 
+ * Ideally this should be linked against a hardware specific driver
  * or the user provides a 'ticks' variable.
- * For now, we provide a weak symbol or just a stub that increments 
+ * For now, we provide a weak symbol or just a stub that increments
  * so basics don't crash, but it requires external SysTick integration.
  */
 

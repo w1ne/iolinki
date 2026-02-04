@@ -21,7 +21,7 @@ int main(void)
 {
     /* Initialize stack with virtual PHY (simplified for bare metal, typically uses UART/SPI) */
     const iolink_phy_api_t *phy = iolink_phy_virtual_get();
-    
+
     if (iolink_init(phy) != 0) {
         return -1;
     }
@@ -30,11 +30,11 @@ int main(void)
     while (1) {
         /* Process Stack */
         iolink_process();
-        
+
         /* Simulate System Tick (Time Passage) */
         sys_tick_handler();
-        
-        /* In a real bare-metal app, we would wait for interrupt or sleep until next tick 
+
+        /* In a real bare-metal app, we would wait for interrupt or sleep until next tick
          * For this test/demo, we just loop for a bit to prevent 100% CPU on host simulation
          * or just break after N cycles for automated testing.
          */

@@ -27,10 +27,10 @@ uint16_t iolink_ds_calc_checksum(const uint8_t *data, size_t len)
         return 0U;
     }
     for (size_t i = 0U; i < len; ++i) {
-        sum1 = (uint16_t)((sum1 + (uint16_t)data[i]) % 255U);
-        sum2 = (uint16_t)((sum2 + sum1) % 255U);
+        sum1 = (uint16_t) ((sum1 + (uint16_t) data[i]) % 255U);
+        sum2 = (uint16_t) ((sum2 + sum1) % 255U);
     }
-    return (uint16_t)((sum2 << 8U) | sum1);
+    return (uint16_t) ((sum2 << 8U) | sum1);
 }
 
 void iolink_ds_check(iolink_ds_ctx_t *ctx, uint16_t master_checksum)
@@ -38,9 +38,9 @@ void iolink_ds_check(iolink_ds_ctx_t *ctx, uint16_t master_checksum)
     if (ctx == NULL) {
         return;
     }
-    
+
     ctx->master_checksum = master_checksum;
-    
+
     if (ctx->state != IOLINK_DS_STATE_IDLE) {
         return;
     }
@@ -48,7 +48,8 @@ void iolink_ds_check(iolink_ds_ctx_t *ctx, uint16_t master_checksum)
     if (master_checksum == 0U) {
         /* Master has no data -> Upload request */
         ctx->state = IOLINK_DS_STATE_UPLOAD_REQ;
-    } else if (master_checksum != ctx->current_checksum) {
+    }
+    else if (master_checksum != ctx->current_checksum) {
         /* Checksum mismatch -> Download request (Update device) */
         ctx->state = IOLINK_DS_STATE_DOWNLOAD_REQ;
     }
@@ -59,7 +60,7 @@ void iolink_ds_process(iolink_ds_ctx_t *ctx)
     if (ctx == NULL) {
         return;
     }
-    
+
     switch (ctx->state) {
         case IOLINK_DS_STATE_UPLOAD_REQ:
             /* Master indicated it has no data -> Device sends parameters */
@@ -71,7 +72,7 @@ void iolink_ds_process(iolink_ds_ctx_t *ctx)
             /* Complete upload simulation */
             ctx->state = IOLINK_DS_STATE_IDLE;
             break;
-            
+
         case IOLINK_DS_STATE_DOWNLOAD_REQ:
             /* Master indicated a mismatch -> Device receives parameters */
             ctx->state = IOLINK_DS_STATE_DOWNLOADING;
@@ -94,11 +95,11 @@ int iolink_ds_start_upload(iolink_ds_ctx_t *ctx)
     if (ctx == NULL) {
         return -1;
     }
-    
+
     if (ctx->state != IOLINK_DS_STATE_IDLE) {
         return -1; /* Busy */
     }
-    
+
     ctx->state = IOLINK_DS_STATE_UPLOAD_REQ;
     return 0;
 }
@@ -108,11 +109,11 @@ int iolink_ds_start_download(iolink_ds_ctx_t *ctx)
     if (ctx == NULL) {
         return -1;
     }
-    
+
     if (ctx->state != IOLINK_DS_STATE_IDLE) {
         return -1; /* Busy */
     }
-    
+
     ctx->state = IOLINK_DS_STATE_DOWNLOAD_REQ;
     return 0;
 }
@@ -122,7 +123,7 @@ int iolink_ds_abort(iolink_ds_ctx_t *ctx)
     if (ctx == NULL) {
         return -1;
     }
-    
+
     /* Abort any active DS operation */
     ctx->state = IOLINK_DS_STATE_IDLE;
     return 0;

@@ -25,25 +25,30 @@
 
 static void test_crc_error_recovery(void **state)
 {
-    (void)state;
-    iolink_config_t config = { .m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1 };
-    
+    (void) state;
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1};
+
     setup_mock_phy();
     will_return(mock_phy_init, 0);
     iolink_init(&g_phy_mock, &config);
-    
+
     move_to_operate();
 
     /* 2. Simulate 3 CRC errors (Type 1_1 with 1-byte PD: MC, CKT, PD(1), OD(1), CK = 5 bytes) */
     for (int r = 0; r < 3; r++) {
         /* Provide the whole frame in the mock queue */
-        will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0x80); /* MC */
-        will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0x00); /* CKT */
-        will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0x00); /* PD */
-        will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0x00); /* OD */
-        will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0xFF); /* Bad CRC */
-        will_return(mock_phy_recv_byte, 0); /* End frame */
-        
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, 0x80); /* MC */
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, 0x00); /* CKT */
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, 0x00); /* PD */
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, 0x00); /* OD */
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, 0xFF); /* Bad CRC */
+        will_return(mock_phy_recv_byte, 0);    /* End frame */
+
         /* One call to process the whole available frame */
         iolink_process();
     }
@@ -54,11 +59,11 @@ static void test_crc_error_recovery(void **state)
 
 static void test_communication_timeout(void **state)
 {
-    (void)state;
+    (void) state;
     setup_mock_phy();
     will_return(mock_phy_init, 0);
     iolink_init(&g_phy_mock, NULL);
-    
+
     /* Ensure no data available */
     will_return(mock_phy_recv_byte, 0);
     iolink_process();

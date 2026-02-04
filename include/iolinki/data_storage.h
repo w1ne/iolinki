@@ -23,25 +23,27 @@
  */
 /**
  * @brief Data Storage (DS) Engine States
- * 
+ *
  * Manages the transition between idle, uploading, and downloading states.
  */
-typedef enum {
-    IOLINK_DS_STATE_IDLE = 0U,          /**< No active DS operation */
-    IOLINK_DS_STATE_UPLOAD_REQ = 1U,    /**< Master requested parameter upload */
-    IOLINK_DS_STATE_UPLOADING = 2U,     /**< Parameter upload in progress */
-    IOLINK_DS_STATE_DOWNLOAD_REQ = 3U,  /**< Master requested parameter download */
-    IOLINK_DS_STATE_DOWNLOADING = 4U,   /**< Parameter download in progress */
-    IOLINK_DS_STATE_LOCKED = 5U         /**< DS operation disabled/locked */
+typedef enum
+{
+    IOLINK_DS_STATE_IDLE = 0U,         /**< No active DS operation */
+    IOLINK_DS_STATE_UPLOAD_REQ = 1U,   /**< Master requested parameter upload */
+    IOLINK_DS_STATE_UPLOADING = 2U,    /**< Parameter upload in progress */
+    IOLINK_DS_STATE_DOWNLOAD_REQ = 3U, /**< Master requested parameter download */
+    IOLINK_DS_STATE_DOWNLOADING = 4U,  /**< Parameter download in progress */
+    IOLINK_DS_STATE_LOCKED = 5U        /**< DS operation disabled/locked */
 } iolink_ds_state_t;
 
 /**
  * @brief Storage Abstraction Layer (SAL)
- * 
+ *
  * Hardware-independent interface for persisting Data Storage parameters
  * to Non-Volatile Memory (NVM) such as Flash or EEPROM.
  */
-typedef struct {
+typedef struct
+{
     /**
      * @brief Read data from NVM
      * @param addr Destination-relative address
@@ -71,19 +73,20 @@ typedef struct {
 
 /**
  * @brief Data Storage Engine Context
- * 
+ *
  * Tracks the state and checksums for the DS synchronization process.
  */
-typedef struct {
+typedef struct
+{
     iolink_ds_state_t state;                /**< Current DS state machine position */
-    const iolink_ds_storage_api_t *storage;  /**< Bound storage implementation API */
+    const iolink_ds_storage_api_t *storage; /**< Bound storage implementation API */
     uint16_t current_checksum;              /**< Last calculated local parameter checksum */
     uint16_t master_checksum;               /**< Most recent checksum verified by Master */
 } iolink_ds_ctx_t;
 
 /**
  * @brief Initialize the Data Storage engine
- * 
+ *
  * @param ctx DS context to initialize
  * @param storage Optional storage implementation hooks (can be NULL for RAM-only)
  */
@@ -91,9 +94,9 @@ void iolink_ds_init(iolink_ds_ctx_t *ctx, const iolink_ds_storage_api_t *storage
 
 /**
  * @brief Calculate a standard 16-bit checksum for a parameter block
- * 
+ *
  * Used during DS compare operations to detect parity between Master and Device.
- * 
+ *
  * @param data Pointer to the parameter data structure
  * @param len Length of the data in bytes
  * @return uint16_t Calculated CCITT-style or parity checksum
@@ -102,18 +105,18 @@ uint16_t iolink_ds_calc_checksum(const uint8_t *data, size_t len);
 
 /**
  * @brief Process Data Storage engine logic
- * 
+ *
  * Handles state transitions and background synchronization tasks.
- * 
+ *
  * @param ctx DS context to process
  */
 void iolink_ds_process(iolink_ds_ctx_t *ctx);
 
 /**
  * @brief Trigger a DS consistency check with the Master
- * 
+ *
  * typically triggered by the ISDU engine upon Master comparison requests.
- * 
+ *
  * @param ctx DS context
  * @param master_checksum The 16-bit checksum provided by the IO-Link Master
  */
@@ -121,7 +124,7 @@ void iolink_ds_check(iolink_ds_ctx_t *ctx, uint16_t master_checksum);
 
 /**
  * @brief Start parameter upload to Master (System Command 0x95)
- * 
+ *
  * @param ctx DS context
  * @return int 0 on success, negative if DS not initialized
  */
@@ -129,7 +132,7 @@ int iolink_ds_start_upload(iolink_ds_ctx_t *ctx);
 
 /**
  * @brief Start parameter download from Master (System Command 0x96)
- * 
+ *
  * @param ctx DS context
  * @return int 0 on success, negative if DS not initialized
  */
@@ -137,10 +140,10 @@ int iolink_ds_start_download(iolink_ds_ctx_t *ctx);
 
 /**
  * @brief Abort current DS operation (System Command 0x97)
- * 
+ *
  * @param ctx DS context
  * @return int 0 on success
  */
 int iolink_ds_abort(iolink_ds_ctx_t *ctx);
 
-#endif // IOLINK_DATA_STORAGE_H
+#endif  // IOLINK_DATA_STORAGE_H

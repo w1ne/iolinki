@@ -34,4 +34,4 @@ const iolink_phy_api_t* iolink_phy_generic_get(void);
 }
 #endif
 
-#endif // IOLINK_PHY_GENERIC_H
+#endif  // IOLINK_PHY_GENERIC_H

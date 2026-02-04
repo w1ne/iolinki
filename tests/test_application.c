@@ -24,27 +24,27 @@
 
 static void test_pd_input_update_flow(void **state)
 {
-    (void)state;
+    (void) state;
     setup_mock_phy();
     will_return(mock_phy_init, 0);
     iolink_init(&g_phy_mock, NULL);
-    
+
     uint8_t data[] = {0xAA, 0xBB};
     int res = iolink_pd_input_update(data, sizeof(data), true);
     assert_int_equal(res, 0);
-    
+
     /* Check internal state via output read (as simple proxy) */
-    /* Note: iolink_pd_output_read reads FROM master, so this is not a direct mirror. 
+    /* Note: iolink_pd_output_read reads FROM master, so this is not a direct mirror.
        We just verify the API doesn't crash here. */
 }
 
 static void test_pd_output_read_flow(void **state)
 {
-    (void)state;
+    (void) state;
     setup_mock_phy();
     will_return(mock_phy_init, 0);
     iolink_init(&g_phy_mock, NULL);
-    
+
     uint8_t buf[16];
     int res = iolink_pd_output_read(buf, sizeof(buf));
     /* Initial state should be 0 length or zeroed */

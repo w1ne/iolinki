@@ -17,7 +17,7 @@
  */
 
 #define IOLINK_US_PER_MS 1000ULL
-#define IOLINK_US_FROM_MS(ms) ((uint64_t)(ms) * IOLINK_US_PER_MS)
+#define IOLINK_US_FROM_MS(ms) ((uint64_t) (ms) *IOLINK_US_PER_MS)
 
 /**
  * @brief Get system time in milliseconds
@@ -31,4 +31,4 @@ uint32_t iolink_time_get_ms(void);
  */
 uint64_t iolink_time_get_us(void);
 
-#endif // IOLINK_TIME_UTILS_H
+#endif  // IOLINK_TIME_UTILS_H

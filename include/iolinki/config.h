@@ -125,4 +125,4 @@
 #define IOLINK_OD_EVENT_MODE 0U
 #endif
 
-#endif // IOLINK_CONFIG_H
+#endif  // IOLINK_CONFIG_H

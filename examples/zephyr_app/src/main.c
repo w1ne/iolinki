@@ -29,7 +29,8 @@ int main(void)
     if (port) {
         iolink_phy_virtual_set_port(port);
         LOG_INF("Connecting to %s", port);
-    } else {
+    }
+    else {
         LOG_WRN("IOLINK_PORT not set, using default");
         /* phy_virtual default is /dev/pts/1 or similar? */
     }

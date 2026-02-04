@@ -49,6 +49,6 @@ void iolink_phy_mock_set_send_delay_us(uint32_t delay_us);
 #include "iolinki/data_storage.h"
 extern const iolink_ds_storage_api_t g_ds_storage_mock;
 void iolink_ds_mock_reset(void);
-uint8_t* iolink_ds_mock_get_buf(void);
+uint8_t *iolink_ds_mock_get_buf(void);
 
 #endif  // TEST_HELPERS_H_

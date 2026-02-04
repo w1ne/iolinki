@@ -15,7 +15,7 @@ uint32_t iolink_time_get_ms(void)
     if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
         return 0U;
     }
-    return (uint32_t)((uint64_t)ts.tv_sec * 1000U + (uint64_t)ts.tv_nsec / 1000000U);
+    return (uint32_t) ((uint64_t) ts.tv_sec * 1000U + (uint64_t) ts.tv_nsec / 1000000U);
 }
 
 uint64_t iolink_time_get_us(void)
@@ -24,5 +24,5 @@ uint64_t iolink_time_get_us(void)
     if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
         return 0ULL;
     }
-    return ((uint64_t)ts.tv_sec * 1000000ULL + (uint64_t)ts.tv_nsec / 1000ULL);
+    return ((uint64_t) ts.tv_sec * 1000000ULL + (uint64_t) ts.tv_nsec / 1000ULL);
 }

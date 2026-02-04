@@ -14,7 +14,7 @@
 /**
  * @file device_info.h
  * @brief Device identification and mandatory ISDU indices
- * 
+ *
  * Implements mandatory indices required by IO-Link V1.1.5 specification.
  */
 
@@ -22,32 +22,33 @@
  * Device identification structure.
  * Configure these values for your specific device.
  */
-typedef struct {
+typedef struct
+{
     /* Mandatory ID Indices (0x0010-0x0018) */
-    const char *vendor_name;        /* Index 0x0010 */
-    const char *vendor_text;        /* Index 0x0011 */
-    const char *product_name;       /* Index 0x0012 */
-    const char *product_id;         /* Index 0x0013 */
-    const char *product_text;       /* Index 0x0014 */
-    const char *serial_number;      /* Index 0x0015 */
-    const char *hardware_revision;  /* Index 0x0016 */
-    const char *firmware_revision;  /* Index 0x0017 */
-    const char *application_tag;    /* Index 0x0018 (optional) */
-    
+    const char *vendor_name;       /* Index 0x0010 */
+    const char *vendor_text;       /* Index 0x0011 */
+    const char *product_name;      /* Index 0x0012 */
+    const char *product_id;        /* Index 0x0013 */
+    const char *product_text;      /* Index 0x0014 */
+    const char *serial_number;     /* Index 0x0015 */
+    const char *hardware_revision; /* Index 0x0016 */
+    const char *firmware_revision; /* Index 0x0017 */
+    const char *application_tag;   /* Index 0x0018 (optional) */
+
     /* Device IDs (Mandatory Indices) */
-    uint16_t vendor_id;             /* Index 0x000A */
-    uint32_t device_id;             /* Index 0x000B */
-    uint16_t function_id;           /* Index 0x001C */
+    uint16_t vendor_id;              /* Index 0x000A */
+    uint32_t device_id;              /* Index 0x000B */
+    uint16_t function_id;            /* Index 0x001C */
     uint16_t profile_characteristic; /* Index 0x000D */
-    
+
     /* System Info */
-    uint8_t min_cycle_time;         /* Index 0x0024 (in 100μs units) */
-    uint16_t revision_id;           /* Index 0x001E */
-    uint8_t device_status;          /* Index 0x001B */
+    uint8_t min_cycle_time;          /* Index 0x0024 (in 100μs units) */
+    uint16_t revision_id;            /* Index 0x001E */
+    uint8_t device_status;           /* Index 0x001B */
     uint16_t detailed_device_status; /* Index 0x001C (optional) */
-    
+
     /* Access Control */
-    uint16_t access_locks;          /* Index 0x000C - Device Access Locks */
+    uint16_t access_locks; /* Index 0x000C - Device Access Locks */
 } iolink_device_info_t;
 
 /**
@@ -60,7 +61,7 @@ void iolink_device_info_init(const iolink_device_info_t *info);
  * @brief Get device information
  * @return Pointer to device info structure
  */
-const iolink_device_info_t* iolink_device_info_get(void);
+const iolink_device_info_t *iolink_device_info_get(void);
 
 /**
  * @brief Set the Application Tag (Index 0x18)
@@ -82,4 +83,4 @@ uint16_t iolink_device_info_get_access_locks(void);
  */
 void iolink_device_info_set_access_locks(uint16_t locks);
 
-#endif // IOLINK_DEVICE_INFO_H
+#endif  // IOLINK_DEVICE_INFO_H

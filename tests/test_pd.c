@@ -25,18 +25,14 @@
 
 static void test_pd_input_output(void **state)
 {
-    (void)state;
-    
-    iolink_config_t config = {
-        .pd_in_len = 2,
-        .pd_out_len = 2,
-        .m_seq_type = IOLINK_M_SEQ_TYPE_2_2
-    };
+    (void) state;
+
+    iolink_config_t config = {.pd_in_len = 2, .pd_out_len = 2, .m_seq_type = IOLINK_M_SEQ_TYPE_2_2};
 
     setup_mock_phy();
     will_return(mock_phy_init, 0);
     iolink_init(&g_phy_mock, &config);
-    
+
     /* Move to OPERATE */
     move_to_operate();
 
@@ -48,12 +44,12 @@ static void test_pd_input_output(void **state)
     uint8_t frame[7] = {0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     frame[6] = iolink_crc6(frame, 6);
 
-    for (int i=0; i<7; i++) {
+    for (int i = 0; i < 7; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
-    will_return(mock_phy_recv_byte, 0); 
-    
+    will_return(mock_phy_recv_byte, 0);
+
     /* Response: Status(1), PD_IN(2), OD(2), CK(1) = 6 bytes for Type 2_x */
     expect_any(mock_phy_send, data);
     expect_value(mock_phy_send, len, 6);

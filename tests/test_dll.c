@@ -26,7 +26,7 @@
 
 static void test_dll_wakeup_to_preoperate(void **state)
 {
-    (void)state;
+    (void) state;
     setup_mock_phy();
     will_return(mock_phy_init, 0);
     iolink_init(&g_phy_mock, NULL);
@@ -59,8 +59,8 @@ static void test_dll_wakeup_to_preoperate(void **state)
 
 static void test_dll_preoperate_to_operate(void **state)
 {
-    (void)state;
-    iolink_config_t config = { .m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1 };
+    (void) state;
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1};
     setup_mock_phy();
     will_return(mock_phy_init, 0);
     iolink_init(&g_phy_mock, &config);
@@ -70,12 +70,14 @@ static void test_dll_preoperate_to_operate(void **state)
     iolink_phy_mock_set_wakeup(1);
     iolink_process();
     usleep(200);
-    
+
     /* PREOPERATE -> ESTAB_COM */
     uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;
     uint8_t ck = iolink_checksum_ck(mc, 0U);
-    will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, mc);
-    will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, ck);
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, mc);
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, ck);
     will_return(mock_phy_recv_byte, 0);
     iolink_process();
     assert_int_equal(iolink_get_state(), IOLINK_DLL_STATE_ESTAB_COM);
@@ -99,8 +101,8 @@ static void test_dll_preoperate_to_operate(void **state)
 
 static void test_dll_fallback_on_crc_errors(void **state)
 {
-    (void)state;
-    iolink_config_t config = { .m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1 };
+    (void) state;
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1};
     setup_mock_phy();
     will_return(mock_phy_init, 0);
     iolink_init(&g_phy_mock, &config);
@@ -114,8 +116,10 @@ static void test_dll_fallback_on_crc_errors(void **state)
     /* PREOPERATE -> ESTAB_COM */
     uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;
     uint8_t ck = iolink_checksum_ck(mc, 0U);
-    will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, mc);
-    will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, ck);
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, mc);
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, ck);
     will_return(mock_phy_recv_byte, 0);
     iolink_process();
 
@@ -153,16 +157,16 @@ static void test_dll_fallback_on_crc_errors(void **state)
 
 static void test_dll_reject_transition_in_operate(void **state)
 {
-    (void)state;
-    iolink_config_t config = { .m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1 };
+    (void) state;
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1};
     setup_mock_phy();
     will_return(mock_phy_init, 0);
     iolink_init(&g_phy_mock, &config);
-    
+
     move_to_operate();
     assert_int_equal(iolink_get_state(), IOLINK_DLL_STATE_OPERATE);
 
-    /* Master sends 0x0F (Transition) while in OPERATE 
+    /* Master sends 0x0F (Transition) while in OPERATE
      * Type 1_1 frame for pd_out_len=1 is 5 bytes: MC, CKT, PD, OD, CK */
     uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;
     uint8_t frame[5] = {mc, 0x00, 0x00, 0x00, 0x00};
@@ -185,16 +189,16 @@ static void test_dll_reject_transition_in_operate(void **state)
 
 static void test_dll_reject_invalid_mc_channel(void **state)
 {
-    (void)state;
-    iolink_config_t config = { .m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1 };
+    (void) state;
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1};
     setup_mock_phy();
     will_return(mock_phy_init, 0);
     iolink_init(&g_phy_mock, &config);
-    
+
     move_to_operate();
 
     /* MC with reserved channel bits (e.g., 0x20 | 0x80) */
-    uint8_t mc = 0xA0; 
+    uint8_t mc = 0xA0;
     uint8_t frame[5] = {mc, 0x00, 0x00, 0x00, 0x00};
     frame[4] = iolink_crc6(frame, 4);
 
