@@ -17,6 +17,8 @@
 typedef struct {
     uint32_t magic;
     char application_tag[33];
+    char function_tag[33];
+    char location_tag[33];
     /* Future: user parameters, etc. */
 } iolink_params_nvm_t;
 
@@ -68,6 +70,8 @@ void iolink_params_init(void)
     } else {
         g_nvm_shadow.application_tag[0] = '\0';
     }
+    g_nvm_shadow.function_tag[0] = '\0';
+    g_nvm_shadow.location_tag[0] = '\0';
 }
 
 int iolink_params_get(uint16_t index, uint8_t subindex, uint8_t *buffer, size_t max_len)
@@ -85,6 +89,22 @@ int iolink_params_get(uint16_t index, uint8_t subindex, uint8_t *buffer, size_t 
             (void)memcpy(buffer, info->application_tag, len);
             return (int)len;
         }
+    }
+    if ((index == 0x0019U) && (subindex == 0U)) {
+        size_t len = strlen(g_nvm_shadow.function_tag);
+        if (len > max_len) {
+            len = max_len;
+        }
+        (void)memcpy(buffer, g_nvm_shadow.function_tag, len);
+        return (int)len;
+    }
+    if ((index == 0x001AU) && (subindex == 0U)) {
+        size_t len = strlen(g_nvm_shadow.location_tag);
+        if (len > max_len) {
+            len = max_len;
+        }
+        (void)memcpy(buffer, g_nvm_shadow.location_tag, len);
+        return (int)len;
     }
     return -1;
 }
@@ -107,5 +127,42 @@ int iolink_params_set(uint16_t index, uint8_t subindex, const uint8_t *data, siz
             return 0;
         }
     }
+    if ((index == 0x0019U) && (subindex == 0U)) {
+        size_t copy_len = (len > 32U) ? 32U : len;
+        if (copy_len > 0U) {
+            (void)memcpy(g_nvm_shadow.function_tag, data, copy_len);
+        }
+        g_nvm_shadow.function_tag[copy_len] = '\0';
+        if (persist) {
+            (void)iolink_nvm_write(0U, (uint8_t*)&g_nvm_shadow, sizeof(g_nvm_shadow));
+        }
+        return 0;
+    }
+    if ((index == 0x001AU) && (subindex == 0U)) {
+        size_t copy_len = (len > 32U) ? 32U : len;
+        if (copy_len > 0U) {
+            (void)memcpy(g_nvm_shadow.location_tag, data, copy_len);
+        }
+        g_nvm_shadow.location_tag[copy_len] = '\0';
+        if (persist) {
+            (void)iolink_nvm_write(0U, (uint8_t*)&g_nvm_shadow, sizeof(g_nvm_shadow));
+        }
+        return 0;
+    }
     return -1;
+}
+
+void iolink_params_factory_reset(void)
+{
+    /* Reset to factory defaults */
+    g_nvm_shadow.magic = PARAMS_NVM_MAGIC;
+    g_nvm_shadow.application_tag[0] = '\0';
+    g_nvm_shadow.function_tag[0] = '\0';
+    g_nvm_shadow.location_tag[0] = '\0';
+    
+    /* Clear device info application tag */
+    (void)iolink_device_info_set_application_tag("", 0U);
+    
+    /* Erase NVM (write zeros or default structure) */
+    (void)iolink_nvm_write(0U, (uint8_t*)&g_nvm_shadow, sizeof(g_nvm_shadow));
 }

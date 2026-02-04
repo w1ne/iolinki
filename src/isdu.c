@@ -8,10 +8,12 @@
 
 #include "iolinki/protocol.h"
 #include "iolinki/isdu.h"
+#include "iolinki/dll.h"
 #include "iolinki/crc.h"
 #include "iolinki/events.h"
 #include "iolinki/device_info.h"
 #include "iolinki/params.h"
+#include "iolinki/data_storage.h"
 #include "iolinki/platform.h"
 #include "iolinki/utils.h"
 #include <string.h>
@@ -278,6 +280,61 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t *ctx)
             }
             break;
             
+        case IOLINK_IDX_FUNCTION_TAG:
+            if (ctx->header.type == IOLINK_ISDU_SERVICE_WRITE) {
+                if (iolink_params_set(IOLINK_IDX_FUNCTION_TAG, 0U, ctx->buffer, ctx->buffer_idx, true) == 0) {
+                     ctx->response_len = 0U;
+                     ctx->response_idx = 0U;
+                     ctx->state = ISDU_STATE_RESPONSE_READY;
+                     return;
+                }
+            } else {
+                int res = iolink_params_get(IOLINK_IDX_FUNCTION_TAG, 0U, ctx->response_buf, (size_t)IOLINK_ISDU_BUFFER_SIZE);
+                if (res >= 0) {
+                    ctx->response_len = (uint8_t)res;
+                    ctx->response_idx = 0U;
+                    ctx->state = ISDU_STATE_RESPONSE_READY;
+                    return;
+                }
+            }
+            break;
+            
+        case IOLINK_IDX_LOCATION_TAG:
+            if (ctx->header.type == IOLINK_ISDU_SERVICE_WRITE) {
+                if (iolink_params_set(IOLINK_IDX_LOCATION_TAG, 0U, ctx->buffer, ctx->buffer_idx, true) == 0) {
+                     ctx->response_len = 0U;
+                     ctx->response_idx = 0U;
+                     ctx->state = ISDU_STATE_RESPONSE_READY;
+                     return;
+                }
+            } else {
+                int res = iolink_params_get(IOLINK_IDX_LOCATION_TAG, 0U, ctx->response_buf, (size_t)IOLINK_ISDU_BUFFER_SIZE);
+                if (res >= 0) {
+                    ctx->response_len = (uint8_t)res;
+                    ctx->response_idx = 0U;
+                    ctx->state = ISDU_STATE_RESPONSE_READY;
+                    return;
+                }
+            }
+            break;
+            
+        case IOLINK_IDX_PDIN_DESCRIPTOR:
+            /* Read-only: Returns PD Input descriptor (1 byte: PD length) */
+            if (ctx->header.type == IOLINK_ISDU_SERVICE_WRITE) {
+                ctx->response_buf[0] = 0x80U;
+                ctx->response_buf[1] = IOLINK_ISDU_ERROR_WRITE_PROTECTED;
+                ctx->response_len = 2U;
+                ctx->response_idx = 0U;
+                ctx->state = ISDU_STATE_RESPONSE_READY;
+                return;
+            }
+            /* Return PD Input length (default: 2 bytes) */
+            ctx->response_buf[0] = 2U;  /* Default PD length */
+            ctx->response_len = 1U;
+            ctx->response_idx = 0U;
+            ctx->state = ISDU_STATE_RESPONSE_READY;
+            return;
+            
         case IOLINK_IDX_DEVICE_STATUS:
             ctx->response_buf[0] = iolink_events_get_highest_severity((iolink_events_ctx_t *)ctx->event_ctx);
             ctx->response_len = 1U;
@@ -356,11 +413,69 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t *ctx)
 static void handle_system_command(iolink_isdu_ctx_t *ctx, uint8_t cmd)
 {
     switch (cmd) {
-        case 0x80U: iolink_isdu_init(ctx); break;
-        case 0x81U: break;
-        case IOLINK_CMD_RESTORE_FACTORY_SETTINGS: break;
-        case 0x83U: break;
+        case IOLINK_CMD_DEVICE_RESET: /* 0x80 */
+            /* Set reset flag for application to handle */
+            ctx->reset_pending = true;
+            break;
+            
+        case IOLINK_CMD_APPLICATION_RESET: /* 0x81 */
+            /* Set application reset flag */
+            ctx->app_reset_pending = true;
+            break;
+            
+        case IOLINK_CMD_RESTORE_FACTORY_SETTINGS: /* 0x82 */
+            /* Reset all parameters to factory defaults */
+            iolink_params_factory_reset();
+            break;
+            
+        case IOLINK_CMD_RESTORE_APP_DEFAULTS: /* 0x83 */
+            /* Reset application-specific parameters (currently same as factory) */
+            iolink_params_factory_reset();
+            break;
+            
+        case IOLINK_CMD_SET_COMM_MODE: /* 0x84 */
+            /* Communication mode switching handled by DLL - this is a no-op */
+            break;
+            
+        case IOLINK_CMD_PARAM_UPLOAD: /* 0x95 */
+            /* Trigger Data Storage upload to Master */
+            if (ctx->ds_ctx != NULL) {
+                if (iolink_ds_start_upload((iolink_ds_ctx_t *)ctx->ds_ctx) != 0) {
+                    /* DS busy or error */
+                    ctx->response_buf[0] = 0x80U;
+                    ctx->response_buf[1] = IOLINK_ISDU_ERROR_BUSY;
+                    ctx->response_len = 2U;
+                    ctx->response_idx = 0U;
+                    ctx->state = ISDU_STATE_RESPONSE_READY;
+                    return;
+                }
+            }
+            break;
+            
+        case IOLINK_CMD_PARAM_DOWNLOAD: /* 0x96 */
+            /* Trigger Data Storage download from Master */
+            if (ctx->ds_ctx != NULL) {
+                if (iolink_ds_start_download((iolink_ds_ctx_t *)ctx->ds_ctx) != 0) {
+                    /* DS busy or error */
+                    ctx->response_buf[0] = 0x80U;
+                    ctx->response_buf[1] = IOLINK_ISDU_ERROR_BUSY;
+                    ctx->response_len = 2U;
+                    ctx->response_idx = 0U;
+                    ctx->state = ISDU_STATE_RESPONSE_READY;
+                    return;
+                }
+            }
+            break;
+            
+        case IOLINK_CMD_PARAM_BREAK: /* 0x97 */
+            /* Abort current Data Storage operation */
+            if (ctx->ds_ctx != NULL) {
+                (void)iolink_ds_abort((iolink_ds_ctx_t *)ctx->ds_ctx);
+            }
+            break;
+            
         default:
+            /* Unknown command */
             ctx->response_buf[0] = 0x80U;
             ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
             ctx->response_len = 2U;
@@ -368,6 +483,8 @@ static void handle_system_command(iolink_isdu_ctx_t *ctx, uint8_t cmd)
             ctx->state = ISDU_STATE_RESPONSE_READY;
             return;
     }
+    
+    /* Success: empty response */
     ctx->response_len = 0U;
     ctx->response_idx = 0U;
     ctx->state = ISDU_STATE_RESPONSE_READY;
@@ -438,6 +555,48 @@ static void handle_detailed_device_status(iolink_isdu_ctx_t *ctx)
     iolink_critical_exit();
 }
 
+static void isdu_write_u32_be(uint8_t *buf, size_t *idx, uint32_t value)
+{
+    buf[(*idx)++] = (uint8_t)((value >> 24) & 0xFFU);
+    buf[(*idx)++] = (uint8_t)((value >> 16) & 0xFFU);
+    buf[(*idx)++] = (uint8_t)((value >> 8) & 0xFFU);
+    buf[(*idx)++] = (uint8_t)(value & 0xFFU);
+}
+
+static void handle_error_stats(iolink_isdu_ctx_t *ctx)
+{
+    if (ctx->header.type != IOLINK_ISDU_SERVICE_READ) {
+        ctx->response_buf[0] = 0x80U;
+        ctx->response_buf[1] = IOLINK_ISDU_ERROR_WRITE_PROTECTED;
+        ctx->response_len = 2U;
+        return;
+    }
+
+    if (ctx->header.subindex != 0U) {
+        ctx->response_buf[0] = 0x80U;
+        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL;
+        ctx->response_len = 2U;
+        return;
+    }
+
+    if (ctx->dll_ctx == NULL) {
+        ctx->response_buf[0] = 0x80U;
+        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+        ctx->response_len = 2U;
+        return;
+    }
+
+    iolink_dll_stats_t stats;
+    iolink_dll_get_stats((const iolink_dll_ctx_t *)ctx->dll_ctx, &stats);
+
+    size_t idx = 0U;
+    isdu_write_u32_be(ctx->response_buf, &idx, stats.crc_errors);
+    isdu_write_u32_be(ctx->response_buf, &idx, stats.timeout_errors);
+    isdu_write_u32_be(ctx->response_buf, &idx, stats.framing_errors);
+    isdu_write_u32_be(ctx->response_buf, &idx, stats.timing_errors);
+    ctx->response_len = (uint8_t)idx;
+}
+
 static void handle_standard_commands(iolink_isdu_ctx_t *ctx)
 {
     if (ctx->header.index == IOLINK_IDX_SYSTEM_COMMAND) {
@@ -475,6 +634,8 @@ static void handle_standard_commands(iolink_isdu_ctx_t *ctx)
         handle_access_locks(ctx);
     } else if (ctx->header.index == IOLINK_IDX_DETAILED_DEVICE_STATUS) {
         handle_detailed_device_status(ctx);
+    } else if (ctx->header.index == IOLINK_IDX_ERROR_STATS) {
+        handle_error_stats(ctx);
         ctx->response_idx = 0U;
         ctx->state = ISDU_STATE_RESPONSE_READY;
     } else {
