@@ -507,16 +507,23 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx)
         ctx->state = IOLINK_DLL_STATE_STARTUP;
     }
 
-    /* Wake-up detection (if supported by PHY) */
-    if ((ctx->state == IOLINK_DLL_STATE_STARTUP) &&
-        (ctx->enforce_timing) &&
+    /* Wake-up detection (Global - can occur in any state except PREOPERATE/AWAITING/ESTAB where 0x00 might be stale IDLE or partially valid) */
+    if ((ctx->frame_index == 0U) &&
+        (ctx->state != IOLINK_DLL_STATE_PREOPERATE) && 
+        (ctx->state != IOLINK_DLL_STATE_AWAITING_COMM) &&
+        (ctx->state != IOLINK_DLL_STATE_ESTAB_COM) &&
         (ctx->phy->detect_wakeup != NULL)) {
         int wake = ctx->phy->detect_wakeup();
         if (wake > 0) {
             ctx->wakeup_seen = true;
             ctx->state = IOLINK_DLL_STATE_AWAITING_COMM;
             ctx->wakeup_deadline_us = iolink_time_get_us() + IOLINK_T_DWU_US;
-        } else {
+            /* Reset stats/state on wakeup */
+            ctx->frame_index = 0U;
+            ctx->last_activity_ms = iolink_time_get_ms();
+            /* Ensure we are ready for new communication */
+            enter_fallback(ctx); 
+            ctx->state = IOLINK_DLL_STATE_AWAITING_COMM; /* Restore AWAITING_COMM after fallback reset */
             return;
         }
     }
