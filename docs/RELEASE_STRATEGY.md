@@ -7,11 +7,11 @@ This document outlines the development workflow, versioning, and release procedu
 We use a simplified **Gitflow** model.
 
 ### Branches
-- **`main`**: Production code. Stable releases.
-- **`develop`**: Integration branch. All features merge here first.
-- **`feature/*`**: Feature branches. Created from and merged back to `develop`.
-- **`release/*`**: Release preparation steps (version bumps, changelogs).
-- **`bugfix/*`**: Fixes for bugs found in `develop`.
+- **`main`**: Production code. Stable releases. **Protected: Merges only via PR from `release/*` or `bugfix/*`**.
+- **`develop`**: Integration branch. **Merges only via PR from `feature/*` or `bugfix/*`**.
+- **`feature/*`**: Feature branches. Created from and merged back to `develop` via PR.
+- **`release/*`**: Release preparation steps. Merged to `main` via PR.
+- **`bugfix/*`**: Fixes for production bugs. Merged to `develop` and `main` via PRs.
 
 ## 2. Versioning
 
@@ -68,7 +68,7 @@ The workflow automatically:
 > [!IMPORTANT]
 > Ensure `CHANGELOG.md` is updated and use **Conventional Commits** (`feat:`, `fix:`) in your PRs so the release notes generator can categorize changes correctly.
 
-### Manual Release (if needed)
+### Manual Release (PR-Based Flow)
 
 1. **Prepare Release Branch**:
    ```bash
@@ -78,30 +78,32 @@ The workflow automatically:
 
 2. **Update Documentation**:
    - Update version in `CMakeLists.txt`
-   - Update `CHANGELOG.md` (if exists)
+   - Update `CHANGELOG.md`
    - Update `ROADMAP.md` milestones
 
-3. **Verify Quality**:
+3. **Verify Quality Locally**:
    ```bash
    cmake -B build -DCMAKE_BUILD_TYPE=Release
    cmake --build build
    cd build && ctest --output-on-failure
    ```
 
-4. **Merge to Main**:
-   ```bash
-   git checkout main
-   git merge release/x.y.z
-   git tag -a vx.y.z -m "Release vx.y.z"
-   git push origin main --tags
-   ```
+4. **Open Pull Requests**:
+   - Push the `release/x.y.z` branch to remote.
+   - Open a PR from `release/x.y.z` to **`main`**.
+   - **Wait for CI to pass** and get approval.
+   - Merge the PR (this will update `main`).
 
-5. **Back-merge to Develop**:
-   ```bash
-   git checkout develop
-   git merge main
-   git push origin develop
-   ```
+5. **Tag the Release**:
+   - On the updated `main` branch locally:
+     ```bash
+     git pull origin main
+     git tag -a vx.y.z -m "Release vx.y.z"
+     git push origin vx.y.z
+     ```
+
+6. **Back-merge to Develop**:
+   - Open a PR from **`main`** back to **`develop`** (or merge `main` into `develop` and push if `develop` isn't fully protected, though a PR is preferred).
 
 ## 5. Release Artifacts
 
