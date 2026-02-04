@@ -5,6 +5,15 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.2] - 2026-02-05
+
+### Fixed
+- **Conformance**: Fixed critical State Machine and Error Injection conformance failures.
+  - Resolved **False Wakeup Detection** in `OPERATE` state by using invalid MC byte `0x55`.
+  - Fixed **ISDU State Machine** bug in Index `0x001C` (Detailed Device Status) read.
+  - Fixed **Type 0 Protocol Collision** in test suite by enforcing Type 2 for large ISDU payloads.
+  - Updated Virtual Master tool to support ISDU writes > 15 bytes.
+
 ## [0.12.1] - 2026-02-04
 
 ### Changed
