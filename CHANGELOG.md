@@ -5,6 +5,19 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.1] - 2026-02-04
+
+### Changed
+- Updated LICENSE: Added dual-licensing terms (GPLv3 + Commercial).
+- Updated project version to 0.12.1.
+
+## [0.12.0] - 2026-02-04
+
+### Changed
+- **Major Codebase Refactoring and Quality Improvement**:
+  - Centralized all IO-Link protocol constants in `include/iolinki/protocol.h`.
+  - Refactored `src/dll.c` to improve readability and reduce complexity (modularized `handle_operate`).
+
 ## [0.11.0] — 2026-02-04
 
 ### Changed
