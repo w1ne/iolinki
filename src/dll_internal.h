@@ -19,8 +19,9 @@
 
 #include "iolinki/protocol.h"
 
-#define IOLINK_M_SEQ_TYPE1_LEN(pd_len) (4 + (pd_len)) /* MC(8) + CKT(8) + PD(var) + OD(8) + CK(8) \
-                                                       */
+#define IOLINK_M_SEQ_TYPE1_LEN(pd_len)                         \
+    (4 + (pd_len)) /* MC(8) + CKT(8) + PD(var) + OD(8) + CK(8) \
+                    */
 #define IOLINK_M_SEQ_TYPE2_LEN(pd_len, od_len) \
     (3 + (pd_len) + (od_len)) /* MC(8) + CKT(8) + PD(var) + OD(var) + CK(8) */
 

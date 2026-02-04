@@ -22,7 +22,7 @@ int main(void)
     /* Initialize stack with virtual PHY (simplified for bare metal, typically uses UART/SPI) */
     const iolink_phy_api_t *phy = iolink_phy_virtual_get();
 
-    if (iolink_init(phy) != 0) {
+    if (iolink_init(phy, NULL) != 0) {
         return -1;
     }
 

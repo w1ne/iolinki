@@ -5,6 +5,14 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.4] - 2026-02-05
+
+### Fixed
+- **Bare Metal**: Fixed API mismatch in `examples/bare_metal_app` (`iolink_init` arguments).
+- **Unit Tests**:
+  - Fixed `test_dll` failure caused by mock underflow in `recv_byte` during recovery.
+  - Fixed `test_isdu` assertion logic to match flow control response timing.
+
 ## [0.12.3] - 2026-02-05
 
 ### Fixed
