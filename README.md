@@ -145,6 +145,7 @@ See [ROADMAP.md](./docs/ROADMAP.md) for detailed development phases.
 - **[VISION.md](./docs/VISION.md)** - Project mission and approach
 - **[RELEASE_STRATEGY.md](./docs/RELEASE_STRATEGY.md)** - Release workflow and versioning
 - **[INSTALL.md](./INSTALL.md)** - Detailed installation instructions
+- **[PUPPETEER.md](./docs/PUPPETEER.md)** - Agent task mutex workflow (submodule)
 
 ## Releases
 
