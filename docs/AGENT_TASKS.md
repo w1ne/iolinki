@@ -111,7 +111,7 @@ Acceptance:
 - Unit tests cover at least one violation case.
 
 ## Task 7: Link Quality Metrics
-Status: unclaimed
+Status: claimed by Antigravity (2026-02-04)
 Scope:
 - Track link quality metrics (error rate, retry rate, uptime/quality window).
 - Expose via DLL stats struct and optional ISDU index if desired.

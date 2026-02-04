@@ -9,6 +9,7 @@ Do not edit manually. Reports live in `docs/agent_reports/`.
 - `2026-02-04_222235_task-9_codex_done.md`
 - `2026-02-04_222403_task-5_Antigravity_done.md`
 - `2026-02-04_222443_task-5_Antigravity_done.md`
+- `2026-02-04_222629_task-7_Antigravity_start.md`
 - `legacy_reports.md`
 - `task_11.md`
 - `task_4.md`

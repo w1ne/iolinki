@@ -119,4 +119,28 @@ void iolink_ds_process(iolink_ds_ctx_t *ctx);
  */
 void iolink_ds_check(iolink_ds_ctx_t *ctx, uint16_t master_checksum);
 
+/**
+ * @brief Start parameter upload to Master (System Command 0x95)
+ * 
+ * @param ctx DS context
+ * @return int 0 on success, negative if DS not initialized
+ */
+int iolink_ds_start_upload(iolink_ds_ctx_t *ctx);
+
+/**
+ * @brief Start parameter download from Master (System Command 0x96)
+ * 
+ * @param ctx DS context
+ * @return int 0 on success, negative if DS not initialized
+ */
+int iolink_ds_start_download(iolink_ds_ctx_t *ctx);
+
+/**
+ * @brief Abort current DS operation (System Command 0x97)
+ * 
+ * @param ctx DS context
+ * @return int 0 on success
+ */
+int iolink_ds_abort(iolink_ds_ctx_t *ctx);
+
 #endif // IOLINK_DATA_STORAGE_H

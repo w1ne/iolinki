@@ -88,3 +88,42 @@ void iolink_ds_process(iolink_ds_ctx_t *ctx)
             break;
     }
 }
+
+int iolink_ds_start_upload(iolink_ds_ctx_t *ctx)
+{
+    if (ctx == NULL) {
+        return -1;
+    }
+    
+    if (ctx->state != IOLINK_DS_STATE_IDLE) {
+        return -1; /* Busy */
+    }
+    
+    ctx->state = IOLINK_DS_STATE_UPLOAD_REQ;
+    return 0;
+}
+
+int iolink_ds_start_download(iolink_ds_ctx_t *ctx)
+{
+    if (ctx == NULL) {
+        return -1;
+    }
+    
+    if (ctx->state != IOLINK_DS_STATE_IDLE) {
+        return -1; /* Busy */
+    }
+    
+    ctx->state = IOLINK_DS_STATE_DOWNLOAD_REQ;
+    return 0;
+}
+
+int iolink_ds_abort(iolink_ds_ctx_t *ctx)
+{
+    if (ctx == NULL) {
+        return -1;
+    }
+    
+    /* Abort any active DS operation */
+    ctx->state = IOLINK_DS_STATE_IDLE;
+    return 0;
+}

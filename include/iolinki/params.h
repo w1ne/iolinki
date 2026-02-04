@@ -49,4 +49,11 @@ int iolink_params_get(uint16_t index, uint8_t subindex, uint8_t *buffer, size_t 
  */
 int iolink_params_set(uint16_t index, uint8_t subindex, const uint8_t *data, size_t len, bool persist);
 
+/**
+ * @brief Reset all parameters to factory defaults
+ * 
+ * Clears NVM and resets all writable parameters to their default values.
+ */
+void iolink_params_factory_reset(void);
+
 #endif // IOLINK_PARAMS_H
