@@ -79,6 +79,12 @@ typedef struct {
     
     /* Pointers to external dependencies */
     void *event_ctx;                    /**< Diagnostic host backlink */
+    void *ds_ctx;                       /**< Data Storage context for system commands */
+    void *dll_ctx;                      /**< DLL context for statistics access */
+    
+    /* System Command Flags */
+    bool reset_pending;                 /**< Device reset requested (0x80) */
+    bool app_reset_pending;             /**< Application reset requested (0x81) */
 } iolink_isdu_ctx_t;
 
 /**

@@ -83,7 +83,7 @@ Acceptance:
 - Segmented transfers complete without corruption.
 
 ## Task 5: Mandatory ISDU Indices (Remaining)
-Status: unclaimed
+Status: done by Antigravity (2026-02-04)
 Scope:
 - Implement remaining mandatory indices: `0x0019`, `0x001A`, `0x001C–0x001E`.
 - Validate with ISDU read tests and Virtual Master reads.
@@ -139,7 +139,7 @@ Acceptance:
 - Tests validate event emission.
 
 ## Task 9: Error Reporting Index
-Status: unclaimed
+Status: done by codex (2026-02-04)
 Scope:
 - Add ISDU index for error statistics (CRC/timeouts/framing/timing).
 - Ensure index returns a consistent binary structure.
@@ -164,3 +164,97 @@ Primary files:
 Acceptance:
 - Device enters SIO on repeated validation failures.
 - Tests cover SIO enter/exit paths.
+
+## Task 11: System Command Handlers (0x0002 Remaining)
+Status: done by antigravity (2026-02-04)
+Scope:
+- Implement remaining System Command subcommands: `0x80`–`0x84`, `0x95`–`0x97`.
+- Ensure commands route through the ISDU framework and update device state safely.
+- Add/extend tests for each subcommand and verify Virtual Master behavior.
+Primary files:
+- `src/isdu.c`
+- `src/dll.c`
+- `include/iolinki/protocol.h`
+- `tests/test_isdu.c`
+- `tools/virtual_master/test_conformance_isdu.py`
+Acceptance:
+- Reads/writes to index `0x0002` execute each subcommand with defined side effects.
+- Unit tests cover all seven subcommands with expected responses.
+
+## Task 12: Process Data Consistency Toggle Bit
+Status: unclaimed
+Scope:
+- Implement PD consistency toggle bit mechanism for cyclic process data.
+- Ensure toggle behavior follows IO-Link V1.1.5 expectations across PDIn/PDOut.
+- Add unit tests and update integration tests if needed.
+Primary files:
+- `src/app.c`
+- `include/iolinki/app.h`
+- `include/iolinki/protocol.h`
+- `tests/test_app_pd.c`
+- `tools/virtual_master/test_conformance_pd.py`
+Acceptance:
+- Toggle bit flips correctly when PD content updates.
+- Tests validate consistency behavior for both input and output PD.
+
+## Task 13: Standard Event Code Mapping
+Status: unclaimed
+Scope:
+- Map diagnostic events to standard event code ranges (0x1xxx–0x8xxx).
+- Define event mode (single/multiple) handling and qualifiers as needed.
+- Ensure event visibility through OD/ISDU without destructive pop.
+Primary files:
+- `src/events.c`
+- `include/iolinki/events.h`
+- `src/isdu.c`
+- `tests/test_events.c`
+Acceptance:
+- Standard codes are emitted for at least one event per range.
+- Tests validate event codes and retrieval behavior.
+
+## Task 14: Data Storage Integration with Device Access Locks
+Status: unclaimed
+Scope:
+- Integrate Data Storage (DS) upload/download flow with Device Access Locks (0x000C).
+- Implement DS commands: Upload Start/End, Download Start/End.
+- Add checksum mismatch recovery behavior.
+Primary files:
+- `src/ds.c`
+- `src/isdu.c`
+- `include/iolinki/protocol.h`
+- `tests/test_ds.c`
+Acceptance:
+- DS commands follow lock rules and return correct status.
+- Tests cover upload, download, and checksum mismatch recovery.
+
+## Task 15: SIO Mode Switching Logic
+Status: unclaimed
+Scope:
+- Implement dynamic SIO ↔ SDCI transitions and AutoComm behavior.
+- Ensure safe mode switching and error recovery.
+- Add unit and integration tests for mode transitions.
+Primary files:
+- `src/dll.c`
+- `include/iolinki/dll.h`
+- `tests/test_dll.c`
+- `tools/virtual_master/test_sio_mode.py`
+Acceptance:
+- Device transitions to SIO and back to SDCI without state corruption.
+- Tests cover AutoComm and error-triggered mode switches.
+
+## Task 16: Context-Based API (Remove Globals)
+Status: unclaimed
+Scope:
+- Remove global state (`g_dll_ctx`, `g_isdu`, etc.) and pass context pointers.
+- Update APIs and callers to use explicit context.
+- Ensure tests and examples compile with the new API signatures.
+Primary files:
+- `src/dll.c`
+- `src/isdu.c`
+- `include/iolinki/dll.h`
+- `include/iolinki/isdu.h`
+- `tests/test_dll.c`
+- `tests/test_isdu.c`
+Acceptance:
+- No global context remains in core modules.
+- All tests compile and pass with context-based API usage.

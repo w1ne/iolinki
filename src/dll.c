@@ -209,6 +209,7 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
     
     /* Link Event context to ISDU context */
     ctx->isdu.event_ctx = &ctx->events;
+    ctx->isdu.dll_ctx = ctx;
     
     /* Initialize baudrate to COM2 (38.4 kbit/s) */
     ctx->baudrate = IOLINK_BAUDRATE_COM2;
