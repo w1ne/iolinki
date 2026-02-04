@@ -67,7 +67,7 @@ You may evaluate iolinki under the GPLv3 license (see LICENSE file) for up to **
 A: You retain perpetual rights to use the version you licensed. Extended support contracts available at 20% of original license fee per year.
 
 **Q: Can I use iolinki in open-source hardware projects?**
-A: Yes, under the GPLv3 license. Commercial licensing is only required if you're selling closed-source products.
+A: You may evaluate under GPLv3 in non-production environments for up to 90 days. Any production or commercial deployment requires a commercial license, regardless of whether the product is open or closed source.
 
 **Q: Do you offer volume discounts?**
 A: Yes, for Enterprise licenses or multiple Team licenses. Contact us for details.

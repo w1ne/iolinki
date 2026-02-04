@@ -18,13 +18,15 @@
 
 **Dual-Licensed**: GPLv3 (Evaluation) + Commercial
 
-- **Evaluation**: Free for 90 days under GPLv3 in non-production environments
-- **Commercial**: Required for production deployment
-  - **Single Developer**: €1,399 (Royalty-Free)
-  - **Team (5 seats)**: €4,699 (Royalty-Free)
+- **GPLv3 (Evaluation)**: Free for evaluation in non-production environments for up to 90 days.
+- **Commercial**: Required for any production or commercial deployment.
+  - **Single Developer**: €1,399 (one-time, royalty-free)
+  - **Team (5 seats)**: €4,699 (one-time, royalty-free)
   - **Enterprise**: Custom pricing
+  - **Included Support**: 12 months of updates and support
+  - **Integration Assistance**: Up to 8 hours included
 
-See [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL) for details or contact andrii@shylenko.com
+See [LICENSE](LICENSE) and [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL) for full terms, or contact andrii@shylenko.com.
 
 ## Quick Start
 
@@ -168,7 +170,8 @@ git push origin v0.1.0
 
 ## License
 
-[To be determined - likely MIT or Apache 2.0]
+This project is dual-licensed under GPLv3 (evaluation) and a commercial license.
+Refer to [LICENSE](LICENSE) and [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL) for details.
 
 ## Contributing
 

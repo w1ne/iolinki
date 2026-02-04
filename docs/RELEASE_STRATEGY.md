@@ -112,3 +112,31 @@ Each GitHub Release includes:
   - `test_init` - Unit test executable
 - **Documentation**: Links to all project docs
 - **Source Code**: Automatic archive by GitHub
+
+## 6. Distribution
+
+### Open-Source Evaluation (GPLv3)
+- **Source**: GitHub releases provide the full source archive (automatic).
+- **Artifacts**: Example/test binaries are provided for evaluation and verification.
+- **Checksums**: Each release includes SHA256 checksums for all published artifacts.
+
+### Commercial Distribution
+- **Access**: Commercial customers receive a licensed SDK bundle via a private download link after purchase.
+- **Contents**:
+  - Headers + libraries (platform-specific)
+  - Example binaries
+  - Test bundle (optional)
+  - Documentation snapshot
+- **License Delivery**: License file and terms are delivered with the SDK bundle.
+- **Lead Time**: Typical fulfillment within 2 business days.
+- **Pricing** (see `LICENSE.COMMERCIAL`):
+  - **Single Developer**: €1,399 (one-time, royalty-free)
+  - **Team (5 seats)**: €4,699 (one-time, royalty-free)
+  - **Enterprise**: Custom pricing
+
+### Support Policy
+- **Included Support**: 12 months of updates and support are included in the commercial price.
+- **Integration Assistance**: Up to 8 hours of integration effort are included.
+
+### Provenance
+- **Signing**: Release artifacts are signed or accompanied by checksums.
