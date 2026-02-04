@@ -55,17 +55,18 @@ git push origin v0.1.0
 ```
 
 The workflow automatically:
-1. Builds the project in Release mode
-2. Runs all tests
-3. Generates formatted release notes including:
-   - Test results summary
-   - Build artifacts list
-   - Documentation links
+1. Builds the project in Release mode with **Code Coverage** instrumentation.
+2. Runs all tests and generates a pass/fail report.
+3. Generates **Automated Release Notes** including:
+   - Quality Report (Test counts + Coverage %)
+   - Categorized Feature/Bug list (from Git history)
+   - Documentation updates
 4. Packages binaries (examples + tests)
-5. Creates GitHub Release (using content from `CHANGELOG.md`)
+5. Creates GitHub Release
+6. **Automatically merges `main` back to `develop`** to keep branches in sync.
 
 > [!IMPORTANT]
-> Ensure `CHANGELOG.md` is updated and the `[Unreleased]` section is renamed to the version number **before** tagging.
+> Ensure `CHANGELOG.md` is updated and use **Conventional Commits** (`feat:`, `fix:`) in your PRs so the release notes generator can categorize changes correctly.
 
 ### Manual Release (if needed)
 

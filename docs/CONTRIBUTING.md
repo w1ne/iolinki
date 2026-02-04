@@ -29,6 +29,28 @@
 5.  **Update Changelog**: Add a matching entry in `CHANGELOG.md` under `[Unreleased]`.
 6.  **Submit Pull Request**: CI will automatically run the above checks.
 
+## Commit Guidelines
+
+To support automated release notes, we follow [Conventional Commits](https://www.conventionalcommits.org/).
+
+**Format**: `<type>(<scope>): <description>`
+
+### Allowed Types
+-   **feat**: New feature (appears in "New Features" section)
+-   **fix**: Bug fix (appears in "Bug Fixes" section)
+-   **docs**: Documentation only changes
+-   **style**: Formatting, white-space, etc. (no code change)
+-   **refactor**: Code change that neither fixes a bug nor adds a feature
+-   **test**: Adding missing tests or correcting existing tests
+-   **chore**: Maintenance, build script changes, etc.
+
+**Example**:
+```text
+feat(dll): implement M-sequence Type 2_V support
+fix(isdu): resolve segmentation fault on empty buffer
+docs(readme): update installation instructions
+```
+
 ## Coding Guidelines
 
 We enforce strict quality rules. Please read [TESTING.md](TESTING.md) for detailed requirements.
