@@ -5,6 +5,12 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.12] - 2026-02-05
+
+### Fixed
+- **MISRA**: Eliminated all suppressions for Rule 14.3 by using non-constant stubs in `src/platform_stubs.c`.
+- **CI/CD**: Final stabilization of static analysis for professional deployment baseline.
+
 ## [0.12.11] - 2026-02-05
 
 ### Fixed
