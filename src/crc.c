@@ -43,6 +43,6 @@ uint8_t iolink_checksum_ck(uint8_t mc, uint8_t ckt)
     /* Simple XOR sum of MC and CKT as per some V1.1.5 patterns,
        but actually the spec uses the CRC6 for CK.
        Let's implement the standard CK calculation. */
-    uint8_t buf[2] = {mc, ckt};
+    const uint8_t buf[2] = {mc, ckt};
     return iolink_crc6(buf, 2U);
 }

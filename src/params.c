@@ -47,6 +47,7 @@ __attribute__((weak)) int iolink_nvm_write(uint32_t offset, const uint8_t *data,
 void iolink_params_init(void)
 {
     /* Try to load from NVM */
+    /* cppcheck-suppress knownConditionTrueFalse */
     if (iolink_nvm_read(0U, (uint8_t *) &g_nvm_shadow, sizeof(g_nvm_shadow)) == 0) {
         if (g_nvm_shadow.magic == PARAMS_NVM_MAGIC) {
             /* Sync with device info */
