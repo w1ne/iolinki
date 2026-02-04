@@ -4,6 +4,9 @@ build_quality/
 build_docker/
 build_linux/
 build_test/
+build_debug/
+build_release/
+build_bare/
 *.o
 *.a
 *.so
@@ -16,6 +19,7 @@ build_test/
 # Python
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # Editor/IDE files
 .vscode/
