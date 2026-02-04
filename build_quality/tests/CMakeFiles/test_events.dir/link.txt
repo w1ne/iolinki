@@ -1,0 +1,1 @@
+/usr/bin/cc -Wall -Wextra -Werror -Wpedantic -Wconversion -Wshadow -Wall -Wextra -g CMakeFiles/test_events.dir/test_events.c.o CMakeFiles/test_events.dir/test_helpers.c.o -o test_events  ../libiolinki.a -lcmocka 

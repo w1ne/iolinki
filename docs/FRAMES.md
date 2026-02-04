@@ -25,10 +25,9 @@ Enables concurrent exchange of Process Data and ISDU bytes.
 - **Master -> Device**: `[MC] [CKT] [PD_Out...] [OD] [CK]`
 - **Device -> Master**: `[Status] [PD_In...] [OD] [CK]`
 - **Status Byte**:
-  - Bit 7: Reserved
-  - Bit 6: PDStatus (0=Valid, 1=Invalid)
-  - Bit 5: EventFlag (1=Pending Event)
-  - Bits 4-0: Reserved
+  - Bit 7: EventFlag (1=Pending Event)
+  - Bit 5: PDValid (1=Valid)
+  - Bits 6,4-0: Reserved
 
 ## 2. Simulation Frames (Virtual Master)
 

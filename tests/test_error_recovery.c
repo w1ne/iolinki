@@ -8,7 +8,7 @@
 
 /**
  * @file test_error_recovery.c
- * @brief Unit tests for DLL error recovery scenarios
+ * @brief Unit tests for error detection and recovery
  */
 
 #include <stdarg.h>
@@ -19,47 +19,49 @@
 #include <string.h>
 
 #include "iolinki/iolink.h"
-#include "iolinki/dll.h"
 #include "iolinki/events.h"
+#include "iolinki/dll.h"
 #include "test_helpers.h"
 
 static void test_crc_error_recovery(void **state)
 {
     (void)state;
-    iolink_init(&g_phy_mock);
+    iolink_config_t config = { .m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1 };
     
-    /* 1. Move to Preoperate */
-    will_return(g_phy_mock.recv_byte, 0x00); 
-    will_return(g_phy_mock.recv_byte, 1);
-    iolink_process();
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_init(&g_phy_mock, &config);
     
-    /* 2. Send corrupted frame (wrong CK) */
-    will_return(g_phy_mock.recv_byte, 0xFF); /* MC */
-    will_return(g_phy_mock.recv_byte, 1);
-    will_return(g_phy_mock.recv_byte, 0x00); /* Wrong CK */
-    will_return(g_phy_mock.recv_byte, 1);
-    
-    /* Expect no send (packet ignored) but event triggered */
-    iolink_process();
-    
-    assert_true(iolink_events_pending());
+    move_to_operate();
+
+    /* 2. Simulate 3 CRC errors (Type 1_1 with 1-byte PD: MC, CKT, PD(1), OD(1), CK = 5 bytes) */
+    for (int r = 0; r < 3; r++) {
+        /* Provide the whole frame in the mock queue */
+        will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0x80); /* MC */
+        will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0x00); /* CKT */
+        will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0x00); /* PD */
+        will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0x00); /* OD */
+        will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0xFF); /* Bad CRC */
+        will_return(mock_phy_recv_byte, 0); /* End frame */
+        
+        /* One call to process the whole available frame */
+        iolink_process();
+    }
+
+    /* 3. Check if error was detected (Event 0x5000 triggered after 3 retries) */
+    assert_true(iolink_events_pending(iolink_get_events_ctx()));
 }
 
 static void test_communication_timeout(void **state)
 {
     (void)state;
-    iolink_init(&g_phy_mock);
-
-    /* Move to Preoperate and set activity */
-    will_return(g_phy_mock.recv_byte, 0x00); 
-    will_return(g_phy_mock.recv_byte, 1);
-    iolink_process();
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_init(&g_phy_mock, NULL);
     
-    /* Activity is set here. In next process it should still be Preoperate if no timeout. */
+    /* Ensure no data available */
+    will_return(mock_phy_recv_byte, 0);
     iolink_process();
-    
-    /* We can't easily mock time for clock_gettime in this environment without wrapping,
-       so this test is a placeholder for a local environment with a mocked time source. */
 }
 
 int main(void)

@@ -5,9 +5,9 @@ A software-based IO-Link Master simulator for automated testing of IO-Link Devic
 ## Features
 
 - **Virtual UART**: Uses pseudo-terminals (pty) for Master-Device communication
-- **M-Sequence Support**: Full support for Types 0, 1_1, 1_2, 1_V, 2_1, 2_2, 2_V
+- **M-Sequence Support**: Types 0, 1_1, 1_2, 2_1, 2_2 (and 1_V/2_V with fixed PD length)
 - **Variable OD Length**: Automatic handling of 1-byte and 2-byte On-request Data
-- **Variable PD Length**: Dynamic Process Data length changes (2-32 bytes) for Type 1_V and 2_V
+- **Variable PD Length**: Fixed PD length configuration for Type 1_V and 2_V (runtime negotiation pending)
 - **CRC Calculation**: Matches iolinki implementation (polynomial 0x1D, seed 0x15)
 - **Master State Machine**: Implements Startup, Preoperate, Operate states
 - **ISDU Operations**: Read/Write with V1.1.5 segmentation support
@@ -121,10 +121,10 @@ print(f"OD: 0x{response.od:02X}, OD2: 0x{response.od2:02X}")
 | Type 0 | 0 | ISDU only | 1 byte | ✅ |
 | Type 1_1 | 11 | PD only | 1 byte | ❌ |
 | Type 1_2 | 12 | PD + ISDU | 1 byte | ✅ |
-| Type 1_V | 13 | Variable PD | 1 byte | ❌ |
+| Type 1_V | 13 | Variable PD (fixed length config) | 1 byte | ❌ |
 | Type 2_1 | 21 | PD only | 2 bytes | ❌ |
 | Type 2_2 | 22 | PD + ISDU | 2 bytes | ✅ |
-| Type 2_V | 23 | Variable PD | 2 bytes | ❌ |
+| Type 2_V | 23 | Variable PD (fixed length config) | 2 bytes | ❌ |
 
 ## Architecture
 
@@ -194,7 +194,7 @@ python3 test_m_sequence_types.py
 - [x] M-sequence Type 2_1, 2_2 (PD + 2-byte OD)
 - [x] Variable OD length support
 - [x] ISDU V1.1.5 segmentation
-- [ ] M-sequence Type 1_V, 2_V (Variable PD)
+- [~] M-sequence Type 1_V, 2_V (fixed-length config only; runtime negotiation pending)
 - [ ] IODD parser
 - [ ] Event handling
 - [ ] Data Storage commands

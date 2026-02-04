@@ -5,6 +5,17 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] — 2026-02-04
+
+### Changed
+- **Major Codebase Refactoring and Quality Improvement**:
+  - Centralized all IO-Link protocol constants in `include/iolinki/protocol.h`.
+  - Refactored `src/dll.c` to improve readability and reduce complexity (modularized `handle_operate`).
+  - Refactored `src/isdu.c` to simplify the segmentation engine and standardize index handling.
+  - Standardized code style across the project (MISRA-C style NULL checks and unsigned literals).
+  - Resolved build warnings and improved build integrity.
+- Updated `CMakeLists.txt`, `Doxyfile`, and documentation to version 0.11.0.
+
 ## [0.10.0] — 2026-02-03
 
 ### Added
@@ -172,9 +183,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Host Demo**: `examples/host_demo` showing stack execution without hardware.
 - **Documentation**: Initial README, ROADMAP, VISION, and RELEASE_STRATEGY.
 
-[0.8.0]: https://github.com/w1ne/iolinki/compare/v0.7.0...v0.8.0
-[0.7.0]: https://github.com/w1ne/iolinki/compare/v0.6.0...v0.7.0
-[0.6.0]: https://github.com/w1ne/iolinki/compare/v0.5.0...v0.6.0
+[0.11.0]: https://github.com/w1ne/iolinki/compare/v0.10.0...v0.11.0
+[0.10.0]: https://github.com/w1ne/iolinki/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/w1ne/iolinki/compare/v0.8.0...v0.9.0
 [0.5.0]: https://github.com/w1ne/iolinki/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/w1ne/iolinki/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/w1ne/iolinki/compare/v0.2.0...v0.3.0

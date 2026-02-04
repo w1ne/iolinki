@@ -11,8 +11,10 @@
 
 void iolink_ds_init(iolink_ds_ctx_t *ctx, const iolink_ds_storage_api_t *storage)
 {
-    if (!ctx) return;
-    memset(ctx, 0, sizeof(iolink_ds_ctx_t));
+    if (ctx == NULL) {
+        return;
+    }
+    (void)memset(ctx, 0, sizeof(iolink_ds_ctx_t));
     ctx->storage = storage;
     ctx->state = IOLINK_DS_STATE_IDLE;
 }
@@ -20,24 +22,31 @@ void iolink_ds_init(iolink_ds_ctx_t *ctx, const iolink_ds_storage_api_t *storage
 uint16_t iolink_ds_calc_checksum(const uint8_t *data, size_t len)
 {
     /* Fletcher-16 or simple sum for demo. IO-Link usually uses a specific CRC. */
-    uint16_t sum1 = 0;
-    uint16_t sum2 = 0;
-    for (size_t i = 0; i < len; ++i) {
-        sum1 = (uint16_t)((sum1 + data[i]) % 255);
-        sum2 = (uint16_t)((sum2 + sum1) % 255);
+    uint16_t sum1 = 0U;
+    uint16_t sum2 = 0U;
+    if ((data == NULL) && (len > 0U)) {
+        return 0U;
     }
-    return (uint16_t)((sum2 << 8) | sum1);
+    for (size_t i = 0U; i < len; ++i) {
+        sum1 = (uint16_t)((sum1 + (uint16_t)data[i]) % 255U);
+        sum2 = (uint16_t)((sum2 + sum1) % 255U);
+    }
+    return (uint16_t)((sum2 << 8U) | sum1);
 }
 
 void iolink_ds_check(iolink_ds_ctx_t *ctx, uint16_t master_checksum)
 {
-    if (!ctx) return;
+    if (ctx == NULL) {
+        return;
+    }
     
     ctx->master_checksum = master_checksum;
     
-    if (ctx->state != IOLINK_DS_STATE_IDLE) return;
+    if (ctx->state != IOLINK_DS_STATE_IDLE) {
+        return;
+    }
 
-    if (master_checksum == 0) {
+    if (master_checksum == 0U) {
         /* Master has no data -> Upload request */
         ctx->state = IOLINK_DS_STATE_UPLOAD_REQ;
     } else if (master_checksum != ctx->current_checksum) {
@@ -48,7 +57,9 @@ void iolink_ds_check(iolink_ds_ctx_t *ctx, uint16_t master_checksum)
 
 void iolink_ds_process(iolink_ds_ctx_t *ctx)
 {
-    if (!ctx) return;
+    if (ctx == NULL) {
+        return;
+    }
     
     switch (ctx->state) {
         case IOLINK_DS_STATE_UPLOAD_REQ:
@@ -74,6 +85,7 @@ void iolink_ds_process(iolink_ds_ctx_t *ctx)
             break;
 
         default:
+            ctx->state = IOLINK_DS_STATE_IDLE;
             break;
     }
 }

@@ -7,6 +7,7 @@
  */
 
 #include "iolinki/crc.h"
+#include <stddef.h>
 
 /*
  * IO-Link CRC6 lookup table or calculation logic.
@@ -15,20 +16,24 @@
  */
 uint8_t iolink_crc6(const uint8_t *data, uint8_t len)
 {
-    uint8_t crc = 0x15; /* Initial value for V1.1 */
+    uint8_t crc = 0x15U; /* Initial value for V1.1 */
 
-    for (uint8_t i = 0; i < len; i++) {
+    if ((data == NULL) && (len > 0U)) {
+        return 0U;
+    }
+
+    for (uint8_t i = 0U; i < len; i++) {
         crc ^= data[i];
-        for (uint8_t j = 0; j < 8; j++) {
-            if (crc & 0x80) {
-                crc = (crc << 1) ^ (0x1D << 2); /* Shifted polynomial */
+        for (uint8_t j = 0U; j < 8U; j++) {
+            if ((crc & 0x80U) != 0U) {
+                crc = (uint8_t)((crc << 1U) ^ (0x1DU << 2U)); /* Shifted polynomial */
             } else {
-                crc <<= 1;
+                crc <<= 1U;
             }
         }
     }
 
-    return (crc >> 2) & 0x3F; /* 6-bit result */
+    return (uint8_t)((crc >> 2U) & 0x3FU); /* 6-bit result */
 }
 
 uint8_t iolink_checksum_ck(uint8_t mc, uint8_t ckt)
@@ -37,5 +42,5 @@ uint8_t iolink_checksum_ck(uint8_t mc, uint8_t ckt)
        but actually the spec uses the CRC6 for CK. 
        Let's implement the standard CK calculation. */
     uint8_t buf[2] = {mc, ckt};
-    return iolink_crc6(buf, 2);
+    return iolink_crc6(buf, 2U);
 }

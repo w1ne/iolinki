@@ -1,0 +1,1 @@
+/usr/bin/cc -Wall -Wextra -Werror -Wpedantic -Wconversion -Wshadow -Wall -Wextra -g CMakeFiles/test_error_recovery.dir/test_error_recovery.c.o CMakeFiles/test_error_recovery.dir/test_helpers.c.o -o test_error_recovery  ../libiolinki.a -lcmocka 

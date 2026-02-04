@@ -19,10 +19,13 @@
  * @brief IO-Link Data Link Layer (DLL) Implementation
  */
 
+/**
+ * @brief IO-Link DLL State Machine states
+ */
 typedef enum {
-    IOLINK_DLL_STATE_STARTUP = 0,
-    IOLINK_DLL_STATE_PREOPERATE,
-    IOLINK_DLL_STATE_OPERATE
+    IOLINK_DLL_STATE_STARTUP = 0U,    /**< Waiting for activity/Wakeup pulse */
+    IOLINK_DLL_STATE_PREOPERATE = 1U, /**< Baudrate detected, handling ISDU (Type 0) */
+    IOLINK_DLL_STATE_OPERATE = 2U     /**< Cyclic data exchange active */
 } iolink_dll_state_t;
 
 #include "iolinki/events.h"
@@ -31,103 +34,136 @@ typedef enum {
 
 /**
  * @brief Data Link Layer Context
+ * 
+ * Internal state and data storage for the DLL engine.
  */
 typedef struct {
-    iolink_dll_state_t state;
-    const iolink_phy_api_t *phy;
-    uint32_t last_activity_ms;
+    iolink_dll_state_t state;           /**< Current DLL state */
+    const iolink_phy_api_t *phy;        /**< Bound PHY API implementation */
+    uint32_t last_activity_ms;         /**< Timestamp of last valid frame */
     
     /* Configuration */
-    uint8_t m_seq_type; /* iolink_m_seq_type_t */
-    uint8_t pd_in_len;
-    uint8_t pd_out_len;
-    uint8_t od_len;     /* On-request Data length (1 or 2 bytes) */
-    bool pd_valid; /* Input Data Validity */
+    uint8_t m_seq_type; /**< Supported M-sequence type */
+    uint8_t pd_in_len;  /**< Input Process Data length */
+    uint8_t pd_out_len; /**< Output Process Data length */
+    uint8_t od_len;     /**< On-request Data length (1 or 2 bytes) */
+    bool pd_valid;      /**< Current PD_In validity status */
     
     /* Variable PD Support (for Type 1_V and 2_V) */
-    uint8_t pd_in_len_current;   /* Current PD_In length (2-32) */
-    uint8_t pd_out_len_current;  /* Current PD_Out length (2-32) */
-    uint8_t pd_in_len_max;       /* Maximum PD_In length */
-    uint8_t pd_out_len_max;      /* Maximum PD_Out length */
+    uint8_t pd_in_len_current;   /**< Current runtime PD_In length */
+    uint8_t pd_out_len_current;  /**< Current runtime PD_Out length */
+    uint8_t pd_in_len_max;       /**< Maximum allowed PD_In length */
+    uint8_t pd_out_len_max;      /**< Maximum allowed PD_Out length */
     
     /* SIO Mode */
-    iolink_phy_mode_t phy_mode;  /* Current PHY mode (SDCI/SIO) */
+    iolink_phy_mode_t phy_mode;  /**< Current operating mode (SDCI vs SIO) */
     
     /* Baudrate Support */
-    iolink_baudrate_t baudrate;  /* Current baudrate (COM1, COM2, COM3) */
+    iolink_baudrate_t baudrate;  /**< Negotiated baudrate (COM1-COM3) */
     
     /* Unified Frame Assembly */
-    uint8_t frame_buf[48];
-    uint8_t frame_index;
-    uint8_t req_len;
-    uint64_t last_frame_us;
+    uint8_t frame_buf[48];      /**< Raw frame assembly buffer */
+    uint8_t frame_index;        /**< Current byte index in assembly */
+    uint8_t req_len;            /**< Expected length of current frame type */
+    uint64_t last_frame_us;     /**< Microsecond timestamp of last frame start */
 
     /* Process Data Buffers */
-    uint8_t pd_in[IOLINK_PD_IN_MAX_SIZE];  /* Device -> Master */
-    uint8_t pd_out[IOLINK_PD_OUT_MAX_SIZE]; /* Master -> Device */
+    uint8_t pd_in[IOLINK_PD_IN_MAX_SIZE];   /**< Input PD buffer (Device -> Master) */
+    uint8_t pd_out[IOLINK_PD_OUT_MAX_SIZE];  /**< Output PD buffer (Master -> Device) */
 
     /* Error Counters & Statistics */
-    uint32_t crc_errors;        /* CRC error count */
-    uint32_t timeout_errors;    /* Timeout error count */
-    uint32_t framing_errors;    /* Framing error count */
-    uint8_t retry_count;        /* Current retry attempt */
-    uint8_t max_retries;        /* Maximum retry attempts (default: 3) */
+    uint32_t crc_errors;        /**< Cumulative CRC error count */
+    uint32_t timeout_errors;    /**< Cumulative timeout count */
+    uint32_t framing_errors;    /**< Cumulative framing error count */
+    uint8_t retry_count;        /**< Retry counter for current exchange */
+    uint8_t max_retries;        /**< Configured max retries (default 3) */
     
     /* Timing Statistics */
-    uint64_t last_response_us;  /* Timestamp of last response */
-    uint32_t response_time_us;  /* Last response time in microseconds */
+    uint64_t last_response_us;  /**< Microsecond timestamp of last response */
+    uint32_t response_time_us;  /**< Measured stack response time (t2) */
 
     /* Sub-modules */
-    iolink_events_ctx_t events;
-    iolink_isdu_ctx_t isdu;
-    iolink_ds_ctx_t ds;
+    iolink_events_ctx_t events; /**< Diagnostic Events engine */
+    iolink_isdu_ctx_t isdu;     /**< ISDU Service engine */
+    iolink_ds_ctx_t ds;         /**< Data Storage engine */
 } iolink_dll_ctx_t;
 
 /**
  * @brief Initialize DLL context
- * @param ctx DLL context
- * @param phy PHY provider
+ * 
+ * Sets defaults for state, retries, and resets counters.
+ * 
+ * @param ctx DLL context to initialize
+ * @param phy PHY implementation to bind
  */
 void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy);
 
 /**
  * @brief Process DLL logic
- * @param ctx DLL context
+ * 
+ * Handles byte-level processing and state machine transitions.
+ * 
+ * @param ctx DLL context to process
  */
 void iolink_dll_process(iolink_dll_ctx_t *ctx);
 
 /**
- * Set current PD lengths for variable types (1_V, 2_V)
+ * @brief Set current PD lengths for variable types (1_V, 2_V)
+ * 
+ * @param ctx DLL context
+ * @param pd_in_len New PD_In length
+ * @param pd_out_len New PD_Out length
+ * @return int 0 on success, negative on range error
  */
 int iolink_dll_set_pd_length(iolink_dll_ctx_t *ctx, uint8_t pd_in_len, uint8_t pd_out_len);
 
 /**
- * Get current PD lengths
+ * @brief Get current PD lengths
+ * 
+ * @param ctx DLL context
+ * @param pd_in_len [out] Current PD_In length
+ * @param pd_out_len [out] Current PD_Out length
  */
 void iolink_dll_get_pd_length(const iolink_dll_ctx_t *ctx, uint8_t *pd_in_len, uint8_t *pd_out_len);
 
 /**
- * Set SIO mode (single-wire communication)
+ * @brief Request transition to SIO mode (single-wire communication)
+ * 
+ * @param ctx DLL context
+ * @return int 0 on success
  */
 int iolink_dll_set_sio_mode(iolink_dll_ctx_t *ctx);
 
 /**
- * Set SDCI mode (separate TX/RX)
+ * @brief Request transition to SDCI mode (UART-based exchange)
+ * 
+ * @param ctx DLL context
+ * @return int 0 on success
  */
 int iolink_dll_set_sdci_mode(iolink_dll_ctx_t *ctx);
 
 /**
- * Get current PHY mode
+ * @brief Get current operating mode
+ * 
+ * @param ctx DLL context
+ * @return iolink_phy_mode_t Current mode
  */
 iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t *ctx);
 
 /**
- * Set communication baudrate
+ * @brief Set the communication baudrate
+ * 
+ * @param ctx DLL context
+ * @param baudrate Desired baudrate (COM1, COM2, or COM3)
+ * @return int 0 on success
  */
 int iolink_dll_set_baudrate(iolink_dll_ctx_t *ctx, iolink_baudrate_t baudrate);
 
 /**
- * Get current baudrate
+ * @brief Get current negotiated baudrate
+ * 
+ * @param ctx DLL context
+ * @return iolink_baudrate_t Current baudrate
  */
 iolink_baudrate_t iolink_dll_get_baudrate(const iolink_dll_ctx_t *ctx);
 

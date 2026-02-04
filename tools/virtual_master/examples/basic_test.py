@@ -17,30 +17,34 @@ This demonstrates how to:
 4. Perform basic communication
 """
 
+import os
 import sys
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from virtual_master.master import VirtualMaster
 
 
 def main():
-    print("=== Virtual IO-Link Master - Basic Example ===
-")
+    print("=== Virtual IO-Link Master - Basic Example ===")
+    print()
     
     # Create Virtual Master
     with VirtualMaster() as master:
-        print(f"Device should connect to: {master.get_device_tty()}
-")
+        print(f"Device should connect to: {master.get_device_tty()}")
+        print()
         print("Start your Device application with:")
-        print(f"  ./build/examples/host_demo/host_demo {master.get_device_tty()}
-")
+        print(f"  ./build/examples/host_demo/host_demo {master.get_device_tty()}")
+        print()
         print("Waiting 5 seconds for Device to start...")
         time.sleep(5)
         
         # Run startup sequence
         if master.run_startup_sequence():
-            print("
-[SUCCESS] Startup complete!
-")
+            print()
+            print("[SUCCESS] Startup complete!")
+            print()
             
             # Run a few communication cycles
             print("Running 10 communication cycles...")
@@ -55,11 +59,11 @@ def main():
                 
                 time.sleep(0.01)  # 10ms cycle time
             
-            print("
-[DONE] Communication test complete")
+            print()
+            print("[DONE] Communication test complete")
         else:
-            print("
-[FAILED] Startup sequence failed")
+            print()
+            print("[FAILED] Startup sequence failed")
             return 1
     
     return 0

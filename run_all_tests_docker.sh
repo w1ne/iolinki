@@ -8,8 +8,13 @@ echo "============================================"
 
 # 1. Linux Host Tests
 echo -e "\n[1/2] 🐧 Running Linux Host Tests..."
-docker build -f Dockerfile.test -t iolinki-test .
-docker run --rm iolinki-test
+if [[ "$(docker images -q iolinki-test 2> /dev/null)" == "" ]]; then
+    echo "   ⚠️ Test image not found. Building..."
+    docker build -f Dockerfile.test -t iolinki-test .
+else
+    echo "   ✅ Test image found. Reusing cached image."
+fi
+docker run --rm -v "$(pwd)":/workspace -e IOLINKI_MISRA_ENFORCE=1 iolinki-test bash -c "./check_quality.sh && bash /workspace/.docker_test_entrypoint.sh"
 
 # 2. Zephyr Simulation Tests
 echo -e "\n[2/2] 🪁 Running Zephyr Simulation Tests..."
@@ -22,11 +27,15 @@ else
     echo "   ✅ Zephyr base image found. Skipping heavy download."
 fi
 
-echo "   🔨 Building test image..."
-docker build -f Dockerfile.zephyr -t iolinki-zephyr-test .
+if [[ "$(docker images -q iolinki-zephyr-test 2> /dev/null)" == "" ]]; then
+    echo "   🔨 Building test image..."
+    docker build -f Dockerfile.zephyr -t iolinki-zephyr-test .
+else
+    echo "   ✅ Zephyr test image found. Reusing cached image."
+fi
 
 echo "   🏃 Running Zephyr tests..."
-docker run --rm iolinki-zephyr-test
+docker run --rm -v "$(pwd)":/workdir/modules/lib/iolinki iolinki-zephyr-test
 
 echo -e "\n============================================"
 echo "✅ All Dockerized Tests Completed Successfully"

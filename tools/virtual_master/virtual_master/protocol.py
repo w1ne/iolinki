@@ -184,11 +184,17 @@ class DeviceResponse:
         if self.valid:
             if len(data) == 2:
                 # Type 0 Response: [OD, Checksum]
-                # Status is encoded in checksum
+                # Status is encoded in checksum; attempt brute-force decode
                 self.payload = data[0:1]
                 self.checksum = data[1]
-                self.status = 0 # Cannot extract easily without brute forcing checksum
                 self.od = data[0]
+                self.status = 0
+                self.checksum_ok = False
+                for candidate_status in range(256):
+                    if calculate_checksum_type0(candidate_status, self.od) == self.checksum:
+                        self.status = candidate_status
+                        self.checksum_ok = True
+                        break
             else:
                 # Type 1/2 Response: [Status, PD_In..., OD(1 or 2), Checksum]
                 self.status = data[0]

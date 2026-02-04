@@ -16,10 +16,12 @@
 #define WEAK
 #endif
 
-WEAK void iolink_critical_enter(void) {
+WEAK void iolink_critical_enter(void)
+{
     /* Default: Do nothing (Bare metal single loop is implicitly safe if no IRQ contention) */
 }
 
-WEAK void iolink_critical_exit(void) {
+WEAK void iolink_critical_exit(void)
+{
     /* Default: Do nothing */
 }

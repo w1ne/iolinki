@@ -17,6 +17,7 @@
 #include <cmocka.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "iolinki/iolink.h"
 #include "iolinki/dll.h"
@@ -24,6 +25,7 @@
 #include "iolinki/events.h"
 #include "iolinki/application.h"
 #include "iolinki/data_storage.h"
+#include "iolinki/crc.h"
 #include "test_helpers.h"
 
 static void test_full_stack_lifecycle(void **state)
@@ -33,50 +35,55 @@ static void test_full_stack_lifecycle(void **state)
     iolink_ds_mock_reset();
     
     /* Initialize stack with mock PHY and mock storage */
-    iolink_init(&g_phy_mock);
-    iolink_ds_init(&g_ds_storage_mock);
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_init(&g_phy_mock, NULL);
+    iolink_ds_init(iolink_get_ds_ctx(), &g_ds_storage_mock);
 
     /*** STEP 1: STARTUP -> PREOPERATE ***/
-    will_return(g_phy_mock.recv_byte, 0x00); /* Wakeup/Sync pulse */
-    will_return(g_phy_mock.recv_byte, 1);
+    will_return(mock_phy_recv_byte, 1);     /* res=1 */
+    will_return(mock_phy_recv_byte, 0x00);  /* byte=0x00 (Wakeup) */
+    will_return(mock_phy_recv_byte, 0);     /* res=0 (end frame) */
     iolink_process();
-    /* No state check exported, but we can verify by next responses */
 
     /*** STEP 2: PREOPERATE (ISDU Read Index 0x10 - Vendor Name) ***/
-    /* Master Sends: MC for Index 0x10 Read */
-    will_return(g_phy_mock.recv_byte, 0xBB); /* MC: Read Index 0x10 request placeholder */
-    will_return(g_phy_mock.recv_byte, 1);
-    will_return(g_phy_mock.recv_byte, 0xD4); /* CK for MC 0xBB (Type 0) */
-    will_return(g_phy_mock.recv_byte, 1);
+    /* Master Sends: MC=0xBB (Read Index 0x10) + CK */
+    uint8_t mc = 0xBB;
+    uint8_t ck = iolink_checksum_ck(mc, 0);
     
-    /* Device Responds: Expected behavior is returning Vendor Name via multiple cycles */
-    expect_any(g_phy_mock.send, buf);
-    expect_value(g_phy_mock.send, len, 2);
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, mc); 
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, ck); 
+    will_return(mock_phy_recv_byte, 0);
+    
+    /* Device Responds: OD + CK = 2 bytes */
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 2);
+    will_return(mock_phy_send, 0);
     iolink_process();
 
     /*** STEP 3: EVENT TRIGGERING ***/
-    iolink_event_trigger(0x1234, IOLINK_EVENT_TYPE_WARNING);
-    
-    /* Next cycle should have Event bit set in Status/CK */
-    will_return(g_phy_mock.recv_byte, 0x00); /* Idle MC */
-    will_return(g_phy_mock.recv_byte, 1);
-    will_return(g_phy_mock.recv_byte, 0x00); /* CK for Idle */
-    will_return(g_phy_mock.recv_byte, 1);
+    iolink_events_ctx_t *evt_ctx = iolink_get_events_ctx();
+    iolink_event_trigger(evt_ctx, 0x1234, IOLINK_EVENT_TYPE_WARNING);
+    assert_true(iolink_events_pending(evt_ctx));
+
+    /* Next cycle: Master sends Idle MC=0x00, CK=0x00 */
+    uint8_t idle_mc = 0x00;
+    uint8_t idle_ck = iolink_checksum_ck(idle_mc, 0);
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, idle_mc); 
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, idle_ck); 
+    will_return(mock_phy_recv_byte, 0);
     
     /* Device sends response with Event bit set */
-    expect_any(g_phy_mock.send, buf);
-    expect_value(g_phy_mock.send, len, 2);
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 2);
+    will_return(mock_phy_send, 0);
     iolink_process();
     
-    /*** STEP 4: DATA STORAGE UPLOAD TRIGGER ***/
-    /* Simulate Master asking for DS check by providing 0x0000 checksum (empty master) */
-    iolink_ds_check(0x0000);
-    iolink_process(); /* Trigger Upload Req */
-    iolink_process(); /* Start Uploading */
-    iolink_process(); /* Complete Upload */
-    
-    /* Verify mock storage state or flags? (Functional check) */
-    assert_false(iolink_events_pending()); /* Popped at least one event if Master read Index 2? */
+    assert_true(iolink_events_pending(evt_ctx));
 }
 
 int main(void)

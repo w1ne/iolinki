@@ -24,17 +24,19 @@ int iolink_init(const iolink_phy_api_t *phy, const iolink_config_t *config)
     }
 
     if (config != NULL) {
-        memcpy(&g_config, config, sizeof(iolink_config_t));
+        (void)memcpy(&g_config, config, sizeof(iolink_config_t));
     } else {
         /* Default config */
-        memset(&g_config, 0, sizeof(iolink_config_t));
+        (void)memset(&g_config, 0, sizeof(iolink_config_t));
         g_config.m_seq_type = IOLINK_M_SEQ_TYPE_0;
-        g_config.min_cycle_time = 0; /* Min */
+        g_config.min_cycle_time = 0U; /* Min */
     }
 
-    if (phy->init) {
+    if (phy->init != NULL) {
         int err = phy->init();
-        if (err != 0) return err;
+        if (err != 0) {
+            return err;
+        }
     }
 
     iolink_dll_init(&g_dll_ctx, phy);
@@ -44,15 +46,15 @@ int iolink_init(const iolink_phy_api_t *phy, const iolink_config_t *config)
     g_dll_ctx.pd_out_len = g_config.pd_out_len;
 
     /* Apply config-dependent DLL fields (must run after m_seq_type is set) */
-    if (g_dll_ctx.m_seq_type == IOLINK_M_SEQ_TYPE_2_1 ||
+    if ((g_dll_ctx.m_seq_type == IOLINK_M_SEQ_TYPE_2_1) ||
         g_dll_ctx.m_seq_type == IOLINK_M_SEQ_TYPE_2_2 ||
         g_dll_ctx.m_seq_type == IOLINK_M_SEQ_TYPE_2_V) {
-        g_dll_ctx.od_len = 2;
+        g_dll_ctx.od_len = 2U;
     } else {
-        g_dll_ctx.od_len = 1;
+        g_dll_ctx.od_len = 1U;
     }
 
-    if (g_dll_ctx.m_seq_type == IOLINK_M_SEQ_TYPE_1_V ||
+    if ((g_dll_ctx.m_seq_type == IOLINK_M_SEQ_TYPE_1_V) ||
         g_dll_ctx.m_seq_type == IOLINK_M_SEQ_TYPE_2_V) {
         g_dll_ctx.pd_in_len_current = g_dll_ctx.pd_in_len;
         g_dll_ctx.pd_out_len_current = g_dll_ctx.pd_out_len;
@@ -75,10 +77,15 @@ void iolink_process(void)
 
 int iolink_pd_input_update(const uint8_t *data, size_t len, bool valid)
 {
-    if (len > sizeof(g_dll_ctx.pd_in)) return -1;
+    if (data == NULL) {
+        return -1;
+    }
+    if (len > sizeof(g_dll_ctx.pd_in)) {
+        return -1;
+    }
     
     iolink_critical_enter();
-    memcpy(g_dll_ctx.pd_in, data, len);
+    (void)memcpy(g_dll_ctx.pd_in, data, len);
     g_dll_ctx.pd_in_len = (uint8_t)len;
     g_dll_ctx.pd_valid = valid;
     iolink_critical_exit();
@@ -88,10 +95,24 @@ int iolink_pd_input_update(const uint8_t *data, size_t len, bool valid)
 
 int iolink_pd_output_read(uint8_t *data, size_t len)
 {
+    if (data == NULL) {
+        return -1;
+    }
+
     iolink_critical_enter();
     uint8_t read_len = (len < g_dll_ctx.pd_out_len) ? (uint8_t)len : g_dll_ctx.pd_out_len;
-    memcpy(data, g_dll_ctx.pd_out, read_len);
+    (void)memcpy(data, g_dll_ctx.pd_out, read_len);
     iolink_critical_exit();
     
     return (int)read_len;
+}
+
+iolink_events_ctx_t* iolink_get_events_ctx(void)
+{
+    return &g_dll_ctx.events;
+}
+
+iolink_ds_ctx_t* iolink_get_ds_ctx(void)
+{
+    return &g_dll_ctx.ds;
 }

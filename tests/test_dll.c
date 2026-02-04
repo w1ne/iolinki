@@ -8,7 +8,7 @@
 
 /**
  * @file test_dll.c
- * @brief Unit tests for DLL state machine
+ * @brief Unit tests for Data Link Layer (DLL) state machine
  */
 
 #include <stdarg.h>
@@ -25,51 +25,37 @@
 static void test_dll_startup_to_preoperate(void **state)
 {
     (void)state;
-    
-    iolink_init(&g_phy_mock);
-    
-    /* 1. In Startup state, should transition to Preoperate on first byte */
-    will_return(g_phy_mock.recv_byte, 0x00); /* Byte value */
-    will_return(g_phy_mock.recv_byte, 1);    /* Success */
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_init(&g_phy_mock, NULL);
+
+    /* 1. Send any byte from master to trigger transition from STARTUP to PREOPERATE */
+    will_return(mock_phy_recv_byte, 1);     /* res=1 */
+    will_return(mock_phy_recv_byte, 0x00);  /* byte=0x00 */
+    will_return(mock_phy_recv_byte, 0);     /* res=0 (end) */
     
     iolink_process();
-    
-    /* Check internal state (could be done via a getter if added, 
-       but for now we'll just verify no crash and future behavior) */
 }
 
-static void test_dll_preoperate_m_seq_type0(void **state)
+static void test_dll_preoperate_to_operate(void **state)
 {
     (void)state;
-    
-    iolink_init(&g_phy_mock);
-    
-    /* Move to Preoperate */
-    will_return(g_phy_mock.recv_byte, 0x00); 
-    will_return(g_phy_mock.recv_byte, 1);
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_init(&g_phy_mock, NULL);
+
+    /* Move to PREOPERATE */
+    will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0x00); 
+    will_return(mock_phy_recv_byte, 0); 
     iolink_process();
     
-    /* Send M-Sequence Type 0 (MC=0x00, CK=0x11 approx) 
-       MC=0x00, CKT=0 -> CK=0x11 (based on previous iolink_crc6 result) 
-       Actually let's use the real calculated CK.
-    */
+    /* Move to OPERATE: MC=0x0F, CK=0x0D */
+    will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0x0F);
+    will_return(mock_phy_recv_byte, 0); 
+    iolink_process();
     
-    /* MC byte */
-    will_return(g_phy_mock.recv_byte, 0x00);
-    will_return(g_phy_mock.recv_byte, 1);
-    
-    /* CK byte */
-    will_return(g_phy_mock.recv_byte, 0x11); /* Placeholder for correct CK */
-    will_return(g_phy_mock.recv_byte, 1);
-
-    /* After 2 bytes, it should try to send response */
-    expect_any(g_phy_mock.send, data);
-    expect_value(g_phy_mock.send, len, 2);
-    will_return(g_phy_mock.send, 2);
-
-    /* End of recv_byte loop */
-    will_return(g_phy_mock.recv_byte, 0);
-    
+    will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0x0D);
+    will_return(mock_phy_recv_byte, 0); 
     iolink_process();
 }
 
@@ -77,7 +63,7 @@ int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_dll_startup_to_preoperate),
-        cmocka_unit_test(test_dll_preoperate_m_seq_type0),
+        cmocka_unit_test(test_dll_preoperate_to_operate),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

@@ -71,7 +71,8 @@ The CI pipeline (via Docker) enforces:
 - **Types**: Use `<stdint.h>` types (`uint8_t`, `int32_t`) explicitly.
 
 ### MISRA C Compatibility
-The code allows for a subset of MISRA C:2012 rules (checked via cppcheck/PC-lint where available). 
+The code enforces a subset of MISRA C:2012 rules via `cppcheck --addon=misra` in Docker.
+Set `IOLINKI_MISRA_ENFORCE=1` to require the MISRA addon to be available.
 - **Rule 8.4**: Objects/functions shall be defined.
 - **Rule 11.4**: No conversion between pointer and integer.
 - **Rule 17.2**: No recursion.

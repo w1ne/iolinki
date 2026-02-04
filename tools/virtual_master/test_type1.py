@@ -63,8 +63,8 @@ def test_type1_communication():
             return 1
         
         # 1. Startup
-        print("
-[STEP 1] Establishing Communication")
+        print()
+        print("[STEP 1] Establishing Communication")
         if not master.run_startup_sequence():
             print("❌ Startup failed")
             return 1
@@ -75,8 +75,8 @@ def test_type1_communication():
         print("✅ Transition sent")
         
         # 2. Cyclic PD Exchange
-        print("
-[STEP 2] Cyclic PD Exchange (Loopback Test)")
+        print()
+        print("[STEP 2] Cyclic PD Exchange (Loopback Test)")
         
         test_data = [
             bytes([0x12, 0x34]),
@@ -102,8 +102,8 @@ def test_type1_communication():
             prev_expected = bytes([(b + 1) & 0xFF for b in out_val])
             time.sleep(0.02)
         
-        print("
-[STEP 3] OD Channel Check (ISDU over Type 1)")
+        print()
+        print("[STEP 3] OD Channel Check (ISDU over Type 1)")
         # Over Type 1, ISDU is interleaved byte-by-byte in OD field
         # Read Vendor Name (Index 0x10)
         vendor_name_bytes = master.read_isdu(0x10, 0)
@@ -119,8 +119,8 @@ def test_type1_communication():
             print("   ❌ ISDU Read Failed")
             return 1
             
-        print("
-[STEP 4] ISDU Write Test (Application Tag 0x18)")
+        print()
+        print("[STEP 4] ISDU Write Test (Application Tag 0x18)")
         test_tag = b"TestTag"
         if master.write_isdu(0x18, 0, test_tag):
              print("   ✅ ISDU Write command sent")
@@ -137,11 +137,11 @@ def test_type1_communication():
              print("   ❌ ISDU Write Failed")
              return 1
              
-        print("
-[STEP 5] Robustness Test (CRC Error Injection)")
+        print()
+        print("[STEP 5] Robustness Test (CRC Error Injection)")
         print("   Sending Type 1 frame with CORRUPTED CRC...")
         # Device should strictly NOT respond to frames with bad CRC
-        bad_response = master.run_cycle_bad_crc(pd_out=b'ޭ')
+        bad_response = master.run_cycle_bad_crc(pd_out=b'\xDE\xAD')
         
         if not bad_response.valid:
             print("   ✅ Device ignored bad frame (Timeout as expected)")
@@ -149,8 +149,8 @@ def test_type1_communication():
             print(f"   ❌ Device responded to bad frame! {bad_response}")
             return 1
             
-        print("
-" + "=" * 60)
+        print()
+        print("=" * 60)
         print("✅ TYPE 1 COMMUNICATION TEST PASSED")
         print("=" * 60)
         
@@ -158,8 +158,8 @@ def test_type1_communication():
         return 0
         
     except Exception as e:
-        print(f"
-❌ Test failed: {e}")
+        print()
+        print(f"❌ Test failed: {e}")
         return 1
     finally:
         if device_proc:

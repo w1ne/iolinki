@@ -1,0 +1,73 @@
+/*
+ * Copyright (C) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This file is part of iolinki.
+ * See LICENSE for details.
+ */
+
+#ifndef IOLINK_PROTOCOL_H
+#define IOLINK_PROTOCOL_H
+
+/**
+ * @file protocol.h
+ * @brief IO-Link Protocol Constants and Definitions (Spec V1.1.2)
+ */
+
+/* M-Sequence Type Lengths */
+#define IOLINK_M_SEQ_TYPE0_LEN           2U
+#define IOLINK_M_SEQ_HEADER_LEN          2U  /* MC + CKT */
+#define IOLINK_M_SEQ_MIN_LEN             3U  /* MC + CKT + CK (Type 1/2) */
+
+/* Master Command (MC) Definitions */
+#define IOLINK_MC_RW_MASK                0x80U
+#define IOLINK_MC_COMM_CHANNEL_MASK      0x60U
+#define IOLINK_MC_ADDR_MASK              0x1FU
+
+#define IOLINK_MC_TRANSITION_COMMAND     0x0FU
+
+/* ISDU Control Byte Bits */
+#define IOLINK_ISDU_CTRL_START           0x80U
+#define IOLINK_ISDU_CTRL_LAST            0x40U
+#define IOLINK_ISDU_CTRL_SEQ_MASK        0x3FU
+
+/* ISDU Service IDs */
+#define IOLINK_ISDU_SERVICE_READ         0x09U
+#define IOLINK_ISDU_SERVICE_WRITE        0x0AU
+
+/* Mandatory ISDU Indices */
+#define IOLINK_IDX_DIRECT_PARAMETERS_1   0x0000U
+#define IOLINK_IDX_DIRECT_PARAMETERS_2   0x0001U
+#define IOLINK_IDX_SYSTEM_COMMAND        0x0002U
+#define IOLINK_IDX_VENDOR_ID             0x000AU
+#define IOLINK_IDX_DEVICE_ID             0x000BU
+#define IOLINK_IDX_DEVICE_ACCESS_LOCKS   0x000CU
+#define IOLINK_IDX_PROFILE_CHARACTERISTIC 0x000DU
+#define IOLINK_IDX_VENDOR_NAME           0x0010U
+#define IOLINK_IDX_VENDOR_TEXT           0x0011U
+#define IOLINK_IDX_PRODUCT_NAME          0x0012U
+#define IOLINK_IDX_PRODUCT_ID            0x0013U
+#define IOLINK_IDX_PRODUCT_TEXT          0x0014U
+#define IOLINK_IDX_SERIAL_NUMBER         0x0015U
+#define IOLINK_IDX_HARDWARE_REVISION     0x0016U
+#define IOLINK_IDX_FIRMWARE_REVISION     0x0017U
+#define IOLINK_IDX_APPLICATION_TAG       0x0018U
+#define IOLINK_IDX_DEVICE_STATUS         0x001BU
+#define IOLINK_IDX_DETAILED_DEVICE_STATUS 0x001CU
+#define IOLINK_IDX_REVISION_ID           0x001EU
+#define IOLINK_IDX_MIN_CYCLE_TIME        0x0024U
+
+/* System Commands */
+#define IOLINK_CMD_RESTORE_FACTORY_SETTINGS 0x82U
+
+/* ISDU Error Codes (0x80xx) */
+#define IOLINK_ISDU_ERROR_NONE           0x00U
+#define IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL 0x11U
+#define IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL 0x12U
+#define IOLINK_ISDU_ERROR_BUSY           0x30U
+#define IOLINK_ISDU_ERROR_WRITE_PROTECTED 0x33U
+
+/* Event Constants */
+#define IOLINK_EVENT_BIT_STATUS          0x80U  /* MSB of status byte in Type 1/2 */
+
+#endif /* IOLINK_PROTOCOL_H */

@@ -35,21 +35,20 @@ def test_with_device():
     master = VirtualMaster()
     device_tty = master.get_device_tty()
     
-    print(f"
-[INFO] Virtual Master ready")
+    print()
+    print("[INFO] Virtual Master ready")
     print(f"[INFO] Device TTY: {device_tty}")
-    print(f"
-[ACTION] Start your Device with:")
+    print()
+    print("[ACTION] Start your Device with:")
     print(f"  ./build/examples/host_demo/host_demo {device_tty}")
-    print(f"
-Waiting 10 seconds for Device to start...")
+    print()
+    print("Waiting 10 seconds for Device to start...")
     
     # Wait for user to start Device
     for i in range(10, 0, -1):
-        print(f"  {i}...", end='')
+        print(f"  {i}...", end="\r")
         time.sleep(1)
-    print("
-")
+    print()
     
     # Test 1: Startup Sequence
     print("-" * 60)
@@ -60,14 +59,14 @@ Waiting 10 seconds for Device to start...")
         print("✅ Startup sequence successful!")
     else:
         print("❌ Startup sequence failed")
-        print("
-[HINT] Make sure Device is running and connected to correct TTY")
+        print()
+        print("[HINT] Make sure Device is running and connected to correct TTY")
         master.close()
         return 1
     
     # Test 2: Communication Cycles
-    print("
-" + "-" * 60)
+    print()
+    print("-" * 60)
     print("TEST 2: Communication Cycles (10 cycles)")
     print("-" * 60)
     
@@ -88,13 +87,13 @@ Waiting 10 seconds for Device to start...")
         print()
         time.sleep(0.01)  # 10ms cycle time
     
-    print(f"
-Events detected: {event_count}")
+    print()
+    print(f"Events detected: {event_count}")
     
     # Test 3: Event Request (if events pending)
     if event_count > 0:
-        print("
-" + "-" * 60)
+        print()
+        print("-" * 60)
         print("TEST 3: Event Request")
         print("-" * 60)
         
@@ -105,8 +104,8 @@ Events detected: {event_count}")
             print("❌ No event received")
     
     # Test 4: ISDU Read
-    print("
-" + "-" * 60)
+    print()
+    print("-" * 60)
     print("TEST 4: ISDU Read (Index 0x10 - Vendor Name)")
     print("-" * 60)
     
@@ -122,8 +121,8 @@ Events detected: {event_count}")
         print("⚠️  ISDU Read returned no data (may not be implemented yet)")
     
     # Summary
-    print("
-" + "=" * 60)
+    print()
+    print("=" * 60)
     print("TEST SUMMARY")
     print("=" * 60)
     print("✅ Virtual Master operational")
@@ -131,8 +130,8 @@ Events detected: {event_count}")
     print(f"✅ {10} communication cycles completed")
     if event_count > 0:
         print(f"✅ {event_count} events detected")
-    print("
-[SUCCESS] Integration test complete!")
+    print()
+    print("[SUCCESS] Integration test complete!")
     
     master.close()
     return 0
@@ -142,14 +141,12 @@ if __name__ == "__main__":
     try:
         sys.exit(test_with_device())
     except KeyboardInterrupt:
-        print("
-
-[INTERRUPTED] Test stopped by user")
+        print()
+        print("[INTERRUPTED] Test stopped by user")
         sys.exit(1)
     except Exception as e:
-        print(f"
-
-[ERROR] Test failed: {e}")
+        print()
+        print(f"[ERROR] Test failed: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

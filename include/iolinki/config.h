@@ -28,7 +28,7 @@
  * Default: 256 bytes (sufficient for standard params).
  */
 #ifndef IOLINK_ISDU_BUFFER_SIZE
-#define IOLINK_ISDU_BUFFER_SIZE 256
+#define IOLINK_ISDU_BUFFER_SIZE 256U
 #endif
 
 /* -------------------------------------------------------------------------
@@ -41,7 +41,7 @@
  * Default: 4
  */
 #ifndef IOLINK_EVENT_QUEUE_SIZE
-#define IOLINK_EVENT_QUEUE_SIZE 4
+#define IOLINK_EVENT_QUEUE_SIZE 4U
 #endif
 
 /* -------------------------------------------------------------------------
@@ -54,7 +54,7 @@
  * Default: 32
  */
 #ifndef IOLINK_PD_IN_MAX_SIZE
-#define IOLINK_PD_IN_MAX_SIZE 32
+#define IOLINK_PD_IN_MAX_SIZE 32U
 #endif
 
 /**
@@ -63,7 +63,7 @@
  * Default: 32
  */
 #ifndef IOLINK_PD_OUT_MAX_SIZE
-#define IOLINK_PD_OUT_MAX_SIZE 32
+#define IOLINK_PD_OUT_MAX_SIZE 32U
 #endif
 
 #endif // IOLINK_CONFIG_H

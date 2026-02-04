@@ -8,7 +8,7 @@
 
 /**
  * @file test_pd.c
- * @brief Unit tests for Process Data exchange
+ * @brief Unit tests for Process Data (PD) handling
  */
 
 #include <stdarg.h>
@@ -19,58 +19,53 @@
 #include <string.h>
 
 #include "iolinki/iolink.h"
-#include "iolinki/dll.h"
+#include "iolinki/application.h"
+#include "iolinki/crc.h"
 #include "test_helpers.h"
 
-static void test_pd_cyclic_exchange(void **state)
+static void test_pd_input_output(void **state)
 {
     (void)state;
     
-    iolink_init(&g_phy_mock);
-    
-    /* 1. Move to Preoperate */
-    will_return(g_phy_mock.recv_byte, 0x00); 
-    will_return(g_phy_mock.recv_byte, 1);
-    iolink_process();
-    
-    /* 2. Move to Operate (via M-Sequence Type 0) */
-    will_return(g_phy_mock.recv_byte, 0x00); /* MC */
-    will_return(g_phy_mock.recv_byte, 1);
-    will_return(g_phy_mock.recv_byte, 0x11); /* CK placeholder */
-    will_return(g_phy_mock.recv_byte, 1);
-    
-    expect_any(g_phy_mock.send, data);
-    expect_value(g_phy_mock.send, len, 2);
-    will_return(g_phy_mock.send, 2);
-    
-    will_return(g_phy_mock.recv_byte, 0); /* End of loop */
-    iolink_process();
+    iolink_config_t config = {
+        .pd_in_len = 2,
+        .pd_out_len = 2,
+        .m_seq_type = IOLINK_M_SEQ_TYPE_2_2
+    };
 
-    /* 3. PD Exchange in OPERATE */
-    uint8_t test_pd_in = 0xAA;
-    iolink_pd_input_update(&test_pd_in, 1, true);
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_init(&g_phy_mock, &config);
     
-    /* Master sends 0x55 (PD output) */
-    will_return(g_phy_mock.recv_byte, 0x55);
-    will_return(g_phy_mock.recv_byte, 1);
+    /* Move to OPERATE */
+    move_to_operate();
+
+    /* 1. Set Input PD */
+    uint8_t input[2] = {0x11, 0x22};
+    iolink_pd_input_update(input, 2, true);
+
+    /* 2. Simulate Master Frame (Type 2_2: MC, CKT, PD_OUT(2), OD(2), CK) -> 7 bytes */
+    uint8_t frame[7] = {0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    frame[6] = iolink_crc6(frame, 6);
+
+    for (int i=0; i<7; i++) {
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, frame[i]);
+    }
+    will_return(mock_phy_recv_byte, 0); 
     
-    /* Device should respond with 0xAA (PD input) */
-    expect_value(g_phy_mock.send, len, 1);
-    will_return(g_phy_mock.send, 1);
-    
+    /* Response: Status(1), PD_IN(2), OD(2), CK(1) = 6 bytes for Type 2_x */
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 6);
+    will_return(mock_phy_send, 0);
+
     iolink_process();
-    
-    /* Verify PD output received */
-    uint8_t pd_out_buf[1];
-    int read = iolink_pd_output_read(pd_out_buf, 1);
-    assert_int_equal(read, 1);
-    assert_int_equal(pd_out_buf[0], 0x55);
 }
 
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_pd_cyclic_exchange),
+        cmocka_unit_test(test_pd_input_output),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

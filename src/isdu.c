@@ -6,12 +6,14 @@
  * See LICENSE for details.
  */
 
+#include "iolinki/protocol.h"
 #include "iolinki/isdu.h"
 #include "iolinki/crc.h"
 #include "iolinki/events.h"
 #include "iolinki/device_info.h"
 #include "iolinki/params.h"
 #include <string.h>
+#include <stdint.h>
 
 /* 
  * IO-Link ISDU Segmentation Engine
@@ -29,47 +31,63 @@
 
 void iolink_isdu_init(iolink_isdu_ctx_t *ctx)
 {
-    if (ctx) {
-        memset(ctx, 0, sizeof(iolink_isdu_ctx_t));
-        ctx->state = ISDU_STATE_IDLE;
-        ctx->next_state = ISDU_STATE_IDLE;
+    if (ctx == NULL) {
+        return;
     }
+
+    (void)memset(ctx, 0, sizeof(iolink_isdu_ctx_t));
+    ctx->state = ISDU_STATE_IDLE;
+    ctx->next_state = ISDU_STATE_IDLE;
+}
+
+static int isdu_handle_idle(iolink_isdu_ctx_t *ctx, uint8_t byte)
+{
+    bool start = ((byte & IOLINK_ISDU_CTRL_START) != 0U);
+    bool last = ((byte & IOLINK_ISDU_CTRL_LAST) != 0U);
+    uint8_t seq = (uint8_t)(byte & IOLINK_ISDU_CTRL_SEQ_MASK);
+
+    if (!start) {
+        return -1;
+    }
+
+    ctx->is_segmented = !last;
+    ctx->segment_seq = seq;
+    ctx->error_code = IOLINK_ISDU_ERROR_NONE;
+    ctx->is_response_control_sent = false;
+    ctx->buffer_idx = 0U;
+    ctx->response_len = 0U;
+    ctx->response_idx = 0U;
+    ctx->state = ISDU_STATE_HEADER_INITIAL;
+    return 0;
 }
 
 int iolink_isdu_collect_byte(iolink_isdu_ctx_t *ctx, uint8_t byte)
 {
-    if (!ctx) return 0;
+    if (ctx == NULL) {
+        return 0;
+    }
 
     /* IO-Link V1.1 Control Byte parsing */
-    bool start = (byte & 0x80) != 0;
-    bool last = (byte & 0x40) != 0;
-    uint8_t seq = (byte & 0x3F);
+    bool start = ((byte & 0x80U) != 0U);
+    bool last = ((byte & 0x40U) != 0U);
+    uint8_t seq = (uint8_t)(byte & 0x3FU);
 
     switch (ctx->state) {
         case ISDU_STATE_IDLE:
-            if (!start) return -1; /* Must start with 'Start' bit */
-            ctx->is_segmented = !last;
-            ctx->segment_seq = 0;
-            ctx->error_code = 0;
-            ctx->is_response_control_sent = false;
-            ctx->buffer_idx = 0;
-            ctx->response_len = 0;
-            ctx->response_idx = 0;
-            ctx->state = ISDU_STATE_HEADER_INITIAL;
-            return 0;
+            return isdu_handle_idle(ctx, byte); /* Must start with 'Start' bit */
 
         case ISDU_STATE_HEADER_INITIAL:
             {
-                uint8_t service = (byte >> 4) & 0x0F;
-                uint8_t length = byte & 0x0F;
+                uint8_t service = (uint8_t)((byte >> 4) & 0x0FU);
+                uint8_t length = (uint8_t)(byte & 0x0FU);
                 
-                if (service == 0x09) { /* READ */
+                if (service == IOLINK_ISDU_SERVICE_READ) {
                     ctx->header.type = IOLINK_ISDU_SERVICE_READ;
-                    ctx->header.length = 0;
+                    ctx->header.length = 0U;
                     ctx->next_state = ISDU_STATE_HEADER_INDEX_HIGH;
-                } else if (service == 0x0A) { /* WRITE */
+                } else if (service == IOLINK_ISDU_SERVICE_WRITE) {
                     ctx->header.type = IOLINK_ISDU_SERVICE_WRITE;
-                    if (length == 0) {
+                    if (length == 0U) {
                         ctx->next_state = ISDU_STATE_HEADER_EXT_LEN;
                     } else {
                         ctx->header.length = length;
@@ -79,31 +97,27 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t *ctx, uint8_t byte)
                     ctx->state = ISDU_STATE_IDLE;
                     return -1;
                 }
-                ctx->buffer_idx = 0;
-                if (ctx->is_segmented) ctx->state = ISDU_STATE_SEGMENT_COLLECT;
-                else ctx->state = ctx->next_state;
+                ctx->buffer_idx = 0U;
+                ctx->state = ctx->is_segmented ? ISDU_STATE_SEGMENT_COLLECT : ctx->next_state;
             }
             break;
 
         case ISDU_STATE_HEADER_EXT_LEN:
             ctx->header.length = byte;
             ctx->next_state = ISDU_STATE_HEADER_INDEX_HIGH;
-            if (ctx->is_segmented) ctx->state = ISDU_STATE_SEGMENT_COLLECT;
-            else ctx->state = ctx->next_state;
+            ctx->state = ctx->is_segmented ? ISDU_STATE_SEGMENT_COLLECT : ctx->next_state;
             break;
 
         case ISDU_STATE_HEADER_INDEX_HIGH:
             ctx->header.index = (uint16_t)(byte << 8);
             ctx->next_state = ISDU_STATE_HEADER_INDEX_LOW;
-            if (ctx->is_segmented) ctx->state = ISDU_STATE_SEGMENT_COLLECT;
-            else ctx->state = ctx->next_state;
+            ctx->state = ctx->is_segmented ? ISDU_STATE_SEGMENT_COLLECT : ctx->next_state;
             break;
             
         case ISDU_STATE_HEADER_INDEX_LOW:
             ctx->header.index |= byte;
             ctx->next_state = ISDU_STATE_HEADER_SUBINDEX;
-            if (ctx->is_segmented) ctx->state = ISDU_STATE_SEGMENT_COLLECT;
-            else ctx->state = ctx->next_state;
+            ctx->state = ctx->is_segmented ? ISDU_STATE_SEGMENT_COLLECT : ctx->next_state;
             break;
 
         case ISDU_STATE_HEADER_SUBINDEX:
@@ -114,8 +128,7 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t *ctx, uint8_t byte)
                 ctx->state = ISDU_STATE_SERVICE_EXECUTE;
                 return 1;
             }
-            if (ctx->is_segmented) ctx->state = ISDU_STATE_SEGMENT_COLLECT;
-            else ctx->state = ctx->next_state;
+            ctx->state = ctx->is_segmented ? ISDU_STATE_SEGMENT_COLLECT : ctx->next_state;
             break;
 
         case ISDU_STATE_DATA_COLLECT:
@@ -125,7 +138,9 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t *ctx, uint8_t byte)
                 return 1;
             }
             ctx->next_state = ISDU_STATE_DATA_COLLECT;
-            if (ctx->is_segmented) ctx->state = ISDU_STATE_SEGMENT_COLLECT;
+            if (ctx->is_segmented) {
+                ctx->state = ISDU_STATE_SEGMENT_COLLECT;
+            }
             break;
             
         case ISDU_STATE_SEGMENT_COLLECT:
@@ -135,12 +150,12 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t *ctx, uint8_t byte)
                 return -1;
             }
             if (seq != (uint8_t)((ctx->segment_seq + 1) & 0x3F)) {
-                ctx->error_code = 0x81;
+                ctx->error_code = 0x81U;
                 ctx->state = ISDU_STATE_IDLE;
                 return -1;
             }
             ctx->segment_seq = seq;
-            ctx->is_segmented = !last;
+            ctx->is_segmented = (last == false);
             ctx->state = ctx->next_state;
             break;
 
@@ -148,7 +163,7 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t *ctx, uint8_t byte)
             /* Response is being sent. Collection of NEW requests can only happen after response is fully read. */
             if (start) {
                 ctx->state = ISDU_STATE_IDLE;
-                return iolink_isdu_collect_byte(ctx, byte);
+                return isdu_handle_idle(ctx, byte);
             }
             return 0;
 
@@ -163,94 +178,110 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t *ctx)
 {
     const iolink_device_info_t *info = iolink_device_info_get();
     const char *str_data = NULL;
-    
-    
+
+    if (info == NULL) {
+        ctx->response_buf[0] = 0x80U;
+        ctx->response_buf[1] = 0x11U;
+        ctx->response_len = 2U;
+        ctx->response_idx = 0U;
+        ctx->state = ISDU_STATE_RESPONSE_READY;
+        return;
+    }
+
     switch (ctx->header.index) {
-        case 0x000A: /* Vendor ID (16-bit) */
+        case IOLINK_IDX_VENDOR_ID:
             ctx->response_buf[0] = (uint8_t)(info->vendor_id >> 8);
             ctx->response_buf[1] = (uint8_t)(info->vendor_id & 0xFF);
-            ctx->response_len = 2;
-            ctx->response_idx = 0;
+            ctx->response_len = 2U;
+            ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
             return;
             
-        case 0x000B: /* Device ID (32-bit) */
+        case IOLINK_IDX_DEVICE_ID:
             ctx->response_buf[0] = (uint8_t)(info->device_id >> 24);
             ctx->response_buf[1] = (uint8_t)(info->device_id >> 16);
             ctx->response_buf[2] = (uint8_t)(info->device_id >> 8);
             ctx->response_buf[3] = (uint8_t)(info->device_id & 0xFF);
-            ctx->response_len = 4;
-            ctx->response_idx = 0;
+            ctx->response_len = 4U;
+            ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
             return;
             
-        case 0x000D: /* Profile Characteristic (16-bit) */
+        case IOLINK_IDX_PROFILE_CHARACTERISTIC:
             ctx->response_buf[0] = (uint8_t)(info->profile_characteristic >> 8);
             ctx->response_buf[1] = (uint8_t)(info->profile_characteristic & 0xFF);
-            ctx->response_len = 2;
-            ctx->response_idx = 0;
+            ctx->response_len = 2U;
+            ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
             return;
             
-        case 0x0010: str_data = info->vendor_name; break;
-        case 0x0011: str_data = info->vendor_text; break;
-        case 0x0012: str_data = info->product_name; break;
-        case 0x0013: str_data = info->product_id; break;
-        case 0x0014: str_data = info->product_text; break;
-        case 0x0015: str_data = info->serial_number; break;
-        case 0x0016: str_data = info->hardware_revision; break;
-        case 0x0017: str_data = info->firmware_revision; break;
+        case IOLINK_IDX_VENDOR_NAME: str_data = info->vendor_name; break;
+        case IOLINK_IDX_VENDOR_TEXT: str_data = info->vendor_text; break;
+        case IOLINK_IDX_PRODUCT_NAME: str_data = info->product_name; break;
+        case IOLINK_IDX_PRODUCT_ID: str_data = info->product_id; break;
+        case IOLINK_IDX_PRODUCT_TEXT: str_data = info->product_text; break;
+        case IOLINK_IDX_SERIAL_NUMBER: str_data = info->serial_number; break;
+        case IOLINK_IDX_HARDWARE_REVISION: str_data = info->hardware_revision; break;
+        case IOLINK_IDX_FIRMWARE_REVISION: str_data = info->firmware_revision; break;
         
-        case 0x0018: /* Application Tag (optional) */
+        case IOLINK_IDX_APPLICATION_TAG:
             if (ctx->header.type == IOLINK_ISDU_SERVICE_WRITE) {
-                if (iolink_params_set(0x0018, 0, ctx->buffer, ctx->buffer_idx, true) == 0) {
-                     ctx->response_len = 0;
-                     ctx->response_idx = 0;
+                if (iolink_params_set(IOLINK_IDX_APPLICATION_TAG, 0U, ctx->buffer, ctx->buffer_idx, true) == 0) {
+                     ctx->response_len = 0U;
+                     ctx->response_idx = 0U;
                      ctx->state = ISDU_STATE_RESPONSE_READY;
                      return;
                 }
             } else {
-                int res = iolink_params_get(0x0018, 0, ctx->response_buf, sizeof(ctx->response_buf));
+                int res = iolink_params_get(IOLINK_IDX_APPLICATION_TAG, 0U, ctx->response_buf, (size_t)IOLINK_ISDU_BUFFER_SIZE);
                 if (res >= 0) {
-                     ctx->response_len = (uint8_t)res;
-                     ctx->response_idx = 0;
-                     ctx->state = ISDU_STATE_RESPONSE_READY;
-                     return;
+                    ctx->response_len = (uint8_t)res;
+                    ctx->response_idx = 0U;
+                    ctx->state = ISDU_STATE_RESPONSE_READY;
+                    return;
                 }
             }
             break;
             
-        case 0x001B: /* Device Status */
+        case IOLINK_IDX_DEVICE_STATUS:
             ctx->response_buf[0] = info->device_status;
-            ctx->response_len = 1;
-            ctx->response_idx = 0;
+            ctx->response_len = 1U;
+            ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
             return;
             
-        case 0x001E: /* Revision ID (16-bit) */
+        case IOLINK_IDX_REVISION_ID:
             ctx->response_buf[0] = (uint8_t)(info->revision_id >> 8);
             ctx->response_buf[1] = (uint8_t)(info->revision_id & 0xFF);
-            ctx->response_len = 2;
-            ctx->response_idx = 0;
+            ctx->response_len = 2U;
+            ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
             return;
             
-        case 0x0024: /* Min Cycle Time */
+        case IOLINK_IDX_MIN_CYCLE_TIME:
             ctx->response_buf[0] = info->min_cycle_time;
-            ctx->response_len = 1;
-            ctx->response_idx = 0;
+            ctx->response_len = 1U;
+            ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
             return;
             
-        default: return;
+        default:
+            ctx->response_buf[0] = 0x80U; /* Error: Service not available */
+            ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+            ctx->response_len = 2U;
+            ctx->response_idx = 0U;
+            ctx->state = ISDU_STATE_RESPONSE_READY;
+            return;
     }
     
     if (str_data) {
         size_t len_sz = strlen(str_data);
-        if (len_sz > sizeof(ctx->response_buf)) len_sz = sizeof(ctx->response_buf);
-        memcpy(ctx->response_buf, str_data, len_sz);
+        if (len_sz > sizeof(ctx->response_buf)) {
+            len_sz = sizeof(ctx->response_buf);
+        }
+        (void)memcpy(ctx->response_buf, str_data, len_sz);
         ctx->response_len = (uint8_t)len_sz;
-        ctx->response_idx = 0;
+        ctx->response_idx = 0U;
         ctx->state = ISDU_STATE_RESPONSE_READY;
     }
 }
@@ -258,20 +289,20 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t *ctx)
 static void handle_system_command(iolink_isdu_ctx_t *ctx, uint8_t cmd)
 {
     switch (cmd) {
-        case 0x80: iolink_isdu_init(ctx); break;
-        case 0x81: break;
-        case 0x82: break;
-        case 0x83: break;
+        case 0x80U: iolink_isdu_init(ctx); break;
+        case 0x81U: break;
+        case IOLINK_CMD_RESTORE_FACTORY_SETTINGS: break;
+        case 0x83U: break;
         default:
-            ctx->response_buf[0] = 0x80;
-            ctx->response_buf[1] = 0x11;
-            ctx->response_len = 2;
-            ctx->response_idx = 0;
+            ctx->response_buf[0] = 0x80U;
+            ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+            ctx->response_len = 2U;
+            ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
             return;
     }
-    ctx->response_len = 0;
-    ctx->response_idx = 0;
+    ctx->response_len = 0U;
+    ctx->response_idx = 0U;
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
@@ -281,34 +312,42 @@ static void handle_access_locks(iolink_isdu_ctx_t *ctx)
         uint16_t locks = iolink_device_info_get_access_locks();
         ctx->response_buf[0] = (uint8_t)(locks >> 8);
         ctx->response_buf[1] = (uint8_t)(locks & 0xFF);
-        ctx->response_len = 2;
+        ctx->response_len = 2U;
     } else {
         /* Write: Update access locks */
-        if (ctx->buffer_idx >= 2) {
+        if (ctx->buffer_idx >= 2U) {
             uint16_t new_locks = ((uint16_t)ctx->buffer[0] << 8) | ctx->buffer[1];
             iolink_device_info_set_access_locks(new_locks);
         }
-        ctx->response_len = 0;
+        ctx->response_len = 0U;
     }
-    ctx->response_idx = 0;
+    ctx->response_idx = 0U;
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
 static void handle_standard_commands(iolink_isdu_ctx_t *ctx)
 {
-    if (ctx->header.index == 0x0002) {
+    if (ctx->header.index == IOLINK_IDX_SYSTEM_COMMAND) {
         if (ctx->header.type == IOLINK_ISDU_SERVICE_WRITE) {
              /* Mandatory System Commands */
-             handle_system_command(ctx, ctx->buffer[0]); 
+             if (ctx->buffer_idx > 0U) {
+                 handle_system_command(ctx, ctx->buffer[0]);
+             } else {
+                 ctx->response_buf[0] = 0x80U;
+                 ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+                 ctx->response_len = 2U;
+                 ctx->response_idx = 0U;
+                 ctx->state = ISDU_STATE_RESPONSE_READY;
+             }
         } else {
             /* Read of Index 2 - usually blocked or returns last event depending on profile */
-            ctx->response_buf[0] = 0x80; /* Error: Service not available */
-            ctx->response_buf[1] = 0x11;
-            ctx->response_len = 2;
-            ctx->response_idx = 0;
+            ctx->response_buf[0] = 0x80U; /* Error: Service not available */
+            ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+            ctx->response_len = 2U;
+            ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
         }
-    } else if (ctx->header.index == 0x000C) {
+    } else if (ctx->header.index == IOLINK_IDX_DEVICE_ACCESS_LOCKS) {
         handle_access_locks(ctx);
     } else {
         handle_mandatory_indices(ctx);
@@ -317,7 +356,9 @@ static void handle_standard_commands(iolink_isdu_ctx_t *ctx)
 
 void iolink_isdu_process(iolink_isdu_ctx_t *ctx)
 {
-    if (!ctx) return;
+    if (ctx == NULL) {
+        return;
+    }
     
     if (ctx->state == ISDU_STATE_BUSY) {
         /* In real implementation, we would check if the background task is done.
@@ -335,27 +376,26 @@ void iolink_isdu_process(iolink_isdu_ctx_t *ctx)
 
 int iolink_isdu_get_response_byte(iolink_isdu_ctx_t *ctx, uint8_t *byte)
 {
-    if (!ctx) return 0;
-    if (ctx->state != ISDU_STATE_RESPONSE_READY) return 0;
+    if ((ctx == NULL) || (byte == NULL)) {
+        return 0;
+    }
+    if (ctx->state != ISDU_STATE_RESPONSE_READY) {
+        return 0;
+    }
 
     if (!ctx->is_response_control_sent) {
         /* Send Control Byte: [Done(1)] [Error(1)] [Seq(6)] */
-        /* For now, assume Done=1 when response_idx reaches response_len */
-        /* Actually, Start/Last bits are more standard for V1.1 requests/responses. */
-        uint8_t ctrl = 0x00;
-        if (ctx->response_idx == 0) {
-             ctrl |= 0x80; /* Start */
-        }
-        if (ctx->error_code != 0) {
-             ctrl |= 0x40; /* Error bit if using specific framing, or just Last */
+        uint8_t ctrl = 0x00U;
+        if (ctx->response_idx == 0U) {
+             ctrl |= IOLINK_ISDU_CTRL_START;
         }
         
         /* Last bit if this is the final segment */
-        if (ctx->response_idx + 1 >= ctx->response_len) {
-            ctrl |= 0x40; /* Last */
+        if ((uint8_t)(ctx->response_idx + 1U) >= ctx->response_len) {
+            ctrl |= IOLINK_ISDU_CTRL_LAST;
         }
         /* Sequence number */
-        ctrl |= (ctx->segment_seq & 0x3F);
+        ctrl |= (uint8_t)(ctx->segment_seq & IOLINK_ISDU_CTRL_SEQ_MASK);
         
         *byte = ctrl;
         ctx->is_response_control_sent = true;

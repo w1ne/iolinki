@@ -1,17 +1,35 @@
+# Doxygen Configuration for iolinki
 PROJECT_NAME           = "iolinki"
-PROJECT_NUMBER         = "0.2.0"
+PROJECT_NUMBER         = "0.11.0"
 PROJECT_BRIEF          = "Open-Source IO-Link Device Stack"
-OUTPUT_DIRECTORY       = docs/html
-INPUT                  = include/iolinki src
-RECURSIVE              = YES
+OUTPUT_DIRECTORY       = docs
+INPUT                  = include/iolinki src/iolink_core.c src/dll.c src/isdu.c src/events.c src/params.c src/data_storage.c src/device_info.c src/phy_virtual.c src/crc.c
+RECURSIVE              = NO
 OPTIMIZE_OUTPUT_FOR_C  = YES
 EXTRACT_ALL            = YES
-EXTRACT_PRIVATE        = YES
-EXTRACT_STATIC         = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = NO
 GENERATE_LATEX         = NO
 GENERATE_MAN           = NO
 GENERATE_RTF           = NO
-HAVE_DOT               = NO
+
+# Graphviz Support
+HAVE_DOT               = YES
+DOT_PATH               = /usr/bin/dot
+CLASS_DIAGRAMS         = YES
+COLLABORATION_GRAPH    = YES
+INCLUDE_GRAPH          = YES
+INCLUDED_BY_GRAPH      = YES
+GRAPHICAL_HIERARCHY    = YES
+
+# Warning settings
 WARN_IF_UNDOCUMENTED   = YES
 WARN_AS_ERROR          = NO
-QUIET                  = YES
+QUIET                  = NO
+
+# HTML Settings
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+HTML_DYNAMIC_SECTIONS  = YES
+DISABLE_INDEX          = NO
+FULL_SIDEBAR           = YES

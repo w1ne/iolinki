@@ -8,6 +8,8 @@ USER root
 RUN apt-get update && apt-get install -y \
     cppcheck \
     clang-format \
+    doxygen \
+    graphviz \
     && rm -rf /var/lib/apt/lists/*
 
 # Switch back to user 'user' (default in zephyr images)

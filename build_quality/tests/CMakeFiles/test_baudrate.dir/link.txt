@@ -1,0 +1,1 @@
+/usr/bin/cc -Wall -Wextra -Werror -Wpedantic -Wconversion -Wshadow -Wall -Wextra -g CMakeFiles/test_baudrate.dir/test_baudrate.c.o CMakeFiles/test_baudrate.dir/test_helpers.c.o -o test_baudrate  ../libiolinki.a -lcmocka 

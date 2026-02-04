@@ -11,10 +11,10 @@
 
 #### Data Link Layer
 - **M-Sequence Types**: 0, 1_1, 1_2, 2_1, 2_2
-- **Variable PD Lengths**: Type 1_V / 2_V via `set_pd_length()` and PD len config
+- **Variable PD Lengths**: Type 1_V / 2_V via `set_pd_length()` and PD len config (runtime negotiation pending)
 - **Variable OD Length**: 1-byte (Type 1) and 2-byte (Type 2)
 - **Wake-up / Idle**: Type 0 wake-up and idle sequences
-- **Event Request**: Master-side event request (MC: 0xA2)
+- **Event Request**: Master-side event request (MC: 0xA2) - requires device support
 - **CRC6 Calculation**: Polynomial 0x1D, seed 0x15 (matches iolinki)
 - **Checksum Verification**: Type 1/2 response validation
 

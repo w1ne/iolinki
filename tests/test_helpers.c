@@ -17,6 +17,9 @@
 #include <setjmp.h>
 #include <cmocka.h>
 #include <string.h>
+#include <stdio.h>
+#include "iolinki/crc.h"
+#include "iolinki/protocol.h"
 
 /* Test buffers */
 uint8_t g_tx_buf[1024];
@@ -24,33 +27,35 @@ uint8_t g_rx_buf[1024];
 
 /* Mock implementations */
 
-static int mock_phy_init(void)
+int mock_phy_init(void)
 {
     return (int)mock();
 }
 
-static void mock_phy_set_mode(iolink_phy_mode_t mode)
+void mock_phy_set_mode(iolink_phy_mode_t mode)
 {
     check_expected(mode);
 }
 
-static void mock_phy_set_baudrate(iolink_baudrate_t baudrate)
+void mock_phy_set_baudrate(iolink_baudrate_t baudrate)
 {
     check_expected(baudrate);
 }
 
-static int mock_phy_send(const uint8_t *data, size_t len)
+int mock_phy_send(const uint8_t *data, size_t len)
 {
     check_expected_ptr(data);
     check_expected(len);
     return (int)mock();
 }
 
-static int mock_phy_recv_byte(uint8_t *byte)
+int mock_phy_recv_byte(uint8_t *byte)
 {
-    check_expected_ptr(byte);
-    *byte = (uint8_t)mock();
-    return (int)mock();
+    int res = (int)mock();
+    if (res > 0) {
+        *byte = (uint8_t)mock();
+    }
+    return res;
 }
 
 const iolink_phy_api_t g_phy_mock = {
@@ -61,9 +66,37 @@ const iolink_phy_api_t g_phy_mock = {
     .recv_byte = mock_phy_recv_byte
 };
 
+void setup_mock_phy(void)
+{
+    /* Use -1 for infinite expectations to avoid errors on earlier test exit. */
+    expect_any_count(mock_phy_set_mode, mode, -1);
+    expect_any_count(mock_phy_set_baudrate, baudrate, -1);
+    
+    /* NO default will_return here. Tests must provide them. */
+}
+
+void move_to_operate(void)
+{
+    /* STARTUP -> PREOPERATE (on first byte) */
+    will_return(mock_phy_recv_byte, 1);     /* res=1 */
+    will_return(mock_phy_recv_byte, 0x00);  /* byte=0x00 */
+    will_return(mock_phy_recv_byte, 0);     /* res=0 (end frame) */
+    iolink_process();
+    
+    /* PREOPERATE -> OPERATE (on MC=0x0F + Correct CK) */
+    uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;
+    uint8_t ck = iolink_checksum_ck(mc, 0U);
+    
+    will_return(mock_phy_recv_byte, 1); 
+    will_return(mock_phy_recv_byte, mc);
+    will_return(mock_phy_recv_byte, 1); 
+    will_return(mock_phy_recv_byte, ck);
+    will_return(mock_phy_recv_byte, 0); 
+    iolink_process();
+}
+
 void iolink_phy_mock_reset(void)
 {
-    /* Placeholder - CMocka reset logic is usually handled by setup/teardown */
 }
 
 /* Mock Storage for Data Storage (DS) testing */
@@ -71,14 +104,14 @@ void iolink_phy_mock_reset(void)
 #define DS_MOCK_SIZE 128
 static uint8_t g_ds_mock_buf[DS_MOCK_SIZE];
 
-static int ds_mock_read(uint32_t addr, uint8_t *buf, size_t len)
+int ds_mock_read(uint32_t addr, uint8_t *buf, size_t len)
 {
     if (addr + len > DS_MOCK_SIZE) return -1;
     memcpy(buf, &g_ds_mock_buf[addr], len);
     return 0;
 }
 
-static int ds_mock_write(uint32_t addr, const uint8_t *buf, size_t len)
+int ds_mock_write(uint32_t addr, const uint8_t *buf, size_t len)
 {
     if (addr + len > DS_MOCK_SIZE) return -1;
     memcpy(&g_ds_mock_buf[addr], buf, len);

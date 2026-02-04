@@ -24,7 +24,7 @@ void iolink_phy_virtual_set_port(const char *port)
 
 static int virtual_init(void)
 {
-    if (!g_port_path) {
+    if (g_port_path == NULL) {
         printf("[PHY-VIRTUAL] Error: Port not set\n");
         return -1;
     }
@@ -45,12 +45,12 @@ static int virtual_init(void)
     cfmakeraw(&tty);
     
     /* Set timeouts: No blocking */
-    tty.c_cc[VMIN] = 0;
-    tty.c_cc[VTIME] = 0;
+    tty.c_cc[VMIN] = 0U;
+    tty.c_cc[VTIME] = 0U;
     
     if (tcsetattr(g_fd, TCSANOW, &tty) != 0) {
-         printf("[PHY-VIRTUAL] Error from tcsetattr: %s\n", strerror(errno));
-         return -1;
+        printf("[PHY-VIRTUAL] Error from tcsetattr: %s\n", strerror(errno));
+        return -1;
     }
     
     printf("[PHY-VIRTUAL] Initialized connection to %s (fd=%d)\n", g_port_path, g_fd);
@@ -59,23 +59,30 @@ static int virtual_init(void)
 
 static void virtual_set_mode(iolink_phy_mode_t mode)
 {
-    printf("[PHY-VIRTUAL] Mode set to: %d\n", mode);
+    printf("[PHY-VIRTUAL] Mode set to: %d\n", (int)mode);
 }
 
 static void virtual_set_baudrate(iolink_baudrate_t baudrate)
 {
-    printf("[PHY-VIRTUAL] Baudrate set to: %d\n", baudrate);
+    printf("[PHY-VIRTUAL] Baudrate set to: %d\n", (int)baudrate);
 }
 
 static int virtual_send(const uint8_t *data, size_t len)
 {
-    if (g_fd < 0) return -1;
+    if ((g_fd < 0) || (data == NULL)) {
+        return -1;
+    }
+    if (len == 0U) {
+        return 0;
+    }
     return (int)write(g_fd, data, len);
 }
 
 static int virtual_recv_byte(uint8_t *byte)
 {
-    if (g_fd < 0) return 0;
+    if ((g_fd < 0) || (byte == NULL)) {
+        return 0;
+    }
     
     ssize_t n = read(g_fd, byte, 1);
     return (n > 0) ? 1 : 0;

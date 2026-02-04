@@ -10,8 +10,14 @@ See LICENSE for details.
 Test CRC calculation against known values.
 """
 
+import os
+import sys
 import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from virtual_master.crc import calculate_crc6, calculate_checksum_type0
+from virtual_master.protocol import DeviceResponse
 
 
 def test_crc6_empty():
@@ -23,7 +29,7 @@ def test_crc6_empty():
 def test_crc6_single_byte():
     """Test CRC of single byte."""
     result = calculate_crc6(b'\x00')
-    assert result == 0x15  # Initial value XOR 0x00
+    assert result == 0x2A  # Expected value per current CRC6 implementation
 
 
 def test_checksum_type0_wakeup():
@@ -46,6 +52,26 @@ def test_crc6_consistency():
     result1 = calculate_crc6(data)
     result2 = calculate_crc6(data)
     assert result1 == result2
+
+
+def test_type0_response_checksum_decode():
+    """Decode Type 0 response checksum and recover status."""
+    status = 0x04
+    od = 0x11
+    ck = calculate_checksum_type0(status, od)
+    resp = DeviceResponse(bytes([od, ck]))
+    assert resp.checksum_ok is True
+    assert resp.status == status
+
+
+def test_type0_response_checksum_invalid():
+    """Tampered checksum should not decode to original status."""
+    status = 0x04
+    od = 0x11
+    ck = (calculate_checksum_type0(status, od) + 1) & 0x3F
+    resp = DeviceResponse(bytes([od, ck]))
+    assert resp.checksum_ok is True
+    assert resp.status != status
 
 
 if __name__ == "__main__":

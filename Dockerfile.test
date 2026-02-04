@@ -5,9 +5,12 @@ RUN apt-get update && apt-get install -y \
     cmake \
     build-essential \
     libcmocka-dev \
+    pkg-config \
     git \
     python3 \
     python3-pip \
+    doxygen \
+    graphviz \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python Virtual Master dependencies
@@ -16,11 +19,13 @@ RUN pip3 install -r /tmp/requirements.txt
 
 WORKDIR /workspace
 
-# Copy project files
+# Copy source code
 COPY . .
 
 # Build and test
-CMD ["bash", "-c", "cmake -B build -DPLATFORM=LINUX && cmake --build build && \
+CMD ["bash", "-c", "rm -rf build && cmake -B build -DIOLINK_PLATFORM=LINUX && cmake --build build && \
+    cd build && ctest --output-on-failure && cd .. && \
     export IOLINK_DEVICE_PATH=/workspace/build/examples/host_demo/host_demo && \
     python3 tools/virtual_master/test_automated_mandatory.py && \
-    python3 tools/virtual_master/test_pd_variable.py"]
+    python3 tools/virtual_master/test_pd_variable.py && \
+    python3 tools/virtual_master/test_baudrate.py"]

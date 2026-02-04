@@ -61,8 +61,8 @@ def test_automated():
         # Create Virtual Master
         master = VirtualMaster()
         device_tty = master.get_device_tty()
-        print(f"
-[INFO] Virtual Master ready (TTY: {device_tty})")
+        print()
+        print(f"[INFO] Virtual Master ready (TTY: {device_tty})")
         
         # Start Device in background
         device_proc = run_device_in_background(device_tty)
@@ -70,16 +70,16 @@ def test_automated():
             return 1
         
         # Test 1: Startup
-        print("
-[TEST 1] Startup Sequence")
+        print()
+        print("[TEST 1] Startup Sequence")
         if not master.run_startup_sequence():
             print("❌ Startup failed")
             return 1
         print("✅ Startup successful")
         
         # Test 2: Communication cycles
-        print("
-[TEST 2] Communication Cycles")
+        print()
+        print("[TEST 2] Communication Cycles")
         success_count = 0
         total_cycles = 10
         for i in range(total_cycles):
@@ -95,8 +95,8 @@ def test_automated():
             return 1
         
         # Test 3: CRC validation
-        print("
-[TEST 3] CRC Validation")
+        print()
+        print("[TEST 3] CRC Validation")
         from virtual_master.crc import calculate_checksum_type0
         wakeup_ck = calculate_checksum_type0(0x95, 0x00)
         if wakeup_ck == 0x1D:
@@ -106,8 +106,8 @@ def test_automated():
             return 1
 
         # Test 4: Mandatory ISDU Indices
-        print("
-[TEST 4] Mandatory ISDU Indices")
+        print()
+        print("[TEST 4] Mandatory ISDU Indices")
         
         # Helper for ISDU read with retry
         def read_isdu_with_retry(idx, sub=0, retries=3):
@@ -151,8 +151,8 @@ def test_automated():
             print("❌ Index 0x000C read failed")
             # Don't fail entire test for this yet if implementation is shaky
         
-        print("
-" + "=" * 60)
+        print()
+        print("=" * 60)
         print("✅ ALL TESTS PASSED")
         print("=" * 60)
         
@@ -160,8 +160,8 @@ def test_automated():
         return 0
         
     except Exception as e:
-        print(f"
-❌ Test failed with exception: {e}")
+        print()
+        print(f"❌ Test failed with exception: {e}")
         import traceback
         traceback.print_exc()
         return 1
@@ -169,8 +169,8 @@ def test_automated():
     finally:
         # Clean up Device process
         if device_proc:
-            print(f"
-[INFO] Stopping Device (PID: {device_proc.pid})")
+            print()
+            print(f"[INFO] Stopping Device (PID: {device_proc.pid})")
             device_proc.terminate()
             try:
                 device_proc.wait(timeout=2)

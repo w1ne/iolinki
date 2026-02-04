@@ -255,7 +255,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [ ] **Error Callbacks**: Implement `iolink_error_t` enum and user-provided error callback system.
 - [ ] **Power Management**: Add `iolink_suspend()` / `iolink_resume()` APIs for low-power modes.
 - [ ] **Watchdog Integration**: Define watchdog kick points in processing loop.
-- [ ] **MISRA Audit**: Full MISRA C:2012 compliance check and fixes.
+- [x] MISRA Audit: Initial cleanup of NULL checks and unsigned literals (v0.11.0).
 - [ ] **Stack Analysis**: Document worst-case stack depth for each API call.
 
 ## Phase 7: Commercialization & Services
