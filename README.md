@@ -172,3 +172,27 @@ git push origin v0.1.0
 ## Contributing
 
 Contributions are welcome! Please see [ROADMAP.md](./docs/ROADMAP.md) for areas where help is needed.
+
+## Agent Workflow (Task Mutex)
+
+We coordinate agent work using a simple file-based mutex.
+
+**Agent prompt (paste into tasks):**
+
+```
+Please pick a task from docs/AGENT_TASKS.md.
+
+Claim the task with:
+  tools/claim_task.sh <task-id> <your-name>
+If it fails, the task is already taken. Pick another.
+
+After claiming, append an "in progress" entry to docs/AGENT_REPORTS.md
+using the template in that file. Do not edit the Status line manually.
+
+When finished (or blocked), run:
+  tools/complete_task.sh <task-id> <your-name>
+and append a final report to docs/AGENT_REPORTS.md.
+
+Check current claims with:
+  tools/task_status.sh
+```
