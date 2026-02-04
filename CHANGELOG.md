@@ -5,6 +5,12 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.5] - 2026-02-05
+
+### Fixed
+- **Bare Metal**: Fixed runtime crash in `examples/bare_metal_app` by initializing dummy port `/dev/null` for virtual PHY.
+- **Unit Tests**: Fixed compilation error in `tests/test_dll.c` (undeclared variable `bad_frame` scope).
+
 ## [0.12.4] - 2026-02-05
 
 ### Fixed

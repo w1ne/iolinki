@@ -20,6 +20,7 @@ void sys_tick_handler(void)
 int main(void)
 {
     /* Initialize stack with virtual PHY (simplified for bare metal, typically uses UART/SPI) */
+    iolink_phy_virtual_set_port("/dev/null");
     const iolink_phy_api_t *phy = iolink_phy_virtual_get();
 
     if (iolink_init(phy, NULL) != 0) {
