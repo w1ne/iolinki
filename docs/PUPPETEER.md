@@ -40,12 +40,15 @@ tools/thepuppeteer/tools/bootstrap_repo.sh
    tools/thepuppeteer/tools/complete_task.sh <task-id> <name>
    tools/thepuppeteer/tools/task_status.sh
    tools/thepuppeteer/tools/validate_tasks.sh
+   tools/thepuppeteer/tools/generate_reports_index.sh
    ```
 
 ## Notes
 
 - **Do not edit** files inside `tools/thepuppeteer` for project‑specific tasks.  
   Your repo’s task list and reports live in `docs/AGENT_TASKS.md` and `docs/AGENT_REPORTS.md`.
+- Reports are stored as **one file per report** in `docs/agent_reports/`.  
+  `docs/AGENT_REPORTS.md` is a generated index.
 - Update the submodule when you want new workflow tooling:
   ```bash
   git submodule update --remote --merge

@@ -6,10 +6,10 @@ Claiming rules (mutex enforced):
 1. Claim a task with `tools/claim_task.sh <task-id> <name>`. This creates `docs/claims/task-<id>.lock` atomically.
 2. If the claim command fails, the task is already taken. Pick another task.
 3. Do not edit `Status:` manually when claiming. The script updates it.
-4. The claim script appends a draft report to `docs/AGENT_REPORTS.md`; fill it in.
-5. When finished or blocked, append a final report to `docs/AGENT_REPORTS.md` (and keep the draft).
+4. The claim script creates a draft report file in `docs/agent_reports/` and regenerates `docs/AGENT_REPORTS.md`.
+5. When finished or blocked, add a final report file in `docs/agent_reports/` (keep the draft).
 6. Mark completion with `tools/complete_task.sh <task-id> <name>`. The lock stays to prevent re-claim.
-7. Coordinators can run `tools/validate_tasks.sh` to sanity-check claims and reports.
+7. Coordinators can run `tools/validate_tasks.sh` to sanity-check claims and report files.
 
 Enforcement: work is considered invalid unless the lock directory exists for that task.
 
@@ -53,7 +53,7 @@ Acceptance:
 - Conformance state machine tests still pass.
 
 ## Task 3: Error Event Reporting
-Status: claimed by Antigravity (2026-02-04)
+Status: done by Antigravity (2026-02-04)
 Scope:
 - Emit diagnostic events for CRC, timeout, framing, and timing violations.
 - Map to standard event code ranges (0x1xxx–0x8xxx) where applicable.
@@ -69,7 +69,7 @@ Acceptance:
 - Tests validate event generation and retrieval.
 
 ## Task 4: ISDU Flow Control (Busy/Retry)
-Status: unclaimed
+Status: claimed by Antigravity (2026-02-04)
 Scope:
 - Implement busy/retry handling for concurrent ISDU requests.
 - Ensure segmented transfers remain consistent under load.
