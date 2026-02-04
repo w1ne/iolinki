@@ -10,8 +10,10 @@
 #define IOLINK_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "iolinki/phy.h"
 #include "iolinki/application.h"
+#include "iolinki/dll.h"
 
 /**
  * @file iolink.h
@@ -85,5 +87,68 @@ iolink_events_ctx_t* iolink_get_events_ctx(void);
  * @return iolink_ds_ctx_t* Pointer to the internal DS context
  */
 iolink_ds_ctx_t* iolink_get_ds_ctx(void);
+
+/**
+ * @brief Get current DLL state
+ *
+ * @return iolink_dll_state_t Current state
+ */
+iolink_dll_state_t iolink_get_state(void);
+
+/**
+ * @brief Get current PHY mode
+ *
+ * @return iolink_phy_mode_t Current mode
+ */
+iolink_phy_mode_t iolink_get_phy_mode(void);
+
+/**
+ * @brief Get current baudrate
+ *
+ * @return iolink_baudrate_t Current baudrate
+ */
+iolink_baudrate_t iolink_get_baudrate(void);
+
+/**
+ * @brief Get DLL statistics snapshot
+ *
+ * @param out_stats Output stats structure
+ */
+void iolink_get_dll_stats(iolink_dll_stats_t *out_stats);
+
+/**
+ * @brief Enable/disable timing enforcement (t_ren / t_cycle)
+ *
+ * @param enable true to enable, false to disable
+ */
+void iolink_set_timing_enforcement(bool enable);
+
+/**
+ * @brief Override t_ren limit (applies to all baudrates)
+ *
+ * @param limit_us New t_ren limit in microseconds (0 disables enforcement)
+ */
+void iolink_set_t_ren_limit_us(uint32_t limit_us);
+
+/**
+ * @brief Get configured M-sequence type
+ *
+ * @return iolink_m_seq_type_t Current M-sequence type
+ */
+iolink_m_seq_type_t iolink_get_m_seq_type(void);
+
+/**
+ * @brief Get configured PD In length
+ *
+ * @return uint8_t PD In length
+ */
+uint8_t iolink_get_pd_in_len(void);
+
+/**
+ * @brief Get configured PD Out length
+ *
+ * @return uint8_t PD Out length
+ */
+uint8_t iolink_get_pd_out_len(void);
 
 #endif // IOLINK_H

@@ -17,53 +17,146 @@
 #include <cmocka.h>
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "iolinki/iolink.h"
 #include "iolinki/dll.h"
+#include "iolinki/crc.h"
 #include "test_helpers.h"
 
-static void test_dll_startup_to_preoperate(void **state)
+static void test_dll_wakeup_to_preoperate(void **state)
 {
     (void)state;
     setup_mock_phy();
     will_return(mock_phy_init, 0);
     iolink_init(&g_phy_mock, NULL);
+    iolink_set_timing_enforcement(true);
 
-    /* 1. Send any byte from master to trigger transition from STARTUP to PREOPERATE */
-    will_return(mock_phy_recv_byte, 1);     /* res=1 */
-    will_return(mock_phy_recv_byte, 0x00);  /* byte=0x00 */
-    will_return(mock_phy_recv_byte, 0);     /* res=0 (end) */
-    
+    /* Trigger wake-up */
+    iolink_phy_mock_set_wakeup(1);
     iolink_process();
+    assert_int_equal(iolink_get_state(), IOLINK_DLL_STATE_AWAITING_COMM);
+
+    /* Wait for t_dwu to expire */
+    usleep(200);
+
+    /* Send valid Type 0 frame (idle) to enter PREOPERATE */
+    uint8_t mc = 0x00;
+    uint8_t ck = iolink_checksum_ck(mc, 0U);
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, mc);
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, ck);
+    will_return(mock_phy_recv_byte, 0);
+
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 2);
+    will_return(mock_phy_send, 0);
+
+    iolink_process();
+    assert_int_equal(iolink_get_state(), IOLINK_DLL_STATE_PREOPERATE);
 }
 
 static void test_dll_preoperate_to_operate(void **state)
 {
     (void)state;
+    iolink_config_t config = { .m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1 };
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, NULL);
+    iolink_init(&g_phy_mock, &config);
+    iolink_set_timing_enforcement(true);
 
-    /* Move to PREOPERATE */
-    will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0x00); 
-    will_return(mock_phy_recv_byte, 0); 
+    /* Wake-up */
+    iolink_phy_mock_set_wakeup(1);
     iolink_process();
+    usleep(200);
     
-    /* Move to OPERATE: MC=0x0F, CK=0x0D */
-    will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0x0F);
-    will_return(mock_phy_recv_byte, 0); 
+    /* PREOPERATE -> ESTAB_COM */
+    uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;
+    uint8_t ck = iolink_checksum_ck(mc, 0U);
+    will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, mc);
+    will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, ck);
+    will_return(mock_phy_recv_byte, 0);
     iolink_process();
-    
-    will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, 0x0D);
-    will_return(mock_phy_recv_byte, 0); 
+    assert_int_equal(iolink_get_state(), IOLINK_DLL_STATE_ESTAB_COM);
+
+    /* ESTAB_COM -> OPERATE on first valid frame */
+    uint8_t frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
+    frame[4] = iolink_crc6(frame, 4);
+    for (int i = 0; i < 5; i++) {
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, frame[i]);
+    }
+    will_return(mock_phy_recv_byte, 0);
+
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 4);
+    will_return(mock_phy_send, 0);
+
     iolink_process();
+    assert_int_equal(iolink_get_state(), IOLINK_DLL_STATE_OPERATE);
+}
+
+static void test_dll_fallback_on_crc_errors(void **state)
+{
+    (void)state;
+    iolink_config_t config = { .m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1 };
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_init(&g_phy_mock, &config);
+    iolink_set_timing_enforcement(true);
+
+    /* Wake-up */
+    iolink_phy_mock_set_wakeup(1);
+    iolink_process();
+    usleep(200);
+
+    /* PREOPERATE -> ESTAB_COM */
+    uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;
+    uint8_t ck = iolink_checksum_ck(mc, 0U);
+    will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, mc);
+    will_return(mock_phy_recv_byte, 1); will_return(mock_phy_recv_byte, ck);
+    will_return(mock_phy_recv_byte, 0);
+    iolink_process();
+
+    /* ESTAB_COM -> OPERATE */
+    uint8_t ok_frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
+    ok_frame[4] = iolink_crc6(ok_frame, 4);
+    for (int i = 0; i < 5; i++) {
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, ok_frame[i]);
+    }
+    will_return(mock_phy_recv_byte, 0);
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 4);
+    will_return(mock_phy_send, 0);
+    iolink_process();
+    assert_int_equal(iolink_get_state(), IOLINK_DLL_STATE_OPERATE);
+
+    /* Inject CRC errors to trigger fallback */
+    for (int r = 0; r < 3; r++) {
+        uint8_t bad_frame[5] = {0x80, 0x00, 0x00, 0x00, 0xFF};
+        for (int i = 0; i < 5; i++) {
+            will_return(mock_phy_recv_byte, 1);
+            will_return(mock_phy_recv_byte, bad_frame[i]);
+        }
+        will_return(mock_phy_recv_byte, 0);
+        iolink_process();
+    }
+
+    /* Next process call applies fallback */
+    iolink_process();
+
+    assert_int_equal(iolink_get_state(), IOLINK_DLL_STATE_STARTUP);
+    assert_int_equal(iolink_get_baudrate(), IOLINK_BAUDRATE_COM1);
 }
 
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_dll_startup_to_preoperate),
+        cmocka_unit_test(test_dll_wakeup_to_preoperate),
         cmocka_unit_test(test_dll_preoperate_to_operate),
+        cmocka_unit_test(test_dll_fallback_on_crc_errors),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

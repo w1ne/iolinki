@@ -23,9 +23,12 @@
  * @brief IO-Link DLL State Machine states
  */
 typedef enum {
-    IOLINK_DLL_STATE_STARTUP = 0U,    /**< Waiting for activity/Wakeup pulse */
-    IOLINK_DLL_STATE_PREOPERATE = 1U, /**< Baudrate detected, handling ISDU (Type 0) */
-    IOLINK_DLL_STATE_OPERATE = 2U     /**< Cyclic data exchange active */
+    IOLINK_DLL_STATE_STARTUP = 0U,         /**< Waiting for wake-up request */
+    IOLINK_DLL_STATE_AWAITING_COMM = 1U,   /**< Wake-up detected, waiting for first frame */
+    IOLINK_DLL_STATE_PREOPERATE = 2U,      /**< Handling ISDU (Type 0) */
+    IOLINK_DLL_STATE_ESTAB_COM = 3U,       /**< Establish communication (transition to OPERATE) */
+    IOLINK_DLL_STATE_OPERATE = 4U,         /**< Cyclic data exchange active */
+    IOLINK_DLL_STATE_FALLBACK = 5U         /**< Error recovery / fallback */
 } iolink_dll_state_t;
 
 #include "iolinki/events.h"
@@ -41,6 +44,7 @@ typedef struct {
     iolink_dll_state_t state;           /**< Current DLL state */
     const iolink_phy_api_t *phy;        /**< Bound PHY API implementation */
     uint32_t last_activity_ms;         /**< Timestamp of last valid frame */
+    bool wakeup_seen;                  /**< Wake-up detected (if PHY supports it) */
     
     /* Configuration */
     uint8_t m_seq_type; /**< Supported M-sequence type */
@@ -48,6 +52,10 @@ typedef struct {
     uint8_t pd_out_len; /**< Output Process Data length */
     uint8_t od_len;     /**< On-request Data length (1 or 2 bytes) */
     bool pd_valid;      /**< Current PD_In validity status */
+    uint32_t min_cycle_time_us; /**< Minimum cycle time in microseconds */
+    bool enforce_timing;        /**< Enable timing checks (t_ren / t_cycle) */
+    uint32_t t_ren_limit_us;    /**< Current t_ren limit in microseconds */
+    bool t_ren_override;        /**< Use overridden t_ren limit if true */
     
     /* Variable PD Support (for Type 1_V and 2_V) */
     uint8_t pd_in_len_current;   /**< Current runtime PD_In length */
@@ -66,6 +74,8 @@ typedef struct {
     uint8_t frame_index;        /**< Current byte index in assembly */
     uint8_t req_len;            /**< Expected length of current frame type */
     uint64_t last_frame_us;     /**< Microsecond timestamp of last frame start */
+    uint64_t last_cycle_start_us; /**< Microsecond timestamp of last cycle start */
+    uint64_t wakeup_deadline_us;  /**< Earliest time to accept frames after wake-up */
 
     /* Process Data Buffers */
     uint8_t pd_in[IOLINK_PD_IN_MAX_SIZE];   /**< Input PD buffer (Device -> Master) */
@@ -75,6 +85,9 @@ typedef struct {
     uint32_t crc_errors;        /**< Cumulative CRC error count */
     uint32_t timeout_errors;    /**< Cumulative timeout count */
     uint32_t framing_errors;    /**< Cumulative framing error count */
+    uint32_t timing_errors;     /**< Cumulative timing violations */
+    uint32_t t_ren_violations;  /**< t_ren violations */
+    uint32_t t_cycle_violations;/**< t_cycle violations */
     uint8_t retry_count;        /**< Retry counter for current exchange */
     uint8_t max_retries;        /**< Configured max retries (default 3) */
     
@@ -87,6 +100,18 @@ typedef struct {
     iolink_isdu_ctx_t isdu;     /**< ISDU Service engine */
     iolink_ds_ctx_t ds;         /**< Data Storage engine */
 } iolink_dll_ctx_t;
+
+/**
+ * @brief DLL statistics snapshot
+ */
+typedef struct {
+    uint32_t crc_errors;
+    uint32_t timeout_errors;
+    uint32_t framing_errors;
+    uint32_t timing_errors;
+    uint32_t t_ren_violations;
+    uint32_t t_cycle_violations;
+} iolink_dll_stats_t;
 
 /**
  * @brief Initialize DLL context
@@ -166,5 +191,29 @@ int iolink_dll_set_baudrate(iolink_dll_ctx_t *ctx, iolink_baudrate_t baudrate);
  * @return iolink_baudrate_t Current baudrate
  */
 iolink_baudrate_t iolink_dll_get_baudrate(const iolink_dll_ctx_t *ctx);
+
+/**
+ * @brief Get DLL statistics
+ *
+ * @param ctx DLL context
+ * @param out_stats Output stats structure
+ */
+void iolink_dll_get_stats(const iolink_dll_ctx_t *ctx, iolink_dll_stats_t *out_stats);
+
+/**
+ * @brief Enable/disable timing enforcement (t_ren / t_cycle)
+ *
+ * @param ctx DLL context
+ * @param enable true to enable, false to disable
+ */
+void iolink_dll_set_timing_enforcement(iolink_dll_ctx_t *ctx, bool enable);
+
+/**
+ * @brief Override t_ren limit (applies to all baudrates)
+ *
+ * @param ctx DLL context
+ * @param limit_us New t_ren limit in microseconds (0 disables enforcement)
+ */
+void iolink_dll_set_t_ren_limit_us(iolink_dll_ctx_t *ctx, uint32_t limit_us);
 
 #endif // IOLINK_DLL_H

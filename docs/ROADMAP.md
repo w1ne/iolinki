@@ -6,6 +6,15 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 
 **Test-Driven from Ground Zero**: All development is built on mocks and abstractions. Every component is testable without hardware. Conformance verification runs against a virtual IO-Link Master on each release.
 
+## Hardware Bring-Up Track (Real Master Readiness)
+
+**Goal:** Minimum slice that can plug into a real IO-Link Master and survive bring-up.
+
+1. PHY bring-up essentials: `phy_generic`, C/Q control, wake-up detection, SIO/SDCI switching.
+2. DLL robustness: Awaiting Comm + ESTAB_COM + Fallback states, retry logic, error counters.
+3. Timing enforcement: `t_ren`, `t_cycle`, `t_dwu` compliance and reporting.
+4. On-Request Data (OD): negotiation + status/events content for real parameterization.
+
 ## Phase 1: Technical Foundation (MVP)
 
 **Goal:** Establish core protocol logic with complete hardware independence and comprehensive test coverage.
@@ -20,10 +29,10 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [x] **PHY Interface Definition**: Define `iolink_phy_api` struct for complete hardware decoupling.
 - [x] **Mock PHY Driver**: `phy_mock` for unit testing (built FIRST).
 - [x] **Virtual PHY Driver**: `phy_virtual` for integration with virtual IO-Link Master.
-- [ ] **Generic PHY Template**: `phy_generic` as reference for real hardware ports.
+- [x] **Generic PHY Template**: `phy_generic` as reference for real hardware ports.
 - [x] **SIO Mode Support**: PHY-level SIO/SDCI mode switching.
-- [ ] **Wake-up Pulse**: Device wake-up request handling (80μs pulse detection).
-- [ ] **C/Q Line Control**: Pin state management abstraction.
+- [x] **Wake-up Pulse**: Device wake-up request handling (80μs pulse detection).
+- [x] **C/Q Line Control**: Pin state management abstraction.
 - [ ] **L+ Voltage Monitoring**: Power supply monitoring (18-30V).
 - [ ] **Short Circuit Detection**: Pin protection and current limiting.
 - [x] **Baudrate Switching Protocol**: Full handshake sequence for baudrate changes.
@@ -31,12 +40,12 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 ### 1.3 Data Link Layer (DLL) - Core
 - [x] **State Machine**: Implement "Startup" and "Pre-operate" transitions.
     - [x] Unit tests using `phy_mock` for each state transition.
-    - [ ] **Awaiting Communication State**: Pre-startup state.
-    - [ ] **ESTAB_COM State**: Communication establishment handshake.
-    - [ ] **Fallback State**: Error recovery state.
+    - [x] **Awaiting Communication State**: Pre-startup state.
+    - [x] **ESTAB_COM State**: Communication establishment handshake.
+    - [x] **Fallback State**: Error recovery state.
     - [ ] **State Transition Validation**: Guards for illegal transitions.
 - [x] **M-Sequence Handling**:
-    - [x] M-Type 0 (On-request data) with mock testing.
+    - [x] M-Type 0 framing (OD payload TBD) with mock testing.
     - [x] M-Type 1_1 (Process Data, 8-bit OD).
     - [x] M-Type 1_2 (Process Data, 8-bit OD with ISDU).
     - [x] M-Type 1_V (Process Data, variable PD, 8-bit OD).
@@ -52,14 +61,14 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [x] Mock timer for deterministic unit testing.
     - [x] Checksum calculation and verification (V1.1 CRC).
     - [x] **CRC Frame**: 6-bit CRC for M-sequence Type 2_x.
-    - [ ] `t_ren` (Device response time) enforcement (max 230μs @ COM3).
-    - [ ] `t_cycle` validation.
+    - [x] `t_ren` (Device response time) enforcement (max 230μs @ COM3).
+    - [x] `t_cycle` validation.
     - [ ] `t_byte`, `t_bit`: Inter-byte and bit timing.
-    - [ ] `t_dwu`: Wake-up delay (80μs).
+    - [x] `t_dwu`: Wake-up delay (80μs).
     - [ ] `t_pd`: Power-on delay.
 - [ ] **Frame Retry Logic**: Automatic retransmission on CRC errors.
 - [ ] **Frame Synchronization**: Bit-level synchronization.
-- [ ] **Error Counters**: Track CRC, timeout, framing errors.
+- [x] **Error Counters**: Track CRC, timeout, framing errors.
 - [ ] **Communication Quality Metrics**: Link quality and error rate tracking.
 
 ### 1.4 Virtual Test Environment
@@ -199,27 +208,24 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 **Goal:** Close all gaps identified in compliance analysis to achieve certification readiness.
 
 ### 5.1 Mandatory Commands (High Priority)
-- [ ] Implement System Command handlers (0x0002: Reset, Factory Restore, Mode Set)
-- [x] Implement Mandatory ID Indices (0x11-0x1E: Vendor Text, Product Name, Serial, etc.)
+- [ ] Complete System Command handlers (0x0002 remaining: 0x80-0x84, 0x95-0x97)
+- [ ] Complete remaining mandatory ID indices (0x0019, 0x001A, 0x001C-0x001E)
 - [x] Implement Device Access Locks (Index 0x000C)
 
 ### 5.2 Protocol Completion (High Priority)
-- [ ] Implement M-sequence Type 1_x (8-bit OD variants)
-- [ ] Implement M-sequence Type 2_x (ISDU + PD combined)
+- [x] Implement M-sequence Type 1_x (8-bit OD variants)
+- [x] Implement M-sequence Type 2_x (ISDU + PD combined)
 - [ ] Implement On-Request Data (OD) mechanism
 - [ ] Implement SIO Mode switching logic
-- [ ] Implement Wake-up pulse handling
+- [x] Implement Wake-up pulse handling
 
 ### 5.3 Robustness & Standards (Medium Priority)
 - [ ] Map Standard Event Codes (0x1xxx-0x8xxx ranges)
-- [ ] Implement timing enforcement (t_ren response time)
+- [x] Implement timing enforcement (t_ren response time)
 - [ ] Add frame retry logic for communication errors
-- [ ] Implement error counters and reporting
+- [x] Implement error counters and reporting
 
 ### 5.4 Optional Features (Low Priority)
-- [ ] Implement Block Parameterization
-- [ ] Implement AutoComm feature
-- [ ] Support variable PD lengths (2-32 bytes)
 - [ ] **Device Profiles**: Generic Device, Smart Sensor, IO-Link Safety
 - [ ] **Isochrone Mode**: Synchronized operation with Master
 - [ ] **Device Variant**: Multiple device configurations

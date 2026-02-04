@@ -66,4 +66,40 @@
 #define IOLINK_PD_OUT_MAX_SIZE 32U
 #endif
 
+/* -------------------------------------------------------------------------
+ * Timing Configuration
+ * ------------------------------------------------------------------------- */
+
+/**
+ * @brief Enable timing enforcement by default.
+ * Set to 1 to enforce t_ren / t_cycle, 0 to only measure.
+ */
+#ifndef IOLINK_TIMING_ENFORCE_DEFAULT
+#define IOLINK_TIMING_ENFORCE_DEFAULT 0U
+#endif
+
+/**
+ * @brief Wake-up delay (t_dwu) in microseconds.
+ * Default: 80us (spec-defined for wake-up pulse handling).
+ */
+#ifndef IOLINK_T_DWU_US
+#define IOLINK_T_DWU_US 80U
+#endif
+
+/**
+ * @brief Response time limits (t_ren) in microseconds.
+ * Defaults are conservative and should be tuned per device/PHY.
+ */
+#ifndef IOLINK_T_REN_COM1_US
+#define IOLINK_T_REN_COM1_US 5000U
+#endif
+
+#ifndef IOLINK_T_REN_COM2_US
+#define IOLINK_T_REN_COM2_US 1200U
+#endif
+
+#ifndef IOLINK_T_REN_COM3_US
+#define IOLINK_T_REN_COM3_US 230U
+#endif
+
 #endif // IOLINK_CONFIG_H

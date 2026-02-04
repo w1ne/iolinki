@@ -31,6 +31,8 @@ void mock_phy_set_mode(iolink_phy_mode_t mode);
 void mock_phy_set_baudrate(iolink_baudrate_t baudrate);
 int mock_phy_send(const uint8_t *data, size_t len);
 int mock_phy_recv_byte(uint8_t *byte);
+int mock_phy_detect_wakeup(void);
+void mock_phy_set_cq_line(uint8_t state);
 
 /* Mock PHY driver API */
 extern const iolink_phy_api_t g_phy_mock;
@@ -39,6 +41,9 @@ extern const iolink_phy_api_t g_phy_mock;
 void setup_mock_phy(void);
 void iolink_phy_mock_reset(void);
 void move_to_operate(void);
+void iolink_phy_mock_set_wakeup(int detected);
+uint8_t iolink_phy_mock_get_cq_state(void);
+void iolink_phy_mock_set_send_delay_us(uint32_t delay_us);
 
 /* Mock Storage for Data Storage (DS) testing */
 #include "iolinki/data_storage.h"

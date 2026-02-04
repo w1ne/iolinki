@@ -221,6 +221,41 @@ class TestErrorInjectionConformance(unittest.TestCase):
         else:
             print("[SKIP] Bad CRC injection not supported by Virtual Master")
 
+    def test_07_crc_fallback_recovery(self):
+        """
+        Test Case: CRC Error Fallback & Recovery
+        Requirement: IO-Link V1.1.5 Section 7.3.5 - Error Handling
+
+        Validates:
+        - Device tolerates repeated CRC errors
+        - Device can recover via new startup sequence
+        """
+        print("\n[TEST] CRC Error Fallback & Recovery")
+
+        self.process = subprocess.Popen([self.demo_bin, self.device_tty, "1", "2"],
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(0.5)
+
+        self.master.run_startup_sequence()
+        self.master.m_seq_type = 2
+        self.master.pd_out_len = 2
+        self.master.pd_in_len = 2
+        self.master.go_to_operate()
+        time.sleep(0.1)
+
+        if hasattr(self.master, 'run_cycle_bad_crc'):
+            for _ in range(3):
+                self.master.run_cycle_bad_crc(pd_out=b'\xAA\xBB')
+                time.sleep(0.01)
+
+        # Recover with a fresh wake-up/startup
+        self.master.send_wakeup()
+        time.sleep(0.1)
+
+        response = self.master.read_isdu(index=0x0012, subindex=0x00)
+        self.assertIsNotNone(response, "Device should recover after CRC fallback")
+        print("[PASS] Device recovered after CRC fallback")
+
 
 if __name__ == '__main__':
     print("=" * 70)

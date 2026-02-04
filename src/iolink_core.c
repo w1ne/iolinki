@@ -44,6 +44,7 @@ int iolink_init(const iolink_phy_api_t *phy, const iolink_config_t *config)
     g_dll_ctx.m_seq_type = (uint8_t)g_config.m_seq_type;
     g_dll_ctx.pd_in_len = g_config.pd_in_len;
     g_dll_ctx.pd_out_len = g_config.pd_out_len;
+    g_dll_ctx.min_cycle_time_us = (uint32_t)g_config.min_cycle_time * 100U; /* 0.1ms units */
 
     /* Apply config-dependent DLL fields (must run after m_seq_type is set) */
     if ((g_dll_ctx.m_seq_type == IOLINK_M_SEQ_TYPE_2_1) ||
@@ -115,4 +116,49 @@ iolink_events_ctx_t* iolink_get_events_ctx(void)
 iolink_ds_ctx_t* iolink_get_ds_ctx(void)
 {
     return &g_dll_ctx.ds;
+}
+
+iolink_dll_state_t iolink_get_state(void)
+{
+    return g_dll_ctx.state;
+}
+
+iolink_phy_mode_t iolink_get_phy_mode(void)
+{
+    return g_dll_ctx.phy_mode;
+}
+
+iolink_baudrate_t iolink_get_baudrate(void)
+{
+    return g_dll_ctx.baudrate;
+}
+
+void iolink_get_dll_stats(iolink_dll_stats_t *out_stats)
+{
+    iolink_dll_get_stats(&g_dll_ctx, out_stats);
+}
+
+void iolink_set_timing_enforcement(bool enable)
+{
+    iolink_dll_set_timing_enforcement(&g_dll_ctx, enable);
+}
+
+void iolink_set_t_ren_limit_us(uint32_t limit_us)
+{
+    iolink_dll_set_t_ren_limit_us(&g_dll_ctx, limit_us);
+}
+
+iolink_m_seq_type_t iolink_get_m_seq_type(void)
+{
+    return (iolink_m_seq_type_t)g_dll_ctx.m_seq_type;
+}
+
+uint8_t iolink_get_pd_in_len(void)
+{
+    return g_dll_ctx.pd_in_len;
+}
+
+uint8_t iolink_get_pd_out_len(void)
+{
+    return g_dll_ctx.pd_out_len;
 }

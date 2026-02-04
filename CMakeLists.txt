@@ -22,6 +22,7 @@ set(IOLINKI_SOURCES
 )
 add_library(iolinki STATIC
     src/iolink_core.c
+    src/phy_generic.c
     src/phy_virtual.c
     src/crc.c
     src/dll.c
