@@ -1,1 +1,0 @@
-/usr/bin/cc -Wall -Wextra -Werror -Wpedantic -Wconversion -Wshadow -Wall -Wextra -g CMakeFiles/test_integration_full.dir/test_integration_full.c.o CMakeFiles/test_integration_full.dir/test_helpers.c.o -o test_integration_full  ../libiolinki.a -lcmocka 

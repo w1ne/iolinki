@@ -102,4 +102,27 @@
 #define IOLINK_T_REN_COM3_US 230U
 #endif
 
+/* -------------------------------------------------------------------------
+ * On-Request Data (OD) Configuration
+ * ------------------------------------------------------------------------- */
+
+/**
+ * @brief Maximum On-Request Data size in bytes.
+ * Type 1: 1 byte, Type 2: 2 bytes, Type 2_V extended: 4 bytes.
+ * Default: 4 bytes (supports all types including extended Type 2_V)
+ */
+#ifndef IOLINK_OD_MAX_SIZE
+#define IOLINK_OD_MAX_SIZE 4U
+#endif
+
+/**
+ * @brief OD Event Mode: Single (0) or Multiple (1) event mode.
+ * Single mode: Only one event transmitted per OD cycle.
+ * Multiple mode: Multiple events can be queued in OD.
+ * Default: 0 (Single event mode)
+ */
+#ifndef IOLINK_OD_EVENT_MODE
+#define IOLINK_OD_EVENT_MODE 0U
+#endif
+
 #endif // IOLINK_CONFIG_H

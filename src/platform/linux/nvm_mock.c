@@ -7,6 +7,7 @@
  */
 
 #include "iolinki/platform.h"
+#include "iolinki/utils.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -14,7 +15,7 @@
 
 int iolink_nvm_read(uint32_t offset, uint8_t *data, size_t len)
 {
-    if ((data == NULL) && (len > 0U)) {
+    if (!iolink_buf_is_valid(data, len)) {
         return -1;
     }
     FILE *f = fopen(NVM_FILE, "rb");
@@ -35,7 +36,7 @@ int iolink_nvm_read(uint32_t offset, uint8_t *data, size_t len)
 
 int iolink_nvm_write(uint32_t offset, const uint8_t *data, size_t len)
 {
-    if ((data == NULL) && (len > 0U)) {
+    if (!iolink_buf_is_valid(data, len)) {
         return -1;
     }
     /* Use a+b to avoid truncating and create file if missing */

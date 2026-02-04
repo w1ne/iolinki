@@ -10,10 +10,11 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 
 **Goal:** Minimum slice that can plug into a real IO-Link Master and survive bring-up.
 
-1. PHY bring-up essentials: `phy_generic`, C/Q control, wake-up detection, SIO/SDCI switching.
-2. DLL robustness: Awaiting Comm + ESTAB_COM + Fallback states, retry logic, error counters.
-3. Timing enforcement: `t_ren`, `t_cycle`, `t_dwu` compliance and reporting.
-4. On-Request Data (OD): negotiation + status/events content for real parameterization.
+- [x] PHY bring-up essentials: `phy_generic`, C/Q control, wake-up detection, SIO/SDCI switching.
+- [x] DLL robustness: Awaiting Comm + ESTAB_COM + Fallback states, retry logic, error counters.
+- [x] Timing enforcement: `t_ren`, `t_cycle`, `t_dwu` compliance and reporting.
+- [x] On-Request Data (OD): negotiation + status/events content for real parameterization.
+- [x] Conformance tests: Wake-up timing path, ESTAB_COM transitions, CRC fallback recovery (36 total tests).
 
 ## Phase 1: Technical Foundation (MVP)
 
@@ -45,17 +46,17 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [x] **Fallback State**: Error recovery state.
     - [ ] **State Transition Validation**: Guards for illegal transitions.
 - [x] **M-Sequence Handling**:
-    - [x] M-Type 0 framing (OD payload TBD) with mock testing.
+    - [x] M-Type 0 framing (OD payload implemented) with mock testing.
     - [x] M-Type 1_1 (Process Data, 8-bit OD).
     - [x] M-Type 1_2 (Process Data, 8-bit OD with ISDU).
     - [x] M-Type 1_V (Process Data, variable PD, 8-bit OD).
     - [x] M-Type 2_1 (Process Data, 16-bit OD).
     - [x] M-Type 2_2 (Process Data, 16-bit OD with ISDU).
     - [x] M-Type 2_V (Process Data, variable PD, 16-bit OD).
-- [ ] **On-Request Data (OD)**:
-    - [ ] OD length negotiation (8/16/32 bits).
-    - [ ] OD content definition (status, events).
-    - [ ] OD consistency mechanism.
+- [x] **On-Request Data (OD)**:
+    - [x] OD length negotiation (8/16/32 bits).
+    - [x] OD content definition (status, events).
+    - [x] OD consistency mechanism.
 - [x] **Timing Control**:
     - [x] Abstract timer interface for `t_A` enforcement.
     - [x] Mock timer for deterministic unit testing.
@@ -166,7 +167,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [ ] **AutoComm**: Automatic communication startup.
 - [x] Baudrate negotiation with Master.
 - [x] Runtime baudrate switching.
-- [ ] Fallback to COM1 on errors.
+- [x] Fallback to COM1 on errors.
 
 ### 2.5 Error Handling & Robustness
 - [ ] **Error Events**: Trigger events on CRC, timeout, framing errors.
@@ -215,7 +216,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 ### 5.2 Protocol Completion (High Priority)
 - [x] Implement M-sequence Type 1_x (8-bit OD variants)
 - [x] Implement M-sequence Type 2_x (ISDU + PD combined)
-- [ ] Implement On-Request Data (OD) mechanism
+- [x] Implement On-Request Data (OD) mechanism
 - [ ] Implement SIO Mode switching logic
 - [x] Implement Wake-up pulse handling
 

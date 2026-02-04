@@ -70,4 +70,26 @@
 /* Event Constants */
 #define IOLINK_EVENT_BIT_STATUS          0x80U  /* MSB of status byte in Type 1/2 */
 
+/* Standard IO-Link Event Codes (0x1XXX–0x8XXX) */
+#define IOLINK_EVENT_CODE_COMM_ERR_GENERAL    0x1800U
+#define IOLINK_EVENT_CODE_COMM_ERR_FRAMING    0x1801U
+#define IOLINK_EVENT_CODE_COMM_ERR_CRC        0x1803U
+
+/* On-Request Data (OD) Constants */
+#define IOLINK_OD_LEN_8BIT               1U     /* 1-byte OD (Type 1_x) */
+#define IOLINK_OD_LEN_16BIT              2U     /* 2-byte OD (Type 2_x) */
+#define IOLINK_OD_LEN_32BIT              4U     /* 4-byte OD (Type 2_V extended) */
+
+/* OD Status Byte Bit Definitions (First byte of OD) */
+#define IOLINK_OD_STATUS_EVENT           0x80U  /* Bit 7: Event present */
+#define IOLINK_OD_STATUS_RESERVED        0x40U  /* Bit 6: Reserved */
+#define IOLINK_OD_STATUS_PD_VALID        0x20U  /* Bit 5: PD_In valid */
+#define IOLINK_OD_STATUS_DEVICE_MASK     0x1FU  /* Bits 4-0: Device status flags */
+
+/* Device Status Flags (lower 5 bits of OD status) */
+#define IOLINK_DEVICE_STATUS_OK          0x00U  /* Device operating normally */
+#define IOLINK_DEVICE_STATUS_MAINTENANCE 0x01U  /* Maintenance required */
+#define IOLINK_DEVICE_STATUS_OUT_OF_SPEC 0x02U  /* Out of specification */
+#define IOLINK_DEVICE_STATUS_FAILURE     0x03U  /* Functional failure */
+
 #endif /* IOLINK_PROTOCOL_H */

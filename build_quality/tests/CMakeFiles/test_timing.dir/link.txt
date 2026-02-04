@@ -1,1 +1,0 @@
-/usr/bin/cc -Wall -Wextra -Werror -Wpedantic -Wconversion -Wshadow -Wall -Wextra -g CMakeFiles/test_timing.dir/test_timing.c.o CMakeFiles/test_timing.dir/test_helpers.c.o -o test_timing  ../libiolinki.a -lcmocka 

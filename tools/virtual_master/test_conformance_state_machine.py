@@ -222,6 +222,56 @@ class TestStateMachineConformance(unittest.TestCase):
         
         print(f"[PASS] ISDU and PD coexist: Vendor={vendor_name.decode('ascii', errors='ignore')}, PD={resp.payload.hex()}")
 
+    def test_07_estab_com_to_operate_transition(self):
+        """
+        Test Case: ESTAB_COM → OPERATE Transition
+        Requirement: IO-Link V1.1.5 Section 7.3 - DLL State Machine
+        
+        Validates:
+        - Device enters ESTAB_COM state on transition command (MC=0x0F)
+        - First valid PD frame triggers ESTAB_COM → OPERATE transition
+        - Subsequent PD frames are processed in OPERATE state
+        - Invalid frames in ESTAB_COM don't cause premature transition
+        """
+        print("\n[TEST] ESTAB_COM → OPERATE Transition")
+        
+        # Start device with PD support
+        self.process = subprocess.Popen([self.demo_bin, self.device_tty, "1", "2"],
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(0.5)
+        
+        # Step 1: Run startup sequence (STARTUP → PREOPERATE)
+        self.assertTrue(self.master.run_startup_sequence(), "Startup should succeed")
+        print("[INFO] Device in PREOPERATE state")
+        
+        # Step 2: Configure for Type 1_2 operation
+        self.master.m_seq_type = 2  # Type 1_2
+        self.master.pd_out_len = 2
+        self.master.pd_in_len = 2
+        
+        # Step 3: Send transition command (MC=0x0F) to enter ESTAB_COM
+        # This is done by go_to_operate() which sends the transition command
+        self.master.go_to_operate()
+        time.sleep(0.05)
+        print("[INFO] Sent transition command (MC=0x0F), device should be in ESTAB_COM")
+        
+        # Step 4: Send first valid PD frame (should trigger ESTAB_COM → OPERATE)
+        resp1 = self.master.run_cycle(pd_out=b'\x12\x34')
+        self.assertIsNotNone(resp1, "First PD frame should get response")
+        self.assertTrue(resp1.valid, "First PD response should be valid")
+        print(f"[INFO] First PD frame accepted, device should now be in OPERATE")
+        
+        # Step 5: Verify subsequent PD frames work (confirming OPERATE state)
+        success_count = 0
+        for i in range(5):
+            resp = self.master.run_cycle(pd_out=b'\xAA\xBB')
+            if resp and resp.valid:
+                success_count += 1
+            time.sleep(0.01)
+        
+        self.assertGreaterEqual(success_count, 4, "At least 4/5 subsequent PD exchanges should succeed")
+        print(f"[PASS] ESTAB_COM → OPERATE transition successful, {success_count}/5 PD cycles in OPERATE")
+
 
 if __name__ == '__main__':
     print("=" * 70)

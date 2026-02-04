@@ -1,1 +1,0 @@
-/usr/bin/cc -Wall -Wextra -Werror -Wpedantic -Wconversion -Wshadow -Wall -Wextra -g CMakeFiles/test_locking.dir/test_locking.c.o CMakeFiles/test_locking.dir/test_helpers.c.o -o test_locking  ../libiolinki.a -lcmocka 

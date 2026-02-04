@@ -1,1 +1,0 @@
-/usr/bin/cc -Wall -Wextra -Werror -Wpedantic -Wconversion -Wshadow -Wall -Wextra -g CMakeFiles/test_ds.dir/test_ds.c.o CMakeFiles/test_ds.dir/test_helpers.c.o -o test_ds  ../libiolinki.a -lcmocka 

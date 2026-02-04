@@ -7,14 +7,13 @@
  */
 
 #include "iolinki/data_storage.h"
-#include <string.h>
+#include "iolinki/utils.h"
 
 void iolink_ds_init(iolink_ds_ctx_t *ctx, const iolink_ds_storage_api_t *storage)
 {
-    if (ctx == NULL) {
+    if (!iolink_ctx_zero(ctx, sizeof(iolink_ds_ctx_t))) {
         return;
     }
-    (void)memset(ctx, 0, sizeof(iolink_ds_ctx_t));
     ctx->storage = storage;
     ctx->state = IOLINK_DS_STATE_IDLE;
 }
@@ -24,7 +23,7 @@ uint16_t iolink_ds_calc_checksum(const uint8_t *data, size_t len)
     /* Fletcher-16 or simple sum for demo. IO-Link usually uses a specific CRC. */
     uint16_t sum1 = 0U;
     uint16_t sum2 = 0U;
-    if ((data == NULL) && (len > 0U)) {
+    if (!iolink_buf_is_valid(data, len)) {
         return 0U;
     }
     for (size_t i = 0U; i < len; ++i) {

@@ -299,7 +299,7 @@ void iolink_ds_check(uint16_t master_checksum);
 
 ```c
 uint32_t iolink_time_get_ms(void);
-void iolink_time_delay_us(uint32_t us);
+uint64_t iolink_time_get_us(void);
 ```
 
 Implement these functions for your platform in `src/platform/<platform>/time_utils.c`.

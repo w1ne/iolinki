@@ -14,6 +14,7 @@
 #include "iolinki/events.h"
 #include "iolinki/time_utils.h"
 #include "iolinki/platform.h"
+#include "iolinki/utils.h"
 #include "dll_internal.h"
 #include <string.h>
 #include <stdio.h>
@@ -48,6 +49,7 @@ static void dll_note_frame_start(iolink_dll_ctx_t *ctx)
         if (delta < (uint64_t)ctx->min_cycle_time_us) {
             ctx->timing_errors++;
             ctx->t_cycle_violations++;
+            iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING, IOLINK_EVENT_TYPE_WARNING);
         }
     }
     ctx->last_cycle_start_us = now_us;
@@ -69,6 +71,7 @@ static void dll_record_response_time(iolink_dll_ctx_t *ctx)
         if ((limit > 0U) && (delta > (uint64_t)limit)) {
             ctx->timing_errors++;
             ctx->t_ren_violations++;
+            iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING, IOLINK_EVENT_TYPE_WARNING);
         }
     }
 }
@@ -92,21 +95,62 @@ static void enter_fallback(iolink_dll_ctx_t *ctx)
     ctx->frame_index = 0U;
     ctx->req_len = IOLINK_M_SEQ_TYPE0_LEN;
     ctx->retry_count = 0U;
+    
+    /* Reset sub-engines to ensure clean recovery */
+    iolink_isdu_init(&ctx->isdu);
+    ctx->isdu.event_ctx = &ctx->events;
 }
 
 /* Helper to calculate checksum for Type 0 */
 /* Helper to calculate checksum for Type 0 - inlined or used directly */
 
+
 static void handle_preoperate(iolink_dll_ctx_t *ctx, uint8_t byte);
 static void handle_awaiting_comm(iolink_dll_ctx_t *ctx, uint8_t byte);
 
-void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
+static bool is_valid_mc_for_state(const iolink_dll_ctx_t *ctx, uint8_t mc)
 {
-    if ((ctx == NULL) || (phy == NULL)) {
-        return;
+    if (ctx == NULL) {
+        return false;
     }
 
-    (void)memset(ctx, 0, sizeof(iolink_dll_ctx_t));
+    /* Transition Command is only valid in PREOPERATE */
+    if (mc == IOLINK_MC_TRANSITION_COMMAND) {
+        return (ctx->state == IOLINK_DLL_STATE_PREOPERATE);
+    }
+
+    switch (ctx->state) {
+        case IOLINK_DLL_STATE_PREOPERATE:
+            /* In PREOPERATE, only Type 0 frames are allowed.
+             * Type 0 MC format: [RW][CommunicationChannel(2bits)][Address(5bits)]
+             * For Type 0, CommunicationChannel must be 00 (ISDU).
+             */
+            if ((mc & IOLINK_MC_COMM_CHANNEL_MASK) != 0U) {
+                return false;
+            }
+            return true;
+
+        case IOLINK_DLL_STATE_ESTAB_COM:
+        case IOLINK_DLL_STATE_OPERATE:
+            /* In OPERATE, MC must follow negotiated type rules.
+             * Type 1/2 MC format: [RW][CommunicationChannel(2bits)][Address(5bits)]
+             * Channels 01, 10, 11 are reserved.
+             */
+            if ((mc & IOLINK_MC_COMM_CHANNEL_MASK) != 0U) {
+                return false;
+            }
+            return true;
+
+        default:
+            return false;
+    }
+}
+
+void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
+{
+    if ((phy == NULL) || (!iolink_ctx_zero(ctx, sizeof(iolink_dll_ctx_t)))) {
+        return;
+    }
     ctx->state = IOLINK_DLL_STATE_STARTUP;
     ctx->phy = phy;
     ctx->last_activity_ms = 0U;
@@ -156,6 +200,7 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
     ctx->t_ren_violations = 0U;
     ctx->t_cycle_violations = 0U;
     ctx->retry_count = 0U;
+    ctx->total_retries = 0U;
     
     /* Init Sub-modules */
     iolink_events_init(&ctx->events);
@@ -248,13 +293,24 @@ static void handle_preoperate(iolink_dll_ctx_t *ctx, uint8_t byte)
                 iolink_isdu_process(&ctx->isdu);
                 
                 uint8_t resp[2];
+                resp[0] = 0U;
                 (void)iolink_isdu_get_response_byte(&ctx->isdu, &resp[0]);
                 /* For Type 0, first byte is just ISDU byte. */
                 resp[1] = iolink_checksum_ck(0U, resp[0]);
                 dll_send_response(ctx, resp, 2U);
+                ctx->retry_count = 0U;
             }
         } else {
             ctx->framing_errors++;
+            ctx->crc_errors++;
+            ctx->retry_count++;
+            ctx->total_retries++;
+            iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_CRC, IOLINK_EVENT_TYPE_WARNING);
+            if (ctx->retry_count >= ctx->max_retries) {
+                ctx->retry_count = 0U;
+                iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_CRC, IOLINK_EVENT_TYPE_ERROR);
+                enter_fallback(ctx);
+            }
         }
     }
 }
@@ -263,11 +319,20 @@ static bool handle_operate_type0(iolink_dll_ctx_t *ctx)
 {
     uint8_t mc = ctx->frame_buf[0];
     uint8_t ck = ctx->frame_buf[1];
+
+    /* Guard: Verify MC is valid for state */
+    if (!is_valid_mc_for_state(ctx, mc)) {
+        ctx->framing_errors++;
+        iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_FRAMING, IOLINK_EVENT_TYPE_WARNING);
+        return false;
+    }
+
     if (iolink_checksum_ck(mc, 0U) == ck) {
         ctx->retry_count = 0U;  /* Reset retry counter on success */
         (void)iolink_isdu_collect_byte(&ctx->isdu, mc);
         iolink_isdu_process(&ctx->isdu);
         uint8_t resp[2];
+        resp[0] = 0U;
         (void)iolink_isdu_get_response_byte(&ctx->isdu, &resp[0]);
         uint8_t status = iolink_events_pending(&ctx->events) ? 0x04U : 0U;
         resp[1] = iolink_checksum_ck(status, resp[0]);
@@ -277,8 +342,11 @@ static bool handle_operate_type0(iolink_dll_ctx_t *ctx)
         /* CRC error in Type 0 */
         ctx->crc_errors++;
         ctx->retry_count++;
+        ctx->total_retries++;
+        iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_CRC, IOLINK_EVENT_TYPE_WARNING);
         if (ctx->retry_count >= ctx->max_retries) {
             ctx->retry_count = 0U;
+            iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_CRC, IOLINK_EVENT_TYPE_ERROR);
             /* Could trigger error event here */
             enter_fallback(ctx);
         }
@@ -290,7 +358,15 @@ static bool handle_operate_type1_2(iolink_dll_ctx_t *ctx)
 {
     uint8_t received_ck = ctx->frame_buf[(uint8_t)(ctx->req_len - 1U)];
     uint8_t calculated_ck = iolink_crc6(ctx->frame_buf, (uint8_t)(ctx->req_len - 1U));
+    uint8_t mc = ctx->frame_buf[0];
     
+    /* Guard: Verify MC is valid for state */
+    if (!is_valid_mc_for_state(ctx, mc)) {
+        ctx->framing_errors++;
+        iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_FRAMING, IOLINK_EVENT_TYPE_WARNING);
+        return false;
+    }
+
     if (calculated_ck == received_ck) {
         ctx->retry_count = 0U;  /* Reset retry counter on success */
         
@@ -352,9 +428,10 @@ static bool handle_operate_type1_2(iolink_dll_ctx_t *ctx)
         /* CRC error in Type 1/2 */
         ctx->crc_errors++;
         ctx->retry_count++;
+        ctx->total_retries++;
         if (ctx->retry_count >= ctx->max_retries) {
             ctx->retry_count = 0U;
-            iolink_event_trigger(&ctx->events, 0x5000U, IOLINK_EVENT_TYPE_WARNING);
+            iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_CRC, IOLINK_EVENT_TYPE_ERROR);
             enter_fallback(ctx);
         }
     }
@@ -397,6 +474,7 @@ static void handle_estab_com(iolink_dll_ctx_t *ctx, uint8_t byte)
         }
 
         if (ok) {
+            ctx->retry_count = 0U;
             ctx->state = IOLINK_DLL_STATE_OPERATE;
         }
     }
@@ -480,6 +558,7 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx)
     /* Timeout check: Reset frame assembly if no activity */
     if ((ctx->last_activity_ms != 0U) && ((iolink_time_get_ms() - ctx->last_activity_ms) > IOLINK_DLL_TIMEOUT_MS)) {
         ctx->timeout_errors++;
+        iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMEOUT, IOLINK_EVENT_TYPE_ERROR);
         enter_fallback(ctx);
         ctx->last_activity_ms = 0U;
         ctx->frame_index = 0U;
@@ -624,6 +703,7 @@ void iolink_dll_get_stats(const iolink_dll_ctx_t *ctx, iolink_dll_stats_t *out_s
     out_stats->timing_errors = ctx->timing_errors;
     out_stats->t_ren_violations = ctx->t_ren_violations;
     out_stats->t_cycle_violations = ctx->t_cycle_violations;
+    out_stats->total_retries = ctx->total_retries;
 }
 
 void iolink_dll_set_timing_enforcement(iolink_dll_ctx_t *ctx, bool enable)

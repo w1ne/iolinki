@@ -85,7 +85,7 @@ Provide timing functions for your platform.
 **Interface**:
 ```c
 uint32_t iolink_time_get_ms(void);
-void iolink_time_delay_us(uint32_t us);
+uint64_t iolink_time_get_us(void);
 ```
 
 **Example** (FreeRTOS):
@@ -98,8 +98,8 @@ uint32_t iolink_time_get_ms(void) {
     return xTaskGetTickCount() * portTICK_PERIOD_MS;
 }
 
-void iolink_time_delay_us(uint32_t us) {
-    vTaskDelay(pdMS_TO_TICKS(us / 1000));
+uint64_t iolink_time_get_us(void) {
+    return IOLINK_US_FROM_MS(iolink_time_get_ms());
 }
 ```
 
@@ -115,9 +115,8 @@ uint32_t iolink_time_get_ms(void) {
     return g_tick_ms;
 }
 
-void iolink_time_delay_us(uint32_t us) {
-    uint32_t start = g_tick_ms;
-    while ((g_tick_ms - start) < (us / 1000));
+uint64_t iolink_time_get_us(void) {
+    return IOLINK_US_FROM_MS(g_tick_ms);
 }
 ```
 

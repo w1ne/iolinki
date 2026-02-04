@@ -7,6 +7,7 @@
  */
 
 #include "iolinki/crc.h"
+#include "iolinki/utils.h"
 #include <stddef.h>
 
 /*
@@ -18,7 +19,7 @@ uint8_t iolink_crc6(const uint8_t *data, uint8_t len)
 {
     uint8_t crc = 0x15U; /* Initial value for V1.1 */
 
-    if ((data == NULL) && (len > 0U)) {
+    if (!iolink_buf_is_valid(data, len)) {
         return 0U;
     }
 

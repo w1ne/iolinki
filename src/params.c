@@ -9,6 +9,7 @@
 #include "iolinki/params.h"
 #include "iolinki/platform.h"
 #include "iolinki/device_info.h"
+#include "iolinki/utils.h"
 #include <string.h>
 
 #define PARAMS_NVM_MAGIC 0x494F4C31U /* "IOL1" */
@@ -90,7 +91,7 @@ int iolink_params_get(uint16_t index, uint8_t subindex, uint8_t *buffer, size_t 
 
 int iolink_params_set(uint16_t index, uint8_t subindex, const uint8_t *data, size_t len, bool persist)
 {
-    if ((data == NULL) && (len > 0U)) {
+    if (!iolink_buf_is_valid(data, len)) {
         return -1;
     }
     if ((index == 0x0018U) && (subindex == 0U)) {

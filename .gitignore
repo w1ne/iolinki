@@ -1,5 +1,9 @@
 # Build artifacts
 build/
+build_quality/
+build_docker/
+build_linux/
+build_test/
 *.o
 *.a
 *.so
@@ -7,6 +11,11 @@ build/
 *.bin
 *.hex
 *.map
+*.log
+
+# Python
+__pycache__/
+*.pyc
 
 # Editor/IDE files
 .vscode/

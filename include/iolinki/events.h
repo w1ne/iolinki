@@ -28,6 +28,14 @@ typedef enum {
 } iolink_event_type_t;
 
 /**
+ * @brief Standard IO-Link Event Codes (Spec V1.1.2)
+ */
+#define IOLINK_EVENT_COMM_CRC      0x1801U /**< CRC error in communication */
+#define IOLINK_EVENT_COMM_TIMEOUT  0x1802U /**< Timeout in communication */
+#define IOLINK_EVENT_COMM_FRAMING  0x1803U /**< Framing error in communication */
+#define IOLINK_EVENT_COMM_TIMING   0x1804U /**< Timing violation in communication */
+
+/**
  * @brief Event Descriptor
  * 
  * Represents a single IO-Link diagnostic event.
@@ -89,5 +97,36 @@ bool iolink_events_pending(iolink_events_ctx_t *ctx);
  * @return true if an event was successfully popped, false if queue was empty
  */
 bool iolink_events_pop(iolink_events_ctx_t *ctx, iolink_event_t *event);
+
+/**
+ * @brief Peek at the oldest event without removing it from the queue
+ * 
+ * Used for OD event content to check the next event code.
+ * 
+ * @param ctx Event context
+ * @param event [out] Pointer to store the event details
+ * @return true if an event was available, false if queue was empty
+ */
+bool iolink_events_peek(const iolink_events_ctx_t *ctx, iolink_event_t *event);
+
+/**
+ * @brief Get the highest severity level currently in the event queue
+ * 
+ * Maps to IO-Link Device Status (0=OK, 1=Maintenance, 2=Out of Spec, 3=Failure)
+ * 
+ * @param ctx Event context
+ * @return uint8_t Highest severity level (0-3)
+ */
+uint8_t iolink_events_get_highest_severity(iolink_events_ctx_t *ctx);
+
+/**
+ * @brief Copy all pending events to a buffer without popping them
+ * 
+ * @param ctx Event context
+ * @param out_events [out] Buffer to store event copies
+ * @param max_count Maximum number of events to copy
+ * @return uint8_t Number of events copied
+ */
+uint8_t iolink_events_get_all(iolink_events_ctx_t *ctx, iolink_event_t *out_events, uint8_t max_count);
 
 #endif // IOLINK_EVENTS_H

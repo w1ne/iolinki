@@ -2,18 +2,18 @@
 
 ## Overview
 
-iolinki includes a comprehensive conformance test suite that validates compliance with the IO-Link V1.1.5 specification. The suite consists of **34 automated test cases** across 5 categories, executed via the Virtual IO-Link Master.
+iolinki includes a comprehensive conformance test suite that validates compliance with the IO-Link V1.1.5 specification. The suite consists of **36 automated test cases** across 5 categories, executed via the Virtual IO-Link Master.
 
 ## Test Coverage Summary
 
 | Category | Test Cases | Coverage |
 |----------|-----------|----------|
-| State Machine | 6 | DLL transitions, fallback behavior |
-| Timing Requirements | 4 | Cycle times, response delays |
+| State Machine | 7 | DLL transitions, ESTAB_COM, fallback behavior |
+| Timing Requirements | 5 | Cycle times, response delays, wake-up timing |
 | ISDU Protocol | 13 | All mandatory indices + error handling |
 | Error Injection | 6 | Recovery, robustness, edge cases |
 | Performance | 5 | Sustained operation, stress testing |
-| **Total** | **34** | **IO-Link V1.1.5 Device Specification** |
+| **Total** | **36** | **IO-Link V1.1.5 Device Specification** |
 
 ## Test Suites
 
@@ -29,8 +29,9 @@ iolinki includes a comprehensive conformance test suite that validates complianc
 | `test_04_communication_fallback_behavior` | Baud rate fallback | COM1 (4.8 kbaud) mandatory support |
 | `test_05_invalid_state_transition_rejection` | Error handling | Graceful rejection of invalid transitions |
 | `test_06_isdu_during_operate` | Concurrent operations | ISDU access while PD exchange active |
+| `test_07_estab_com_to_operate_transition` | ESTAB_COM state | Transition command → ESTAB_COM → OPERATE on first valid frame |
 
-**Coverage**: Startup → PREOPERATE → OPERATE transitions, COM rate fallback, concurrent PD/ISDU operations.
+**Coverage**: Startup → PREOPERATE → ESTAB_COM → OPERATE transitions, COM rate fallback, concurrent PD/ISDU operations.
 
 ---
 
@@ -44,8 +45,9 @@ iolinki includes a comprehensive conformance test suite that validates complianc
 | `test_02_isdu_response_time` | ISDU response delay | Response time < 1 second |
 | `test_03_wakeup_timing` | Wake-up sequence | Wake-up completion < 200ms |
 | `test_04_pd_exchange_consistency` | Timing jitter | PD cycle jitter < 50% of average |
+| `test_05_wakeup_timing_path_compliance` | Wake-up timing path | t_dwu (80μs) compliance, AWAITING_COMM state |
 
-**Coverage**: Cycle time validation, ISDU response timing, wake-up delays, timing consistency.
+**Coverage**: Cycle time validation, ISDU response timing, wake-up delays, wake-up timing path (t_dwu), timing consistency.
 
 ---
 
@@ -84,9 +86,11 @@ iolinki includes a comprehensive conformance test suite that validates complianc
 | `test_03_invalid_pd_length_handling` | Boundary condition | Rejection of PD length > 32 bytes |
 | `test_04_concurrent_isdu_requests` | Flow control | ISDU Busy state handling |
 | `test_05_boundary_condition_max_isdu_size` | Segmentation | 16-byte ISDU write/read |
-| `test_06_error_recovery_sequence` | Full recovery | Functionality restoration after errors |
+| `test_05_error_recovery_sequence` | Full recovery | Functionality restoration after errors |
+| `test_06_bad_crc_handling` | CRC error detection | Device detects and handles CRC errors |
+| `test_07_crc_fallback_recovery` | CRC fallback | Fallback to COM1 after 3 CRC errors, full recovery |
 
-**Coverage**: Communication loss, rapid state changes, invalid parameters, concurrent requests, boundary conditions, full recovery sequences.
+**Coverage**: Communication loss, rapid state changes, invalid parameters, concurrent requests, boundary conditions, CRC fallback to COM1, full recovery sequences.
 
 ---
 
@@ -208,15 +212,15 @@ graph TD
 
 ## Success Criteria
 
-For iolinki to be considered **IO-Link V1.1.5 conformant**, all 34 test cases must pass:
+For iolinki to be considered **IO-Link V1.1.5 conformant**, all 36 test cases must pass:
 
-- **State Machine**: All 6 tests pass
-- **Timing**: All 4 tests pass
+- **State Machine**: All 7 tests pass
+- **Timing**: All 5 tests pass
 - **ISDU Protocol**: All 13 tests pass
 - **Error Injection**: All 6 tests pass
 - **Performance**: All 5 tests pass
 
-**Current Status**: ✅ All 34 tests passing (as of v0.7.0)
+**Current Status**: ✅ All 36 tests passing (as of v0.8.0)
 
 ---
 

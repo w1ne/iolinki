@@ -1,1 +1,0 @@
-/usr/bin/cc -Wall -Wextra -Werror -Wpedantic -Wconversion -Wshadow -Wall -Wextra -g CMakeFiles/test_pd_variable.dir/test_pd_variable.c.o CMakeFiles/test_pd_variable.dir/test_helpers.c.o -o test_pd_variable  ../libiolinki.a -lcmocka 

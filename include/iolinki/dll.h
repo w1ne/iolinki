@@ -89,6 +89,7 @@ typedef struct {
     uint32_t t_ren_violations;  /**< t_ren violations */
     uint32_t t_cycle_violations;/**< t_cycle violations */
     uint8_t retry_count;        /**< Retry counter for current exchange */
+    uint32_t total_retries;      /**< Cumulative retry count */
     uint8_t max_retries;        /**< Configured max retries (default 3) */
     
     /* Timing Statistics */
@@ -111,6 +112,7 @@ typedef struct {
     uint32_t timing_errors;
     uint32_t t_ren_violations;
     uint32_t t_cycle_violations;
+    uint32_t total_retries;
 } iolink_dll_stats_t;
 
 /**

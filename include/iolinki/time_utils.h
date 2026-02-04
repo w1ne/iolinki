@@ -16,6 +16,9 @@
  * @brief Time abstractions for IO-Link timing enforcement
  */
 
+#define IOLINK_US_PER_MS 1000ULL
+#define IOLINK_US_FROM_MS(ms) ((uint64_t)(ms) * IOLINK_US_PER_MS)
+
 /**
  * @brief Get system time in milliseconds
  * @return uint32_t current time in ms

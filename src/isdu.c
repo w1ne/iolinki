@@ -12,6 +12,8 @@
 #include "iolinki/events.h"
 #include "iolinki/device_info.h"
 #include "iolinki/params.h"
+#include "iolinki/platform.h"
+#include "iolinki/utils.h"
 #include <string.h>
 #include <stdint.h>
 
@@ -31,11 +33,9 @@
 
 void iolink_isdu_init(iolink_isdu_ctx_t *ctx)
 {
-    if (ctx == NULL) {
+    if (!iolink_ctx_zero(ctx, sizeof(iolink_isdu_ctx_t))) {
         return;
     }
-
-    (void)memset(ctx, 0, sizeof(iolink_isdu_ctx_t));
     ctx->state = ISDU_STATE_IDLE;
     ctx->next_state = ISDU_STATE_IDLE;
 }
@@ -72,6 +72,35 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t *ctx, uint8_t byte)
     bool last = ((byte & 0x40U) != 0U);
     uint8_t seq = (uint8_t)(byte & 0x3FU);
 
+    /* Guard: Concurrent request detection.
+     * Only trigger Busy if we receive a 'Start' bit while NOT expecting a Data byte.
+     * States that expect Data: HEADER_INITIAL...DATA_COLLECT.
+     */
+    bool is_expecting_data = (ctx->state >= ISDU_STATE_HEADER_INITIAL && ctx->state <= ISDU_STATE_DATA_COLLECT);
+    
+    /* DEBUG */
+    /* printf("ISDU: State=%d Byte=0x%02X Start=%d ExpectData=%d\n", ctx->state, byte, start, is_expecting_data); */
+
+    if (start && !is_expecting_data && (ctx->state != ISDU_STATE_IDLE) && (ctx->state != ISDU_STATE_RESPONSE_READY)) {
+        /* Collision: New Request Start Bit detected */
+        
+        /* Case 1: Service is already executing (Application Layer busy) */
+        if (ctx->state == ISDU_STATE_SERVICE_EXECUTE || ctx->state == ISDU_STATE_BUSY) {
+             ctx->response_buf[0] = 0x80U;
+             ctx->response_buf[1] = IOLINK_ISDU_ERROR_BUSY;
+             ctx->response_len = 2U;
+             ctx->response_idx = 0U;
+             ctx->is_response_control_sent = false;
+             ctx->state = ISDU_STATE_RESPONSE_READY;
+             return 1;
+        }
+
+        /* Case 2: Protocol Layer busy (Header/Data Collection) */
+        /* Abort current transaction and restart with this byte */
+        ctx->state = ISDU_STATE_IDLE;
+        return isdu_handle_idle(ctx, byte);
+    }
+
     switch (ctx->state) {
         case ISDU_STATE_IDLE:
             return isdu_handle_idle(ctx, byte); /* Must start with 'Start' bit */
@@ -94,7 +123,11 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t *ctx, uint8_t byte)
                         ctx->next_state = ISDU_STATE_HEADER_INDEX_HIGH;
                     }
                 } else {
-                    ctx->state = ISDU_STATE_IDLE;
+                    ctx->response_buf[0] = 0x80U;
+                    ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+                    ctx->response_len = 2U;
+                    ctx->response_idx = 0U;
+                    ctx->state = ISDU_STATE_RESPONSE_READY;
                     return -1;
                 }
                 ctx->buffer_idx = 0U;
@@ -145,13 +178,13 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t *ctx, uint8_t byte)
             
         case ISDU_STATE_SEGMENT_COLLECT:
             /* Expecting Control Byte */
-            if (start) {
-                ctx->state = ISDU_STATE_IDLE;
-                return -1;
-            }
+            /* Start collision is handled at top of function now */
             if (seq != (uint8_t)((ctx->segment_seq + 1) & 0x3F)) {
-                ctx->error_code = 0x81U;
-                ctx->state = ISDU_STATE_IDLE;
+                ctx->response_buf[0] = 0x80U;
+                ctx->response_buf[1] = 0x81U; /* Segmentation Error */
+                ctx->response_len = 2U;
+                ctx->response_idx = 0U;
+                ctx->state = ISDU_STATE_RESPONSE_READY;
                 return -1;
             }
             ctx->segment_seq = seq;
@@ -161,7 +194,9 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t *ctx, uint8_t byte)
 
         case ISDU_STATE_RESPONSE_READY:
             /* Response is being sent. Collection of NEW requests can only happen after response is fully read. */
+            /* Start collision handled at top? No, RESPONSE_READY excluded there. */
             if (start) {
+                /* Implicit Abort of Response, Start New Request */
                 ctx->state = ISDU_STATE_IDLE;
                 return isdu_handle_idle(ctx, byte);
             }
@@ -244,10 +279,42 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t *ctx)
             break;
             
         case IOLINK_IDX_DEVICE_STATUS:
-            ctx->response_buf[0] = info->device_status;
+            ctx->response_buf[0] = iolink_events_get_highest_severity((iolink_events_ctx_t *)ctx->event_ctx);
             ctx->response_len = 1U;
             ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
+            return;
+            
+        case IOLINK_IDX_DETAILED_DEVICE_STATUS:
+            {
+                iolink_event_t events[8];
+                uint8_t count = iolink_events_get_all((iolink_events_ctx_t *)ctx->event_ctx, events, 8U);
+                if (count == 0U) {
+                    /* Special case: No events -> return 3 bytes of 0 as per spec pattern? 
+                       Actually, spec says it returns a list of active events. If none, length 0 or error?
+                       Most masters expect 3 bytes per event: [Qualifier] [Code(2)].
+                       If no events, we'll return 0 length. */
+                    ctx->response_len = 0U;
+                } else {
+                    for (uint8_t i = 0U; i < count; i++) {
+                        /* Qualifier: [Type(7-6)] [Instance(5-0)] 
+                           IO-Link Spec: 00=Reserved, 01=Notification, 10=Warning, 11=Error */
+                        uint8_t qualifier = 0U;
+                        switch (events[i].type) {
+                            case IOLINK_EVENT_TYPE_NOTIFICATION: qualifier = 0x40U; break;
+                            case IOLINK_EVENT_TYPE_WARNING:      qualifier = 0x80U; break;
+                            case IOLINK_EVENT_TYPE_ERROR:        qualifier = 0xC0U; break;
+                            default:                             qualifier = 0x00U; break;
+                        }
+                        ctx->response_buf[i*3] = qualifier;
+                        ctx->response_buf[i*3 + 1] = (uint8_t)(events[i].code >> 8);
+                        ctx->response_buf[i*3 + 2] = (uint8_t)(events[i].code & 0xFF);
+                    }
+                    ctx->response_len = (uint8_t)(count * 3U);
+                }
+                ctx->response_idx = 0U;
+                ctx->state = ISDU_STATE_RESPONSE_READY;
+            }
             return;
             
         case IOLINK_IDX_REVISION_ID:
@@ -325,6 +392,52 @@ static void handle_access_locks(iolink_isdu_ctx_t *ctx)
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
+static void handle_detailed_device_status(iolink_isdu_ctx_t *ctx)
+{
+    if (ctx->header.type != IOLINK_ISDU_SERVICE_READ) {
+        ctx->response_buf[0] = 0x80U;
+        ctx->response_buf[1] = IOLINK_ISDU_ERROR_WRITE_PROTECTED;
+        ctx->response_len = 2U;
+        return;
+    }
+
+    if (ctx->event_ctx == NULL) {
+        ctx->response_len = 0U;
+        return;
+    }
+
+    iolink_critical_enter();
+    iolink_events_ctx_t *event_ctx = (iolink_events_ctx_t *)ctx->event_ctx;
+    uint8_t count = event_ctx->count;
+    if (count > 8U) count = 8U; /* Limit to 8 events in response */
+
+    for (uint8_t i = 0U; i < count; i++) {
+        /* Calculate index in FIFO */
+        uint8_t idx = (uint8_t)((event_ctx->head + i) % IOLINK_EVENT_QUEUE_SIZE);
+        iolink_event_t *ev = &event_ctx->queue[idx];
+        
+        /* EventQualifier: 
+         * Mode: Appeared (0b10 << 6 = 0x80)
+         * Type: Map iolink_event_type_t
+         * Instance: DLL (0x02) for these, but let's keep it simple.
+         */
+        uint8_t qualifier = 0x80U; /* Appeared */
+        switch (ev->type) {
+            case IOLINK_EVENT_TYPE_NOTIFICATION: qualifier |= (0x01U << 3); break;
+            case IOLINK_EVENT_TYPE_WARNING:      qualifier |= (0x02U << 3); break;
+            case IOLINK_EVENT_TYPE_ERROR:        qualifier |= (0x03U << 3); break;
+            default: break;
+        }
+        qualifier |= 0x02U; /* DLL instance as default for these errors */
+
+        ctx->response_buf[i * 3U] = qualifier;
+        ctx->response_buf[i * 3U + 1U] = (uint8_t)(ev->code >> 8);
+        ctx->response_buf[i * 3U + 2U] = (uint8_t)(ev->code & 0xFF);
+    }
+    ctx->response_len = (uint8_t)(count * 3U);
+    iolink_critical_exit();
+}
+
 static void handle_standard_commands(iolink_isdu_ctx_t *ctx)
 {
     if (ctx->header.index == IOLINK_IDX_SYSTEM_COMMAND) {
@@ -340,15 +453,30 @@ static void handle_standard_commands(iolink_isdu_ctx_t *ctx)
                  ctx->state = ISDU_STATE_RESPONSE_READY;
              }
         } else {
-            /* Read of Index 2 - usually blocked or returns last event depending on profile */
-            ctx->response_buf[0] = 0x80U; /* Error: Service not available */
-            ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
-            ctx->response_len = 2U;
+            /* Read of Index 2 - returns the oldest pending event code (2 bytes) */
+            iolink_event_t ev;
+            iolink_events_ctx_t *event_ctx = (iolink_events_ctx_t *)ctx->event_ctx;
+            if (event_ctx != NULL && iolink_events_pop(event_ctx, &ev)) {
+                ctx->response_buf[0] = (uint8_t)(ev.code >> 8);
+                ctx->response_buf[1] = (uint8_t)(ev.code & 0xFF);
+                ctx->response_len = 2U;
+            } else {
+                /* No events pending: return 0x0000 or error? 
+                 * Spec says if no events, return error or empty. 
+                 * We'll return 0x0000 (no event). */
+                ctx->response_buf[0] = 0x00U;
+                ctx->response_buf[1] = 0x00U;
+                ctx->response_len = 2U;
+            }
             ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
         }
     } else if (ctx->header.index == IOLINK_IDX_DEVICE_ACCESS_LOCKS) {
         handle_access_locks(ctx);
+    } else if (ctx->header.index == IOLINK_IDX_DETAILED_DEVICE_STATUS) {
+        handle_detailed_device_status(ctx);
+        ctx->response_idx = 0U;
+        ctx->state = ISDU_STATE_RESPONSE_READY;
     } else {
         handle_mandatory_indices(ctx);
     }
