@@ -195,4 +195,7 @@ and append a final report to docs/AGENT_REPORTS.md.
 
 Check current claims with:
   tools/task_status.sh
+
+Sanity-check claims and reports with:
+  tools/validate_tasks.sh
 ```

@@ -1,0 +1,166 @@
+# Agent Task Queue
+
+This file is the shared task board for agents. Claims are enforced by a lock directory.
+
+Claiming rules (mutex enforced):
+1. Claim a task with `tools/claim_task.sh <task-id> <name>`. This creates `docs/claims/task-<id>.lock` atomically.
+2. If the claim command fails, the task is already taken. Pick another task.
+3. Do not edit `Status:` manually when claiming. The script updates it.
+4. The claim script appends a draft report to `docs/AGENT_REPORTS.md`; fill it in.
+5. When finished or blocked, append a final report to `docs/AGENT_REPORTS.md` (and keep the draft).
+6. Mark completion with `tools/complete_task.sh <task-id> <name>`. The lock stays to prevent re-claim.
+7. Coordinators can run `tools/validate_tasks.sh` to sanity-check claims and reports.
+
+Enforcement: work is considered invalid unless the lock directory exists for that task.
+
+Adding tasks (for coordinators/agents):
+1. Add new tasks at the end of this file to avoid merge conflicts.
+2. Use the template below and increment the task ID (next unused number).
+3. Set `Status:` to `unclaimed`.
+4. Include scope, primary files, and acceptance criteria.
+5. Do not create or edit lock files when adding tasks.
+
+---
+
+## Task 1: Frame Retry Logic + Error Recovery
+Status: done by Antigravity (2026-02-04)
+Scope:
+- Add retry handling per frame type with a retry budget.
+- Ensure retry interacts safely with `FALLBACK` and `OPERATE` transitions.
+- Expose retry counts in DLL stats if useful.
+Primary files:
+- `src/dll.c`
+- `include/iolinki/dll.h`
+- `tests/test_error_recovery.c`
+- `tools/virtual_master/test_conformance_error_injection.py`
+Acceptance:
+- CRC errors trigger retries before fallback.
+- Tests cover retry success and retry exhaustion.
+
+## Task 2: State Transition Validation Guards
+Status: done by Antigravity (2026-02-04)
+Scope:
+- Add explicit guard checks for invalid transitions.
+- Ensure invalid frames don’t crash or incorrectly advance state.
+- Emit counters or events for illegal transitions if desired.
+Primary files:
+- `src/dll.c`
+- `include/iolinki/dll.h`
+- `tests/test_dll.c`
+- `tools/virtual_master/test_conformance_state_machine.py`
+Acceptance:
+- Unit tests cover at least 3 invalid transition scenarios.
+- Conformance state machine tests still pass.
+
+## Task 3: Error Event Reporting
+Status: claimed by Antigravity (2026-02-04)
+Scope:
+- Emit diagnostic events for CRC, timeout, framing, and timing violations.
+- Map to standard event code ranges (0x1xxx–0x8xxx) where applicable.
+- Ensure events are visible via OD/ISDU without destructive pop.
+Primary files:
+- `src/dll.c`
+- `src/events.c`
+- `include/iolinki/events.h`
+- `src/isdu.c`
+- `tests/test_events.c`
+Acceptance:
+- Events are triggered on CRC, timeout, framing, and timing violations.
+- Tests validate event generation and retrieval.
+
+## Task 4: ISDU Flow Control (Busy/Retry)
+Status: unclaimed
+Scope:
+- Implement busy/retry handling for concurrent ISDU requests.
+- Ensure segmented transfers remain consistent under load.
+Primary files:
+- `src/isdu.c`
+- `include/iolinki/isdu.h`
+- `tests/test_isdu_segmented.c`
+- `tools/virtual_master/test_conformance_isdu.py`
+Acceptance:
+- Busy state is emitted correctly under overlap.
+- Segmented transfers complete without corruption.
+
+## Task 5: Mandatory ISDU Indices (Remaining)
+Status: unclaimed
+Scope:
+- Implement remaining mandatory indices: `0x0019`, `0x001A`, `0x001C–0x001E`.
+- Validate with ISDU read tests and Virtual Master reads.
+Primary files:
+- `src/isdu.c`
+- `include/iolinki/protocol.h`
+- `tests/test_isdu.c`
+- `tools/virtual_master/test_conformance_state_machine.py`
+Acceptance:
+- Reads of these indices return valid, non-empty responses.
+- Tests cover each index.
+
+## Task 6: Frame Synchronization + t_byte/t_bit Timing
+Status: unclaimed
+Scope:
+- Implement frame synchronization and enforce `t_byte` / `t_bit` timing where feasible.
+- Add measurement counters for inter-byte timing violations.
+Primary files:
+- `src/dll.c`
+- `include/iolinki/dll.h`
+- `include/iolinki/config.h`
+- `tests/test_timing.c`
+Acceptance:
+- Inter-byte timing violations are detected and counted.
+- Unit tests cover at least one violation case.
+
+## Task 7: Link Quality Metrics
+Status: unclaimed
+Scope:
+- Track link quality metrics (error rate, retry rate, uptime/quality window).
+- Expose via DLL stats struct and optional ISDU index if desired.
+Primary files:
+- `src/dll.c`
+- `include/iolinki/dll.h`
+- `src/isdu.c`
+- `tests/test_error_recovery.c`
+Acceptance:
+- Metrics increment correctly on errors/retries.
+- Tests validate metric updates.
+
+## Task 8: PHY Diagnostics (L+ Voltage + Short Circuit)
+Status: unclaimed
+Scope:
+- Implement default handling paths for `get_voltage_mv` and `is_short_circuit`.
+- Add device events on fault conditions if supported.
+Primary files:
+- `src/dll.c`
+- `src/events.c`
+- `include/iolinki/phy.h`
+- `tests/test_events.c`
+Acceptance:
+- Voltage/short-circuit faults trigger diagnostic events.
+- Tests validate event emission.
+
+## Task 9: Error Reporting Index
+Status: unclaimed
+Scope:
+- Add ISDU index for error statistics (CRC/timeouts/framing/timing).
+- Ensure index returns a consistent binary structure.
+Primary files:
+- `src/isdu.c`
+- `include/iolinki/protocol.h`
+- `tests/test_isdu.c`
+Acceptance:
+- Reads return correct stats and lengths.
+- Tests cover at least CRC and timeout counters.
+
+## Task 10: SIO Fallback Behavior
+Status: unclaimed
+Scope:
+- Implement SIO fallback when validation fails or repeated errors occur.
+- Ensure safe transition back to SDCI.
+Primary files:
+- `src/dll.c`
+- `include/iolinki/dll.h`
+- `tests/test_dll.c`
+- `tools/virtual_master/test_sio_mode.py`
+Acceptance:
+- Device enters SIO on repeated validation failures.
+- Tests cover SIO enter/exit paths.
