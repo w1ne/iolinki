@@ -25,24 +25,6 @@ typedef struct
 
 static iolink_params_nvm_t g_nvm_shadow;
 
-/**
- * Weak defaults for NVM access (to be overridden by platform port)
- */
-__attribute__((weak)) int iolink_nvm_read(uint32_t offset, uint8_t *data, size_t len)
-{
-    (void) offset;
-    (void) data;
-    (void) len;
-    return -1; /* Not implemented */
-}
-
-__attribute__((weak)) int iolink_nvm_write(uint32_t offset, const uint8_t *data, size_t len)
-{
-    (void) offset;
-    (void) data;
-    (void) len;
-    return -1; /* Not implemented */
-}
 
 void iolink_params_init(void)
 {

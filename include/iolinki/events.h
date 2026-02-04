@@ -87,7 +87,7 @@ void iolink_event_trigger(iolink_events_ctx_t *ctx, uint16_t code, iolink_event_
  * @param ctx Event context
  * @return true if one or more events are in the queue
  */
-bool iolink_events_pending(iolink_events_ctx_t *ctx);
+bool iolink_events_pending(const iolink_events_ctx_t *ctx);
 
 /**
  * @brief Pop the oldest event from the queue

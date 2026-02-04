@@ -44,7 +44,7 @@ void iolink_event_trigger(iolink_events_ctx_t *ctx, uint16_t code, iolink_event_
     iolink_critical_exit();
 }
 
-bool iolink_events_pending(iolink_events_ctx_t *ctx)
+bool iolink_events_pending(const iolink_events_ctx_t *ctx)
 {
     /* Single byte read is typically atomic, avoiding lock for perf */
     return ((ctx != NULL) && (ctx->count > 0U));

@@ -579,7 +579,7 @@ static void handle_detailed_device_status(iolink_isdu_ctx_t *ctx)
     for (uint8_t i = 0U; i < count; i++) {
         /* Calculate index in FIFO */
         uint8_t idx = (uint8_t) ((event_ctx->head + i) % IOLINK_EVENT_QUEUE_SIZE);
-        iolink_event_t *ev = &event_ctx->queue[idx];
+        const iolink_event_t *ev = &event_ctx->queue[idx];
 
         /* EventQualifier:
          * Mode: Appeared (0b10 << 6 = 0x80)
