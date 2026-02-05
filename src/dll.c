@@ -48,6 +48,62 @@ static uint32_t dll_get_t_ren_limit_us(const iolink_dll_ctx_t *ctx)
     }
 }
 
+static uint32_t dll_get_t_byte_limit_us(const iolink_dll_ctx_t *ctx)
+{
+    if (ctx == NULL) {
+        return 0U;
+    }
+    /* Calculate inter-byte timeout based on baudrate.
+     * Formula: (11 bits per byte + 5 bit tolerance) * t_bit
+     * 11 bits = 1 start + 8 data + 1 parity + 1 stop
+     * Tolerance: 5 bits to account for clock drift and processing delay
+     */
+    uint32_t t_bit_us;
+    switch (ctx->baudrate) {
+        case IOLINK_BAUDRATE_COM1:
+            /* 4.8 kbit/s: t_bit = 1000000 / 4800 ≈ 208.33 us */
+            t_bit_us = 208U;
+            break;
+        case IOLINK_BAUDRATE_COM2:
+            /* 38.4 kbit/s: t_bit = 1000000 / 38400 ≈ 26.04 us */
+            t_bit_us = 26U;
+            break;
+        case IOLINK_BAUDRATE_COM3:
+            /* 230.4 kbit/s: t_bit = 1000000 / 230400 ≈ 4.34 us */
+            t_bit_us = 4U;
+            break;
+        default:
+            t_bit_us = 26U; /* Default to COM2 */
+            break;
+    }
+    /* 16 bits = 11 bits per byte + 5 bit tolerance */
+    return t_bit_us * 16U;
+}
+
+static bool dll_t_pd_active(const iolink_dll_ctx_t *ctx)
+{
+    if (ctx == NULL) {
+        return false;
+    }
+    if (ctx->t_pd_deadline_us == 0U) {
+        return false;
+    }
+    return iolink_time_get_us() < ctx->t_pd_deadline_us;
+}
+
+static bool dll_drain_rx(iolink_dll_ctx_t *ctx)
+{
+    if ((ctx == NULL) || (ctx->phy == NULL) || (ctx->phy->recv_byte == NULL)) {
+        return false;
+    }
+    bool saw_byte = false;
+    uint8_t byte = 0U;
+    while (ctx->phy->recv_byte(&byte) > 0) {
+        saw_byte = true;
+    }
+    return saw_byte;
+}
+
 static void dll_note_frame_start(iolink_dll_ctx_t *ctx)
 {
     uint64_t now_us = iolink_time_get_us();
@@ -167,6 +223,8 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
     ctx->min_cycle_time_us = 0U;
     ctx->enforce_timing = (IOLINK_TIMING_ENFORCE_DEFAULT != 0U);
     ctx->t_ren_override = false;
+    ctx->t_pd_delay_us = 0U;
+    ctx->t_pd_deadline_us = 0U;
 
     /* Set OD length based on M-sequence type */
     if ((ctx->m_seq_type == IOLINK_M_SEQ_TYPE_2_1) || ctx->m_seq_type == IOLINK_M_SEQ_TYPE_2_2 ||
@@ -206,6 +264,7 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
     ctx->timing_errors = 0U;
     ctx->t_ren_violations = 0U;
     ctx->t_cycle_violations = 0U;
+    ctx->t_pd_violations = 0U;
     ctx->retry_count = 0U;
     ctx->retry_count = 0U;
     ctx->total_retries = 0U;
@@ -227,6 +286,8 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
         ctx->phy->set_baudrate(IOLINK_BAUDRATE_COM2);
     }
     ctx->t_ren_limit_us = dll_get_t_ren_limit_us(ctx);
+    ctx->t_byte_limit_us = dll_get_t_byte_limit_us(ctx);
+    ctx->last_byte_us = 0U;
 }
 
 static void handle_startup(iolink_dll_ctx_t *ctx, uint8_t byte)
@@ -541,6 +602,16 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx)
         ctx->state = IOLINK_DLL_STATE_STARTUP;
     }
 
+    /* Enforce power-on delay (t_pd) before accepting frames */
+    if (dll_t_pd_active(ctx)) {
+        if (dll_drain_rx(ctx)) {
+            ctx->timing_errors++;
+            ctx->t_pd_violations++;
+            iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING, IOLINK_EVENT_TYPE_WARNING);
+        }
+        return;
+    }
+
     /* Wake-up detection (Global - allowed in any state if frame not started) */
     /* Since we use 0x55 for Wakeup and 0x55 is invalid MC, collision risk is minimal */
     if ((ctx->frame_index == 0U) && (ctx->phy->detect_wakeup != NULL)) {
@@ -570,6 +641,30 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx)
 
     uint8_t byte;
     while ((ctx->phy->recv_byte != NULL) && (ctx->phy->recv_byte(&byte) > 0)) {
+        uint64_t now_us = iolink_time_get_us();
+        
+        /* Check inter-byte timing if we're in the middle of a frame */
+        if ((ctx->frame_index > 0U) && (ctx->enforce_timing) && (ctx->t_byte_limit_us > 0U)) {
+            if (ctx->last_byte_us != 0U) {
+                uint64_t delta = now_us - ctx->last_byte_us;
+                if (delta > (uint64_t)ctx->t_byte_limit_us) {
+                    /* Inter-byte timeout violation - frame is broken */
+                    ctx->timing_errors++;
+                    ctx->t_byte_violations++;
+                    ctx->framing_errors++;
+                    iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING, IOLINK_EVENT_TYPE_WARNING);
+                    
+                    /* Reset frame assembly - treat current byte as potential new frame start */
+                    ctx->frame_index = 0U;
+                    DLL_LOG("Inter-byte timeout: delta=%llu us, limit=%u us\n", 
+                            (unsigned long long)delta, ctx->t_byte_limit_us);
+                }
+            }
+        }
+        
+        /* Update last byte timestamp */
+        ctx->last_byte_us = now_us;
+        
         ctx->last_activity_ms = iolink_time_get_ms();
         DLL_LOG("Rx %02X State %d Idx %u\n", byte, ctx->state, ctx->frame_index);
 
@@ -605,17 +700,19 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx)
         ctx->frame_index = 0U;
     }
 
-    /* Check PHY diagnostics */
+    /* PHY Diagnostics Monitoring */
+    /* Check voltage if PHY supports it */
     if (ctx->phy->get_voltage_mv != NULL) {
-        int mv = ctx->phy->get_voltage_mv();
-        /* Standard IO-Link range 18V - 30V. Detailed spec might vary, but this covers tests. */
-        if ((mv < 18000) || (mv > 30000)) {
+        int voltage_mv = ctx->phy->get_voltage_mv();
+        /* IO-Link typical range: 18V-30V nominal, fault if < 15V or > 32V */
+        if ((voltage_mv >= 0) && ((voltage_mv < 15000) || (voltage_mv > 32000))) {
             ctx->voltage_faults++;
             iolink_event_trigger(&ctx->events, IOLINK_EVENT_PHY_VOLTAGE_FAULT,
                                  IOLINK_EVENT_TYPE_WARNING);
         }
     }
 
+    /* Check short circuit if PHY supports it */
     if (ctx->phy->is_short_circuit != NULL) {
         if (ctx->phy->is_short_circuit()) {
             ctx->short_circuits++;
@@ -737,6 +834,8 @@ int iolink_dll_set_baudrate(iolink_dll_ctx_t *ctx, iolink_baudrate_t baudrate)
     if (!ctx->t_ren_override) {
         ctx->t_ren_limit_us = dll_get_t_ren_limit_us(ctx);
     }
+    /* Recalculate inter-byte timeout for new baudrate */
+    ctx->t_byte_limit_us = dll_get_t_byte_limit_us(ctx);
 
     return 0;
 }
@@ -762,7 +861,8 @@ void iolink_dll_get_stats(const iolink_dll_ctx_t *ctx, iolink_dll_stats_t *out_s
     out_stats->timing_errors = ctx->timing_errors;
     out_stats->t_ren_violations = ctx->t_ren_violations;
     out_stats->t_cycle_violations = ctx->t_cycle_violations;
-    out_stats->t_cycle_violations = ctx->t_cycle_violations;
+    out_stats->t_byte_violations = ctx->t_byte_violations;
+    out_stats->t_pd_violations = ctx->t_pd_violations;
     out_stats->total_retries = ctx->total_retries;
     out_stats->voltage_faults = ctx->voltage_faults;
     out_stats->short_circuits = ctx->short_circuits;
