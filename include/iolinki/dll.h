@@ -93,6 +93,8 @@ typedef struct
     uint8_t retry_count;         /**< Retry counter for current exchange */
     uint32_t total_retries;      /**< Cumulative retry count */
     uint8_t max_retries;         /**< Configured max retries (default 3) */
+    uint32_t voltage_faults;     /**< Cumulative voltage fault count */
+    uint32_t short_circuits;     /**< Cumulative short circuit count */
 
     /* Timing Statistics */
     uint64_t last_response_us; /**< Microsecond timestamp of last response */
@@ -116,6 +118,8 @@ typedef struct
     uint32_t t_ren_violations;
     uint32_t t_cycle_violations;
     uint32_t total_retries;
+    uint32_t voltage_faults;
+    uint32_t short_circuits;
 } iolink_dll_stats_t;
 
 /**

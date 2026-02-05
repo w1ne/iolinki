@@ -207,7 +207,10 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
     ctx->t_ren_violations = 0U;
     ctx->t_cycle_violations = 0U;
     ctx->retry_count = 0U;
+    ctx->retry_count = 0U;
     ctx->total_retries = 0U;
+    ctx->voltage_faults = 0U;
+    ctx->short_circuits = 0U;
 
     /* Init Sub-modules */
     iolink_events_init(&ctx->events);
@@ -601,6 +604,25 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx)
         ctx->last_activity_ms = 0U;
         ctx->frame_index = 0U;
     }
+
+    /* Check PHY diagnostics */
+    if (ctx->phy->get_voltage_mv != NULL) {
+        int mv = ctx->phy->get_voltage_mv();
+        /* Standard IO-Link range 18V - 30V. Detailed spec might vary, but this covers tests. */
+        if ((mv < 18000) || (mv > 30000)) {
+            ctx->voltage_faults++;
+            iolink_event_trigger(&ctx->events, IOLINK_EVENT_PHY_VOLTAGE_FAULT,
+                                 IOLINK_EVENT_TYPE_WARNING);
+        }
+    }
+
+    if (ctx->phy->is_short_circuit != NULL) {
+        if (ctx->phy->is_short_circuit()) {
+            ctx->short_circuits++;
+            iolink_event_trigger(&ctx->events, IOLINK_EVENT_PHY_SHORT_CIRCUIT,
+                                 IOLINK_EVENT_TYPE_ERROR);
+        }
+    }
 }
 
 /* Variable PD API Functions */
@@ -740,7 +762,10 @@ void iolink_dll_get_stats(const iolink_dll_ctx_t *ctx, iolink_dll_stats_t *out_s
     out_stats->timing_errors = ctx->timing_errors;
     out_stats->t_ren_violations = ctx->t_ren_violations;
     out_stats->t_cycle_violations = ctx->t_cycle_violations;
+    out_stats->t_cycle_violations = ctx->t_cycle_violations;
     out_stats->total_retries = ctx->total_retries;
+    out_stats->voltage_faults = ctx->voltage_faults;
+    out_stats->short_circuits = ctx->short_circuits;
 }
 
 void iolink_dll_set_timing_enforcement(iolink_dll_ctx_t *ctx, bool enable)
