@@ -36,6 +36,10 @@ typedef enum
 #define IOLINK_EVENT_COMM_FRAMING 0x1803U /**< Framing error in communication */
 #define IOLINK_EVENT_COMM_TIMING 0x1804U  /**< Timing violation in communication */
 
+/* PHY Diagnostic Event Codes */
+#define IOLINK_EVENT_PHY_VOLTAGE_FAULT 0x1805U   /**< L+ voltage out of range */
+#define IOLINK_EVENT_PHY_SHORT_CIRCUIT 0x1806U   /**< Short circuit detected */
+
 /**
  * @brief Event Descriptor
  *
