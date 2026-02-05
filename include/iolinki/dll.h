@@ -58,6 +58,7 @@ typedef struct
     bool enforce_timing;        /**< Enable timing checks (t_ren / t_cycle) */
     uint32_t t_ren_limit_us;    /**< Current t_ren limit in microseconds */
     bool t_ren_override;        /**< Use overridden t_ren limit if true */
+    uint32_t t_pd_delay_us;     /**< Power-on delay (t_pd) in microseconds */
 
     /* Variable PD Support (for Type 1_V and 2_V) */
     uint8_t pd_in_len_current;  /**< Current runtime PD_In length */
@@ -76,8 +77,11 @@ typedef struct
     uint8_t frame_index;          /**< Current byte index in assembly */
     uint8_t req_len;              /**< Expected length of current frame type */
     uint64_t last_frame_us;       /**< Microsecond timestamp of last frame start */
+    uint64_t last_byte_us;        /**< Microsecond timestamp of last received byte */
     uint64_t last_cycle_start_us; /**< Microsecond timestamp of last cycle start */
+    uint32_t t_byte_limit_us;     /**< Inter-byte timeout limit in microseconds */
     uint64_t wakeup_deadline_us;  /**< Earliest time to accept frames after wake-up */
+    uint64_t t_pd_deadline_us;    /**< Earliest time to accept frames after power-on */
 
     /* Process Data Buffers */
     uint8_t pd_in[IOLINK_PD_IN_MAX_SIZE];   /**< Input PD buffer (Device -> Master) */
@@ -90,9 +94,15 @@ typedef struct
     uint32_t timing_errors;      /**< Cumulative timing violations */
     uint32_t t_ren_violations;   /**< t_ren violations */
     uint32_t t_cycle_violations; /**< t_cycle violations */
+    uint32_t t_byte_violations;  /**< Inter-byte timing violations */
+    uint32_t t_pd_violations;    /**< t_pd violations */
     uint8_t retry_count;         /**< Retry counter for current exchange */
     uint32_t total_retries;      /**< Cumulative retry count */
     uint8_t max_retries;         /**< Configured max retries (default 3) */
+
+    /* PHY Diagnostic Counters */
+    uint32_t voltage_faults;     /**< Cumulative voltage out-of-range detections */
+    uint32_t short_circuits;     /**< Cumulative short circuit detections */
 
     /* Timing Statistics */
     uint64_t last_response_us; /**< Microsecond timestamp of last response */
@@ -115,7 +125,11 @@ typedef struct
     uint32_t timing_errors;
     uint32_t t_ren_violations;
     uint32_t t_cycle_violations;
+    uint32_t t_byte_violations;
+    uint32_t t_pd_violations;
     uint32_t total_retries;
+    uint32_t voltage_faults;
+    uint32_t short_circuits;
 } iolink_dll_stats_t;
 
 /**
