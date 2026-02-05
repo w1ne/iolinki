@@ -21,6 +21,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/andrii/Projects/iolinki/src/platform.c" "CMakeFiles/iolinki.dir/src/platform.c.o" "gcc" "CMakeFiles/iolinki.dir/src/platform.c.o.d"
   "/home/andrii/Projects/iolinki/src/platform/linux/nvm_mock.c" "CMakeFiles/iolinki.dir/src/platform/linux/nvm_mock.c.o" "gcc" "CMakeFiles/iolinki.dir/src/platform/linux/nvm_mock.c.o.d"
   "/home/andrii/Projects/iolinki/src/platform/linux/time_utils.c" "CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o" "gcc" "CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o.d"
+  "/home/andrii/Projects/iolinki/src/platform_stubs.c" "CMakeFiles/iolinki.dir/src/platform_stubs.c.o" "gcc" "CMakeFiles/iolinki.dir/src/platform_stubs.c.o.d"
   )
 
 # Targets to which this target links.

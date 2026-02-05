@@ -32,4 +32,3 @@ GENERATE_HTML          = YES
 HTML_OUTPUT            = html
 HTML_DYNAMIC_SECTIONS  = YES
 DISABLE_INDEX          = NO
-FULL_SIDEBAR           = YES

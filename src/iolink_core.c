@@ -92,6 +92,9 @@ int iolink_pd_input_update(const uint8_t *data, size_t len, bool valid)
     (void) memcpy(g_dll_ctx.pd_in, data, len);
     g_dll_ctx.pd_in_len = (uint8_t) len;
     g_dll_ctx.pd_valid = valid;
+    if (valid) {
+        g_dll_ctx.pd_in_toggle = !g_dll_ctx.pd_in_toggle;
+    }
     iolink_critical_exit();
 
     return 0;

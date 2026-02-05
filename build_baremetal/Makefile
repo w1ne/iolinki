@@ -490,6 +490,30 @@ src/platform/linux/time_utils.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/iolinki.dir/build.make CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.s
 .PHONY : src/platform/linux/time_utils.c.s
 
+src/platform_stubs.o: src/platform_stubs.c.o
+.PHONY : src/platform_stubs.o
+
+# target to build an object file
+src/platform_stubs.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/iolinki.dir/build.make CMakeFiles/iolinki.dir/src/platform_stubs.c.o
+.PHONY : src/platform_stubs.c.o
+
+src/platform_stubs.i: src/platform_stubs.c.i
+.PHONY : src/platform_stubs.i
+
+# target to preprocess a source file
+src/platform_stubs.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/iolinki.dir/build.make CMakeFiles/iolinki.dir/src/platform_stubs.c.i
+.PHONY : src/platform_stubs.c.i
+
+src/platform_stubs.s: src/platform_stubs.c.s
+.PHONY : src/platform_stubs.s
+
+# target to generate assembly for a file
+src/platform_stubs.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/iolinki.dir/build.make CMakeFiles/iolinki.dir/src/platform_stubs.c.s
+.PHONY : src/platform_stubs.c.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -542,6 +566,9 @@ help:
 	@echo "... src/platform/linux/time_utils.o"
 	@echo "... src/platform/linux/time_utils.i"
 	@echo "... src/platform/linux/time_utils.s"
+	@echo "... src/platform_stubs.o"
+	@echo "... src/platform_stubs.i"
+	@echo "... src/platform_stubs.s"
 .PHONY : help
 
 

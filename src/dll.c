@@ -99,6 +99,26 @@ static void enter_fallback(iolink_dll_ctx_t *ctx)
         return;
     }
 
+    ctx->fallback_count++;
+
+    /* Check if we should transition to SIO mode for safety */
+    if (ctx->fallback_count >= ctx->sio_fallback_threshold) {
+        DLL_LOG("Fallback threshold reached (%u). Transitioning to SIO mode.\n",
+                ctx->fallback_count);
+
+        /* Transition to SIO mode */
+        if (ctx->phy->set_mode != NULL) {
+            ctx->phy->set_mode(IOLINK_PHY_MODE_SIO);
+        }
+        ctx->phy_mode = IOLINK_PHY_MODE_SIO;
+
+        /* Trigger event for SIO fallback */
+        iolink_event_trigger(&ctx->events, IOLINK_EVENT_HW_GENERAL_FAULT, IOLINK_EVENT_TYPE_ERROR);
+
+        /* Reset fallback counter - we're now in SIO */
+        ctx->fallback_count = 0U;
+    }
+
     ctx->state = IOLINK_DLL_STATE_FALLBACK;
     ctx->frame_index = 0U;
     ctx->req_len = IOLINK_M_SEQ_TYPE0_LEN;
@@ -165,6 +185,7 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
     ctx->wakeup_deadline_us = 0U;
     ctx->last_cycle_start_us = 0U;
     ctx->min_cycle_time_us = 0U;
+    ctx->pd_in_toggle = false;
     ctx->enforce_timing = (IOLINK_TIMING_ENFORCE_DEFAULT != 0U);
     ctx->t_ren_override = false;
 
@@ -211,6 +232,8 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
     ctx->total_retries = 0U;
     ctx->voltage_faults = 0U;
     ctx->short_circuits = 0U;
+    ctx->fallback_count = 0U;
+    ctx->sio_fallback_threshold = 3U; /* Default: 3 consecutive fallbacks trigger SIO */
 
     /* Init Sub-modules */
     iolink_events_init(&ctx->events);
@@ -419,7 +442,10 @@ static bool handle_operate_type1_2(iolink_dll_ctx_t *ctx)
             status |= IOLINK_EVENT_BIT_STATUS;
         }
         if (ctx->pd_valid) {
-            status |= 0x20U; /* PD_In valid bit */
+            status |= IOLINK_OD_STATUS_PD_VALID;
+        }
+        if (ctx->pd_in_toggle) {
+            status |= IOLINK_OD_STATUS_PD_TOGGLE;
         }
 
         resp[resp_idx++] = status;
@@ -522,16 +548,20 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx)
 
     /* Handle fallback state */
     if (ctx->state == IOLINK_DLL_STATE_FALLBACK) {
-        if (ctx->phy->set_baudrate != NULL) {
-            ctx->phy->set_baudrate(IOLINK_BAUDRATE_COM1);
-        }
-        ctx->baudrate = IOLINK_BAUDRATE_COM1;
-        ctx->t_ren_limit_us = dll_get_t_ren_limit_us(ctx);
+        /* Only reset to SDCI if we're not in SIO fallback mode */
+        if (ctx->phy_mode != IOLINK_PHY_MODE_SIO) {
+            if (ctx->phy->set_baudrate != NULL) {
+                ctx->phy->set_baudrate(IOLINK_BAUDRATE_COM1);
+            }
+            ctx->baudrate = IOLINK_BAUDRATE_COM1;
+            ctx->t_ren_limit_us = dll_get_t_ren_limit_us(ctx);
 
-        if (ctx->phy->set_mode != NULL) {
-            ctx->phy->set_mode(IOLINK_PHY_MODE_SDCI);
+            if (ctx->phy->set_mode != NULL) {
+                ctx->phy->set_mode(IOLINK_PHY_MODE_SDCI);
+            }
+            ctx->phy_mode = IOLINK_PHY_MODE_SDCI;
         }
-        ctx->phy_mode = IOLINK_PHY_MODE_SDCI;
+        /* If in SIO mode, stay in SIO - don't auto-recover to SDCI */
 
         ctx->wakeup_seen = false;
         ctx->wakeup_deadline_us = 0U;
@@ -587,6 +617,22 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx)
                 handle_estab_com(ctx, byte);
                 break;
             case IOLINK_DLL_STATE_OPERATE:
+                /* Reset fallback counter on successful OPERATE - communication is stable */
+                if (ctx->fallback_count > 0U) {
+                    DLL_LOG("Communication stable. Resetting fallback counter.\n");
+                    ctx->fallback_count = 0U;
+
+                    /* If we were in SIO mode and communication is now stable,
+                       allow recovery back to SDCI on next master request */
+                    if (ctx->phy_mode == IOLINK_PHY_MODE_SIO) {
+                        DLL_LOG("SIO mode recovery: transitioning back to SDCI.\n");
+                        if (ctx->phy->set_mode != NULL) {
+                            ctx->phy->set_mode(IOLINK_PHY_MODE_SDCI);
+                        }
+                        ctx->phy_mode = IOLINK_PHY_MODE_SDCI;
+                    }
+                }
+
                 handle_operate(ctx, byte);
                 break;
             default:
@@ -761,7 +807,6 @@ void iolink_dll_get_stats(const iolink_dll_ctx_t *ctx, iolink_dll_stats_t *out_s
     out_stats->framing_errors = ctx->framing_errors;
     out_stats->timing_errors = ctx->timing_errors;
     out_stats->t_ren_violations = ctx->t_ren_violations;
-    out_stats->t_cycle_violations = ctx->t_cycle_violations;
     out_stats->t_cycle_violations = ctx->t_cycle_violations;
     out_stats->total_retries = ctx->total_retries;
     out_stats->voltage_faults = ctx->voltage_faults;

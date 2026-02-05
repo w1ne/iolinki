@@ -31,14 +31,26 @@ typedef enum
 /**
  * @brief Standard IO-Link Event Codes (Spec V1.1.2)
  */
+/* Communication Layer Events (0x18XX) */
 #define IOLINK_EVENT_COMM_CRC 0x1801U     /**< CRC error in communication */
 #define IOLINK_EVENT_COMM_TIMEOUT 0x1802U /**< Timeout in communication */
 #define IOLINK_EVENT_COMM_FRAMING 0x1803U /**< Framing error in communication */
 #define IOLINK_EVENT_COMM_TIMING 0x1804U  /**< Timing violation in communication */
 
-/* PHY Diagnostic Event Codes */
-#define IOLINK_EVENT_PHY_VOLTAGE_FAULT 0x1805U   /**< L+ voltage out of range */
-#define IOLINK_EVENT_PHY_SHORT_CIRCUIT 0x1806U   /**< Short circuit detected */
+/* PHY Diagnostic Event Codes (0x18XX) */
+#define IOLINK_EVENT_PHY_VOLTAGE_FAULT 0x1805U /**< L+ voltage out of range */
+#define IOLINK_EVENT_PHY_SHORT_CIRCUIT 0x1806U /**< Short circuit detected */
+
+/* Application Layer Events (0x5XXX) */
+#define IOLINK_EVENT_APP_TEMP_UNDERFLOW 0x5110U /**< Temperature below operating range */
+#define IOLINK_EVENT_APP_TEMP_OVERFLOW 0x5120U  /**< Temperature above operating range */
+#define IOLINK_EVENT_APP_TEMP_SHOCK 0x5130U     /**< Rapid temperature change */
+
+/* Hardware/Device Events (0x6XXX) */
+#define IOLINK_EVENT_HW_GENERAL_FAULT 0x6000U  /**< General hardware fault */
+#define IOLINK_EVENT_HW_MEMORY_FAULT 0x6310U   /**< Memory error detected */
+#define IOLINK_EVENT_HW_SENSOR_FAULT 0x6320U   /**< Sensor element fault */
+#define IOLINK_EVENT_HW_ACTUATOR_FAULT 0x6330U /**< Actuator element fault */
 
 /**
  * @brief Event Descriptor

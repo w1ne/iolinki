@@ -54,6 +54,7 @@ typedef struct
     uint8_t pd_out_len;         /**< Output Process Data length */
     uint8_t od_len;             /**< On-request Data length (1 or 2 bytes) */
     bool pd_valid;              /**< Current PD_In validity status */
+    bool pd_in_toggle;          /**< Toggle bit for PD_In consistency */
     uint32_t min_cycle_time_us; /**< Minimum cycle time in microseconds */
     bool enforce_timing;        /**< Enable timing checks (t_ren / t_cycle) */
     uint32_t t_ren_limit_us;    /**< Current t_ren limit in microseconds */
@@ -84,17 +85,19 @@ typedef struct
     uint8_t pd_out[IOLINK_PD_OUT_MAX_SIZE]; /**< Output PD buffer (Master -> Device) */
 
     /* Error Counters & Statistics */
-    uint32_t crc_errors;         /**< Cumulative CRC error count */
-    uint32_t timeout_errors;     /**< Cumulative timeout count */
-    uint32_t framing_errors;     /**< Cumulative framing error count */
-    uint32_t timing_errors;      /**< Cumulative timing violations */
-    uint32_t t_ren_violations;   /**< t_ren violations */
-    uint32_t t_cycle_violations; /**< t_cycle violations */
-    uint8_t retry_count;         /**< Retry counter for current exchange */
-    uint32_t total_retries;      /**< Cumulative retry count */
-    uint8_t max_retries;         /**< Configured max retries (default 3) */
-    uint32_t voltage_faults;     /**< Cumulative voltage fault count */
-    uint32_t short_circuits;     /**< Cumulative short circuit count */
+    uint32_t crc_errors;            /**< Cumulative CRC error count */
+    uint32_t timeout_errors;        /**< Cumulative timeout count */
+    uint32_t framing_errors;        /**< Cumulative framing error count */
+    uint32_t timing_errors;         /**< Cumulative timing violations */
+    uint32_t t_ren_violations;      /**< t_ren violations */
+    uint32_t t_cycle_violations;    /**< t_cycle violations */
+    uint8_t retry_count;            /**< Retry counter for current exchange */
+    uint32_t total_retries;         /**< Cumulative retry count */
+    uint8_t max_retries;            /**< Configured max retries (default 3) */
+    uint32_t voltage_faults;        /**< Cumulative voltage fault count */
+    uint32_t short_circuits;        /**< Cumulative short circuit count */
+    uint8_t fallback_count;         /**< Consecutive fallback count for SIO transition */
+    uint8_t sio_fallback_threshold; /**< Fallback threshold to enter SIO mode (default 3) */
 
     /* Timing Statistics */
     uint64_t last_response_us; /**< Microsecond timestamp of last response */

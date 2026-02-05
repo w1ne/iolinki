@@ -93,7 +93,7 @@
 
 /* OD Status Byte Bit Definitions (First byte of OD) */
 #define IOLINK_OD_STATUS_EVENT 0x80U       /* Bit 7: Event present */
-#define IOLINK_OD_STATUS_RESERVED 0x40U    /* Bit 6: Reserved */
+#define IOLINK_OD_STATUS_PD_TOGGLE 0x40U   /* Bit 6: PD Toggle (Consistency) */
 #define IOLINK_OD_STATUS_PD_VALID 0x20U    /* Bit 5: PD_In valid */
 #define IOLINK_OD_STATUS_DEVICE_MASK 0x1FU /* Bits 4-0: Device status flags */
 

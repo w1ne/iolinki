@@ -86,7 +86,7 @@ static void test_phy_diagnostic_codes(void **state)
     assert_true(iolink_events_pop(&ctx, &ev));
     assert_int_equal(ev.code, IOLINK_EVENT_PHY_VOLTAGE_FAULT);
     assert_int_equal(ev.type, IOLINK_EVENT_TYPE_WARNING);
-    
+
     assert_true(iolink_events_pop(&ctx, &ev));
     assert_int_equal(ev.code, IOLINK_EVENT_PHY_SHORT_CIRCUIT);
     assert_int_equal(ev.type, IOLINK_EVENT_TYPE_ERROR);

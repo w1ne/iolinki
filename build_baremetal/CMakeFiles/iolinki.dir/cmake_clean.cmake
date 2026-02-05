@@ -25,6 +25,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/iolinki.dir/src/platform/linux/nvm_mock.c.o.d"
   "CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o"
   "CMakeFiles/iolinki.dir/src/platform/linux/time_utils.c.o.d"
+  "CMakeFiles/iolinki.dir/src/platform_stubs.c.o"
+  "CMakeFiles/iolinki.dir/src/platform_stubs.c.o.d"
   "libiolinki.a"
   "libiolinki.pdb"
 )

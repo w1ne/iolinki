@@ -91,10 +91,34 @@ else
     echo "   ⚠️ Cppcheck not installed. Skipping MISRA checks."
 fi
 
-# 4. Code Formatting (Check only)
-echo -e "\n[4/4] 🎨 Checking Code Formatting..."
-# Placeholder: warning if clang-format not run (could force it)
-echo "   ℹ️  Ensure you have run clang-format style files."
+# 4. Code Formatting Check
+echo -e "\n[4/5] 🎨 Checking Code Formatting..."
+if command -v clang-format &> /dev/null; then
+    if find src include tests examples -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror; then
+       echo "   ✅ Code Formatting Passed"
+    else
+       echo "   ❌ Code Formatting FAILED"
+       exit 1
+    fi
+else
+    echo "   ⚠️ clang-format not installed. Skipping check."
+fi
+
+# 5. Doxygen Warning Check
+echo -e "\n[5/5] 📚 Checking Doxygen Warnings..."
+if command -v doxygen &> /dev/null; then
+    doxygen Doxyfile > /dev/null 2> doxygen.log
+    if grep -q "warning:" doxygen.log; then
+        echo "   ❌ Doxygen warnings found:"
+        grep "warning:" doxygen.log
+        exit 1
+    else
+        echo "   ✅ Doxygen Check Passed"
+        rm doxygen.log
+    fi
+else
+     echo "   ⚠️ Doxygen not installed. Skipping check."
+fi
 
 echo -e "\n============================================"
 echo "✅ Code Quality Checks Completed"

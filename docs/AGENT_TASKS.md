@@ -69,7 +69,7 @@ Acceptance:
 - Tests validate event generation and retrieval.
 
 ## Task 4: ISDU Flow Control (Busy/Retry)
-Status: claimed by Antigravity (2026-02-04)
+Status: done by Antigravity (2026-02-05)
 Scope:
 - Implement busy/retry handling for concurrent ISDU requests.
 - Ensure segmented transfers remain consistent under load.
@@ -152,7 +152,7 @@ Acceptance:
 - Tests cover at least CRC and timeout counters.
 
 ## Task 10: SIO Fallback Behavior
-Status: unclaimed
+Status: done by Antigravity (2026-02-05)
 Scope:
 - Implement SIO fallback when validation fails or repeated errors occur.
 - Ensure safe transition back to SDCI.
@@ -182,7 +182,7 @@ Acceptance:
 - Unit tests cover all seven subcommands with expected responses.
 
 ## Task 12: Process Data Consistency Toggle Bit
-Status: unclaimed
+Status: done by Antigravity (2026-02-05)
 Scope:
 - Implement PD consistency toggle bit mechanism for cyclic process data.
 - Ensure toggle behavior follows IO-Link V1.1.5 expectations across PDIn/PDOut.
@@ -198,7 +198,7 @@ Acceptance:
 - Tests validate consistency behavior for both input and output PD.
 
 ## Task 13: Standard Event Code Mapping
-Status: unclaimed
+Status: done by Antigravity (2026-02-05)
 Scope:
 - Map diagnostic events to standard event code ranges (0x1xxx–0x8xxx).
 - Define event mode (single/multiple) handling and qualifiers as needed.

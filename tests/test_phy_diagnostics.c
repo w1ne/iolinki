@@ -76,14 +76,14 @@ static const iolink_phy_api_t mock_phy = {.init = mock_init,
 
 /* PHY without diagnostics support */
 static const iolink_phy_api_t mock_phy_no_diag = {.init = mock_init,
-                                                   .set_mode = mock_set_mode,
-                                                   .set_baudrate = mock_set_baudrate,
-                                                   .send = mock_send,
-                                                   .recv_byte = mock_recv_byte,
-                                                   .detect_wakeup = NULL,
-                                                   .set_cq_line = NULL,
-                                                   .get_voltage_mv = NULL,
-                                                   .is_short_circuit = NULL};
+                                                  .set_mode = mock_set_mode,
+                                                  .set_baudrate = mock_set_baudrate,
+                                                  .send = mock_send,
+                                                  .recv_byte = mock_recv_byte,
+                                                  .detect_wakeup = NULL,
+                                                  .set_cq_line = NULL,
+                                                  .get_voltage_mv = NULL,
+                                                  .is_short_circuit = NULL};
 
 static void test_voltage_monitoring_normal(void **state)
 {
@@ -167,6 +167,7 @@ static void test_short_circuit_detection(void **state)
 {
     (void) state;
     iolink_dll_ctx_t ctx;
+    mock_voltage_mv = 24000; /* Ensure normal voltage */
     mock_short_circuit = true;
 
     iolink_dll_init(&ctx, &mock_phy);
@@ -189,6 +190,7 @@ static void test_short_circuit_no_fault(void **state)
 {
     (void) state;
     iolink_dll_ctx_t ctx;
+    mock_voltage_mv = 24000; /* Ensure normal voltage */
     mock_short_circuit = false;
 
     iolink_dll_init(&ctx, &mock_phy);
