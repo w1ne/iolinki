@@ -15,8 +15,8 @@ GENERATE_RTF           = NO
 
 # Graphviz Support
 HAVE_DOT               = YES
-DOT_PATH               = /usr/bin/dot
-CLASS_DIAGRAMS         = YES
+DOT_PATH               = /usr/bin
+CLASS_DIAGRAMS         = NO
 COLLABORATION_GRAPH    = YES
 INCLUDE_GRAPH          = YES
 INCLUDED_BY_GRAPH      = YES

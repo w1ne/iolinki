@@ -127,7 +127,7 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t *ctx, uint8_t byte)
             }
             else if (service == IOLINK_ISDU_SERVICE_WRITE) {
                 ctx->header.type = IOLINK_ISDU_SERVICE_WRITE;
-                if (length == 0U) {
+                if (length == 15U) {
                     ctx->next_state = ISDU_STATE_HEADER_EXT_LEN;
                 }
                 else {

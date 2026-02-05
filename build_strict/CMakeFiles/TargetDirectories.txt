@@ -1,0 +1,16 @@
+/home/andrii/Projects/iolinki/build_strict/CMakeFiles/iolinki.dir
+/home/andrii/Projects/iolinki/build_strict/CMakeFiles/iodd.dir
+/home/andrii/Projects/iolinki/build_strict/CMakeFiles/test.dir
+/home/andrii/Projects/iolinki/build_strict/CMakeFiles/edit_cache.dir
+/home/andrii/Projects/iolinki/build_strict/CMakeFiles/rebuild_cache.dir
+/home/andrii/Projects/iolinki/build_strict/examples/simple_device/CMakeFiles/simple_device.dir
+/home/andrii/Projects/iolinki/build_strict/examples/simple_device/CMakeFiles/test.dir
+/home/andrii/Projects/iolinki/build_strict/examples/simple_device/CMakeFiles/edit_cache.dir
+/home/andrii/Projects/iolinki/build_strict/examples/simple_device/CMakeFiles/rebuild_cache.dir
+/home/andrii/Projects/iolinki/build_strict/examples/host_demo/CMakeFiles/host_demo.dir
+/home/andrii/Projects/iolinki/build_strict/examples/host_demo/CMakeFiles/test.dir
+/home/andrii/Projects/iolinki/build_strict/examples/host_demo/CMakeFiles/edit_cache.dir
+/home/andrii/Projects/iolinki/build_strict/examples/host_demo/CMakeFiles/rebuild_cache.dir
+/home/andrii/Projects/iolinki/build_strict/tests/CMakeFiles/test.dir
+/home/andrii/Projects/iolinki/build_strict/tests/CMakeFiles/edit_cache.dir
+/home/andrii/Projects/iolinki/build_strict/tests/CMakeFiles/rebuild_cache.dir

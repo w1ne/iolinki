@@ -100,15 +100,18 @@ static void test_sequence_number_wraparound(void **state)
     iolink_isdu_init(&ctx);
 
     /* Test sequence number wraparound (0-63) */
-    /* Start with seq 62 */
-    iolink_isdu_collect_byte(&ctx, 0x80 | 62); /* Start, Seq=62, !Last */
-    iolink_isdu_collect_byte(&ctx, 0xA2);      /* Write, Len=2 */
+    /* Start with seq 61 */
+    iolink_isdu_collect_byte(&ctx, 0x80 | 61); /* Start, Seq=61, !Last */
+    iolink_isdu_collect_byte(&ctx, 0x90);      /* Read, Len=0 */
 
-    iolink_isdu_collect_byte(&ctx, 63); /* Seq=63, !Last */
+    iolink_isdu_collect_byte(&ctx, 62); /* Seq=62, !Last */
     iolink_isdu_collect_byte(&ctx, 0x18);
 
-    iolink_isdu_collect_byte(&ctx, 0x40 | 0); /* Last, Seq=0 (wraparound) */
+    iolink_isdu_collect_byte(&ctx, 63); /* Seq=63, !Last */
     iolink_isdu_collect_byte(&ctx, 0x00);
+
+    iolink_isdu_collect_byte(&ctx, 0x40 | 0); /* Last, Seq=0 (wraparound) */
+    iolink_isdu_collect_byte(&ctx, 0x00);     /* Subindex */
 
     iolink_isdu_process(&ctx);
 
