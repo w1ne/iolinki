@@ -76,7 +76,9 @@ typedef struct
     uint8_t frame_index;          /**< Current byte index in assembly */
     uint8_t req_len;              /**< Expected length of current frame type */
     uint64_t last_frame_us;       /**< Microsecond timestamp of last frame start */
+    uint64_t last_byte_us;        /**< Microsecond timestamp of last received byte */
     uint64_t last_cycle_start_us; /**< Microsecond timestamp of last cycle start */
+    uint32_t t_byte_limit_us;     /**< Inter-byte timeout limit in microseconds */
     uint64_t wakeup_deadline_us;  /**< Earliest time to accept frames after wake-up */
 
     /* Process Data Buffers */
@@ -90,6 +92,7 @@ typedef struct
     uint32_t timing_errors;      /**< Cumulative timing violations */
     uint32_t t_ren_violations;   /**< t_ren violations */
     uint32_t t_cycle_violations; /**< t_cycle violations */
+    uint32_t t_byte_violations;  /**< Inter-byte timing violations */
     uint8_t retry_count;         /**< Retry counter for current exchange */
     uint32_t total_retries;      /**< Cumulative retry count */
     uint8_t max_retries;         /**< Configured max retries (default 3) */
@@ -115,6 +118,7 @@ typedef struct
     uint32_t timing_errors;
     uint32_t t_ren_violations;
     uint32_t t_cycle_violations;
+    uint32_t t_byte_violations;
     uint32_t total_retries;
 } iolink_dll_stats_t;
 
