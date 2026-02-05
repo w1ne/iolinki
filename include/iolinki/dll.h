@@ -120,17 +120,17 @@ typedef struct
  */
 typedef struct
 {
-    uint32_t crc_errors;
-    uint32_t timeout_errors;
-    uint32_t framing_errors;
-    uint32_t timing_errors;
-    uint32_t t_ren_violations;
-    uint32_t t_cycle_violations;
-    uint32_t t_byte_violations;
-    uint32_t t_pd_violations;
-    uint32_t total_retries;
-    uint32_t voltage_faults;
-    uint32_t short_circuits;
+    uint32_t crc_errors;         /**< Cumulative CRC error count */
+    uint32_t timeout_errors;     /**< Cumulative timeout count */
+    uint32_t framing_errors;     /**< Cumulative framing error count */
+    uint32_t timing_errors;      /**< Cumulative timing violations */
+    uint32_t t_ren_violations;   /**< t_ren violations */
+    uint32_t t_cycle_violations; /**< t_cycle violations */
+    uint32_t t_byte_violations;  /**< Inter-byte timing violations */
+    uint32_t t_pd_violations;    /**< t_pd violations */
+    uint32_t total_retries;      /**< Cumulative retry count */
+    uint32_t voltage_faults;     /**< Cumulative voltage fault count */
+    uint32_t short_circuits;     /**< Cumulative short circuit count */
 } iolink_dll_stats_t;
 
 /**

@@ -48,6 +48,7 @@ typedef struct
     uint8_t min_cycle_time;         /**< Minimum cycle time in 0.1ms units (e.g. 20 = 2.0ms) */
     uint8_t pd_in_len;              /**< Process Data Input length (Device to Master) in bytes */
     uint8_t pd_out_len;             /**< Process Data Output length (Master to Device) in bytes */
+    uint32_t t_pd_us;               /**< Power-on delay (t_pd) in microseconds */
 } iolink_config_t;
 
 /**

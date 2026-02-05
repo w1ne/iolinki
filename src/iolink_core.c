@@ -46,6 +46,7 @@ int iolink_init(const iolink_phy_api_t *phy, const iolink_config_t *config)
     g_dll_ctx.pd_in_len = g_config.pd_in_len;
     g_dll_ctx.pd_out_len = g_config.pd_out_len;
     g_dll_ctx.min_cycle_time_us = (uint32_t) g_config.min_cycle_time * 100U; /* 0.1ms units */
+    g_dll_ctx.t_pd_delay_us = g_config.t_pd_us;
 
     /* Apply config-dependent DLL fields (must run after m_seq_type is set) */
     if ((g_dll_ctx.m_seq_type == IOLINK_M_SEQ_TYPE_2_1) ||
