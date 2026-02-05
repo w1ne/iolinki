@@ -266,6 +266,7 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
     ctx->t_cycle_violations = 0U;
     ctx->t_pd_violations = 0U;
     ctx->retry_count = 0U;
+    ctx->retry_count = 0U;
     ctx->total_retries = 0U;
     ctx->voltage_faults = 0U;
     ctx->short_circuits = 0U;

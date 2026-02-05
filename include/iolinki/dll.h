@@ -98,6 +98,8 @@ typedef struct
     uint8_t retry_count;         /**< Retry counter for current exchange */
     uint32_t total_retries;      /**< Cumulative retry count */
     uint8_t max_retries;         /**< Configured max retries (default 3) */
+    uint32_t voltage_faults;     /**< Cumulative voltage fault count */
+    uint32_t short_circuits;     /**< Cumulative short circuit count */
 
     /* PHY Diagnostic Counters */
     uint32_t voltage_faults;     /**< Cumulative voltage out-of-range detections */
