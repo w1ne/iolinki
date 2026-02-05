@@ -8,7 +8,7 @@
 
 #include "iolinki/platform.h"
 
-/* Global variables for stubs to avoid static analysis "knownConditionTrueFalse" 
+/* Global variables for stubs to avoid static analysis "knownConditionTrueFalse"
    when the functions are called in other modules. */
 int g_iolink_nvm_stub_read_ret = -1;
 int g_iolink_nvm_stub_write_ret = -1;

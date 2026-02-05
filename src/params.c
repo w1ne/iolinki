@@ -25,7 +25,6 @@ typedef struct
 
 static iolink_params_nvm_t g_nvm_shadow;
 
-
 void iolink_params_init(void)
 {
     /* Try to load from NVM */
