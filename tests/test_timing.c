@@ -182,11 +182,7 @@ static void test_t_byte_violation(void **state)
 {
     (void) state;
     iolink_config_t config = {
-        .m_seq_type = IOLINK_M_SEQ_TYPE_1_1, 
-        .pd_in_len = 1, 
-        .pd_out_len = 1, 
-        .min_cycle_time = 0
-    };
+        .m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1, .min_cycle_time = 0};
 
     setup_mock_phy();
     will_return(mock_phy_init, 0);
@@ -227,12 +223,9 @@ static void test_t_byte_violation(void **state)
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_time_get_ms),
-        cmocka_unit_test(test_time_get_us),
-        cmocka_unit_test(test_t_cycle_violation),
-        cmocka_unit_test(test_t_ren_violation),
-        cmocka_unit_test(test_t_pd_delay),
-        cmocka_unit_test(test_t_byte_violation),
+        cmocka_unit_test(test_time_get_ms),       cmocka_unit_test(test_time_get_us),
+        cmocka_unit_test(test_t_cycle_violation), cmocka_unit_test(test_t_ren_violation),
+        cmocka_unit_test(test_t_pd_delay),        cmocka_unit_test(test_t_byte_violation),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

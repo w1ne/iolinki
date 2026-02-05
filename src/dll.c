@@ -285,6 +285,7 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
     ctx->timing_errors = 0U;
     ctx->t_ren_violations = 0U;
     ctx->t_cycle_violations = 0U;
+    ctx->t_byte_violations = 0U;
     ctx->t_pd_violations = 0U;
     ctx->retry_count = 0U;
     ctx->retry_count = 0U;
@@ -691,29 +692,30 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx)
     uint8_t byte;
     while ((ctx->phy->recv_byte != NULL) && (ctx->phy->recv_byte(&byte) > 0)) {
         uint64_t now_us = iolink_time_get_us();
-        
+
         /* Check inter-byte timing if we're in the middle of a frame */
         if ((ctx->frame_index > 0U) && (ctx->enforce_timing) && (ctx->t_byte_limit_us > 0U)) {
             if (ctx->last_byte_us != 0U) {
                 uint64_t delta = now_us - ctx->last_byte_us;
-                if (delta > (uint64_t)ctx->t_byte_limit_us) {
+                if (delta > (uint64_t) ctx->t_byte_limit_us) {
                     /* Inter-byte timeout violation - frame is broken */
                     ctx->timing_errors++;
                     ctx->t_byte_violations++;
                     ctx->framing_errors++;
-                    iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING, IOLINK_EVENT_TYPE_WARNING);
-                    
+                    iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING,
+                                         IOLINK_EVENT_TYPE_WARNING);
+
                     /* Reset frame assembly - treat current byte as potential new frame start */
                     ctx->frame_index = 0U;
-                    DLL_LOG("Inter-byte timeout: delta=%llu us, limit=%u us\n", 
-                            (unsigned long long)delta, ctx->t_byte_limit_us);
+                    DLL_LOG("Inter-byte timeout: delta=%llu us, limit=%u us\n",
+                            (unsigned long long) delta, ctx->t_byte_limit_us);
                 }
             }
         }
-        
+
         /* Update last byte timestamp */
         ctx->last_byte_us = now_us;
-        
+
         ctx->last_activity_ms = iolink_time_get_ms();
         DLL_LOG("Rx %02X State %d Idx %u\n", byte, ctx->state, ctx->frame_index);
 
