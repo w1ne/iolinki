@@ -97,7 +97,7 @@ Acceptance:
 - Tests cover each index.
 
 ## Task 6: Frame Synchronization + t_byte/t_bit Timing
-Status: unclaimed
+Status: done by Frame Sync and Timing (2026-02-05)
 Scope:
 - Implement frame synchronization and enforce `t_byte` / `t_bit` timing where feasible.
 - Add measurement counters for inter-byte timing violations.
@@ -125,7 +125,7 @@ Acceptance:
 - Tests validate metric updates.
 
 ## Task 8: PHY Diagnostics (L+ Voltage + Short Circuit)
-Status: unclaimed
+Status: done by Antigravity (2026-02-05)
 Scope:
 - Implement default handling paths for `get_voltage_mv` and `is_short_circuit`.
 - Add device events on fault conditions if supported.
@@ -258,3 +258,18 @@ Primary files:
 Acceptance:
 - No global context remains in core modules.
 - All tests compile and pass with context-based API usage.
+
+## Task 17: Power-On Delay (t_pd) Enforcement
+Status: done by codex (2026-02-05)
+Scope:
+- Implement `t_pd` power-on delay handling before responding to the Master.
+- Add a timer/counter and configuration hook for the delay value.
+- Emit a timing violation counter/event if communication occurs before `t_pd` elapses.
+Primary files:
+- `src/dll.c`
+- `include/iolinki/dll.h`
+- `include/iolinki/config.h`
+- `tests/test_timing.c`
+Acceptance:
+- Device does not respond to frames until `t_pd` has elapsed.
+- Unit test covers at least one pre-`t_pd` violation case.

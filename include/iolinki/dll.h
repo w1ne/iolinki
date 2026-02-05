@@ -95,7 +95,6 @@ typedef struct
     uint32_t t_ren_violations;   /**< t_ren violations */
     uint32_t t_cycle_violations; /**< t_cycle violations */
     uint32_t t_byte_violations;  /**< Inter-byte timing violations */
-    uint32_t t_pd_violations;    /**< t_pd violations */
     uint8_t retry_count;         /**< Retry counter for current exchange */
     uint32_t total_retries;      /**< Cumulative retry count */
     uint8_t max_retries;         /**< Configured max retries (default 3) */
@@ -126,7 +125,6 @@ typedef struct
     uint32_t t_ren_violations;
     uint32_t t_cycle_violations;
     uint32_t t_byte_violations;
-    uint32_t t_pd_violations;
     uint32_t total_retries;
     uint32_t voltage_faults;
     uint32_t short_circuits;
