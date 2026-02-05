@@ -100,11 +100,17 @@ void setup_mock_phy(void)
 
 void move_to_operate(void)
 {
-    /* STARTUP -> PREOPERATE (on first byte) */
-    will_return(mock_phy_recv_byte, 1);    /* res=1 */
-    will_return(mock_phy_recv_byte, 0x00); /* byte=0x00 */
-    will_return(mock_phy_recv_byte, 0);    /* res=0 (end frame) */
+    /* STARTUP -> PREOPERATE (via WakeUp -> AWAITING_COMM) */
+
+    /* 1. Send WakeUp to switch to SDCI */
+    g_mock_wakeup = 1; /* iolink_phy_mock_set_wakeup(1) */
     iolink_process();
+
+    /* 2. Wait for T_DWU (assuming timing might be enforced) */
+    usleep(200); /* > 54us T_DWU */
+
+    /* 3. Send Transition Command immediately (AWAITING_COMM handles first byte)
+       This avoids needing to handle the response from an Idle frame. */
 
     /* PREOPERATE -> ESTAB_COM (on MC=0x0F + Correct CK) */
     uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;

@@ -213,7 +213,7 @@ Acceptance:
 - Tests validate event codes and retrieval behavior.
 
 ## Task 14: Data Storage Integration with Device Access Locks
-Status: unclaimed
+Status: done by Antigravity (2026-02-05)
 Scope:
 - Integrate Data Storage (DS) upload/download flow with Device Access Locks (0x000C).
 - Implement DS commands: Upload Start/End, Download Start/End.
@@ -228,7 +228,7 @@ Acceptance:
 - Tests cover upload, download, and checksum mismatch recovery.
 
 ## Task 15: SIO Mode Switching Logic
-Status: unclaimed
+Status: claimed by Antigravity (2026-02-05)
 Scope:
 - Implement dynamic SIO ↔ SDCI transitions and AutoComm behavior.
 - Ensure safe mode switching and error recovery.

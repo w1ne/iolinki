@@ -9,6 +9,7 @@
 #ifndef IOLINK_DATA_STORAGE_H
 #define IOLINK_DATA_STORAGE_H
 
+#include "iolinki/protocol.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -139,11 +140,19 @@ int iolink_ds_start_upload(iolink_ds_ctx_t *ctx);
 int iolink_ds_start_download(iolink_ds_ctx_t *ctx);
 
 /**
- * @brief Abort current DS operation (System Command 0x97)
- *
  * @param ctx DS context
  * @return int 0 on success
  */
 int iolink_ds_abort(iolink_ds_ctx_t *ctx);
+
+/**
+ * @brief Handle standard DS System Command
+ *
+ * @param ctx DS context
+ * @param cmd System Command (0x05-0x08)
+ * @param access_locks Current Access Lock state (Index 0x000C)
+ * @return int 0: Success, -1: Busy, -2: Access Denied, -3: Unknown
+ */
+int iolink_ds_handle_command(iolink_ds_ctx_t *ctx, uint8_t cmd, uint16_t access_locks);
 
 #endif  // IOLINK_DATA_STORAGE_H

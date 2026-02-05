@@ -62,6 +62,13 @@
 #define IOLINK_IDX_ERROR_STATS 0x0025U /**< Vendor-specific error statistics */
 
 /* System Commands (Index 0x0002) */
+#define IOLINK_CMD_PARAM_DOWNLOAD_START 0x05U
+#define IOLINK_CMD_PARAM_DOWNLOAD_END 0x06U
+#define IOLINK_CMD_PARAM_UPLOAD_START 0x07U
+#define IOLINK_CMD_PARAM_UPLOAD_END 0x08U
+#define IOLINK_CMD_PARAM_DOWNLOAD_STORE 0x09U /* V1.0 legacy or optional */
+
+/* Legacy/Non-Standard Commands (Deprecating) */
 #define IOLINK_CMD_DEVICE_RESET 0x80U
 #define IOLINK_CMD_APPLICATION_RESET 0x81U
 #define IOLINK_CMD_RESTORE_FACTORY_SETTINGS 0x82U
@@ -70,6 +77,12 @@
 #define IOLINK_CMD_PARAM_UPLOAD 0x95U
 #define IOLINK_CMD_PARAM_DOWNLOAD 0x96U
 #define IOLINK_CMD_PARAM_BREAK 0x97U
+
+/* Device Access Locks (Index 0x000C) */
+#define IOLINK_LOCK_PARAM 0x01U       /* Bit 0: Parameter (Write) Access */
+#define IOLINK_LOCK_DS 0x02U          /* Bit 1: Data Storage Access */
+#define IOLINK_LOCK_LOCAL_PARAM 0x04U /* Bit 2: Local Parameterization */
+#define IOLINK_LOCK_LOCAL_UI 0x08U    /* Bit 3: Local User Interface */
 
 /* ISDU Error Codes (0x80xx) */
 #define IOLINK_ISDU_ERROR_NONE 0x00U

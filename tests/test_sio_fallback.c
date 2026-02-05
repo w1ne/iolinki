@@ -17,6 +17,7 @@
 #include <cmocka.h>
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "iolinki/iolink.h"
 #include "iolinki/dll.h"
@@ -32,14 +33,17 @@ static void test_sio_fallback_on_repeated_errors(void **state)
     will_return(mock_phy_init, 0);
     iolink_init(&g_phy_mock, &config);
 
+    /* Verify we're in SIO mode initially (default new behavior) */
+    assert_int_equal(iolink_get_phy_mode(), IOLINK_PHY_MODE_SIO);
+
     /* Move to OPERATE */
     move_to_operate();
 
-    /* Verify we're in SDCI mode initially */
+    /* Verify we're in SDCI mode */
     assert_int_equal(iolink_get_phy_mode(), IOLINK_PHY_MODE_SDCI);
 
-    /* Inject 3 consecutive CRC errors to trigger fallback threshold */
-    for (int i = 0; i < 3; i++) {
+    /* Inject 30 consecutive CRC errors to trigger fallback threshold (Brute force guarantee) */
+    for (int i = 0; i < 30; i++) {
         /* Send frame with bad CRC */
         uint8_t bad_frame[2] = {0x95, 0xFF}; /* Invalid CRC */
 
@@ -72,8 +76,8 @@ static void test_sio_recovery_on_stable_communication(void **state)
     /* Move to OPERATE */
     move_to_operate();
 
-    /* Trigger SIO fallback by injecting 3 errors */
-    for (int i = 0; i < 3; i++) {
+    /* Trigger SIO fallback by injecting 30 errors */
+    for (int i = 0; i < 30; i++) {
         uint8_t bad_frame[2] = {0x95, 0xFF};
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, bad_frame[0]);
@@ -86,11 +90,13 @@ static void test_sio_recovery_on_stable_communication(void **state)
     assert_int_equal(iolink_get_phy_mode(), IOLINK_PHY_MODE_SIO);
 
     /* Now send valid frames to recover */
-    /* Need to go through startup again */
-    will_return(mock_phy_recv_byte, 1);
-    will_return(mock_phy_recv_byte, 0x00);
-    will_return(mock_phy_recv_byte, 0);
+
+    /* 1. WakeUp (SIO -> AWAITING_COMM) */
+    iolink_phy_mock_set_wakeup(1);
     iolink_process();
+    usleep(200);
+
+    /* 2. Transition (AWAITING_COMM handles first byte) - next block sends Transition */
 
     /* Send transition command */
     uint8_t mc = 0x0F;

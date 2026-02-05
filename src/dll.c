@@ -213,10 +213,10 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy)
         ctx->pd_out_len_max = ctx->pd_out_len;
     }
 
-    /* Initialize PHY mode to SDCI (default) */
-    ctx->phy_mode = IOLINK_PHY_MODE_SDCI;
+    /* Initialize PHY mode to SIO (AutoComm/WakeUp detection) */
+    ctx->phy_mode = IOLINK_PHY_MODE_SIO;
     if (ctx->phy->set_mode != NULL) {
-        ctx->phy->set_mode(IOLINK_PHY_MODE_SDCI);
+        ctx->phy->set_mode(IOLINK_PHY_MODE_SIO);
     }
 
     /* Initialize error handling */
@@ -256,6 +256,13 @@ static void handle_startup(iolink_dll_ctx_t *ctx, uint8_t byte)
 {
     /* Transition to PREOPERATE on any activity; ignore wake-up dummy byte */
     (void) byte;
+
+    /* If we are in SIO mode, we shouldn't be interpreting bytes as SDCI frames.
+       Wait for WakeUp detection to switch us to SDCI mode first. */
+    if (ctx->phy_mode == IOLINK_PHY_MODE_SIO) {
+        return;
+    }
+
     ctx->state = IOLINK_DLL_STATE_PREOPERATE;
     ctx->frame_index = 0U;
     ctx->req_len = IOLINK_M_SEQ_TYPE0_LEN;
@@ -470,6 +477,7 @@ static bool handle_operate_type1_2(iolink_dll_ctx_t *ctx)
         resp_idx = (uint8_t) (resp_idx + 1U);
 
         dll_send_response(ctx, resp, resp_idx);
+        ctx->pd_in_toggle = !ctx->pd_in_toggle; /* Flip toggle for next cycle */
         iolink_critical_exit();
         return true;
     }
@@ -582,10 +590,21 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx)
             /* Reset stats/state on wakeup */
             ctx->frame_index = 0U;
             ctx->last_activity_ms = iolink_time_get_ms();
-            /* Ensure we are ready for new communication */
-            enter_fallback(ctx);
-            ctx->state =
-                IOLINK_DLL_STATE_AWAITING_COMM; /* Restore AWAITING_COMM after fallback reset */
+
+            /* Transition to SDCI Mode for communication */
+            if (ctx->phy_mode != IOLINK_PHY_MODE_SDCI) {
+                if (ctx->phy->set_mode != NULL) {
+                    ctx->phy->set_mode(IOLINK_PHY_MODE_SDCI);
+                }
+                ctx->phy_mode = IOLINK_PHY_MODE_SDCI;
+            }
+
+            /* Clean reset of connection state (without incrementing errors) */
+            ctx->req_len = IOLINK_M_SEQ_TYPE0_LEN;
+            ctx->retry_count = 0U;
+            iolink_isdu_init(&ctx->isdu);
+            ctx->isdu.event_ctx = &ctx->events;
+
             return;
         }
     }

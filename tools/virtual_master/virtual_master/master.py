@@ -276,6 +276,7 @@ class VirtualMaster:
         frame = self.generator.generate_type0(0x0F) # Custom transition MC
         self.uart.send_bytes(frame)
         time.sleep(0.05) # Give device time to switch
+        self.state = MasterState.OPERATE
         return True
     
     def run_cycle(self, pd_out: bytes = None, od_req: int = 0, od_req2: int = 0x00, ckt: int = 0x00) -> DeviceResponse:

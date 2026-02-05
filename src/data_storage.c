@@ -128,3 +128,55 @@ int iolink_ds_abort(iolink_ds_ctx_t *ctx)
     ctx->state = IOLINK_DS_STATE_IDLE;
     return 0;
 }
+
+int iolink_ds_handle_command(iolink_ds_ctx_t *ctx, uint8_t cmd, uint16_t access_locks)
+{
+    if (ctx == NULL) {
+        return -1;
+    }
+
+    /* Check Access Locks for Download Commands (Write to Device) */
+    if ((cmd == IOLINK_CMD_PARAM_DOWNLOAD_START) || (cmd == IOLINK_CMD_PARAM_DOWNLOAD_END)) {
+        if ((access_locks & IOLINK_LOCK_DS) != 0U) {
+            /* DS Logic is locked */
+            return -2; /* Signal Access Denied (user should map to ISDU error) */
+        }
+    }
+
+    switch (cmd) {
+        case IOLINK_CMD_PARAM_UPLOAD_START: /* 0x07 */
+            /* Master wants to read parameters (Upload) */
+            if (ctx->state != IOLINK_DS_STATE_IDLE) return -1; /* Busy */
+            ctx->state = IOLINK_DS_STATE_UPLOAD_REQ;
+            break;
+
+        case IOLINK_CMD_PARAM_UPLOAD_END: /* 0x08 */
+            /* Finish upload */
+            if (ctx->state == IOLINK_DS_STATE_UPLOADING) {
+                ctx->state = IOLINK_DS_STATE_IDLE;
+            }
+            break;
+
+        case IOLINK_CMD_PARAM_DOWNLOAD_START: /* 0x05 */
+            /* Master wants to write parameters (Download) */
+            if (ctx->state != IOLINK_DS_STATE_IDLE) return -1; /* Busy */
+            ctx->state = IOLINK_DS_STATE_DOWNLOAD_REQ;
+            break;
+
+        case IOLINK_CMD_PARAM_DOWNLOAD_END: /* 0x06 */
+            /* Finish download */
+            if (ctx->state == IOLINK_DS_STATE_DOWNLOADING) {
+                ctx->current_checksum = ctx->master_checksum;
+                ctx->state = IOLINK_DS_STATE_IDLE;
+            }
+            break;
+
+        case IOLINK_CMD_PARAM_BREAK: /* 0x97 / Standard Break */
+            return iolink_ds_abort(ctx);
+
+        default:
+            return -3; /* Unknown command */
+    }
+
+    return 0;
+}

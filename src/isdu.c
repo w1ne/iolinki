@@ -484,11 +484,40 @@ static void handle_system_command(iolink_isdu_ctx_t *ctx, uint8_t cmd)
             /* Communication mode switching handled by DLL - this is a no-op */
             break;
 
-        case IOLINK_CMD_PARAM_UPLOAD: /* 0x95 */
-            /* Trigger Data Storage upload to Master */
+        /* Standard Data Storage Commands (0x05-0x08) */
+        case IOLINK_CMD_PARAM_DOWNLOAD_START:
+        case IOLINK_CMD_PARAM_DOWNLOAD_END:
+        case IOLINK_CMD_PARAM_UPLOAD_START:
+        case IOLINK_CMD_PARAM_UPLOAD_END:
             if (ctx->ds_ctx != NULL) {
+                uint16_t locks = iolink_device_info_get_access_locks();
+                int ret = iolink_ds_handle_command((iolink_ds_ctx_t *) ctx->ds_ctx, cmd, locks);
+
+                if (ret != 0) {
+                    ctx->response_buf[0] = 0x80U;
+                    if (ret == -1) {
+                        ctx->response_buf[1] = IOLINK_ISDU_ERROR_BUSY; /* 0x30 */
+                    }
+                    else if (ret == -2) {
+                        ctx->response_buf[1] =
+                            IOLINK_ISDU_ERROR_WRITE_PROTECTED; /* 0x33 Access Denied/Locked */
+                    }
+                    else {
+                        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+                    }
+                    ctx->response_len = 2U;
+                    ctx->response_idx = 0U;
+                    ctx->state = ISDU_STATE_RESPONSE_READY;
+                    return;
+                }
+            }
+            break;
+
+        /* Legacy/Custom DS Commands (0x95-0x97) - Mapped to standard flows if possible */
+        case IOLINK_CMD_PARAM_UPLOAD: /* 0x95 -> 0x07 Start Upload */
+            if (ctx->ds_ctx != NULL) {
+                /* Legacy mapped to Upload Start */
                 if (iolink_ds_start_upload((iolink_ds_ctx_t *) ctx->ds_ctx) != 0) {
-                    /* DS busy or error */
                     ctx->response_buf[0] = 0x80U;
                     ctx->response_buf[1] = IOLINK_ISDU_ERROR_BUSY;
                     ctx->response_len = 2U;
@@ -499,11 +528,9 @@ static void handle_system_command(iolink_isdu_ctx_t *ctx, uint8_t cmd)
             }
             break;
 
-        case IOLINK_CMD_PARAM_DOWNLOAD: /* 0x96 */
-            /* Trigger Data Storage download from Master */
+        case IOLINK_CMD_PARAM_DOWNLOAD: /* 0x96 -> 0x05 Start Download */
             if (ctx->ds_ctx != NULL) {
                 if (iolink_ds_start_download((iolink_ds_ctx_t *) ctx->ds_ctx) != 0) {
-                    /* DS busy or error */
                     ctx->response_buf[0] = 0x80U;
                     ctx->response_buf[1] = IOLINK_ISDU_ERROR_BUSY;
                     ctx->response_len = 2U;
