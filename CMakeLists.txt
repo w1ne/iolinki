@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-# Version 1.0.0-rc5
+# Version 1.0.0
 project(iolinki VERSION 1.0.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)

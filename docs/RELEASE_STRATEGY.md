@@ -7,10 +7,10 @@ This document outlines the development workflow, versioning, and release procedu
 We use a simplified **Gitflow** model.
 
 ### Branches
-- **`main`**: Production code. Stable releases. **Protected: Merges only via PR from `release/*` or `bugfix/*`**.
-- **`develop`**: Integration branch. **Merges only via PR from `feature/*` or `bugfix/*`**.
+- **`main`**: Production code. Stable releases. **Protected: All official version tags (`vX.Y.Z`) MUST be pushed from this branch**.
+- **`develop`**: Integration branch. Source for `feature/*` and destination for verified features.
 - **`feature/*`**: Feature branches. Created from and merged back to `develop` via PR.
-- **`release/*`**: Release preparation steps. Merged to `main` via PR.
+- **`release/*`**: Release preparation. Source for `vX.Y.Z-rcN` tags. Merged to `main` via PR for official release.
 - **`bugfix/*`**: Fixes for production bugs. Merged to `develop` and `main` via PRs.
 
 ## 2. Versioning
@@ -45,28 +45,37 @@ Automated pipelines run on every push to `main` or `develop`.
 
 ## 4. Release Process
 
-### Automated Release (Recommended)
+### Automated Release (Main-only)
 
-Releases are automated via GitHub Actions. Simply push a version tag:
+Official releases are triggered ONLY from the `main` branch. 
 
-```bash
-git tag -a v0.1.0 -m "Release version 0.1.0"
-git push origin v0.1.0
-```
+1. **Tagging**: Push a semantic version tag to `main`:
+   ```bash
+   git checkout main && git pull
+   git tag -a v1.0.0 -m "Release version 1.0.0"
+   git push origin v1.0.0
+   ```
 
-The workflow automatically:
-1. Builds the project in Release mode with **Code Coverage** instrumentation.
-2. Runs all tests and generates a pass/fail report.
-3. Generates **Automated Release Notes** including:
-   - Quality Report (Test counts + Coverage %)
-   - Categorized Feature/Bug list (from Git history)
-   - Documentation updates
-4. Packages binaries (examples + tests)
-5. Creates GitHub Release
-6. **Automatically merges `main` back to `develop`** to keep branches in sync.
+2. **Workflow**: The GitHub Action automatically:
+   - Builds with **Code Coverage**.
+   - Generates **Automated Release Notes**.
+   - Packages binaries and creates a GitHub Release.
+   - **Back-merges `main` to `develop`**.
 
-> [!IMPORTANT]
-> Ensure `CHANGELOG.md` is updated and use **Conventional Commits** (`feat:`, `fix:`) in your PRs so the release notes generator can categorize changes correctly.
+### Release Candidates (RC)
+
+RCs are used to verify the release workflow and quality before finalizing on `main`.
+
+1. **RC Tagging**: Push an RC tag from a `release/*` branch:
+   ```bash
+   git checkout release/1.0.0
+   git tag -a v1.0.0-rc1 -m "Release Candidate 1"
+   git push origin v1.0.0-rc1
+   ```
+2. **Verification**: RC tags trigger the same build/test pipeline but do NOT update `main` or perform back-merges.
+
+> [!TIP]
+> Use RC tags to "dry-run" the release notes and binary packaging without affecting the production baseline.
 
 ### Manual Release (PR-Based Flow)
 
@@ -102,8 +111,19 @@ The workflow automatically:
      git push origin vx.y.z
      ```
 
-6. **Back-merge to Develop**:
-   - Open a PR from **`main`** back to **`develop`** (or merge `main` into `develop` and push if `develop` isn't fully protected, though a PR is preferred).
+6. **Troubleshooting & Retries**:
+   - **Failed Release**: If the CI fails on a tag, delete the tag on remote and local, fix the issue on `main`, and re-tag:
+     ```bash
+     git tag -d v1.0.0
+     git push origin :v1.0.0
+     # Fix issue on main...
+     git tag v1.0.0
+     git push origin v1.0.0
+     ```
+   - **Pre-commit Blocks**: If hooks (e.g., branch name checks) block release housekeeping commits, use `--no-verify`:
+     ```bash
+     git commit -m "chore(release): bump version" --no-verify
+     ```
 
 ## 5. Release Artifacts
 

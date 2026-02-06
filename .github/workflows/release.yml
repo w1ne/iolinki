@@ -68,7 +68,7 @@ jobs:
         run: |
           cd build
           lcov --capture --directory . --output-file coverage.info
-          lcov --remove coverage.info '/usr/*' '*/tests/*' '*/examples/*' --output-file coverage.filtered.info
+          lcov --remove coverage.info '/usr/*' '*/tests/*' '*/examples/*' --output-file coverage.filtered.info --ignore-errors unused
           lcov --list coverage.filtered.info > ../coverage_summary.txt || echo "Coverage: N/A" > ../coverage_summary.txt
 
           # Extract percentage for summary file (e.g. "lines......: 85.5%")

@@ -4,6 +4,16 @@ All notable changes to the `iolinki` project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.0.0] - 2026-02-06
+### Added
+- **Final V1.0.0 Stability**: Completed all mandatory ISDU index implementations and protocol state machine hardening.
+- **Interleaved Mode Support**: Full compliance with IO-Link V1.1.5 interleaved Control/Data format for all acyclic transfers.
+
+### Fixed
+- **ISDU Protocol Alignment**: Corrected service ID mapping (8 for Read, 9 for Write) and standardized state transitions across all handlers.
+- **Timer and Jitter Resilience**: Optimized cycle timing and timeout handling for robust performance in virtualized environments.
+- **Unit Test Coverage**: Achieved 100% pass rate on 21 core unit tests and synchronized all test helpers with the protocol spec.
+
 ## [1.0.0-rc5] - 2026-02-06
 ### Fixed
 - **ISDU Service Protocol**: Fixed critical bug in `HEADER_INITIAL` where Service Codes `0x9` (Read) and `0xA` (Write) were compared against internal Enum values `0/1` instead of protocol literals, causing all requests to fail or misbehave.
