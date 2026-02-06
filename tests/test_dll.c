@@ -50,7 +50,7 @@ static void test_dll_wakeup_to_preoperate(void** state)
     will_return(mock_phy_recv_byte, 0);
 
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 2); /* Type 0: MC + CK */
+    expect_value(mock_phy_send, len, 4);
     will_return(mock_phy_send, 0);
 
     iolink_process();

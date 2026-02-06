@@ -229,32 +229,32 @@ int isdu_send_read_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subin
 {
     int ret;
 
-    /* Control: Start + Last, Seq=0 */
-    ret = iolink_isdu_collect_byte(ctx, 0xC0);
+    /* Control: Start, Seq=0 (Not Last) */
+    ret = iolink_isdu_collect_byte(ctx, 0x80);
     if (ret != 0) return ret;
 
     /* Data: Read service (0x90 = Read, Length=0) */
     ret = iolink_isdu_collect_byte(ctx, 0x90);
     if (ret != 0) return ret;
 
-    /* Control: Continue, Seq=1 */
-    ret = iolink_isdu_collect_byte(ctx, 0x81);
+    /* Control: Seq=1 */
+    ret = iolink_isdu_collect_byte(ctx, 0x01);
     if (ret != 0) return ret;
 
     /* Data: Index high byte */
     ret = iolink_isdu_collect_byte(ctx, (uint8_t) (index >> 8));
     if (ret != 0) return ret;
 
-    /* Control: Continue, Seq=2 */
-    ret = iolink_isdu_collect_byte(ctx, 0x82);
+    /* Control: Seq=2 */
+    ret = iolink_isdu_collect_byte(ctx, 0x02);
     if (ret != 0) return ret;
 
     /* Data: Index low byte */
     ret = iolink_isdu_collect_byte(ctx, (uint8_t) (index & 0xFF));
     if (ret != 0) return ret;
 
-    /* Control: Continue, Seq=3 */
-    ret = iolink_isdu_collect_byte(ctx, 0x83);
+    /* Control: Last, Seq=3 */
+    ret = iolink_isdu_collect_byte(ctx, 0x43);
     if (ret != 0) return ret;
 
     /* Data: Subindex (last byte) */
@@ -268,11 +268,9 @@ int isdu_send_write_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subi
     int ret;
     uint8_t seq = 0;
 
-    /* Control: Start + Last (if non-segmented), Seq=0 */
+    /* Control: Start, Seq=0 */
     uint8_t ctrl = 0x80; /* Start bit */
-    if (data_len <= 15) {
-        ctrl |= 0x40; /* Last bit for non-segmented */
-    }
+    /* Note: For Write, we always have Index/Subindex following, so first byte is never Last */
     ret = iolink_isdu_collect_byte(ctx, ctrl);
     if (ret != 0) return ret;
     seq++;
@@ -291,7 +289,7 @@ int isdu_send_write_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subi
     /* If extended length, send it */
     if (data_len > 15) {
         /* Control */
-        ret = iolink_isdu_collect_byte(ctx, 0x80 | seq);
+        ret = iolink_isdu_collect_byte(ctx, seq & 0x3F);
         if (ret != 0) return ret;
         seq++;
 
@@ -301,7 +299,7 @@ int isdu_send_write_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subi
     }
 
     /* Control */
-    ret = iolink_isdu_collect_byte(ctx, 0x80 | seq);
+    ret = iolink_isdu_collect_byte(ctx, seq & 0x3F);
     if (ret != 0) return ret;
     seq++;
 
@@ -310,7 +308,7 @@ int isdu_send_write_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subi
     if (ret != 0) return ret;
 
     /* Control */
-    ret = iolink_isdu_collect_byte(ctx, 0x80 | seq);
+    ret = iolink_isdu_collect_byte(ctx, seq & 0x3F);
     if (ret != 0) return ret;
     seq++;
 
@@ -319,7 +317,7 @@ int isdu_send_write_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subi
     if (ret != 0) return ret;
 
     /* Control */
-    ret = iolink_isdu_collect_byte(ctx, 0x80 | seq);
+    ret = iolink_isdu_collect_byte(ctx, seq & 0x3F);
     if (ret != 0) return ret;
     seq++;
 
@@ -330,7 +328,9 @@ int isdu_send_write_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subi
     /* Send data bytes */
     for (uint8_t i = 0; i < data_len; i++) {
         /* Control */
-        ret = iolink_isdu_collect_byte(ctx, 0x80 | seq);
+        uint8_t c = seq & 0x3F;
+        if (i == data_len - 1) c |= 0x40; /* Last bit */
+        ret = iolink_isdu_collect_byte(ctx, c);
         if (ret != 0) return ret;
         seq = (seq + 1) & 0x3F;
 
