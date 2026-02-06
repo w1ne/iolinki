@@ -27,6 +27,13 @@ static void test_rapid_concurrent_requests(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
+    iolink_params_init();
     iolink_isdu_init(&ctx);
 
     /* 1. Start a write request */
@@ -58,7 +65,12 @@ static void test_maximum_segmented_transfer(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
-    iolink_device_info_init(NULL);
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
     iolink_params_init();
     iolink_isdu_init(&ctx);
 
@@ -106,7 +118,12 @@ static void test_sequence_number_wraparound(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
-    iolink_device_info_init(NULL);
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
     iolink_params_init();
     iolink_isdu_init(&ctx);
 

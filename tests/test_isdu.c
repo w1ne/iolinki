@@ -25,11 +25,19 @@
 #include "iolinki/data_storage.h"
 #include "iolinki/protocol.h"
 #include "iolinki/dll.h"
+#include "iolinki/device_info.h"
 
 static void test_isdu_vendor_name_read(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
+    iolink_params_init();
     iolink_isdu_init(&ctx);
 
     /* 1. Send READ Request for Index 0x10 (Vendor Name) */
@@ -65,6 +73,13 @@ static void test_isdu_device_status_read(void** state)
     (void) state;
     iolink_isdu_ctx_t ctx;
     iolink_events_ctx_t events;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
+    iolink_params_init();
     iolink_events_init(&events);
     iolink_isdu_init(&ctx);
     ctx.event_ctx = &events;
@@ -104,6 +119,13 @@ static void test_isdu_detailed_device_status_read(void** state)
     (void) state;
     iolink_isdu_ctx_t ctx;
     iolink_events_ctx_t events;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
+    iolink_params_init();
     iolink_events_init(&events);
     iolink_isdu_init(&ctx);
     ctx.event_ctx = &events;
@@ -143,6 +165,13 @@ static void test_isdu_error_stats_read(void** state)
     dll_ctx.framing_errors = 0x01020304U;
     dll_ctx.timing_errors = 0x05060708U;
 
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
+    iolink_params_init();
     iolink_isdu_init(&ctx);
     ctx.dll_ctx = &dll_ctx;
 
@@ -178,6 +207,13 @@ static void test_system_cmd_device_reset(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
+    iolink_params_init();
     iolink_isdu_init(&ctx);
 
     /* Write 0x80 to Index 0x0002 */
@@ -203,6 +239,13 @@ static void test_system_cmd_application_reset(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
+    iolink_params_init();
     iolink_isdu_init(&ctx);
 
     /* Write 0x81 to Index 0x0002 */
@@ -228,6 +271,12 @@ static void test_system_cmd_factory_restore(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
     iolink_params_init();
     iolink_isdu_init(&ctx);
 
@@ -261,6 +310,13 @@ static void test_system_cmd_param_upload(void** state)
     (void) state;
     iolink_isdu_ctx_t ctx;
     iolink_ds_ctx_t ds;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
+    iolink_params_init();
     iolink_ds_init(&ds, NULL);
     iolink_isdu_init(&ctx);
     ctx.ds_ctx = &ds;
@@ -289,6 +345,13 @@ static void test_system_cmd_param_download(void** state)
     (void) state;
     iolink_isdu_ctx_t ctx;
     iolink_ds_ctx_t ds;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
+    iolink_params_init();
     iolink_ds_init(&ds, NULL);
     iolink_isdu_init(&ctx);
     ctx.ds_ctx = &ds;
@@ -317,6 +380,13 @@ static void test_system_cmd_param_break(void** state)
     (void) state;
     iolink_isdu_ctx_t ctx;
     iolink_ds_ctx_t ds;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
+    iolink_params_init();
     iolink_ds_init(&ds, NULL);
     iolink_isdu_init(&ctx);
     ctx.ds_ctx = &ds;
@@ -347,6 +417,13 @@ static void test_system_cmd_invalid(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
+    iolink_params_init();
     iolink_isdu_init(&ctx);
 
     /* Write invalid command 0xFF to Index 0x0002 */
@@ -373,6 +450,12 @@ static void test_isdu_function_tag_read_write(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
     iolink_params_init();
     iolink_isdu_init(&ctx);
 
@@ -427,6 +510,12 @@ static void test_isdu_location_tag_read_write(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
     iolink_params_init();
     iolink_isdu_init(&ctx);
 
@@ -481,6 +570,13 @@ static void test_isdu_pdin_descriptor_read(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
+    iolink_params_init();
     iolink_isdu_init(&ctx);
 
     /* Read PD Input Descriptor (Index 0x1D) */
