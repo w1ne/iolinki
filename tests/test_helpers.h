@@ -51,4 +51,37 @@ extern const iolink_ds_storage_api_t g_ds_storage_mock;
 void iolink_ds_mock_reset(void);
 uint8_t* iolink_ds_mock_get_buf(void);
 
+/* ISDU V1.1.5 Interleaved Format Helpers */
+#include "iolinki/isdu.h"
+
+/**
+ * @brief Send an ISDU read request in V1.1.5 interleaved format
+ * @param ctx ISDU context
+ * @param index ISDU index
+ * @param subindex ISDU subindex
+ * @return 1 if request is ready for processing, 0 if still collecting, -1 on error
+ */
+int isdu_send_read_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subindex);
+
+/**
+ * @brief Send an ISDU write request in V1.1.5 interleaved format
+ * @param ctx ISDU context
+ * @param index ISDU index
+ * @param subindex ISDU subindex
+ * @param data Data to write
+ * @param data_len Length of data
+ * @return 1 if request is ready for processing, 0 if still collecting, -1 on error
+ */
+int isdu_send_write_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subindex,
+                            const uint8_t* data, uint8_t data_len);
+
+/**
+ * @brief Collect ISDU response in V1.1.5 interleaved format
+ * @param ctx ISDU context
+ * @param buffer Buffer to store response data
+ * @param buffer_size Size of buffer
+ * @return Number of data bytes collected, or -1 on error
+ */
+int isdu_collect_response(iolink_isdu_ctx_t* ctx, uint8_t* buffer, size_t buffer_size);
+
 #endif  // TEST_HELPERS_H_

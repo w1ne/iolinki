@@ -50,7 +50,7 @@ static void test_dll_wakeup_to_preoperate(void** state)
     will_return(mock_phy_recv_byte, 0);
 
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 4);
+    expect_value(mock_phy_send, len, 2); /* Type 0: MC + CK */
     will_return(mock_phy_send, 0);
 
     iolink_process();
@@ -80,7 +80,7 @@ static void test_dll_preoperate_to_operate(void** state)
     will_return(mock_phy_recv_byte, ck);
     will_return(mock_phy_recv_byte, 0);
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 4);
+    expect_value(mock_phy_send, len, 2); /* Type 0 in PREOPERATE: MC + CK */
     will_return(mock_phy_send, 0);
     iolink_process();
     assert_int_equal(iolink_get_state(), IOLINK_DLL_STATE_ESTAB_COM);
@@ -125,7 +125,7 @@ static void test_dll_fallback_on_crc_errors(void** state)
     will_return(mock_phy_recv_byte, ck);
     will_return(mock_phy_recv_byte, 0);
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 4);
+    expect_value(mock_phy_send, len, 2); /* Type 0 in PREOPERATE: MC + CK */
     will_return(mock_phy_send, 0);
     iolink_process();
 
