@@ -39,22 +39,23 @@ static void test_isdu_segmented_write_corrected(void** state)
     iolink_isdu_init(&ctx);
 
     /* Write Index 0x18, 2 bytes */
-    iolink_isdu_collect_byte(&ctx, 0x81);
+    /* Write Index 0x18, 2 bytes */
+    iolink_isdu_collect_byte(&ctx, 0x80); /* Start, Seq=0 */
     iolink_isdu_collect_byte(&ctx, 0xA2);
 
-    iolink_isdu_collect_byte(&ctx, 0x02);
+    iolink_isdu_collect_byte(&ctx, 0x01); /* Seq=1 */
     iolink_isdu_collect_byte(&ctx, 0x00);
 
-    iolink_isdu_collect_byte(&ctx, 0x03);
+    iolink_isdu_collect_byte(&ctx, 0x02); /* Seq=2 */
     iolink_isdu_collect_byte(&ctx, 0x18);
 
-    iolink_isdu_collect_byte(&ctx, 0x04);
+    iolink_isdu_collect_byte(&ctx, 0x03); /* Seq=3 */
     iolink_isdu_collect_byte(&ctx, 0x00);
 
-    iolink_isdu_collect_byte(&ctx, 0x05);
+    iolink_isdu_collect_byte(&ctx, 0x04); /* Seq=4 */
     iolink_isdu_collect_byte(&ctx, 0xAA);
 
-    iolink_isdu_collect_byte(&ctx, 0x46);
+    iolink_isdu_collect_byte(&ctx, 0x45); /* Last, Seq=5 */
     assert_int_equal(iolink_isdu_collect_byte(&ctx, 0xBB), 1);
 
     iolink_isdu_process(&ctx);
