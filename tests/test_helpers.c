@@ -223,6 +223,11 @@ uint8_t* iolink_ds_mock_get_buf(void)
     return g_ds_mock_buf;
 }
 
+void iolink_nvm_mock_cleanup(void)
+{
+    remove("iolink_nvm.bin");
+}
+
 /* ISDU V1.1.5 Interleaved Format Helpers */
 
 int isdu_send_read_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subindex)
@@ -233,8 +238,8 @@ int isdu_send_read_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subin
     ret = iolink_isdu_collect_byte(ctx, 0x80);
     if (ret != 0) return ret;
 
-    /* Data: Read service (0x90 = Read, Length=0) */
-    ret = iolink_isdu_collect_byte(ctx, 0x90);
+    /* Data: Read service (0x80 = Read, Length=0) */
+    ret = iolink_isdu_collect_byte(ctx, 0x80);
     if (ret != 0) return ret;
 
     /* Control: Seq=1 */
@@ -278,7 +283,7 @@ int isdu_send_write_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subi
     /* Data: Write service */
     uint8_t service_byte;
     if (data_len <= 15) {
-        service_byte = 0xA0 | data_len; /* Write, embedded length */
+        service_byte = 0x90 | data_len; /* Write, embedded length */
     }
     else {
         service_byte = 0x9F; /* Write, extended length */
@@ -347,16 +352,20 @@ int isdu_collect_response(iolink_isdu_ctx_t* ctx, uint8_t* buffer, size_t buffer
     size_t idx = 0;
     uint8_t byte;
 
+    if (ctx == NULL || ctx->state != ISDU_STATE_RESPONSE_READY) return -1;
+
     /* Collect alternating Control and Data bytes */
-    while (idx < buffer_size) {
+    while (idx < buffer_size && ctx->state == ISDU_STATE_RESPONSE_READY) {
         /* Get control byte */
         if (iolink_isdu_get_response_byte(ctx, &byte) <= 0) {
-            break; /* No more data */
+            break;
         }
 
         /* Get data byte */
         if (iolink_isdu_get_response_byte(ctx, &byte) <= 0) {
-            break; /* No more data */
+            /* If this was a 0-length response, we might get 0 here after its only control byte.
+             * But for data-carrying responses, this should return the data byte. */
+            break;
         }
 
         buffer[idx++] = byte;

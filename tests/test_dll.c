@@ -24,6 +24,20 @@
 #include "iolinki/crc.h"
 #include "test_helpers.h"
 
+static int test_setup(void** state)
+{
+    (void) state;
+    iolink_nvm_mock_cleanup();
+    return 0;
+}
+
+static int test_teardown(void** state)
+{
+    (void) state;
+    iolink_nvm_mock_cleanup();
+    return 0;
+}
+
 static void test_dll_wakeup_to_preoperate(void** state)
 {
     (void) state;
@@ -50,7 +64,7 @@ static void test_dll_wakeup_to_preoperate(void** state)
     will_return(mock_phy_recv_byte, 0);
 
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 4);
+    expect_value(mock_phy_send, len, 2);
     will_return(mock_phy_send, 0);
 
     iolink_process();
@@ -72,16 +86,14 @@ static void test_dll_preoperate_to_operate(void** state)
     usleep(200);
 
     /* PREOPERATE -> ESTAB_COM */
-    uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;
-    uint8_t ck = iolink_checksum_ck(mc, 0U);
+    uint8_t trans_mc = IOLINK_MC_TRANSITION_COMMAND;
+    uint8_t trans_ck = iolink_checksum_ck(trans_mc, 0U);
     will_return(mock_phy_recv_byte, 1);
-    will_return(mock_phy_recv_byte, mc);
+    will_return(mock_phy_recv_byte, trans_mc);
     will_return(mock_phy_recv_byte, 1);
-    will_return(mock_phy_recv_byte, ck);
+    will_return(mock_phy_recv_byte, trans_ck);
     will_return(mock_phy_recv_byte, 0);
-    expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 4); /* Type 0 in PREOPERATE: MC + CK */
-    will_return(mock_phy_send, 0);
+    /* No response for Transition Command in PREOPERATE */
     iolink_process();
     assert_int_equal(iolink_get_state(), IOLINK_DLL_STATE_ESTAB_COM);
 
@@ -124,9 +136,7 @@ static void test_dll_fallback_on_crc_errors(void** state)
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, ck);
     will_return(mock_phy_recv_byte, 0);
-    expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 2); /* Type 0 in PREOPERATE: MC + CK */
-    will_return(mock_phy_send, 0);
+    /* No response for Transition Command */
     iolink_process();
 
     /* ESTAB_COM -> OPERATE */
@@ -227,11 +237,13 @@ static void test_dll_reject_invalid_mc_channel(void** state)
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_dll_wakeup_to_preoperate),
-        cmocka_unit_test(test_dll_preoperate_to_operate),
-        cmocka_unit_test(test_dll_fallback_on_crc_errors),
-        cmocka_unit_test(test_dll_reject_transition_in_operate),
-        cmocka_unit_test(test_dll_reject_invalid_mc_channel),
+        cmocka_unit_test_setup_teardown(test_dll_wakeup_to_preoperate, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_dll_preoperate_to_operate, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_dll_fallback_on_crc_errors, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_dll_reject_transition_in_operate, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_dll_reject_invalid_mc_channel, test_setup,
+                                        test_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

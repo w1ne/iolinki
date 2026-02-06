@@ -22,6 +22,21 @@
 #include "iolinki/isdu.h"
 #include "iolinki/params.h"
 #include "iolinki/device_info.h"
+#include "test_helpers.h"
+
+static int test_setup(void** state)
+{
+    (void) state;
+    iolink_nvm_mock_cleanup();
+    return 0;
+}
+
+static int test_teardown(void** state)
+{
+    (void) state;
+    iolink_nvm_mock_cleanup();
+    return 0;
+}
 
 /* Removed unused test stub to avoid -Werror=unused-function */
 
@@ -29,19 +44,14 @@ static void test_isdu_segmented_write_corrected(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
-    static const iolink_device_info_t info = {
-        .vendor_name = "iolinki",
-        .vendor_id = 0x1234,
-        .device_id = 0x567890,
-    };
-    iolink_device_info_init(&info);
+    iolink_device_info_init(NULL);
     iolink_params_init();
     iolink_isdu_init(&ctx);
 
     /* Write Index 0x18, 2 bytes */
     /* Write Index 0x18, 2 bytes */
     iolink_isdu_collect_byte(&ctx, 0x80); /* Start, Seq=0 */
-    iolink_isdu_collect_byte(&ctx, 0xA2);
+    iolink_isdu_collect_byte(&ctx, 0x92);
 
     iolink_isdu_collect_byte(&ctx, 0x01); /* Seq=1 */
     iolink_isdu_collect_byte(&ctx, 0x00);
@@ -74,18 +84,13 @@ static void test_isdu_busy_response(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
-    static const iolink_device_info_t info = {
-        .vendor_name = "iolinki",
-        .vendor_id = 0x1234,
-        .device_id = 0x567890,
-    };
-    iolink_device_info_init(&info);
+    iolink_device_info_init(NULL);
     iolink_params_init();
     iolink_isdu_init(&ctx);
 
     /* 1. Start a write request */
     iolink_isdu_collect_byte(&ctx, 0x81); /* Start, Seq=1 */
-    iolink_isdu_collect_byte(&ctx, 0xA2); /* Write, Len=2 */
+    iolink_isdu_collect_byte(&ctx, 0x92); /* Write, Len=2 */
 
     /* 2. Before finishing, send another Start bit (Concurrent request) */
     /* iolink_isdu_collect_byte should return 1 to indicate a response is now ready (the error
@@ -121,20 +126,16 @@ static void test_isdu_segmentation_error(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
-    static const iolink_device_info_t info = {
-        .vendor_name = "iolinki",
-        .vendor_id = 0x1234,
-        .device_id = 0x567890,
-    };
-    iolink_device_info_init(&info);
+    /* Unused info struct */
+    iolink_device_info_init(NULL);
     iolink_params_init();
     iolink_isdu_init(&ctx);
 
     /* 1. Start a segmented write */
     iolink_isdu_collect_byte(&ctx, 0x81); /* Start, Seq=1, !Last */
-    iolink_isdu_collect_byte(&ctx, 0xA1); /* Write, Len=1 */
+    iolink_isdu_collect_byte(&ctx, 0x91); /* Write, Len=1 */
 
-    /* 2. Send wrong sequence number (Expected 2, send 3) */
+    /* 2. Send wrong sequence number (Expected 0x02, send 0x03) */
     assert_int_equal(iolink_isdu_collect_byte(&ctx, 0x03), -1);
 
     iolink_isdu_process(&ctx);
@@ -161,9 +162,10 @@ static void test_isdu_segmentation_error(void** state)
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_isdu_segmented_write_corrected),
-        cmocka_unit_test(test_isdu_busy_response),
-        cmocka_unit_test(test_isdu_segmentation_error),
+        cmocka_unit_test_setup_teardown(test_isdu_segmented_write_corrected, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_busy_response, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_segmentation_error, test_setup, test_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
