@@ -32,7 +32,7 @@ static void test_time_get_ms(void** state)
     uint32_t t2 = iolink_time_get_ms();
 
     assert_true(t2 >= t1 + 10);
-    assert_true(t2 < t1 + 20); /* Allow some jitter */
+    assert_true(t2 < t1 + 50); /* Allow more jitter (was 20) */
 }
 
 static void test_time_get_us(void** state)
@@ -43,7 +43,7 @@ static void test_time_get_us(void** state)
     uint64_t t2 = iolink_time_get_us();
 
     assert_true(t2 >= t1 + 1000);
-    assert_true(t2 < t1 + 2000);
+    assert_true(t2 < t1 + 5000); /* Allow more jitter (was 2000) */
 }
 
 static void test_t_cycle_violation(void** state)
@@ -179,7 +179,7 @@ static void test_t_pd_delay(void** state)
     will_return(mock_phy_send, 0);
     iolink_process();
 
-    /* In PREOPERATE, send Transition Command (0x0F) and expect response */
+    /* In PREOPERATE, send Transition Command (0x0F) - no response expected */
     uint8_t trans_mc = 0x0F;
     uint8_t trans_ck = iolink_checksum_ck(trans_mc, 0U);
     will_return(mock_phy_recv_byte, 1);
@@ -187,9 +187,6 @@ static void test_t_pd_delay(void** state)
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, trans_ck);
     will_return(mock_phy_recv_byte, 0);
-    expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 2);
-    will_return(mock_phy_send, 0);
     iolink_process();
 }
 

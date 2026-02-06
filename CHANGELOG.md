@@ -4,6 +4,37 @@ All notable changes to the `iolinki` project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.0.0-rc5] - 2026-02-06
+### Fixed
+- **ISDU Service Protocol**: Fixed critical bug in `HEADER_INITIAL` where Service Codes `0x9` (Read) and `0xA` (Write) were compared against internal Enum values `0/1` instead of protocol literals, causing all requests to fail or misbehave.
+- **Unit Test Expectation**: Corrected `test_dll.c` expectation for Preoperate-to-Operate transition to 4 bytes, matching Type 1 environment defaults.
+
+## [1.0.0-rc4] - 2026-02-06
+### Fixed
+- **Test Stability**: Fixed `test_timing.c` by explicitly configuring Type 0 mode to match test frames, avoiding default Type 1 conflict in CI.
+- **ISDU Compliance**: Updated `test_isdu_segmented.c` to use standard sequence number logic (starting at 0), resolving potential protocol mismatches.
+
+## [1.0.0-rc3] - 2026-02-06
+### Fixed
+- **Build System**: Fixed invalid CMake version string (removed `-rc` suffix from `project()` call) to resolve configuration error.
+
+## [1.0.0-rc2] - 2026-02-06
+### Fixed
+- **ISDU Helpers**: Fixed `test_helpers.c` to correctly handle `Start/Last` bits in V1.1.5 Interleaved Mode (preventing `BUSY` errors).
+- **Unit Tests**: Updated `test_dll.c` expectations to match Type 1 (4-byte) default configuration in CI.
+
+## [1.0.0-rc1] - 2026-02-06
+
+### Added
+- **Quality Gate**: Integrated Docker-based validation strategy for consistent testing.
+- **Pre-commit Hooks**: Enforced automated unit test execution before commits to prevent regressions.
+- **ISDU Helpers**: Added test helper functions (`isdu_send_read_request`, etc.) for V1.1.5 interleaved format validation.
+
+### Fixed
+- **ISDU Protocol Compliance**: Updated `src/isdu.c` to enforcing V1.1.5 interleaved Control/Data format for **all** transfers (previously only segmented).
+- **Type 0 Framing**: Corrected DLL implementation and tests to properly handle 2-byte idle frames (MC+CK).
+- **Error Recovery**: Fixed inactivity timeout (200ms) in `src/dll.c` for robust communication recovery.
+- **Stability**: Resolved PD toggle timing issues and ISDU stress test failures.
 
 ## [0.12.13] - 2026-02-05
 

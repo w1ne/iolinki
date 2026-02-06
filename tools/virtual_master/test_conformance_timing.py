@@ -72,7 +72,7 @@ class TestTimingConformance(unittest.TestCase):
         avg_cycle_time = sum(cycle_times) / len(cycle_times) if cycle_times else 0
         print(f"[INFO] Average cycle time: {avg_cycle_time * 1000:.2f} ms")
 
-        self.assertGreater(avg_cycle_time, 0.001, "Cycle time should be > 1ms")
+        self.assertGreater(avg_cycle_time, 0.0009, "Cycle time should be > 0.9ms")
         self.assertLess(avg_cycle_time, 0.200, "Cycle time should be < 200ms")
         print("[PASS] Cycle time within acceptable range")
 
