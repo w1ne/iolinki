@@ -38,7 +38,7 @@ repos:
     hooks:
       - id: unit-tests
         name: Run Unit Tests
-        entry: bash -c 'if command -v cmake >/dev/null 2>&1; then cmake -B build_test -DCMAKE_BUILD_TYPE=Debug >/dev/null 2>&1 && cmake --build build_test -j$(nproc) >/dev/null 2>&1 && (cd build_test && ctest --output-on-failure) || echo "Unit tests failed or CMocka not installed"; else echo "CMake not found, skipping tests"; fi'
+        entry: bash -c 'if command -v cmake >/dev/null 2>&1; then cmake -B build_test -DCMAKE_BUILD_TYPE=Debug >/dev/null 2>&1 && cmake --build build_test -j$(nproc) >/dev/null 2>&1 && (cd build_test && ctest --output-on-failure); else echo "CMake not found, skipping tests"; fi'
         language: system
         pass_filenames: false
         always_run: false

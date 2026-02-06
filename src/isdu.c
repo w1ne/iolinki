@@ -150,25 +150,25 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t* ctx, uint8_t byte)
                 return -1;
             }
             ctx->buffer_idx = 0U;
-            ctx->state = ctx->is_segmented ? ISDU_STATE_SEGMENT_COLLECT : ctx->next_state;
+            ctx->state = ISDU_STATE_SEGMENT_COLLECT;
         } break;
 
         case ISDU_STATE_HEADER_EXT_LEN:
             ctx->header.length = byte;
             ctx->next_state = ISDU_STATE_HEADER_INDEX_HIGH;
-            ctx->state = ctx->is_segmented ? ISDU_STATE_SEGMENT_COLLECT : ctx->next_state;
+            ctx->state = ISDU_STATE_SEGMENT_COLLECT;
             break;
 
         case ISDU_STATE_HEADER_INDEX_HIGH:
             ctx->header.index = (uint16_t) (byte << 8);
             ctx->next_state = ISDU_STATE_HEADER_INDEX_LOW;
-            ctx->state = ctx->is_segmented ? ISDU_STATE_SEGMENT_COLLECT : ctx->next_state;
+            ctx->state = ISDU_STATE_SEGMENT_COLLECT;
             break;
 
         case ISDU_STATE_HEADER_INDEX_LOW:
             ctx->header.index |= byte;
             ctx->next_state = ISDU_STATE_HEADER_SUBINDEX;
-            ctx->state = ctx->is_segmented ? ISDU_STATE_SEGMENT_COLLECT : ctx->next_state;
+            ctx->state = ISDU_STATE_SEGMENT_COLLECT;
             break;
 
         case ISDU_STATE_HEADER_SUBINDEX:
@@ -180,7 +180,7 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t* ctx, uint8_t byte)
                 ctx->state = ISDU_STATE_SERVICE_EXECUTE;
                 return 1;
             }
-            ctx->state = ctx->is_segmented ? ISDU_STATE_SEGMENT_COLLECT : ctx->next_state;
+            ctx->state = ISDU_STATE_SEGMENT_COLLECT;
             break;
 
         case ISDU_STATE_DATA_COLLECT:
@@ -190,9 +190,7 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t* ctx, uint8_t byte)
                 return 1;
             }
             ctx->next_state = ISDU_STATE_DATA_COLLECT;
-            if (ctx->is_segmented) {
-                ctx->state = ISDU_STATE_SEGMENT_COLLECT;
-            }
+            ctx->state = ISDU_STATE_SEGMENT_COLLECT;
             break;
 
         case ISDU_STATE_SERVICE_EXECUTE:
