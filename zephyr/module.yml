@@ -1,4 +1,3 @@
 build:
-  cmake-ext: True
   kconfig: zephyr/Kconfig
   cmake: zephyr
