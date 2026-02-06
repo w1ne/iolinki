@@ -4,6 +4,10 @@ All notable changes to the `iolinki` project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.0.0-rc3] - 2026-02-06
+### Fixed
+- **Build System**: Fixed invalid CMake version string (removed `-rc` suffix from `project()` call) to resolve configuration error.
+
 ## [1.0.0-rc2] - 2026-02-06
 ### Fixed
 - **ISDU Helpers**: Fixed `test_helpers.c` to correctly handle `Start/Last` bits in V1.1.5 Interleaved Mode (preventing `BUSY` errors).
