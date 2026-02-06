@@ -19,6 +19,11 @@ jobs:
       
       - uses: actions/checkout@v4
 
+      - name: Fix Permissions and Cleanup
+        run: |
+          sudo chmod -R 777 .
+          sudo rm -rf build build_docker build_bare build_quality
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
