@@ -2,6 +2,7 @@ FROM iolinki-zephyr-base
 
 # Environment
 ENV ZEPHYR_BASE=/workdir/zephyr
+ENV ZEPHYR_MODULES=/workdir/modules/lib/iolinki
 WORKDIR /workdir/modules/lib/iolinki
 
 # Build and Run (expects repo mounted at /workdir/modules/lib/iolinki)
