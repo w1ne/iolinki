@@ -29,8 +29,8 @@ extern uint8_t g_rx_buf[1024];
 int mock_phy_init(void);
 void mock_phy_set_mode(iolink_phy_mode_t mode);
 void mock_phy_set_baudrate(iolink_baudrate_t baudrate);
-int mock_phy_send(const uint8_t *data, size_t len);
-int mock_phy_recv_byte(uint8_t *byte);
+int mock_phy_send(const uint8_t* data, size_t len);
+int mock_phy_recv_byte(uint8_t* byte);
 int mock_phy_detect_wakeup(void);
 void mock_phy_set_cq_line(uint8_t state);
 
@@ -49,6 +49,6 @@ void iolink_phy_mock_set_send_delay_us(uint32_t delay_us);
 #include "iolinki/data_storage.h"
 extern const iolink_ds_storage_api_t g_ds_storage_mock;
 void iolink_ds_mock_reset(void);
-uint8_t *iolink_ds_mock_get_buf(void);
+uint8_t* iolink_ds_mock_get_buf(void);
 
 #endif  // TEST_HELPERS_H_

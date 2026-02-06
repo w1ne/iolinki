@@ -22,13 +22,13 @@ static void mock_set_baudrate(iolink_baudrate_t baudrate)
 {
     check_expected(baudrate);
 }
-static int mock_send(const uint8_t *data, size_t len)
+static int mock_send(const uint8_t* data, size_t len)
 {
     (void) data;
     (void) len;
     return (int) len;
 }
-static int mock_recv_byte(uint8_t *byte)
+static int mock_recv_byte(uint8_t* byte)
 {
     (void) byte;
     return 0;
@@ -40,7 +40,7 @@ static const iolink_phy_api_t mock_phy = {.init = mock_init,
                                           .send = mock_send,
                                           .recv_byte = mock_recv_byte};
 
-static void test_baudrate_init(void **state)
+static void test_baudrate_init(void** state)
 {
     (void) state;
     iolink_dll_ctx_t ctx;
@@ -52,7 +52,7 @@ static void test_baudrate_init(void **state)
     assert_int_equal(iolink_dll_get_baudrate(&ctx), IOLINK_BAUDRATE_COM2);
 }
 
-static void test_baudrate_switch(void **state)
+static void test_baudrate_switch(void** state)
 {
     (void) state;
     iolink_dll_ctx_t ctx;

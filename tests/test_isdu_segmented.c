@@ -23,7 +23,7 @@
 
 /* Removed unused test stub to avoid -Werror=unused-function */
 
-static void test_isdu_segmented_write_corrected(void **state)
+static void test_isdu_segmented_write_corrected(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -60,7 +60,7 @@ static void test_isdu_segmented_write_corrected(void **state)
     assert_int_equal(byte & 0xC0, 0xC0);
 }
 
-static void test_isdu_busy_response(void **state)
+static void test_isdu_busy_response(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -100,7 +100,7 @@ static void test_isdu_busy_response(void **state)
     assert_int_equal(byte, 0x30);
 }
 
-static void test_isdu_segmentation_error(void **state)
+static void test_isdu_segmentation_error(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;

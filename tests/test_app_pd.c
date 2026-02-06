@@ -28,7 +28,7 @@
 static int check_status_byte(const LargestIntegralType value,
                              const LargestIntegralType check_value_data)
 {
-    const uint8_t *data = (const uint8_t *) value;
+    const uint8_t* data = (const uint8_t*) value;
     uint8_t expected_flags = (uint8_t) check_value_data;
 
     /* Byte 0 is Status. Check logic:
@@ -54,7 +54,7 @@ static int check_status_byte(const LargestIntegralType value,
     return 1;
 }
 
-static void test_pd_toggle_bit(void **state)
+static void test_pd_toggle_bit(void** state)
 {
     (void) state;
     iolink_config_t config = {.pd_in_len = 2, .pd_out_len = 2, .m_seq_type = IOLINK_M_SEQ_TYPE_2_2};
@@ -85,7 +85,7 @@ static void test_pd_toggle_bit(void **state)
 
     /* Expect Toggle Bit SET (0x40) */
     expect_check(mock_phy_send, data, check_status_byte,
-                 (void *) (uintptr_t) IOLINK_OD_STATUS_PD_TOGGLE);
+                 (void*) (uintptr_t) IOLINK_OD_STATUS_PD_TOGGLE);
     expect_value(mock_phy_send, len, 6);
     will_return(mock_phy_send, 0);
     iolink_process();
@@ -101,7 +101,7 @@ static void test_pd_toggle_bit(void **state)
     will_return(mock_phy_recv_byte, 0);
 
     /* Expect Toggle Bit CLEARED (0x00) */
-    expect_check(mock_phy_send, data, check_status_byte, (void *) (uintptr_t) 0x00);
+    expect_check(mock_phy_send, data, check_status_byte, (void*) (uintptr_t) 0x00);
     expect_value(mock_phy_send, len, 6);
     will_return(mock_phy_send, 0);
     iolink_process();
@@ -118,7 +118,7 @@ static void test_pd_toggle_bit(void **state)
 
     /* Expect Toggle Bit SET (0x40) */
     expect_check(mock_phy_send, data, check_status_byte,
-                 (void *) (uintptr_t) IOLINK_OD_STATUS_PD_TOGGLE);
+                 (void*) (uintptr_t) IOLINK_OD_STATUS_PD_TOGGLE);
     expect_value(mock_phy_send, len, 6);
     will_return(mock_phy_send, 0);
     iolink_process();

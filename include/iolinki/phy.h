@@ -70,14 +70,14 @@ typedef struct
      * @param len Number of bytes to transmit
      * @return Number of bytes actually sent, or negative on error
      */
-    int (*send)(const uint8_t *data, size_t len);
+    int (*send)(const uint8_t* data, size_t len);
 
     /**
      * @brief Non-blocking receive for a single byte
      * @param byte Pointer to store received byte
      * @return 1 if byte available and read, 0 if nothing received, negative on error
      */
-    int (*recv_byte)(uint8_t *byte);
+    int (*recv_byte)(uint8_t* byte);
 
     /* Optional Diagnostic/Support Functions (can be NULL) */
 

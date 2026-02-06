@@ -39,7 +39,7 @@ add_library(iolinki STATIC
 set(IOLINK_PLATFORM "LINUX" CACHE STRING "Target platform: LINUX, BAREMETAL (Zephyr builds use module.yml)")
 
 if(IOLINK_PLATFORM STREQUAL "LINUX")
-    target_sources(iolinki PRIVATE 
+    target_sources(iolinki PRIVATE
         src/platform/linux/time_utils.c
         src/platform/linux/nvm_mock.c
     )

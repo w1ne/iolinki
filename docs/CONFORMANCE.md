@@ -251,5 +251,5 @@ For iolinki to be considered **IO-Link V1.1.5 conformant**, all 36 test cases mu
 
 ---
 
-**Copyright (C) 2026 Andrii Shylenko**  
+**Copyright (C) 2026 Andrii Shylenko**
 **License**: See [LICENSE](../LICENSE) and [LICENSE.COMMERCIAL](../LICENSE.COMMERCIAL)

@@ -44,7 +44,7 @@ typedef enum
 typedef struct
 {
     iolink_dll_state_t state;    /**< Current DLL state */
-    const iolink_phy_api_t *phy; /**< Bound PHY API implementation */
+    const iolink_phy_api_t* phy; /**< Bound PHY API implementation */
     uint32_t last_activity_ms;   /**< Timestamp of last valid frame */
     bool wakeup_seen;            /**< Wake-up detected (if PHY supports it) */
 
@@ -141,7 +141,7 @@ typedef struct
  * @param ctx DLL context to initialize
  * @param phy PHY implementation to bind
  */
-void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy);
+void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy);
 
 /**
  * @brief Process DLL logic
@@ -150,7 +150,7 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy);
  *
  * @param ctx DLL context to process
  */
-void iolink_dll_process(iolink_dll_ctx_t *ctx);
+void iolink_dll_process(iolink_dll_ctx_t* ctx);
 
 /**
  * @brief Set current PD lengths for variable types (1_V, 2_V)
@@ -160,7 +160,7 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx);
  * @param pd_out_len New PD_Out length
  * @return int 0 on success, negative on range error
  */
-int iolink_dll_set_pd_length(iolink_dll_ctx_t *ctx, uint8_t pd_in_len, uint8_t pd_out_len);
+int iolink_dll_set_pd_length(iolink_dll_ctx_t* ctx, uint8_t pd_in_len, uint8_t pd_out_len);
 
 /**
  * @brief Get current PD lengths
@@ -169,7 +169,7 @@ int iolink_dll_set_pd_length(iolink_dll_ctx_t *ctx, uint8_t pd_in_len, uint8_t p
  * @param pd_in_len [out] Current PD_In length
  * @param pd_out_len [out] Current PD_Out length
  */
-void iolink_dll_get_pd_length(const iolink_dll_ctx_t *ctx, uint8_t *pd_in_len, uint8_t *pd_out_len);
+void iolink_dll_get_pd_length(const iolink_dll_ctx_t* ctx, uint8_t* pd_in_len, uint8_t* pd_out_len);
 
 /**
  * @brief Request transition to SIO mode (single-wire communication)
@@ -177,7 +177,7 @@ void iolink_dll_get_pd_length(const iolink_dll_ctx_t *ctx, uint8_t *pd_in_len, u
  * @param ctx DLL context
  * @return int 0 on success
  */
-int iolink_dll_set_sio_mode(iolink_dll_ctx_t *ctx);
+int iolink_dll_set_sio_mode(iolink_dll_ctx_t* ctx);
 
 /**
  * @brief Request transition to SDCI mode (UART-based exchange)
@@ -185,7 +185,7 @@ int iolink_dll_set_sio_mode(iolink_dll_ctx_t *ctx);
  * @param ctx DLL context
  * @return int 0 on success
  */
-int iolink_dll_set_sdci_mode(iolink_dll_ctx_t *ctx);
+int iolink_dll_set_sdci_mode(iolink_dll_ctx_t* ctx);
 
 /**
  * @brief Get current operating mode
@@ -193,7 +193,7 @@ int iolink_dll_set_sdci_mode(iolink_dll_ctx_t *ctx);
  * @param ctx DLL context
  * @return iolink_phy_mode_t Current mode
  */
-iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t *ctx);
+iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t* ctx);
 
 /**
  * @brief Set the communication baudrate
@@ -202,7 +202,7 @@ iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t *ctx);
  * @param baudrate Desired baudrate (COM1, COM2, or COM3)
  * @return int 0 on success
  */
-int iolink_dll_set_baudrate(iolink_dll_ctx_t *ctx, iolink_baudrate_t baudrate);
+int iolink_dll_set_baudrate(iolink_dll_ctx_t* ctx, iolink_baudrate_t baudrate);
 
 /**
  * @brief Get current negotiated baudrate
@@ -210,7 +210,7 @@ int iolink_dll_set_baudrate(iolink_dll_ctx_t *ctx, iolink_baudrate_t baudrate);
  * @param ctx DLL context
  * @return iolink_baudrate_t Current baudrate
  */
-iolink_baudrate_t iolink_dll_get_baudrate(const iolink_dll_ctx_t *ctx);
+iolink_baudrate_t iolink_dll_get_baudrate(const iolink_dll_ctx_t* ctx);
 
 /**
  * @brief Get DLL statistics
@@ -218,7 +218,7 @@ iolink_baudrate_t iolink_dll_get_baudrate(const iolink_dll_ctx_t *ctx);
  * @param ctx DLL context
  * @param out_stats Output stats structure
  */
-void iolink_dll_get_stats(const iolink_dll_ctx_t *ctx, iolink_dll_stats_t *out_stats);
+void iolink_dll_get_stats(const iolink_dll_ctx_t* ctx, iolink_dll_stats_t* out_stats);
 
 /**
  * @brief Enable/disable timing enforcement (t_ren / t_cycle)
@@ -226,7 +226,7 @@ void iolink_dll_get_stats(const iolink_dll_ctx_t *ctx, iolink_dll_stats_t *out_s
  * @param ctx DLL context
  * @param enable true to enable, false to disable
  */
-void iolink_dll_set_timing_enforcement(iolink_dll_ctx_t *ctx, bool enable);
+void iolink_dll_set_timing_enforcement(iolink_dll_ctx_t* ctx, bool enable);
 
 /**
  * @brief Override t_ren limit (applies to all baudrates)
@@ -234,6 +234,6 @@ void iolink_dll_set_timing_enforcement(iolink_dll_ctx_t *ctx, bool enable);
  * @param ctx DLL context
  * @param limit_us New t_ren limit in microseconds (0 disables enforcement)
  */
-void iolink_dll_set_t_ren_limit_us(iolink_dll_ctx_t *ctx, uint32_t limit_us);
+void iolink_dll_set_t_ren_limit_us(iolink_dll_ctx_t* ctx, uint32_t limit_us);
 
 #endif  // IOLINK_DLL_H

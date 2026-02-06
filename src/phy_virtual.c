@@ -15,9 +15,9 @@
 #include <string.h>
 
 static int g_fd = -1;
-static const char *g_port_path = NULL;
+static const char* g_port_path = NULL;
 
-void iolink_phy_virtual_set_port(const char *port)
+void iolink_phy_virtual_set_port(const char* port)
 {
     g_port_path = port;
 }
@@ -71,7 +71,7 @@ static void virtual_set_baudrate(iolink_baudrate_t baudrate)
     printf("[PHY-VIRTUAL] Baudrate set to: %d\n", (int) baudrate);
 }
 
-static int virtual_send(const uint8_t *data, size_t len)
+static int virtual_send(const uint8_t* data, size_t len)
 {
     if ((g_fd < 0) || (data == NULL)) {
         return -1;
@@ -82,20 +82,10 @@ static int virtual_send(const uint8_t *data, size_t len)
     return (int) write(g_fd, data, len);
 }
 
-static uint8_t g_peek_buf = 0;
-static bool g_peek_valid = false;
-
-static int virtual_recv_byte(uint8_t *byte)
+static int virtual_recv_byte(uint8_t* byte)
 {
     if ((g_fd < 0) || (byte == NULL)) {
         return 0;
-    }
-
-    /* Check peek buffer first */
-    if (g_peek_valid) {
-        *byte = g_peek_buf;
-        g_peek_valid = false;
-        return 1;
     }
 
     ssize_t n = read(g_fd, byte, 1);
@@ -108,29 +98,11 @@ static int virtual_detect_wakeup(void)
         return 0;
     }
 
-    /* If we already have a valid peek byte, check it */
-    if (g_peek_valid) {
-        if (g_peek_buf == 0x55) {
-            /* Consume wakeup byte */
-            g_peek_valid = false;
-            return 1;
-        }
-        return 0;
-    }
-
-    /* Try to read a byte */
+    /* Try to read bytes until we find 0x55 or run out of data */
     uint8_t b;
-    ssize_t n = read(g_fd, &b, 1);
-    if (n > 0) {
+    while (read(g_fd, &b, 1) > 0) {
         if (b == 0x55) {
-            /* Wakeup! Consume it. */
             return 1;
-        }
-        else {
-            /* Not wakeup, save for recv_byte */
-            g_peek_buf = b;
-            g_peek_valid = true;
-            return 0;
         }
     }
     return 0;
@@ -143,7 +115,7 @@ static const iolink_phy_api_t g_phy_virtual = {.init = virtual_init,
                                                .recv_byte = virtual_recv_byte,
                                                .detect_wakeup = virtual_detect_wakeup};
 
-const iolink_phy_api_t *iolink_phy_virtual_get(void)
+const iolink_phy_api_t* iolink_phy_virtual_get(void)
 {
     return &g_phy_virtual;
 }

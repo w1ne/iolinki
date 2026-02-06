@@ -7,94 +7,11 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  quality-gate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-format cppcheck libcmocka-dev
-      
-      - name: Code Formatting Check
-        run: |
-          find src include tests examples -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror
-      
-      - name: Static Analysis (MISRA oriented)
-        run: |
-          cppcheck --enable=all --error-exitcode=1 --suppress=missingIncludeSystem --suppress=unusedFunction -I include src/
-      
-      - name: Doxygen Warning Check
-        run: |
-          sudo apt-get install -y doxygen
-          doxygen Doxyfile 2>&1 | tee doxygen.log
-          if grep -q "warning:" doxygen.log; then 
-            echo "Doxygen warnings found:"
-            grep "warning:" doxygen.log
-            exit 1
-          fi
-
-  build-and-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential libcmocka-dev
-      
-      - name: Build
-        run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build
-      
-      - name: Run Unit Tests
-        run: |
-          cd build
-          ctest --output-on-failure
-      
-      - name: Archive Test Results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: build/Testing/
-
-  build-bare-metal:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Dependencies
-        run: sudo apt-get install -y cmake build-essential python3
-      - name: Build Bare Metal Prototype
-        run: |
-            cmake -B build_bare -DIOLINK_PLATFORM=BAREMETAL
-            cmake --build build_bare
-      - name: Run Prototype
-        run: ./build_bare/examples/bare_metal_app/bare_metal_app
-
-  build-example:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential
-      
-      - name: Build Example
-        run: |
-          cmake -B build
-          cmake --build build --target simple_device
-
   docker-validation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -104,7 +21,7 @@ jobs:
         with:
           path: zephyr-base-image.tar
           key: ${{ runner.os }}-zephyr-base-3.5.0
-          
+
       - name: Load Zephyr Base Image
         if: steps.cache-zephyr.outputs.cache-hit == 'true'
         run: docker load -i zephyr-base-image.tar
@@ -117,5 +34,4 @@ jobs:
       - name: Save Zephyr Base Image for Cache
         if: steps.cache-zephyr.outputs.cache-hit != 'true'
         run: |
-          # Ensure image name matches what run_all_tests_docker.sh builds
           docker save iolinki-zephyr-base > zephyr-base-image.tar

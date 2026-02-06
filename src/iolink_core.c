@@ -18,7 +18,7 @@
 static iolink_dll_ctx_t g_dll_ctx;
 static iolink_config_t g_config;
 
-int iolink_init(const iolink_phy_api_t *phy, const iolink_config_t *config)
+int iolink_init(const iolink_phy_api_t* phy, const iolink_config_t* config)
 {
     if (phy == NULL) {
         return -1;
@@ -87,7 +87,7 @@ void iolink_process(void)
     iolink_dll_process(&g_dll_ctx);
 }
 
-int iolink_pd_input_update(const uint8_t *data, size_t len, bool valid)
+int iolink_pd_input_update(const uint8_t* data, size_t len, bool valid)
 {
     if (data == NULL) {
         return -1;
@@ -100,12 +100,13 @@ int iolink_pd_input_update(const uint8_t *data, size_t len, bool valid)
     (void) memcpy(g_dll_ctx.pd_in, data, len);
     g_dll_ctx.pd_in_len = (uint8_t) len;
     g_dll_ctx.pd_valid = valid;
+    g_dll_ctx.pd_in_toggle = !g_dll_ctx.pd_in_toggle;
     iolink_critical_exit();
 
     return 0;
 }
 
-int iolink_pd_output_read(uint8_t *data, size_t len)
+int iolink_pd_output_read(uint8_t* data, size_t len)
 {
     if (data == NULL) {
         return -1;
@@ -119,12 +120,12 @@ int iolink_pd_output_read(uint8_t *data, size_t len)
     return (int) read_len;
 }
 
-iolink_events_ctx_t *iolink_get_events_ctx(void)
+iolink_events_ctx_t* iolink_get_events_ctx(void)
 {
     return &g_dll_ctx.events;
 }
 
-iolink_ds_ctx_t *iolink_get_ds_ctx(void)
+iolink_ds_ctx_t* iolink_get_ds_ctx(void)
 {
     return &g_dll_ctx.ds;
 }
@@ -144,7 +145,7 @@ iolink_baudrate_t iolink_get_baudrate(void)
     return g_dll_ctx.baudrate;
 }
 
-void iolink_get_dll_stats(iolink_dll_stats_t *out_stats)
+void iolink_get_dll_stats(iolink_dll_stats_t* out_stats)
 {
     iolink_dll_get_stats(&g_dll_ctx, out_stats);
 }

@@ -44,7 +44,7 @@ const iolink_phy_api_t g_phy_freertos = {
 };
 
 /* IO-Link Stack Task */
-void iolink_task_entry(void *pvParameters)
+void iolink_task_entry(void* pvParameters)
 {
     (void) pvParameters;
 
@@ -63,7 +63,7 @@ void iolink_task_entry(void *pvParameters)
 }
 
 /* Application Task (simulating events trigger from another thread) */
-void app_task_entry(void *pvParameters)
+void app_task_entry(void* pvParameters)
 {
     (void) pvParameters;
 

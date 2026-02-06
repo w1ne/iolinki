@@ -26,7 +26,7 @@
 #include "iolinki/protocol.h"
 #include "iolinki/dll.h"
 
-static void test_isdu_vendor_name_read(void **state)
+static void test_isdu_vendor_name_read(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -60,7 +60,7 @@ static void test_isdu_vendor_name_read(void **state)
     assert_memory_equal(name, "iolinki", 7);
 }
 
-static void test_isdu_device_status_read(void **state)
+static void test_isdu_device_status_read(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -99,7 +99,7 @@ static void test_isdu_device_status_read(void **state)
     assert_int_equal(byte, 3); /* Failure */
 }
 
-static void test_isdu_detailed_device_status_read(void **state)
+static void test_isdu_detailed_device_status_read(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -132,7 +132,7 @@ static void test_isdu_detailed_device_status_read(void **state)
     assert_int_equal(byte, 0x01);
 }
 
-static void test_isdu_error_stats_read(void **state)
+static void test_isdu_error_stats_read(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -174,7 +174,7 @@ static void test_isdu_error_stats_read(void **state)
 
 /* System Command Tests */
 
-static void test_system_cmd_device_reset(void **state)
+static void test_system_cmd_device_reset(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -199,7 +199,7 @@ static void test_system_cmd_device_reset(void **state)
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 0); /* No data */
 }
 
-static void test_system_cmd_application_reset(void **state)
+static void test_system_cmd_application_reset(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -224,7 +224,7 @@ static void test_system_cmd_application_reset(void **state)
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 0);
 }
 
-static void test_system_cmd_factory_restore(void **state)
+static void test_system_cmd_factory_restore(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -256,7 +256,7 @@ static void test_system_cmd_factory_restore(void **state)
     assert_int_equal(len, 0); /* Should be empty after factory reset */
 }
 
-static void test_system_cmd_param_upload(void **state)
+static void test_system_cmd_param_upload(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -284,7 +284,7 @@ static void test_system_cmd_param_upload(void **state)
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 0);
 }
 
-static void test_system_cmd_param_download(void **state)
+static void test_system_cmd_param_download(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -312,7 +312,7 @@ static void test_system_cmd_param_download(void **state)
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 0);
 }
 
-static void test_system_cmd_param_break(void **state)
+static void test_system_cmd_param_break(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -343,7 +343,7 @@ static void test_system_cmd_param_break(void **state)
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 0);
 }
 
-static void test_system_cmd_invalid(void **state)
+static void test_system_cmd_invalid(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -369,7 +369,7 @@ static void test_system_cmd_invalid(void **state)
     assert_int_equal(byte, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
 }
 
-static void test_isdu_function_tag_read_write(void **state)
+static void test_isdu_function_tag_read_write(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -377,7 +377,7 @@ static void test_isdu_function_tag_read_write(void **state)
     iolink_isdu_init(&ctx);
 
     /* Write Function Tag */
-    const char *test_tag = "TestFunction";
+    const char* test_tag = "TestFunction";
     uint8_t tag_len = (uint8_t) strlen(test_tag);
 
     assert_int_equal(iolink_isdu_collect_byte(&ctx, 0xC0), 0);           /* Start + Last */
@@ -423,7 +423,7 @@ static void test_isdu_function_tag_read_write(void **state)
     assert_memory_equal(readback, test_tag, tag_len);
 }
 
-static void test_isdu_location_tag_read_write(void **state)
+static void test_isdu_location_tag_read_write(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -431,7 +431,7 @@ static void test_isdu_location_tag_read_write(void **state)
     iolink_isdu_init(&ctx);
 
     /* Write Location Tag */
-    const char *test_tag = "Building-A";
+    const char* test_tag = "Building-A";
     uint8_t tag_len = (uint8_t) strlen(test_tag);
 
     assert_int_equal(iolink_isdu_collect_byte(&ctx, 0xC0), 0);           /* Start + Last */
@@ -477,7 +477,7 @@ static void test_isdu_location_tag_read_write(void **state)
     assert_memory_equal(readback, test_tag, tag_len);
 }
 
-static void test_isdu_pdin_descriptor_read(void **state)
+static void test_isdu_pdin_descriptor_read(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;

@@ -47,7 +47,7 @@ void mock_phy_set_baudrate(iolink_baudrate_t baudrate)
     check_expected(baudrate);
 }
 
-int mock_phy_send(const uint8_t *data, size_t len)
+int mock_phy_send(const uint8_t* data, size_t len)
 {
     check_expected_ptr(data);
     check_expected(len);
@@ -57,7 +57,7 @@ int mock_phy_send(const uint8_t *data, size_t len)
     return (int) mock();
 }
 
-int mock_phy_recv_byte(uint8_t *byte)
+int mock_phy_recv_byte(uint8_t* byte)
 {
     int res = (int) mock();
     if (res > 0) {
@@ -196,14 +196,14 @@ void iolink_phy_mock_set_send_delay_us(uint32_t delay_us)
 #define DS_MOCK_SIZE 128
 static uint8_t g_ds_mock_buf[DS_MOCK_SIZE];
 
-int ds_mock_read(uint32_t addr, uint8_t *buf, size_t len)
+int ds_mock_read(uint32_t addr, uint8_t* buf, size_t len)
 {
     if (addr + len > DS_MOCK_SIZE) return -1;
     memcpy(buf, &g_ds_mock_buf[addr], len);
     return 0;
 }
 
-int ds_mock_write(uint32_t addr, const uint8_t *buf, size_t len)
+int ds_mock_write(uint32_t addr, const uint8_t* buf, size_t len)
 {
     if (addr + len > DS_MOCK_SIZE) return -1;
     memcpy(&g_ds_mock_buf[addr], buf, len);
@@ -218,7 +218,7 @@ void iolink_ds_mock_reset(void)
     memset(g_ds_mock_buf, 0, DS_MOCK_SIZE);
 }
 
-uint8_t *iolink_ds_mock_get_buf(void)
+uint8_t* iolink_ds_mock_get_buf(void)
 {
     return g_ds_mock_buf;
 }

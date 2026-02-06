@@ -4,7 +4,6 @@ set -e
 
 APP_DIR="examples/zephyr_app"
 BUILD_DIR="build_zephyr"
-BINARY="$BUILD_DIR/zephyr/zephyr.exe"
 
 echo "========================================"
 echo "🪁 Testing Zephyr Native Simulation"
@@ -35,7 +34,8 @@ fi
 # 2. Run Integration Test
 echo "   🏃 Running Integration Test..."
 chmod +x tools/zephyr_wrapper.sh
-export IOLINK_DEVICE_PATH="$(pwd)/tools/zephyr_wrapper.sh"
+IOLINK_DEVICE_PATH="$(pwd)/tools/zephyr_wrapper.sh"
+export IOLINK_DEVICE_PATH
 
 # Run the Python Test
 if python3 tools/virtual_master/test_type1.py; then

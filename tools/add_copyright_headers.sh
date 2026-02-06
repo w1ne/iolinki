@@ -51,12 +51,12 @@ add_python_header() {
 }
 
 # Process C and H files
-find src include tests examples -type f \( -name "*.c" -o -name "*.h" \) | while read file; do
+find src include tests examples -type f \( -name "*.c" -o -name "*.h" \) | while read -r file; do
     add_c_header "$file"
 done
 
 # Process Python files
-find tools/virtual_master -type f -name "*.py" | while read file; do
+find tools/virtual_master -type f -name "*.py" | while read -r file; do
     add_python_header "$file"
 done
 

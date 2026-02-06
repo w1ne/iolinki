@@ -19,3 +19,7 @@ cmake --build build_bare
 export IOLINK_DEVICE_PATH=/workspace/build_docker/examples/host_demo/host_demo
 python3 tools/virtual_master/test_automated_mandatory.py
 python3 tools/virtual_master/test_pd_variable.py
+python3 tools/virtual_master/test_conformance_error_injection.py
+python3 tools/virtual_master/test_conformance_isdu.py
+python3 tools/virtual_master/test_conformance_state_machine.py
+python3 tools/virtual_master/test_conformance_timing.py

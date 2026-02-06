@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Colors
 GREEN='\033[0;32m'
+RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
@@ -26,18 +27,18 @@ TOTAL_FAILED=0
 
 for config in "${CONFIGS[@]}"; do
     read -r m_type pd_in pd_out <<< "$config"
-    
+
     echo ""
     echo "=========================================="
     echo -e "${YELLOW}Testing M-Sequence Type $m_type (PD_In=$pd_in, PD_Out=$pd_out)${NC}"
     echo "=========================================="
-    
-    export IOLINK_M_SEQ_TYPE=$m_type
-    export IOLINK_PD_IN_LEN=$pd_in
-    export IOLINK_PD_OUT_LEN=$pd_out
-    
+
+    export IOLINK_M_SEQ_TYPE="$m_type"
+    export IOLINK_PD_IN_LEN="$pd_in"
+    export IOLINK_PD_OUT_LEN="$pd_out"
+
     # Run ISDU conformance tests
-    if python3 "$SCRIPT_DIR/test_conformance_isdu.py" 2>&1 | tee /tmp/conformance_${m_type}.log; then
+    if python3 "$SCRIPT_DIR/test_conformance_isdu.py" 2>&1 | tee /tmp/conformance_"${m_type}".log; then
         echo -e "${GREEN}✅ Type $m_type: PASSED${NC}"
         ((TOTAL_PASSED++))
     else

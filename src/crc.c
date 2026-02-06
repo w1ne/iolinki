@@ -15,7 +15,7 @@
  * Polynomial x^6 + x^4 + x^3 + x^2 + 1 (0x1D)
  * Seed: 0x15
  */
-uint8_t iolink_crc6(const uint8_t *data, uint8_t len)
+uint8_t iolink_crc6(const uint8_t* data, uint8_t len)
 {
     uint8_t crc = 0x15U; /* Initial value for V1.1 */
 

@@ -36,7 +36,7 @@ if(CMOCKA_FOUND)
     add_iolink_test(test_integration_full test_integration_full.c)
     add_iolink_test(test_application test_application.c)
     add_iolink_test(test_m_sequence_types test_m_sequence_types.c)
-    
+
     # Portability Verification
     add_iolink_test(test_locking test_locking.c)
     add_iolink_test(test_config test_config_verification.c)

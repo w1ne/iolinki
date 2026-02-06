@@ -9,7 +9,7 @@
 #include "iolinki/data_storage.h"
 #include "iolinki/utils.h"
 
-void iolink_ds_init(iolink_ds_ctx_t *ctx, const iolink_ds_storage_api_t *storage)
+void iolink_ds_init(iolink_ds_ctx_t* ctx, const iolink_ds_storage_api_t* storage)
 {
     if (!iolink_ctx_zero(ctx, sizeof(iolink_ds_ctx_t))) {
         return;
@@ -18,7 +18,7 @@ void iolink_ds_init(iolink_ds_ctx_t *ctx, const iolink_ds_storage_api_t *storage
     ctx->state = IOLINK_DS_STATE_IDLE;
 }
 
-uint16_t iolink_ds_calc_checksum(const uint8_t *data, size_t len)
+uint16_t iolink_ds_calc_checksum(const uint8_t* data, size_t len)
 {
     /* Fletcher-16 or simple sum for demo. IO-Link usually uses a specific CRC. */
     uint16_t sum1 = 0U;
@@ -33,7 +33,7 @@ uint16_t iolink_ds_calc_checksum(const uint8_t *data, size_t len)
     return (uint16_t) ((sum2 << 8U) | sum1);
 }
 
-void iolink_ds_check(iolink_ds_ctx_t *ctx, uint16_t master_checksum)
+void iolink_ds_check(iolink_ds_ctx_t* ctx, uint16_t master_checksum)
 {
     if (ctx == NULL) {
         return;
@@ -55,7 +55,7 @@ void iolink_ds_check(iolink_ds_ctx_t *ctx, uint16_t master_checksum)
     }
 }
 
-void iolink_ds_process(iolink_ds_ctx_t *ctx)
+void iolink_ds_process(iolink_ds_ctx_t* ctx)
 {
     if (ctx == NULL) {
         return;
@@ -90,7 +90,7 @@ void iolink_ds_process(iolink_ds_ctx_t *ctx)
     }
 }
 
-int iolink_ds_start_upload(iolink_ds_ctx_t *ctx)
+int iolink_ds_start_upload(iolink_ds_ctx_t* ctx)
 {
     if (ctx == NULL) {
         return -1;
@@ -104,7 +104,7 @@ int iolink_ds_start_upload(iolink_ds_ctx_t *ctx)
     return 0;
 }
 
-int iolink_ds_start_download(iolink_ds_ctx_t *ctx)
+int iolink_ds_start_download(iolink_ds_ctx_t* ctx)
 {
     if (ctx == NULL) {
         return -1;
@@ -118,7 +118,7 @@ int iolink_ds_start_download(iolink_ds_ctx_t *ctx)
     return 0;
 }
 
-int iolink_ds_abort(iolink_ds_ctx_t *ctx)
+int iolink_ds_abort(iolink_ds_ctx_t* ctx)
 {
     if (ctx == NULL) {
         return -1;
@@ -129,7 +129,7 @@ int iolink_ds_abort(iolink_ds_ctx_t *ctx)
     return 0;
 }
 
-int iolink_ds_handle_command(iolink_ds_ctx_t *ctx, uint8_t cmd, uint16_t access_locks)
+int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_locks)
 {
     if (ctx == NULL) {
         return -1;

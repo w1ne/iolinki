@@ -21,7 +21,7 @@
 #include "iolinki/data_storage.h"
 #include "test_helpers.h"
 
-static void test_ds_checksum(void **state)
+static void test_ds_checksum(void** state)
 {
     (void) state;
     uint8_t data[] = {0x01, 0x02, 0x03, 0x04};
@@ -34,7 +34,7 @@ static void test_ds_checksum(void **state)
     assert_int_not_equal(cs1, cs3);
 }
 
-static void test_ds_storage_integration(void **state)
+static void test_ds_storage_integration(void** state)
 {
     (void) state;
     iolink_ds_ctx_t ds;
@@ -49,7 +49,7 @@ static void test_ds_storage_integration(void **state)
     assert_memory_equal(read_buf, write_data, 4);
 }
 
-static void test_ds_state_transitions(void **state)
+static void test_ds_state_transitions(void** state)
 {
     (void) state;
     iolink_ds_ctx_t ds;
@@ -70,7 +70,7 @@ static void test_ds_state_transitions(void **state)
     assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
 }
 
-static void test_ds_commands_locked(void **state)
+static void test_ds_commands_locked(void** state)
 {
     (void) state;
     iolink_ds_ctx_t ds;
@@ -91,7 +91,7 @@ static void test_ds_commands_locked(void **state)
     assert_int_equal(ds.state, IOLINK_DS_STATE_UPLOAD_REQ);
 }
 
-static void test_ds_commands_unlocked(void **state)
+static void test_ds_commands_unlocked(void** state)
 {
     (void) state;
     iolink_ds_ctx_t ds;

@@ -60,7 +60,7 @@ typedef struct
  * @param config Pointer to stack configuration (copied internally)
  * @return int 0 on success, negative error code (e.g. -1 for NULL PHY)
  */
-int iolink_init(const iolink_phy_api_t *phy, const iolink_config_t *config);
+int iolink_init(const iolink_phy_api_t* phy, const iolink_config_t* config);
 
 /**
  * @brief Process the IO-Link stack logic
@@ -80,7 +80,7 @@ void iolink_process(void);
  *
  * @return iolink_events_ctx_t* Pointer to the internal events context
  */
-iolink_events_ctx_t *iolink_get_events_ctx(void);
+iolink_events_ctx_t* iolink_get_events_ctx(void);
 
 /**
  * @brief Get the data storage context of the stack
@@ -89,7 +89,7 @@ iolink_events_ctx_t *iolink_get_events_ctx(void);
  *
  * @return iolink_ds_ctx_t* Pointer to the internal DS context
  */
-iolink_ds_ctx_t *iolink_get_ds_ctx(void);
+iolink_ds_ctx_t* iolink_get_ds_ctx(void);
 
 /**
  * @brief Get current DLL state
@@ -117,7 +117,7 @@ iolink_baudrate_t iolink_get_baudrate(void);
  *
  * @param out_stats Output stats structure
  */
-void iolink_get_dll_stats(iolink_dll_stats_t *out_stats);
+void iolink_get_dll_stats(iolink_dll_stats_t* out_stats);
 
 /**
  * @brief Enable/disable timing enforcement (t_ren / t_cycle)

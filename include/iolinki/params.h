@@ -35,7 +35,7 @@ void iolink_params_init(void);
  * @param max_len Size of the destination buffer
  * @return int Number of bytes read on success, or negative IO-Link ErrorCode
  */
-int iolink_params_get(uint16_t index, uint8_t subindex, uint8_t *buffer, size_t max_len);
+int iolink_params_get(uint16_t index, uint8_t subindex, uint8_t* buffer, size_t max_len);
 
 /**
  * @brief Update a parameter value
@@ -47,7 +47,7 @@ int iolink_params_get(uint16_t index, uint8_t subindex, uint8_t *buffer, size_t 
  * @param persist If true, synchronously commit the change to NVM
  * @return int 0 on success, or negative IO-Link ErrorCode (e.g. 0x80XX)
  */
-int iolink_params_set(uint16_t index, uint8_t subindex, const uint8_t *data, size_t len,
+int iolink_params_set(uint16_t index, uint8_t subindex, const uint8_t* data, size_t len,
                       bool persist);
 
 /**

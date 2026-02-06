@@ -28,7 +28,7 @@ static iolink_params_nvm_t g_nvm_shadow;
 void iolink_params_init(void)
 {
     /* Try to load from NVM */
-    if (iolink_nvm_read(0U, (uint8_t *) &g_nvm_shadow, sizeof(g_nvm_shadow)) == 0) {
+    if (iolink_nvm_read(0U, (uint8_t*) &g_nvm_shadow, sizeof(g_nvm_shadow)) == 0) {
         if (g_nvm_shadow.magic == PARAMS_NVM_MAGIC) {
             /* Sync with device info */
             (void) iolink_device_info_set_application_tag(
@@ -39,7 +39,7 @@ void iolink_params_init(void)
 
     /* Init default state */
     g_nvm_shadow.magic = PARAMS_NVM_MAGIC;
-    const iolink_device_info_t *info = iolink_device_info_get();
+    const iolink_device_info_t* info = iolink_device_info_get();
     if ((info != NULL) && (info->application_tag != NULL)) {
         size_t copy_len = strlen(info->application_tag);
         if (copy_len > 32U) {
@@ -55,13 +55,13 @@ void iolink_params_init(void)
     g_nvm_shadow.location_tag[0] = '\0';
 }
 
-int iolink_params_get(uint16_t index, uint8_t subindex, uint8_t *buffer, size_t max_len)
+int iolink_params_get(uint16_t index, uint8_t subindex, uint8_t* buffer, size_t max_len)
 {
     if (buffer == NULL) {
         return -1;
     }
     if ((index == 0x0018U) && (subindex == 0U)) {
-        const iolink_device_info_t *info = iolink_device_info_get();
+        const iolink_device_info_t* info = iolink_device_info_get();
         if ((info != NULL) && (info->application_tag != NULL)) {
             size_t len = strlen(info->application_tag);
             if (len > max_len) {
@@ -90,21 +90,21 @@ int iolink_params_get(uint16_t index, uint8_t subindex, uint8_t *buffer, size_t 
     return -1;
 }
 
-int iolink_params_set(uint16_t index, uint8_t subindex, const uint8_t *data, size_t len,
+int iolink_params_set(uint16_t index, uint8_t subindex, const uint8_t* data, size_t len,
                       bool persist)
 {
     if (!iolink_buf_is_valid(data, len)) {
         return -1;
     }
     if ((index == 0x0018U) && (subindex == 0U)) {
-        if (iolink_device_info_set_application_tag((const char *) data, (uint8_t) len) == 0) {
+        if (iolink_device_info_set_application_tag((const char*) data, (uint8_t) len) == 0) {
             if (persist) {
                 size_t copy_len = (len > 32U) ? 32U : len;
                 if (copy_len > 0U) {
                     (void) memcpy(g_nvm_shadow.application_tag, data, copy_len);
                 }
                 g_nvm_shadow.application_tag[copy_len] = '\0';
-                (void) iolink_nvm_write(0U, (uint8_t *) &g_nvm_shadow, sizeof(g_nvm_shadow));
+                (void) iolink_nvm_write(0U, (uint8_t*) &g_nvm_shadow, sizeof(g_nvm_shadow));
             }
             return 0;
         }
@@ -116,7 +116,7 @@ int iolink_params_set(uint16_t index, uint8_t subindex, const uint8_t *data, siz
         }
         g_nvm_shadow.function_tag[copy_len] = '\0';
         if (persist) {
-            (void) iolink_nvm_write(0U, (uint8_t *) &g_nvm_shadow, sizeof(g_nvm_shadow));
+            (void) iolink_nvm_write(0U, (uint8_t*) &g_nvm_shadow, sizeof(g_nvm_shadow));
         }
         return 0;
     }
@@ -127,7 +127,7 @@ int iolink_params_set(uint16_t index, uint8_t subindex, const uint8_t *data, siz
         }
         g_nvm_shadow.location_tag[copy_len] = '\0';
         if (persist) {
-            (void) iolink_nvm_write(0U, (uint8_t *) &g_nvm_shadow, sizeof(g_nvm_shadow));
+            (void) iolink_nvm_write(0U, (uint8_t*) &g_nvm_shadow, sizeof(g_nvm_shadow));
         }
         return 0;
     }
@@ -146,5 +146,5 @@ void iolink_params_factory_reset(void)
     (void) iolink_device_info_set_application_tag("", 0U);
 
     /* Erase NVM (write zeros or default structure) */
-    (void) iolink_nvm_write(0U, (uint8_t *) &g_nvm_shadow, sizeof(g_nvm_shadow));
+    (void) iolink_nvm_write(0U, (uint8_t*) &g_nvm_shadow, sizeof(g_nvm_shadow));
 }

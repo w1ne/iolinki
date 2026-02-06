@@ -29,7 +29,7 @@
 #include "iolinki/crc.h"
 #include "test_helpers.h"
 
-static void test_full_stack_lifecycle(void **state)
+static void test_full_stack_lifecycle(void** state)
 {
     (void) state;
     iolink_phy_mock_reset();
@@ -69,7 +69,7 @@ static void test_full_stack_lifecycle(void **state)
     iolink_process();
 
     /*** STEP 3: EVENT TRIGGERING ***/
-    iolink_events_ctx_t *evt_ctx = iolink_get_events_ctx();
+    iolink_events_ctx_t* evt_ctx = iolink_get_events_ctx();
     iolink_event_trigger(evt_ctx, 0x1234, IOLINK_EVENT_TYPE_WARNING);
     assert_true(iolink_events_pending(evt_ctx));
 
@@ -91,7 +91,7 @@ static void test_full_stack_lifecycle(void **state)
     assert_true(iolink_events_pending(evt_ctx));
 }
 
-static void test_full_stack_timing_enforcement(void **state)
+static void test_full_stack_timing_enforcement(void** state)
 {
     (void) state;
     iolink_config_t config = {

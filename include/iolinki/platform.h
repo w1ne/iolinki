@@ -44,7 +44,7 @@ void iolink_critical_exit(void);
  * @param len Length to read
  * @return int 0 on success
  */
-int iolink_nvm_read(uint32_t offset, uint8_t *data, size_t len);
+int iolink_nvm_read(uint32_t offset, uint8_t* data, size_t len);
 
 /**
  * @brief Write data to non-volatile memory (NVM).
@@ -53,7 +53,7 @@ int iolink_nvm_read(uint32_t offset, uint8_t *data, size_t len);
  * @param len Length to write
  * @return int 0 on success
  */
-int iolink_nvm_write(uint32_t offset, const uint8_t *data, size_t len);
+int iolink_nvm_write(uint32_t offset, const uint8_t* data, size_t len);
 
 /* Default (Weak) Implementation typically provided in a platform source file.
  * If strictly header-only or macro-based is preferred, use #define macros here.

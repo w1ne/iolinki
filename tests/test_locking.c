@@ -29,7 +29,7 @@ void iolink_critical_exit(void)
     g_exit_count++;
 }
 
-static void test_event_locking(void **state)
+static void test_event_locking(void** state)
 {
     (void) state;
     iolink_events_ctx_t ctx;

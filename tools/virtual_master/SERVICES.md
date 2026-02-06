@@ -125,7 +125,7 @@ if response.valid:
     status = response.status      # Status byte
     payload = response.payload    # Payload bytes
     checksum = response.checksum  # CK byte
-    
+
     # Check for event
     if response.has_event():
         print("Event pending")
