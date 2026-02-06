@@ -40,3 +40,6 @@ docker run --rm -v "$(pwd)":/workdir/modules/lib/iolinki iolinki-zephyr-test
 echo -e "\n============================================"
 echo "✅ All Dockerized Tests Completed Successfully"
 echo "============================================"
+
+# Final Cleanup (optional but good for runners)
+# docker system prune -f
