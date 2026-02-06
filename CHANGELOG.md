@@ -4,6 +4,11 @@ All notable changes to the `iolinki` project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.0.0-rc5] - 2026-02-06
+### Fixed
+- **ISDU Service Protocol**: Fixed critical bug in `HEADER_INITIAL` where Service Codes `0x9` (Read) and `0xA` (Write) were compared against internal Enum values `0/1` instead of protocol literals, causing all requests to fail or misbehave.
+- **Unit Test Expectation**: Corrected `test_dll.c` expectation for Preoperate-to-Operate transition to 4 bytes, matching Type 1 environment defaults.
+
 ## [1.0.0-rc4] - 2026-02-06
 ### Fixed
 - **Test Stability**: Fixed `test_timing.c` by explicitly configuring Type 0 mode to match test frames, avoiding default Type 1 conflict in CI.

@@ -126,12 +126,12 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t* ctx, uint8_t byte)
             uint8_t service = (uint8_t) ((byte >> 4) & 0x0FU);
             uint8_t length = (uint8_t) (byte & 0x0FU);
 
-            if (service == IOLINK_ISDU_SERVICE_READ) {
-                ctx->header.type = IOLINK_ISDU_SERVICE_READ;
+            if (service == 0x09U) {
+                ctx->header.type = IOLINK_ISDU_SERVICE_TYPE_READ;
                 ctx->header.length = 0U;
                 ctx->next_state = ISDU_STATE_HEADER_INDEX_HIGH;
             }
-            else if (service == IOLINK_ISDU_SERVICE_WRITE) {
+            else if (service == 0x0AU) {
                 ctx->header.type = IOLINK_ISDU_SERVICE_WRITE;
                 if (length == 15U) {
                     ctx->next_state = ISDU_STATE_HEADER_EXT_LEN;
