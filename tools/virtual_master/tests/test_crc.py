@@ -6,29 +6,29 @@ This file is part of iolinki.
 See LICENSE for details.
 """
 
+import os
+import sys
+import pytest
+from virtual_master.crc import calculate_crc6, calculate_checksum_type0
+from virtual_master.protocol import DeviceResponse
+
 """
 Test CRC calculation against known values.
 """
 
-import os
-import sys
-import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from virtual_master.crc import calculate_crc6, calculate_checksum_type0
-from virtual_master.protocol import DeviceResponse
 
 
 def test_crc6_empty():
     """Test CRC of empty data."""
-    result = calculate_crc6(b'')
+    result = calculate_crc6(b"")
     assert 0 <= result <= 63  # Must be 6-bit value
 
 
 def test_crc6_single_byte():
     """Test CRC of single byte."""
-    result = calculate_crc6(b'\x00')
+    result = calculate_crc6(b"\x00")
     assert result == 0x2A  # Expected value per current CRC6 implementation
 
 
@@ -48,7 +48,7 @@ def test_checksum_type0_idle():
 
 def test_crc6_consistency():
     """Test that same input produces same output."""
-    data = b'\xAB\xCD\xEF'
+    data = b"\xab\xcd\xef"
     result1 = calculate_crc6(data)
     result2 = calculate_crc6(data)
     assert result1 == result2

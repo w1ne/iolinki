@@ -24,7 +24,7 @@
 #include "iolinki/crc.h"
 #include "test_helpers.h"
 
-static void test_dll_wakeup_to_preoperate(void **state)
+static void test_dll_wakeup_to_preoperate(void** state)
 {
     (void) state;
     setup_mock_phy();
@@ -50,14 +50,14 @@ static void test_dll_wakeup_to_preoperate(void **state)
     will_return(mock_phy_recv_byte, 0);
 
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 2);
+    expect_value(mock_phy_send, len, 2); /* Type 0: MC + CK */
     will_return(mock_phy_send, 0);
 
     iolink_process();
     assert_int_equal(iolink_get_state(), IOLINK_DLL_STATE_PREOPERATE);
 }
 
-static void test_dll_preoperate_to_operate(void **state)
+static void test_dll_preoperate_to_operate(void** state)
 {
     (void) state;
     iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1};
@@ -79,6 +79,9 @@ static void test_dll_preoperate_to_operate(void **state)
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, ck);
     will_return(mock_phy_recv_byte, 0);
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 2); /* Type 0 in PREOPERATE: MC + CK */
+    will_return(mock_phy_send, 0);
     iolink_process();
     assert_int_equal(iolink_get_state(), IOLINK_DLL_STATE_ESTAB_COM);
 
@@ -99,7 +102,7 @@ static void test_dll_preoperate_to_operate(void **state)
     assert_int_equal(iolink_get_state(), IOLINK_DLL_STATE_OPERATE);
 }
 
-static void test_dll_fallback_on_crc_errors(void **state)
+static void test_dll_fallback_on_crc_errors(void** state)
 {
     (void) state;
     iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1};
@@ -121,6 +124,9 @@ static void test_dll_fallback_on_crc_errors(void **state)
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, ck);
     will_return(mock_phy_recv_byte, 0);
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 2); /* Type 0 in PREOPERATE: MC + CK */
+    will_return(mock_phy_send, 0);
     iolink_process();
 
     /* ESTAB_COM -> OPERATE */
@@ -149,7 +155,7 @@ static void test_dll_fallback_on_crc_errors(void **state)
     }
 
     /* Ensure there is exactly one mock value for the final process cycle check */
-    will_return(mock_phy_recv_byte, 0);
+    /* will_return(mock_phy_recv_byte, 0); // Removed: in SIO mode we don't call recv_byte */
 
     /* Next process call applies fallback */
     iolink_process();
@@ -158,7 +164,7 @@ static void test_dll_fallback_on_crc_errors(void **state)
     assert_int_equal(iolink_get_baudrate(), IOLINK_BAUDRATE_COM1);
 }
 
-static void test_dll_reject_transition_in_operate(void **state)
+static void test_dll_reject_transition_in_operate(void** state)
 {
     (void) state;
     iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1};
@@ -190,7 +196,7 @@ static void test_dll_reject_transition_in_operate(void **state)
     assert_int_not_equal(stats.framing_errors, 0);
 }
 
-static void test_dll_reject_invalid_mc_channel(void **state)
+static void test_dll_reject_invalid_mc_channel(void** state)
 {
     (void) state;
     iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1};

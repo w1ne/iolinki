@@ -141,7 +141,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [ ] 0x0025-0x0028: Alternate Identification (Vendor/Product Name/Text)
 
 ### 2.3 Advanced V1.1 Features
-- [x] **Data Storage (DS)**: 
+- [x] **Data Storage (DS)**:
     - [x] Implement parameter checksum generation.
     - [x] "Upload/Download" state machine for automatic parameter server.
     - [ ] Integration with Device Access Locks (0x000C).
@@ -181,7 +181,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 
 ### 3.1 Verification Suite
 - [x] **Unit Tests**: Comprehensive coverage of state machines using mocks.
-- [x] **Virtual Conformance Testing**: 
+- [x] **Virtual Conformance Testing**:
     - [x] Automated integration test suite.
     - [x] Protocol sequence verification (Startup -> Operate).
 - [x] **Timing Analysis**: Virtual timing verification for `t_A` compliance.

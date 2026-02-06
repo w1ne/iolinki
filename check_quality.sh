@@ -19,7 +19,7 @@ mkdir -p "${BUILD_DIR}"
 cd "${BUILD_DIR}"
 # Enable Strict Mode (we need to add this flag support to CMakeLists or force it here)
 cmake .. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS="-Wall -Wextra -Werror -Wpedantic -Wconversion -Wshadow"
-if make -j$(nproc); then
+if make -j"$(nproc)"; then
     echo "   ✅ Strict Compilation Passed"
 else
     echo "   ❌ Strict Compilation FAILED"
@@ -34,18 +34,16 @@ if command -v cppcheck &> /dev/null; then
     # --enable=all: Enable all checks (style, performance, portability, etc.)
     # --suppress=missingIncludeSystem: Don't fail on missing standard headers
     # --error-exitcode=1: Fail script if errors found
-    # --addon=misra: Ideally we would use this, but it requires a rules text file. 
+    # --addon=misra: Ideally we would use this, but it requires a rules text file.
     #                We'll use --enable=warning,style,performance,portability for now.
-    
-    cppcheck --enable=warning,style,performance,portability \
+
+    if cppcheck --enable=warning,style,performance,portability \
              --error-exitcode=1 \
              --suppress=missingIncludeSystem \
              --inline-suppr \
              --quiet \
              -I include \
-             src/ examples/
-             
-    if [ $? -eq 0 ]; then
+             src/ examples/; then
         echo "   ✅ Static Analysis Passed"
     else
         echo "   ❌ Static Analysis FAILED"
@@ -91,10 +89,34 @@ else
     echo "   ⚠️ Cppcheck not installed. Skipping MISRA checks."
 fi
 
-# 4. Code Formatting (Check only)
-echo -e "\n[4/4] 🎨 Checking Code Formatting..."
-# Placeholder: warning if clang-format not run (could force it)
-echo "   ℹ️  Ensure you have run clang-format style files."
+# 4. Code Formatting Check
+echo -e "\n[4/5] 🎨 Checking Code Formatting..."
+if command -v clang-format &> /dev/null; then
+    if find src include tests examples -type f \( -name "*.c" -o -name "*.h" \) -print0 | xargs -0 clang-format --dry-run --Werror; then
+       echo "   ✅ Code Formatting Passed"
+    else
+       echo "   ❌ Code Formatting FAILED"
+       exit 1
+    fi
+else
+    echo "   ⚠️ clang-format not installed. Skipping check."
+fi
+
+# 5. Doxygen Warning Check
+echo -e "\n[5/5] 📚 Checking Doxygen Warnings..."
+if command -v doxygen &> /dev/null; then
+    doxygen Doxyfile > /dev/null 2> doxygen.log
+    if grep -q "warning:" doxygen.log; then
+        echo "   ❌ Doxygen warnings found:"
+        grep "warning:" doxygen.log
+        exit 1
+    else
+        echo "   ✅ Doxygen Check Passed"
+        rm doxygen.log
+    fi
+else
+     echo "   ⚠️ Doxygen not installed. Skipping check."
+fi
 
 echo -e "\n============================================"
 echo "✅ Code Quality Checks Completed"

@@ -1,6 +1,6 @@
 Dear fellow IO-Link Device designer,
 
-this package contains 
+this package contains
 
 - IOL-Interface-Spec_10002_V1.1.1.5_Oct2025.pdf
 	Final specification
@@ -8,13 +8,13 @@ this package contains
 - IOL-Interface-Spec_10002_M1.1.1.5_Oct2025.pdf
 	Marked version of final specification with all changes marked in yellow and CRs attached
 
-The validity period of packages and associated standards is provided to the public via publications of the "Specification Validity Periods" document, available on 
+The validity period of packages and associated standards is provided to the public via publications of the "Specification Validity Periods" document, available on
 	www.IO-Link.com/downloads, section "Specification".
 
 Please read the change log at the bottom very careful to get an overview of the changed aspects
 
-Please provide any issue as a change request at www.io-link-projects.com by providing name and email address with the 
-login: IO-Link-V113 
+Please provide any issue as a change request at www.io-link-projects.com by providing name and email address with the
+login: IO-Link-V113
 password: Report
 
 Your participation ensures the success of this community, thank you
@@ -64,5 +64,3 @@ IO-Link Interface and System Specification V1.1.4:
 # allowing vendor specific port status in smi
 # added smi error type for incorrect configuration
 # editorial corrections on references and descriptions
-
-

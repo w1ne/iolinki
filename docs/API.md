@@ -51,7 +51,7 @@ int main(void) {
         // Handle error
         return -1;
     }
-    
+
     while (1) {
         iolink_process();
         // Sleep 1ms
@@ -184,7 +184,7 @@ int main(void) {
 ### Reading ISDU
 
 ```c
-int iolink_isdu_read(uint16_t index, uint8_t subindex, 
+int iolink_isdu_read(uint16_t index, uint8_t subindex,
                      uint8_t *data, uint8_t *len);
 ```
 
@@ -222,7 +222,7 @@ static int vendor_name_handler(uint16_t index, uint8_t subindex,
     if (is_write) {
         return -1; // Read-only
     }
-    
+
     const char *vendor = "MyCompany";
     *len = strlen(vendor);
     memcpy(data, vendor, *len);

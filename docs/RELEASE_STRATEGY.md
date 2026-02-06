@@ -109,7 +109,7 @@ The workflow automatically:
 
 Each GitHub Release includes:
 - **Test Results**: Test count and pass/fail summary
-- **Build Artifacts**: 
+- **Build Artifacts**:
   - `simple_device` - Example executable
   - `test_init` - Unit test executable
 - **Documentation**: Links to all project docs

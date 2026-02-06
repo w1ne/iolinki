@@ -36,13 +36,16 @@ if(CMOCKA_FOUND)
     add_iolink_test(test_integration_full test_integration_full.c)
     add_iolink_test(test_application test_application.c)
     add_iolink_test(test_m_sequence_types test_m_sequence_types.c)
-    
+
     # Portability Verification
     add_iolink_test(test_locking test_locking.c)
     add_iolink_test(test_config test_config_verification.c)
     add_iolink_test(test_pd_variable test_pd_variable.c)
     add_iolink_test(test_baudrate test_baudrate.c)
     add_iolink_test(test_phy_diagnostics test_phy_diagnostics.c)
+    add_iolink_test(test_app_pd test_app_pd.c)
+    add_iolink_test(test_sio_fallback test_sio_fallback.c)
+    add_iolink_test(test_isdu_stress test_isdu_stress.c)
 else()
     message(WARNING "CMocka not found, unit tests will be skipped. Install libcmocka-dev to enable them.")
 endif()

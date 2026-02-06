@@ -25,7 +25,7 @@ int main(void)
 {
     LOG_INF("Starting IO-Link Zephyr Demo");
 
-    const char *port = getenv("IOLINK_PORT");
+    const char* port = getenv("IOLINK_PORT");
     if (port) {
         iolink_phy_virtual_set_port(port);
         LOG_INF("Connecting to %s", port);

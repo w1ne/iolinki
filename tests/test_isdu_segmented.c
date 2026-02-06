@@ -20,13 +20,22 @@
 #include <stdio.h>
 
 #include "iolinki/isdu.h"
+#include "iolinki/params.h"
+#include "iolinki/device_info.h"
 
 /* Removed unused test stub to avoid -Werror=unused-function */
 
-static void test_isdu_segmented_write_corrected(void **state)
+static void test_isdu_segmented_write_corrected(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
+    iolink_params_init();
     iolink_isdu_init(&ctx);
 
     /* Write Index 0x18, 2 bytes */
@@ -60,10 +69,17 @@ static void test_isdu_segmented_write_corrected(void **state)
     assert_int_equal(byte & 0xC0, 0xC0);
 }
 
-static void test_isdu_busy_response(void **state)
+static void test_isdu_busy_response(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
+    iolink_params_init();
     iolink_isdu_init(&ctx);
 
     /* 1. Start a write request */
@@ -100,10 +116,17 @@ static void test_isdu_busy_response(void **state)
     assert_int_equal(byte, 0x30);
 }
 
-static void test_isdu_segmentation_error(void **state)
+static void test_isdu_segmentation_error(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    static const iolink_device_info_t info = {
+        .vendor_name = "iolinki",
+        .vendor_id = 0x1234,
+        .device_id = 0x567890,
+    };
+    iolink_device_info_init(&info);
+    iolink_params_init();
     iolink_isdu_init(&ctx);
 
     /* 1. Start a segmented write */

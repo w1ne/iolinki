@@ -27,7 +27,7 @@
  * @param len Length in bytes
  * @return uint8_t 6-bit CRC
  */
-uint8_t iolink_crc6(const uint8_t *data, uint8_t len);
+uint8_t iolink_crc6(const uint8_t* data, uint8_t len);
 
 /**
  * @brief Calculate IO-Link 8-bit Checksum (CK)

@@ -48,7 +48,7 @@ static int stm32_phy_init(void) {
     huart.Init.StopBits = UART_STOPBITS_1;
     huart.Init.Parity = UART_PARITY_NONE;
     huart.Init.Mode = UART_MODE_TX_RX;
-    
+
     return (HAL_UART_Init(&huart) == HAL_OK) ? 0 : -1;
 }
 
@@ -195,7 +195,7 @@ target_link_libraries(my_app PRIVATE iolinki)
 
 void iolink_task(void *pvParameters) {
     iolink_init(&g_phy_stm32);
-    
+
     while (1) {
         iolink_process();
         vTaskDelay(pdMS_TO_TICKS(1));  // 1ms cycle
@@ -216,7 +216,7 @@ int main(void) {
 
 void iolink_thread(void) {
     iolink_init(&g_phy_zephyr);
-    
+
     while (1) {
         iolink_process();
         k_sleep(K_MSEC(1));
@@ -234,9 +234,9 @@ K_THREAD_DEFINE(iolink_tid, 1024, iolink_thread, NULL, NULL, NULL, 5, 0, 0);
 int main(void) {
     // Initialize SysTick for 1ms interrupt
     SysTick_Config(SystemCoreClock / 1000);
-    
+
     iolink_init(&g_phy_baremetal);
-    
+
     while (1) {
         iolink_process();
         __WFI();  // Wait for interrupt

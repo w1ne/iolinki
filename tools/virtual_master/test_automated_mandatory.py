@@ -18,29 +18,31 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from virtual_master.master import VirtualMaster
 
+
 def run_test():
     print("=" * 60)
     print("Automated Mandatory ISDU Indices Integration Test")
     print("=" * 60)
 
-    # 1. Start Virtual Master
     master = VirtualMaster()
     device_tty = master.get_device_tty()
     print(f"[INFO] Virtual Master started, Device TTY: {device_tty}")
 
-    # 2. Start Device (host_demo)
-    demo_bin = os.environ.get("IOLINK_DEVICE_PATH", "./build/examples/host_demo/host_demo")
+    demo_bin = os.environ.get(
+        "IOLINK_DEVICE_PATH", "./build/examples/host_demo/host_demo"
+    )
     if not os.path.exists(demo_bin):
-        # Try finding in other possible locations or build it
         print(f"[ERROR] {demo_bin} not found. Build the project first.")
         master.close()
         return 1
 
     print(f"[INFO] Starting Device: {demo_bin}")
-    device_proc = subprocess.Popen([demo_bin, device_tty], 
-                                  stdout=sys.stdout, 
-                                  stderr=sys.stderr,
-                                  preexec_fn=os.setsid)
+    device_proc = subprocess.Popen(
+        [demo_bin, device_tty],
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        preexec_fn=os.setsid,
+    )
 
     def cleanup():
         print("[INFO] Cleaning up...")
@@ -48,10 +50,8 @@ def run_test():
         master.close()
 
     try:
-        # 3. Wait for Device to initialize
         time.sleep(1)
 
-        # 4. Startup Sequence
         print("-" * 60)
         print("PHASE 1: Startup")
         if not master.run_startup_sequence():
@@ -60,10 +60,9 @@ def run_test():
             return 1
         print("✅ Startup successful")
 
-        # 5. Test Mandatory Indices
         print("-" * 60)
         print("PHASE 2: Mandatory Indices READ")
-        
+
         indices = [
             (0x0010, "Vendor Name"),
             (0x0011, "Vendor Text"),
@@ -80,11 +79,11 @@ def run_test():
 
         results = {}
         for idx, name in indices:
-            print(f"Reading 0x{idx:04X} ({name})...", end=' ')
+            print(f"Reading 0x{idx:04X} ({name})...", end=" ")
             data = master.read_isdu(index=idx)
             if data:
                 try:
-                    val = data.decode('ascii', errors='ignore').strip("\x00")
+                    val = data.decode("ascii", errors="ignore").strip("\x00")
                     print(f"✅ '{val}'")
                     results[idx] = val
                 except Exception:
@@ -94,21 +93,22 @@ def run_test():
                 print("❌ FAILED")
                 results[idx] = None
 
-        # 6. Test Write (Application Tag)
         print("-" * 60)
         print("PHASE 3: Mandatory Indices WRITE")
         new_tag = "NewAppTag123"
         print(f"Writing 0x0018 (Application Tag) = '{new_tag}'...")
         if master.write_isdu(index=0x0018, subindex=0, data=new_tag.encode()):
             print("✅ Write sent")
-            # Verify write
             time.sleep(0.5)
-            print("Verifying write...", end=' ')
+            print("Verifying write...", end=" ")
             read_back = master.read_isdu(index=0x0018)
-            if read_back and read_back.decode('ascii', errors='ignore').strip("\x00") == new_tag:
-                 print(f"✅ Match: '{read_back.decode()}'")
+            if (
+                read_back
+                and read_back.decode("ascii", errors="ignore").strip("\x00") == new_tag
+            ):
+                print(f"✅ Match: '{read_back.decode()}'")
             else:
-                 print(f"❌ Mismatch or failed: {read_back}")
+                print(f"❌ Mismatch or failed: {read_back}")
         else:
             print("❌ Write failed")
 
@@ -117,7 +117,7 @@ def run_test():
         passed = sum(1 for v in results.values() if v is not None)
         total = len(indices)
         print(f"Passed: {passed}/{total}")
-        
+
         if passed == total:
             print("\n[SUCCESS] All mandatory indices verified!")
             cleanup()
@@ -130,9 +130,11 @@ def run_test():
     except Exception as e:
         print(f"\n[ERROR] Test crashed: {e}")
         import traceback
+
         traceback.print_exc()
         cleanup()
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(run_test())

@@ -16,7 +16,7 @@ int g_iolink_nvm_stub_write_ret = -1;
 /**
  * Weak defaults for NVM access (to be overridden by platform port)
  */
-__attribute__((weak)) int iolink_nvm_read(uint32_t offset, uint8_t *data, size_t len)
+__attribute__((weak)) int iolink_nvm_read(uint32_t offset, uint8_t* data, size_t len)
 {
     (void) offset;
     (void) data;
@@ -24,7 +24,7 @@ __attribute__((weak)) int iolink_nvm_read(uint32_t offset, uint8_t *data, size_t
     return g_iolink_nvm_stub_read_ret;
 }
 
-__attribute__((weak)) int iolink_nvm_write(uint32_t offset, const uint8_t *data, size_t len)
+__attribute__((weak)) int iolink_nvm_write(uint32_t offset, const uint8_t* data, size_t len)
 {
     (void) offset;
     (void) data;

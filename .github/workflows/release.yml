@@ -11,18 +11,18 @@ permissions:
 jobs:
   create-release:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Set up build environment
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential libcmocka-dev lcov python3
-      
+
       - name: Extract version info
         id: version
         run: |
@@ -30,7 +30,7 @@ jobs:
           TAG=${GITHUB_REF#refs/tags/}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          
+
           # Find previous tag
           PREV_TAG=$(git describe --tags --abbrev=0 ${GITHUB_REF}^ 2>/dev/null || echo "")
           if [ -z "$PREV_TAG" ]; then
@@ -50,7 +50,7 @@ jobs:
           cd build
           # distinct output file for parsing
           ctest --output-on-failure | tee test_output.log
-          
+
           # Simple parsing for summary stats
           PASSED=$(grep -oE '[0-9]+% tests passed' test_output.log | grep -oE '[0-9]+' || echo "0")
           TOTAL=$(grep -oE '[0-9]+ tests failed out of [0-9]+' test_output.log | awk '{print $6}' || echo "0")
@@ -58,10 +58,10 @@ jobs:
              # If 100% passed, grep matches "X tests passed, 0 tests failed out of Y"
              TOTAL=$(grep -oE 'out of [0-9]+' test_output.log | awk '{print $3}' | head -n1 || echo "0")
           fi
-          
+
           # Calculate Passed count
           COUNT_PASSED=$(echo "$TOTAL * $PASSED / 100" | bc)
-          
+
           echo "{\"total\": $TOTAL, \"passed\": $COUNT_PASSED}" > ../test_stats.json
 
       - name: Generate Coverage Report
@@ -70,7 +70,7 @@ jobs:
           lcov --capture --directory . --output-file coverage.info
           lcov --remove coverage.info '/usr/*' '*/tests/*' '*/examples/*' --output-file coverage.filtered.info
           lcov --list coverage.filtered.info > ../coverage_summary.txt || echo "Coverage: N/A" > ../coverage_summary.txt
-          
+
           # Extract percentage for summary file (e.g. "lines......: 85.5%")
           grep "lines......:" ../coverage_summary.txt | awk '{print $2}' > ../coverage_percent.txt || echo "N/A" > ../coverage_percent.txt
 
@@ -83,7 +83,7 @@ jobs:
             "${{ steps.version.outputs.prev_tag }}" \
             "test_stats.json" \
             "coverage_percent.txt" > release_notes.md
-            
+
           # Cat to console for debugging
           cat release_notes.md
 
@@ -110,7 +110,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Merge Main to Develop
         run: |
           git config user.name "GitHub Actions"

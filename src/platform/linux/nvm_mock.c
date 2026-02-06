@@ -13,12 +13,12 @@
 
 #define NVM_FILE "iolink_nvm.bin"
 
-int iolink_nvm_read(uint32_t offset, uint8_t *data, size_t len)
+int iolink_nvm_read(uint32_t offset, uint8_t* data, size_t len)
 {
     if (!iolink_buf_is_valid(data, len)) {
         return -1;
     }
-    FILE *f = fopen(NVM_FILE, "rb");
+    FILE* f = fopen(NVM_FILE, "rb");
     if (f == NULL) {
         return -1;
     }
@@ -34,13 +34,13 @@ int iolink_nvm_read(uint32_t offset, uint8_t *data, size_t len)
     return (read == len) ? 0 : -1;
 }
 
-int iolink_nvm_write(uint32_t offset, const uint8_t *data, size_t len)
+int iolink_nvm_write(uint32_t offset, const uint8_t* data, size_t len)
 {
     if (!iolink_buf_is_valid(data, len)) {
         return -1;
     }
     /* Use a+b to avoid truncating and create file if missing */
-    FILE *f = fopen(NVM_FILE, "a+b");
+    FILE* f = fopen(NVM_FILE, "a+b");
     if (f == NULL) {
         return -1;
     }

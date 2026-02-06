@@ -17,6 +17,7 @@
 #include <cmocka.h>
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 #include <stdio.h>
 
 #include "iolinki/iolink.h"
@@ -28,7 +29,7 @@
 #include "iolinki/crc.h"
 #include "test_helpers.h"
 
-static void test_full_stack_lifecycle(void **state)
+static void test_full_stack_lifecycle(void** state)
 {
     (void) state;
     iolink_phy_mock_reset();
@@ -41,10 +42,14 @@ static void test_full_stack_lifecycle(void **state)
     iolink_ds_init(iolink_get_ds_ctx(), &g_ds_storage_mock);
 
     /*** STEP 1: STARTUP -> PREOPERATE ***/
-    will_return(mock_phy_recv_byte, 1);    /* res=1 */
-    will_return(mock_phy_recv_byte, 0x00); /* byte=0x00 (Wakeup) */
-    will_return(mock_phy_recv_byte, 0);    /* res=0 (end frame) */
+
+    /* 1. Inject WakeUp (Transitions SIO -> AWAITING_COMM) */
+    iolink_phy_mock_set_wakeup(1);
     iolink_process();
+    usleep(200);
+
+    /* Note: We rely on the first byte of STEP 2 (ISDU Read) to transition
+       AWAITING_COMM -> PREOPERATE and be processed immediately. */
 
     /*** STEP 2: PREOPERATE (ISDU Read Index 0x10 - Vendor Name) ***/
     /* Master Sends: MC=0xBB (Read Index 0x10) + CK */
@@ -64,7 +69,7 @@ static void test_full_stack_lifecycle(void **state)
     iolink_process();
 
     /*** STEP 3: EVENT TRIGGERING ***/
-    iolink_events_ctx_t *evt_ctx = iolink_get_events_ctx();
+    iolink_events_ctx_t* evt_ctx = iolink_get_events_ctx();
     iolink_event_trigger(evt_ctx, 0x1234, IOLINK_EVENT_TYPE_WARNING);
     assert_true(iolink_events_pending(evt_ctx));
 
@@ -86,7 +91,7 @@ static void test_full_stack_lifecycle(void **state)
     assert_true(iolink_events_pending(evt_ctx));
 }
 
-static void test_full_stack_timing_enforcement(void **state)
+static void test_full_stack_timing_enforcement(void** state)
 {
     (void) state;
     iolink_config_t config = {

@@ -22,7 +22,7 @@
 #include "iolinki/application.h"
 #include "test_helpers.h"
 
-static void test_pd_input_update_flow(void **state)
+static void test_pd_input_update_flow(void** state)
 {
     (void) state;
     setup_mock_phy();
@@ -38,7 +38,7 @@ static void test_pd_input_update_flow(void **state)
        We just verify the API doesn't crash here. */
 }
 
-static void test_pd_output_read_flow(void **state)
+static void test_pd_output_read_flow(void** state)
 {
     (void) state;
     setup_mock_phy();

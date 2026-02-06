@@ -26,7 +26,7 @@ static void generic_set_baudrate(iolink_baudrate_t baudrate)
     /* Template: configure UART speed for COM1/2/3. */
 }
 
-static int generic_send(const uint8_t *data, size_t len)
+static int generic_send(const uint8_t* data, size_t len)
 {
     (void) data;
     (void) len;
@@ -34,7 +34,7 @@ static int generic_send(const uint8_t *data, size_t len)
     return -1;
 }
 
-static int generic_recv_byte(uint8_t *byte)
+static int generic_recv_byte(uint8_t* byte)
 {
     (void) byte;
     /* Template: non-blocking receive. */
@@ -75,7 +75,7 @@ static const iolink_phy_api_t g_phy_generic = {.init = generic_init,
                                                .get_voltage_mv = generic_get_voltage_mv,
                                                .is_short_circuit = generic_is_short_circuit};
 
-const iolink_phy_api_t *iolink_phy_generic_get(void)
+const iolink_phy_api_t* iolink_phy_generic_get(void)
 {
     return &g_phy_generic;
 }

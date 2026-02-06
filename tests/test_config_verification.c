@@ -21,7 +21,7 @@
 #include "iolinki/dll.h"
 #include "iolinki/config.h"
 
-static void test_config_defaults(void **state)
+static void test_config_defaults(void** state)
 {
     (void) state;
 

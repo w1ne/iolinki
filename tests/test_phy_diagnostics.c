@@ -41,14 +41,14 @@ static void mock_set_baudrate(iolink_baudrate_t baudrate)
     (void) baudrate;
 }
 
-static int mock_send(const uint8_t *data, size_t len)
+static int mock_send(const uint8_t* data, size_t len)
 {
     (void) data;
     (void) len;
     return (int) len;
 }
 
-static int mock_recv_byte(uint8_t *byte)
+static int mock_recv_byte(uint8_t* byte)
 {
     (void) byte;
     return 0; /* No data */
@@ -76,16 +76,16 @@ static const iolink_phy_api_t mock_phy = {.init = mock_init,
 
 /* PHY without diagnostics support */
 static const iolink_phy_api_t mock_phy_no_diag = {.init = mock_init,
-                                                   .set_mode = mock_set_mode,
-                                                   .set_baudrate = mock_set_baudrate,
-                                                   .send = mock_send,
-                                                   .recv_byte = mock_recv_byte,
-                                                   .detect_wakeup = NULL,
-                                                   .set_cq_line = NULL,
-                                                   .get_voltage_mv = NULL,
-                                                   .is_short_circuit = NULL};
+                                                  .set_mode = mock_set_mode,
+                                                  .set_baudrate = mock_set_baudrate,
+                                                  .send = mock_send,
+                                                  .recv_byte = mock_recv_byte,
+                                                  .detect_wakeup = NULL,
+                                                  .set_cq_line = NULL,
+                                                  .get_voltage_mv = NULL,
+                                                  .is_short_circuit = NULL};
 
-static void test_voltage_monitoring_normal(void **state)
+static void test_voltage_monitoring_normal(void** state)
 {
     (void) state;
     iolink_dll_ctx_t ctx;
@@ -101,7 +101,7 @@ static void test_voltage_monitoring_normal(void **state)
     assert_false(iolink_events_pending(&ctx.events));
 }
 
-static void test_voltage_monitoring_low(void **state)
+static void test_voltage_monitoring_low(void** state)
 {
     (void) state;
     iolink_dll_ctx_t ctx;
@@ -123,7 +123,7 @@ static void test_voltage_monitoring_low(void **state)
     assert_int_equal(ev.type, IOLINK_EVENT_TYPE_WARNING);
 }
 
-static void test_voltage_monitoring_high(void **state)
+static void test_voltage_monitoring_high(void** state)
 {
     (void) state;
     iolink_dll_ctx_t ctx;
@@ -144,7 +144,7 @@ static void test_voltage_monitoring_high(void **state)
     assert_int_equal(ev.code, IOLINK_EVENT_PHY_VOLTAGE_FAULT);
 }
 
-static void test_voltage_monitoring_multiple_cycles(void **state)
+static void test_voltage_monitoring_multiple_cycles(void** state)
 {
     (void) state;
     iolink_dll_ctx_t ctx;
@@ -163,10 +163,11 @@ static void test_voltage_monitoring_multiple_cycles(void **state)
     assert_int_equal(stats.voltage_faults, 5);
 }
 
-static void test_short_circuit_detection(void **state)
+static void test_short_circuit_detection(void** state)
 {
     (void) state;
     iolink_dll_ctx_t ctx;
+    mock_voltage_mv = 24000; /* Ensure normal voltage */
     mock_short_circuit = true;
 
     iolink_dll_init(&ctx, &mock_phy);
@@ -185,10 +186,11 @@ static void test_short_circuit_detection(void **state)
     assert_int_equal(ev.type, IOLINK_EVENT_TYPE_ERROR);
 }
 
-static void test_short_circuit_no_fault(void **state)
+static void test_short_circuit_no_fault(void** state)
 {
     (void) state;
     iolink_dll_ctx_t ctx;
+    mock_voltage_mv = 24000; /* Ensure normal voltage */
     mock_short_circuit = false;
 
     iolink_dll_init(&ctx, &mock_phy);
@@ -201,7 +203,7 @@ static void test_short_circuit_no_fault(void **state)
     assert_false(iolink_events_pending(&ctx.events));
 }
 
-static void test_phy_no_diagnostics_support(void **state)
+static void test_phy_no_diagnostics_support(void** state)
 {
     (void) state;
     iolink_dll_ctx_t ctx;
@@ -217,7 +219,7 @@ static void test_phy_no_diagnostics_support(void **state)
     assert_int_equal(stats.short_circuits, 0);
 }
 
-static void test_combined_faults(void **state)
+static void test_combined_faults(void** state)
 {
     (void) state;
     iolink_dll_ctx_t ctx;

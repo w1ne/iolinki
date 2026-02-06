@@ -21,7 +21,7 @@
 #include "iolinki/data_storage.h"
 #include "test_helpers.h"
 
-static void test_ds_checksum(void **state)
+static void test_ds_checksum(void** state)
 {
     (void) state;
     uint8_t data[] = {0x01, 0x02, 0x03, 0x04};
@@ -34,7 +34,7 @@ static void test_ds_checksum(void **state)
     assert_int_not_equal(cs1, cs3);
 }
 
-static void test_ds_storage_integration(void **state)
+static void test_ds_storage_integration(void** state)
 {
     (void) state;
     iolink_ds_ctx_t ds;
@@ -49,7 +49,7 @@ static void test_ds_storage_integration(void **state)
     assert_memory_equal(read_buf, write_data, 4);
 }
 
-static void test_ds_state_transitions(void **state)
+static void test_ds_state_transitions(void** state)
 {
     (void) state;
     iolink_ds_ctx_t ds;
@@ -70,12 +70,51 @@ static void test_ds_state_transitions(void **state)
     assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
 }
 
+static void test_ds_commands_locked(void** state)
+{
+    (void) state;
+    iolink_ds_ctx_t ds;
+    iolink_ds_init(&ds, NULL);
+
+    /* 1. Try Download Start (Write) while locked */
+    int ret = iolink_ds_handle_command(&ds, IOLINK_CMD_PARAM_DOWNLOAD_START, IOLINK_LOCK_DS);
+    assert_int_equal(ret, -2); /* Access Denied */
+    assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
+
+    /* 2. Try Upload Start (Read) while locked - Should usually pass?
+       Spec: Access Locks usually apply to Parameter Write (Index 2).
+       Data Storage Upload is reading from device, so maybe allowed?
+       The code we implemented only checks lock for Download (Write).
+    */
+    ret = iolink_ds_handle_command(&ds, IOLINK_CMD_PARAM_UPLOAD_START, IOLINK_LOCK_DS);
+    assert_int_equal(ret, 0); /* Success */
+    assert_int_equal(ds.state, IOLINK_DS_STATE_UPLOAD_REQ);
+}
+
+static void test_ds_commands_unlocked(void** state)
+{
+    (void) state;
+    iolink_ds_ctx_t ds;
+    iolink_ds_init(&ds, NULL);
+
+    /* 1. Download Start (Write) unlocked */
+    int ret = iolink_ds_handle_command(&ds, IOLINK_CMD_PARAM_DOWNLOAD_START, 0);
+    assert_int_equal(ret, 0);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_DOWNLOAD_REQ);
+
+    /* 2. End Download */
+    ds.state = IOLINK_DS_STATE_DOWNLOADING;
+    ret = iolink_ds_handle_command(&ds, IOLINK_CMD_PARAM_DOWNLOAD_END, 0);
+    assert_int_equal(ret, 0);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_ds_checksum),
-        cmocka_unit_test(test_ds_storage_integration),
-        cmocka_unit_test(test_ds_state_transitions),
+        cmocka_unit_test(test_ds_checksum),          cmocka_unit_test(test_ds_storage_integration),
+        cmocka_unit_test(test_ds_state_transitions), cmocka_unit_test(test_ds_commands_locked),
+        cmocka_unit_test(test_ds_commands_unlocked),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

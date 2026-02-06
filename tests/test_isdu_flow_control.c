@@ -13,7 +13,7 @@
 #include "iolinki/isdu.h"
 #include "iolinki/protocol.h"
 
-static void test_isdu_busy_during_execution(void **state)
+static void test_isdu_busy_during_execution(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -67,7 +67,7 @@ static void test_isdu_busy_during_execution(void **state)
     assert_int_equal(ctx.response_len, 2);
 }
 
-static void test_isdu_interrupted_response(void **state)
+static void test_isdu_interrupted_response(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;

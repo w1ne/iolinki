@@ -23,7 +23,7 @@
 #include "iolinki/crc.h"
 #include "test_helpers.h"
 
-static void test_pd_input_output(void **state)
+static void test_pd_input_output(void** state)
 {
     (void) state;
 

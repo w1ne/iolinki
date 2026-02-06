@@ -32,3 +32,9 @@ __pycache__/
 .zephyr/
 west.yml
 Open-Source IO-Link Stack Business Case.md
+build_quality/
+build_strict/
+
+# Documentation
+docs/html/
+docs/latex/

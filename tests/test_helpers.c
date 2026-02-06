@@ -47,7 +47,7 @@ void mock_phy_set_baudrate(iolink_baudrate_t baudrate)
     check_expected(baudrate);
 }
 
-int mock_phy_send(const uint8_t *data, size_t len)
+int mock_phy_send(const uint8_t* data, size_t len)
 {
     check_expected_ptr(data);
     check_expected(len);
@@ -57,7 +57,7 @@ int mock_phy_send(const uint8_t *data, size_t len)
     return (int) mock();
 }
 
-int mock_phy_recv_byte(uint8_t *byte)
+int mock_phy_recv_byte(uint8_t* byte)
 {
     int res = (int) mock();
     if (res > 0) {
@@ -100,11 +100,17 @@ void setup_mock_phy(void)
 
 void move_to_operate(void)
 {
-    /* STARTUP -> PREOPERATE (on first byte) */
-    will_return(mock_phy_recv_byte, 1);    /* res=1 */
-    will_return(mock_phy_recv_byte, 0x00); /* byte=0x00 */
-    will_return(mock_phy_recv_byte, 0);    /* res=0 (end frame) */
+    /* STARTUP -> PREOPERATE (via WakeUp -> AWAITING_COMM) */
+
+    /* 1. Send WakeUp to switch to SDCI */
+    g_mock_wakeup = 1; /* iolink_phy_mock_set_wakeup(1) */
     iolink_process();
+
+    /* 2. Wait for T_DWU (assuming timing might be enforced) */
+    usleep(200); /* > 54us T_DWU */
+
+    /* 3. Send Transition Command immediately (AWAITING_COMM handles first byte)
+       This avoids needing to handle the response from an Idle frame. */
 
     /* PREOPERATE -> ESTAB_COM (on MC=0x0F + Correct CK) */
     uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;
@@ -190,14 +196,14 @@ void iolink_phy_mock_set_send_delay_us(uint32_t delay_us)
 #define DS_MOCK_SIZE 128
 static uint8_t g_ds_mock_buf[DS_MOCK_SIZE];
 
-int ds_mock_read(uint32_t addr, uint8_t *buf, size_t len)
+int ds_mock_read(uint32_t addr, uint8_t* buf, size_t len)
 {
     if (addr + len > DS_MOCK_SIZE) return -1;
     memcpy(buf, &g_ds_mock_buf[addr], len);
     return 0;
 }
 
-int ds_mock_write(uint32_t addr, const uint8_t *buf, size_t len)
+int ds_mock_write(uint32_t addr, const uint8_t* buf, size_t len)
 {
     if (addr + len > DS_MOCK_SIZE) return -1;
     memcpy(&g_ds_mock_buf[addr], buf, len);
@@ -212,7 +218,149 @@ void iolink_ds_mock_reset(void)
     memset(g_ds_mock_buf, 0, DS_MOCK_SIZE);
 }
 
-uint8_t *iolink_ds_mock_get_buf(void)
+uint8_t* iolink_ds_mock_get_buf(void)
 {
     return g_ds_mock_buf;
+}
+
+/* ISDU V1.1.5 Interleaved Format Helpers */
+
+int isdu_send_read_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subindex)
+{
+    int ret;
+
+    /* Control: Start + Last, Seq=0 */
+    ret = iolink_isdu_collect_byte(ctx, 0xC0);
+    if (ret != 0) return ret;
+
+    /* Data: Read service (0x90 = Read, Length=0) */
+    ret = iolink_isdu_collect_byte(ctx, 0x90);
+    if (ret != 0) return ret;
+
+    /* Control: Continue, Seq=1 */
+    ret = iolink_isdu_collect_byte(ctx, 0x81);
+    if (ret != 0) return ret;
+
+    /* Data: Index high byte */
+    ret = iolink_isdu_collect_byte(ctx, (uint8_t) (index >> 8));
+    if (ret != 0) return ret;
+
+    /* Control: Continue, Seq=2 */
+    ret = iolink_isdu_collect_byte(ctx, 0x82);
+    if (ret != 0) return ret;
+
+    /* Data: Index low byte */
+    ret = iolink_isdu_collect_byte(ctx, (uint8_t) (index & 0xFF));
+    if (ret != 0) return ret;
+
+    /* Control: Continue, Seq=3 */
+    ret = iolink_isdu_collect_byte(ctx, 0x83);
+    if (ret != 0) return ret;
+
+    /* Data: Subindex (last byte) */
+    ret = iolink_isdu_collect_byte(ctx, subindex);
+    return ret;
+}
+
+int isdu_send_write_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subindex,
+                            const uint8_t* data, uint8_t data_len)
+{
+    int ret;
+    uint8_t seq = 0;
+
+    /* Control: Start + Last (if non-segmented), Seq=0 */
+    uint8_t ctrl = 0x80; /* Start bit */
+    if (data_len <= 15) {
+        ctrl |= 0x40; /* Last bit for non-segmented */
+    }
+    ret = iolink_isdu_collect_byte(ctx, ctrl);
+    if (ret != 0) return ret;
+    seq++;
+
+    /* Data: Write service */
+    uint8_t service_byte;
+    if (data_len <= 15) {
+        service_byte = 0xA0 | data_len; /* Write, embedded length */
+    }
+    else {
+        service_byte = 0x9F; /* Write, extended length */
+    }
+    ret = iolink_isdu_collect_byte(ctx, service_byte);
+    if (ret != 0) return ret;
+
+    /* If extended length, send it */
+    if (data_len > 15) {
+        /* Control */
+        ret = iolink_isdu_collect_byte(ctx, 0x80 | seq);
+        if (ret != 0) return ret;
+        seq++;
+
+        /* Data: Extended length */
+        ret = iolink_isdu_collect_byte(ctx, data_len);
+        if (ret != 0) return ret;
+    }
+
+    /* Control */
+    ret = iolink_isdu_collect_byte(ctx, 0x80 | seq);
+    if (ret != 0) return ret;
+    seq++;
+
+    /* Data: Index high */
+    ret = iolink_isdu_collect_byte(ctx, (uint8_t) (index >> 8));
+    if (ret != 0) return ret;
+
+    /* Control */
+    ret = iolink_isdu_collect_byte(ctx, 0x80 | seq);
+    if (ret != 0) return ret;
+    seq++;
+
+    /* Data: Index low */
+    ret = iolink_isdu_collect_byte(ctx, (uint8_t) (index & 0xFF));
+    if (ret != 0) return ret;
+
+    /* Control */
+    ret = iolink_isdu_collect_byte(ctx, 0x80 | seq);
+    if (ret != 0) return ret;
+    seq++;
+
+    /* Data: Subindex */
+    ret = iolink_isdu_collect_byte(ctx, subindex);
+    if (ret != 0) return ret;
+
+    /* Send data bytes */
+    for (uint8_t i = 0; i < data_len; i++) {
+        /* Control */
+        ret = iolink_isdu_collect_byte(ctx, 0x80 | seq);
+        if (ret != 0) return ret;
+        seq = (seq + 1) & 0x3F;
+
+        /* Data */
+        ret = iolink_isdu_collect_byte(ctx, data[i]);
+        if (ret != 0) return ret;
+    }
+
+    return ret;
+}
+
+int isdu_collect_response(iolink_isdu_ctx_t* ctx, uint8_t* buffer, size_t buffer_size)
+{
+    size_t idx = 0;
+    uint8_t byte;
+
+    /* Collect alternating Control and Data bytes */
+    while (idx < buffer_size) {
+        /* Get control byte */
+        if (iolink_isdu_get_response_byte(ctx, &byte) <= 0) {
+            break; /* No more data */
+        }
+
+        /* Get data byte */
+        if (iolink_isdu_get_response_byte(ctx, &byte) <= 0) {
+            break; /* No more data */
+        }
+
+        buffer[idx++] = byte;
+    }
+
+    return (int) idx;
 }

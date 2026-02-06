@@ -44,7 +44,7 @@ typedef enum
 typedef struct
 {
     iolink_dll_state_t state;    /**< Current DLL state */
-    const iolink_phy_api_t *phy; /**< Bound PHY API implementation */
+    const iolink_phy_api_t* phy; /**< Bound PHY API implementation */
     uint32_t last_activity_ms;   /**< Timestamp of last valid frame */
     bool wakeup_seen;            /**< Wake-up detected (if PHY supports it) */
 
@@ -54,6 +54,7 @@ typedef struct
     uint8_t pd_out_len;         /**< Output Process Data length */
     uint8_t od_len;             /**< On-request Data length (1 or 2 bytes) */
     bool pd_valid;              /**< Current PD_In validity status */
+    bool pd_in_toggle;          /**< Toggle bit for PD_In consistency */
     uint32_t min_cycle_time_us; /**< Minimum cycle time in microseconds */
     bool enforce_timing;        /**< Enable timing checks (t_ren / t_cycle) */
     uint32_t t_ren_limit_us;    /**< Current t_ren limit in microseconds */
@@ -88,22 +89,21 @@ typedef struct
     uint8_t pd_out[IOLINK_PD_OUT_MAX_SIZE]; /**< Output PD buffer (Master -> Device) */
 
     /* Error Counters & Statistics */
-    uint32_t crc_errors;         /**< Cumulative CRC error count */
-    uint32_t timeout_errors;     /**< Cumulative timeout count */
-    uint32_t framing_errors;     /**< Cumulative framing error count */
-    uint32_t timing_errors;      /**< Cumulative timing violations */
-    uint32_t t_ren_violations;   /**< t_ren violations */
-    uint32_t t_cycle_violations; /**< t_cycle violations */
-    uint32_t t_byte_violations;  /**< Inter-byte timing violations */
-    uint8_t retry_count;         /**< Retry counter for current exchange */
-    uint32_t total_retries;      /**< Cumulative retry count */
-    uint8_t max_retries;         /**< Configured max retries (default 3) */
-    uint32_t voltage_faults;     /**< Cumulative voltage fault count */
-    uint32_t short_circuits;     /**< Cumulative short circuit count */
-
-    /* PHY Diagnostic Counters */
-    uint32_t voltage_faults;     /**< Cumulative voltage out-of-range detections */
-    uint32_t short_circuits;     /**< Cumulative short circuit detections */
+    uint32_t crc_errors;            /**< Cumulative CRC error count */
+    uint32_t timeout_errors;        /**< Cumulative timeout count */
+    uint32_t framing_errors;        /**< Cumulative framing error count */
+    uint32_t timing_errors;         /**< Cumulative timing violations */
+    uint32_t t_ren_violations;      /**< t_ren violations */
+    uint32_t t_cycle_violations;    /**< t_cycle violations */
+    uint32_t t_byte_violations;     /**< Inter-byte timing violations */
+    uint32_t t_pd_violations;       /**< t_pd violations */
+    uint8_t retry_count;            /**< Retry counter for current exchange */
+    uint32_t total_retries;         /**< Cumulative retry count */
+    uint8_t max_retries;            /**< Configured max retries (default 3) */
+    uint32_t voltage_faults;        /**< Cumulative voltage fault count */
+    uint32_t short_circuits;        /**< Cumulative short circuit count */
+    uint8_t fallback_count;         /**< Consecutive fallback count for SIO transition */
+    uint8_t sio_fallback_threshold; /**< Fallback threshold to enter SIO mode (default 3) */
 
     /* Timing Statistics */
     uint64_t last_response_us; /**< Microsecond timestamp of last response */
@@ -120,16 +120,17 @@ typedef struct
  */
 typedef struct
 {
-    uint32_t crc_errors;
-    uint32_t timeout_errors;
-    uint32_t framing_errors;
-    uint32_t timing_errors;
-    uint32_t t_ren_violations;
-    uint32_t t_cycle_violations;
-    uint32_t t_byte_violations;
-    uint32_t total_retries;
-    uint32_t voltage_faults;
-    uint32_t short_circuits;
+    uint32_t crc_errors;         /**< Cumulative CRC error count */
+    uint32_t timeout_errors;     /**< Cumulative timeout count */
+    uint32_t framing_errors;     /**< Cumulative framing error count */
+    uint32_t timing_errors;      /**< Cumulative timing violations */
+    uint32_t t_ren_violations;   /**< t_ren violations */
+    uint32_t t_cycle_violations; /**< t_cycle violations */
+    uint32_t t_byte_violations;  /**< Inter-byte timing violations */
+    uint32_t t_pd_violations;    /**< t_pd violations */
+    uint32_t total_retries;      /**< Cumulative retry count */
+    uint32_t voltage_faults;     /**< Cumulative voltage fault count */
+    uint32_t short_circuits;     /**< Cumulative short circuit count */
 } iolink_dll_stats_t;
 
 /**
@@ -140,7 +141,7 @@ typedef struct
  * @param ctx DLL context to initialize
  * @param phy PHY implementation to bind
  */
-void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy);
+void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy);
 
 /**
  * @brief Process DLL logic
@@ -149,7 +150,7 @@ void iolink_dll_init(iolink_dll_ctx_t *ctx, const iolink_phy_api_t *phy);
  *
  * @param ctx DLL context to process
  */
-void iolink_dll_process(iolink_dll_ctx_t *ctx);
+void iolink_dll_process(iolink_dll_ctx_t* ctx);
 
 /**
  * @brief Set current PD lengths for variable types (1_V, 2_V)
@@ -159,7 +160,7 @@ void iolink_dll_process(iolink_dll_ctx_t *ctx);
  * @param pd_out_len New PD_Out length
  * @return int 0 on success, negative on range error
  */
-int iolink_dll_set_pd_length(iolink_dll_ctx_t *ctx, uint8_t pd_in_len, uint8_t pd_out_len);
+int iolink_dll_set_pd_length(iolink_dll_ctx_t* ctx, uint8_t pd_in_len, uint8_t pd_out_len);
 
 /**
  * @brief Get current PD lengths
@@ -168,7 +169,7 @@ int iolink_dll_set_pd_length(iolink_dll_ctx_t *ctx, uint8_t pd_in_len, uint8_t p
  * @param pd_in_len [out] Current PD_In length
  * @param pd_out_len [out] Current PD_Out length
  */
-void iolink_dll_get_pd_length(const iolink_dll_ctx_t *ctx, uint8_t *pd_in_len, uint8_t *pd_out_len);
+void iolink_dll_get_pd_length(const iolink_dll_ctx_t* ctx, uint8_t* pd_in_len, uint8_t* pd_out_len);
 
 /**
  * @brief Request transition to SIO mode (single-wire communication)
@@ -176,7 +177,7 @@ void iolink_dll_get_pd_length(const iolink_dll_ctx_t *ctx, uint8_t *pd_in_len, u
  * @param ctx DLL context
  * @return int 0 on success
  */
-int iolink_dll_set_sio_mode(iolink_dll_ctx_t *ctx);
+int iolink_dll_set_sio_mode(iolink_dll_ctx_t* ctx);
 
 /**
  * @brief Request transition to SDCI mode (UART-based exchange)
@@ -184,7 +185,7 @@ int iolink_dll_set_sio_mode(iolink_dll_ctx_t *ctx);
  * @param ctx DLL context
  * @return int 0 on success
  */
-int iolink_dll_set_sdci_mode(iolink_dll_ctx_t *ctx);
+int iolink_dll_set_sdci_mode(iolink_dll_ctx_t* ctx);
 
 /**
  * @brief Get current operating mode
@@ -192,7 +193,7 @@ int iolink_dll_set_sdci_mode(iolink_dll_ctx_t *ctx);
  * @param ctx DLL context
  * @return iolink_phy_mode_t Current mode
  */
-iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t *ctx);
+iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t* ctx);
 
 /**
  * @brief Set the communication baudrate
@@ -201,7 +202,7 @@ iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t *ctx);
  * @param baudrate Desired baudrate (COM1, COM2, or COM3)
  * @return int 0 on success
  */
-int iolink_dll_set_baudrate(iolink_dll_ctx_t *ctx, iolink_baudrate_t baudrate);
+int iolink_dll_set_baudrate(iolink_dll_ctx_t* ctx, iolink_baudrate_t baudrate);
 
 /**
  * @brief Get current negotiated baudrate
@@ -209,7 +210,7 @@ int iolink_dll_set_baudrate(iolink_dll_ctx_t *ctx, iolink_baudrate_t baudrate);
  * @param ctx DLL context
  * @return iolink_baudrate_t Current baudrate
  */
-iolink_baudrate_t iolink_dll_get_baudrate(const iolink_dll_ctx_t *ctx);
+iolink_baudrate_t iolink_dll_get_baudrate(const iolink_dll_ctx_t* ctx);
 
 /**
  * @brief Get DLL statistics
@@ -217,7 +218,7 @@ iolink_baudrate_t iolink_dll_get_baudrate(const iolink_dll_ctx_t *ctx);
  * @param ctx DLL context
  * @param out_stats Output stats structure
  */
-void iolink_dll_get_stats(const iolink_dll_ctx_t *ctx, iolink_dll_stats_t *out_stats);
+void iolink_dll_get_stats(const iolink_dll_ctx_t* ctx, iolink_dll_stats_t* out_stats);
 
 /**
  * @brief Enable/disable timing enforcement (t_ren / t_cycle)
@@ -225,7 +226,7 @@ void iolink_dll_get_stats(const iolink_dll_ctx_t *ctx, iolink_dll_stats_t *out_s
  * @param ctx DLL context
  * @param enable true to enable, false to disable
  */
-void iolink_dll_set_timing_enforcement(iolink_dll_ctx_t *ctx, bool enable);
+void iolink_dll_set_timing_enforcement(iolink_dll_ctx_t* ctx, bool enable);
 
 /**
  * @brief Override t_ren limit (applies to all baudrates)
@@ -233,6 +234,6 @@ void iolink_dll_set_timing_enforcement(iolink_dll_ctx_t *ctx, bool enable);
  * @param ctx DLL context
  * @param limit_us New t_ren limit in microseconds (0 disables enforcement)
  */
-void iolink_dll_set_t_ren_limit_us(iolink_dll_ctx_t *ctx, uint32_t limit_us);
+void iolink_dll_set_t_ren_limit_us(iolink_dll_ctx_t* ctx, uint32_t limit_us);
 
 #endif  // IOLINK_DLL_H

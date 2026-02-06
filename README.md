@@ -57,25 +57,36 @@ cd build
 ctest --output-on-failure
 ```
 
-### Running Hosts (Linux)
+### Development Tools (pre-commit)
 
-```bash
-cmake -B build -DIOLINK_PLATFORM=LINUX
-cmake --build build
-./build/examples/host_demo/host_demo
-```
+To ensure code quality, `iolinki` uses `pre-commit` hooks. These hooks run `clang-format`, `cppcheck`, `ruff`, and `shellcheck` automatically before each commit.
+
+1. **Install pre-commit**:
+   ```bash
+   pip install pre-commit
+   ```
+
+2. **Install the git hooks**:
+   ```bash
+   pre-commit install
+   ```
+
+3. **(Optional) Run on all files**:
+   ```bash
+   pre-commit run --all-files
+   ```
 
 ## Running Tests
 
-### Docker (Recommended - No Dependencies Required)
+### Docker (Primary & Recommended)
+Docker is the primary and recommended environment for running all `iolinki` tests. This ensures a consistent environment with all tools (CMocka, Cppcheck, Doxygen, Clang-Format) pre-configured.
+
 ```bash
-./tools/run_tests_docker.sh
+./run_all_tests_docker.sh
 ```
 
-### Local (Requires CMocka)
-```bash
-sudo apt-get install libcmocka-dev
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
+### Local (Requires Manual Dependencies)
+To run tests locally, ensure you have `libcmocka-dev` installed: -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 cd build && ctest --output-on-failure
 ```

@@ -27,11 +27,13 @@ class TestStateMachineConformance(unittest.TestCase):
         """Start virtual master and device for each test"""
         self.master = VirtualMaster()
         self.device_tty = self.master.get_device_tty()
-        self.demo_bin = os.environ.get("IOLINK_DEVICE_PATH", "./build/examples/host_demo/host_demo")
-        
+        self.demo_bin = os.environ.get(
+            "IOLINK_DEVICE_PATH", "./build/examples/host_demo/host_demo"
+        )
+
     def tearDown(self):
         """Clean up virtual master"""
-        if hasattr(self, 'process') and self.process:
+        if hasattr(self, "process") and self.process:
             self.process.terminate()
             self.process.wait()
         self.master.close()
@@ -40,26 +42,26 @@ class TestStateMachineConformance(unittest.TestCase):
         """
         Test Case: Startup → PREOPERATE Transition
         Requirement: IO-Link V1.1.5 Section 7.3.2 - Wake-up Sequence
-        
+
         Validates:
         - Wake-up request is sent correctly
         - Device responds with valid M-sequence
         - Transition to PREOPERATE within spec timing
         """
         print("\n[TEST] Startup → PREOPERATE Transition")
-        
-        # Start device
-        self.process = subprocess.Popen([self.demo_bin, self.device_tty, "0", "0"],
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        self.process = subprocess.Popen(
+            [self.demo_bin, self.device_tty, "0", "0"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         time.sleep(0.5)
-        
-        # Run startup sequence (includes wake-up)
+
         success = self.master.run_startup_sequence()
         self.assertTrue(success, "Startup sequence should succeed")
-        
-        # Attempt to read Device ID (should work in PREOPERATE)
+
         response = self.master.read_isdu(index=0x0012, subindex=0x00)
-        
+
         self.assertIsNotNone(response, "Device should respond in PREOPERATE state")
         self.assertGreater(len(response), 0, "Product Name should not be empty")
         print(f"[PASS] Product Name: {response.decode('ascii', errors='ignore')}")
@@ -68,165 +70,168 @@ class TestStateMachineConformance(unittest.TestCase):
         """
         Test Case: PREOPERATE → OPERATE Transition
         Requirement: IO-Link V1.1.5 Section 7.3.3 - PD Length Negotiation
-        
+
         Validates:
         - PD length is negotiated correctly
         - M-sequence changes to Type 1_x or Type 2_x
         - Cyclic data exchange begins
         """
         print("\n[TEST] PREOPERATE → OPERATE Transition")
-        
-        # Start device with 2-byte PD
-        self.process = subprocess.Popen([self.demo_bin, self.device_tty, "1", "2"],
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        self.process = subprocess.Popen(
+            [self.demo_bin, self.device_tty, "1", "2"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         time.sleep(0.5)
-        
-        # Startup
+
         self.assertTrue(self.master.run_startup_sequence())
-        
-        # Configure for OPERATE with PD
+
         self.master.m_seq_type = 2  # Type 1_2
         self.master.pd_out_len = 2
         self.master.pd_in_len = 2
         self.master.go_to_operate()
         time.sleep(0.1)
-        
-        # Verify cyclic PD exchange
-        resp = self.master.run_cycle(pd_out=b'\x12\x34')
+
+        resp = self.master.run_cycle(pd_out=b"\x12\x34")
         self.assertIsNotNone(resp, "Should receive Process Data in OPERATE")
         self.assertTrue(resp.valid, "PD response should be valid")
-        self.assertEqual(len(resp.payload), 2, "PD length should match negotiated value")
+        self.assertEqual(
+            len(resp.payload), 2, "PD length should match negotiated value"
+        )
         print(f"[PASS] Process Data received: {resp.payload.hex()}")
 
     def test_03_operate_state_persistence(self):
         """
         Test Case: OPERATE State Persistence
         Requirement: IO-Link V1.1.5 Section 7.3.4 - State Retention
-        
+
         Validates:
         - Device remains in OPERATE during normal operation
         - PD exchange continues without interruption
         - No unexpected state transitions
         """
         print("\n[TEST] OPERATE State Persistence")
-        
-        # Start device
-        self.process = subprocess.Popen([self.demo_bin, self.device_tty, "1", "2"],
-                                       stdout=None, stderr=None)
+
+        self.process = subprocess.Popen(
+            [self.demo_bin, self.device_tty, "1", "2"], stdout=None, stderr=None
+        )
         time.sleep(0.5)
-        
-        # Enter OPERATE state
+
         self.master.run_startup_sequence()
         self.master.m_seq_type = 2
         self.master.pd_out_len = 2
         self.master.pd_in_len = 2
         self.master.go_to_operate()
         time.sleep(0.1)
-        
-        # Perform multiple PD exchanges
+
         success_count = 0
         for i in range(10):
-            resp = self.master.run_cycle(pd_out=b'\xAA\xBB')
+            resp = self.master.run_cycle(pd_out=b"\xaa\xbb")
             if resp and resp.valid:
                 success_count += 1
             time.sleep(0.01)
-        
-        self.assertGreaterEqual(success_count, 8, "At least 8/10 PD exchanges should succeed")
+
+        self.assertGreaterEqual(
+            success_count, 8, "At least 8/10 PD exchanges should succeed"
+        )
         print(f"[PASS] {success_count}/10 consecutive PD exchanges successful")
 
     def test_04_communication_fallback_behavior(self):
         """
         Test Case: COM Rate Fallback
         Requirement: IO-Link V1.1.5 Section 6.2.2 - Baud Rate Negotiation
-        
+
         Validates:
         - Device supports COM1 (4.8 kbaud) as mandatory
         - Communication works at different baud rates
         """
         print("\n[TEST] Communication Fallback Behavior")
-        
-        # Start device (default baud rate)
-        self.process = subprocess.Popen([self.demo_bin, self.device_tty, "0", "0"],
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        self.process = subprocess.Popen(
+            [self.demo_bin, self.device_tty, "0", "0"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         time.sleep(0.5)
-        
-        # Test communication (Virtual Master uses default baud)
+
         self.master.run_startup_sequence()
-        
+
         response = self.master.read_isdu(index=0x0010, subindex=0x00)
         self.assertIsNotNone(response, "Device must support communication")
-        print(f"[PASS] Communication successful: Vendor Name = {response.decode('ascii', errors='ignore')}")
+        print(
+            f"[PASS] Communication successful: Vendor Name = {response.decode('ascii', errors='ignore')}"
+        )
 
     def test_05_invalid_state_transition_rejection(self):
         """
         Test Case: Invalid State Transition Rejection
         Requirement: IO-Link V1.1.5 Section 7.3 - State Machine
-        
+
         Validates:
         - Device rejects invalid state transitions
         - Error handling is spec-compliant
         """
         print("\n[TEST] Invalid State Transition Rejection")
-        
-        # Start device
-        self.process = subprocess.Popen([self.demo_bin, self.device_tty, "1", "2"],
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        self.process = subprocess.Popen(
+            [self.demo_bin, self.device_tty, "1", "2"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         time.sleep(0.5)
-        
-        # Only do startup, don't go to OPERATE
+
         self.master.run_startup_sequence()
-        
-        # Try to run PD cycle in PREOPERATE (should not crash)
+
         self.master.m_seq_type = 2
         self.master.pd_out_len = 2
         self.master.pd_in_len = 2
-        
-        # Device should handle this gracefully (may return invalid or no response)
-        resp = self.master.run_cycle(pd_out=b'\x12\x34')
-        # Just verify it doesn't crash - response may be invalid
+
+        self.master.run_cycle(pd_out=b"\x12\x34")
         print("[PASS] Device handled PD attempt in PREOPERATE gracefully")
 
     def test_06_isdu_during_operate(self):
         """
         Test Case: ISDU Access During OPERATE
         Requirement: IO-Link V1.1.5 Section 8.1.3 - Concurrent Operations
-        
+
         Validates:
         - ISDU transactions work in OPERATE state
         - PD exchange continues during ISDU
         - Interleaving is correct
         """
         print("\n[TEST] ISDU Access During OPERATE")
-        
-        # Start device
-        self.process = subprocess.Popen([self.demo_bin, self.device_tty, "1", "2"],
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        self.process = subprocess.Popen(
+            [self.demo_bin, self.device_tty, "1", "2"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         time.sleep(0.5)
-        
-        # Enter OPERATE
+
         self.master.run_startup_sequence()
         self.master.m_seq_type = 2
         self.master.pd_out_len = 2
         self.master.pd_in_len = 2
         self.master.go_to_operate()
         time.sleep(0.1)
-        
-        # Read ISDU while in OPERATE
+
         vendor_name = self.master.read_isdu(index=0x0010, subindex=0x00)
         self.assertIsNotNone(vendor_name, "ISDU read should work in OPERATE")
-        
-        # Verify PD still works
-        resp = self.master.run_cycle(pd_out=b'\x11\x22')
+
+        resp = self.master.run_cycle(pd_out=b"\x11\x22")
         self.assertIsNotNone(resp, "PD should continue after ISDU")
         self.assertTrue(resp.valid, "PD should be valid after ISDU")
-        
-        print(f"[PASS] ISDU and PD coexist: Vendor={vendor_name.decode('ascii', errors='ignore')}, PD={resp.payload.hex()}")
+
+        print(
+            f"[PASS] ISDU and PD coexist: Vendor={vendor_name.decode('ascii', errors='ignore')}, PD={resp.payload.hex()}"
+        )
 
     def test_07_estab_com_to_operate_transition(self):
         """
         Test Case: ESTAB_COM → OPERATE Transition
         Requirement: IO-Link V1.1.5 Section 7.3 - DLL State Machine
-        
+
         Validates:
         - Device enters ESTAB_COM state on transition command (MC=0x0F)
         - First valid PD frame triggers ESTAB_COM → OPERATE transition
@@ -234,46 +239,46 @@ class TestStateMachineConformance(unittest.TestCase):
         - Invalid frames in ESTAB_COM don't cause premature transition
         """
         print("\n[TEST] ESTAB_COM → OPERATE Transition")
-        
-        # Start device with PD support
-        self.process = subprocess.Popen([self.demo_bin, self.device_tty, "1", "2"],
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        self.process = subprocess.Popen(
+            [self.demo_bin, self.device_tty, "1", "2"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         time.sleep(0.5)
-        
-        # Step 1: Run startup sequence (STARTUP → PREOPERATE)
+
         self.assertTrue(self.master.run_startup_sequence(), "Startup should succeed")
         print("[INFO] Device in PREOPERATE state")
-        
-        # Step 2: Configure for Type 1_2 operation
+
         self.master.m_seq_type = 2  # Type 1_2
         self.master.pd_out_len = 2
         self.master.pd_in_len = 2
-        
-        # Step 3: Send transition command (MC=0x0F) to enter ESTAB_COM
-        # This is done by go_to_operate() which sends the transition command
+
         self.master.go_to_operate()
         time.sleep(0.05)
         print("[INFO] Sent transition command (MC=0x0F), device should be in ESTAB_COM")
-        
-        # Step 4: Send first valid PD frame (should trigger ESTAB_COM → OPERATE)
-        resp1 = self.master.run_cycle(pd_out=b'\x12\x34')
+
+        resp1 = self.master.run_cycle(pd_out=b"\x12\x34")
         self.assertIsNotNone(resp1, "First PD frame should get response")
         self.assertTrue(resp1.valid, "First PD response should be valid")
-        print(f"[INFO] First PD frame accepted, device should now be in OPERATE")
-        
-        # Step 5: Verify subsequent PD frames work (confirming OPERATE state)
+        print("[INFO] First PD frame accepted, device should now be in OPERATE")
+
         success_count = 0
         for i in range(5):
-            resp = self.master.run_cycle(pd_out=b'\xAA\xBB')
+            resp = self.master.run_cycle(pd_out=b"\xaa\xbb")
             if resp and resp.valid:
                 success_count += 1
             time.sleep(0.01)
-        
-        self.assertGreaterEqual(success_count, 4, "At least 4/5 subsequent PD exchanges should succeed")
-        print(f"[PASS] ESTAB_COM → OPERATE transition successful, {success_count}/5 PD cycles in OPERATE")
+
+        self.assertGreaterEqual(
+            success_count, 4, "At least 4/5 subsequent PD exchanges should succeed"
+        )
+        print(
+            f"[PASS] ESTAB_COM → OPERATE transition successful, {success_count}/5 PD cycles in OPERATE"
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("=" * 70)
     print("IO-Link V1.1.5 Conformance Test Suite: State Machine Validation")
     print("=" * 70)
