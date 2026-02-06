@@ -4,6 +4,18 @@ All notable changes to the `iolinki` project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.0.0-rc1] - 2026-02-06
+
+### Added
+- **Quality Gate**: Integrated Docker-based validation strategy for consistent testing.
+- **Pre-commit Hooks**: Enforced automated unit test execution before commits to prevent regressions.
+- **ISDU Helpers**: Added test helper functions (`isdu_send_read_request`, etc.) for V1.1.5 interleaved format validation.
+
+### Fixed
+- **ISDU Protocol Compliance**: Updated `src/isdu.c` to enforcing V1.1.5 interleaved Control/Data format for **all** transfers (previously only segmented).
+- **Type 0 Framing**: Corrected DLL implementation and tests to properly handle 2-byte idle frames (MC+CK).
+- **Error Recovery**: Fixed inactivity timeout (200ms) in `src/dll.c` for robust communication recovery.
+- **Stability**: Resolved PD toggle timing issues and ISDU stress test failures.
 
 ## [0.12.13] - 2026-02-05
 
