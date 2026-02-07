@@ -67,8 +67,8 @@ class TestErrorInjectionConformance(unittest.TestCase):
         self.assertIsNotNone(resp1, "PD should work before dropout")
 
         # Simulate communication loss
-        print("[INFO] Simulating 15s (simulated) communication dropout...")
-        time.sleep(1.5)
+        print("[INFO] Simulating 25s communication dropout...")
+        time.sleep(25.0)
 
         # Try to recover with fresh startup
         self.master.m_seq_type = 0
@@ -102,7 +102,7 @@ class TestErrorInjectionConformance(unittest.TestCase):
         success_count = 0
         for i in range(5):
             self.master.send_wakeup()
-            time.sleep(1.5)  # Give device time to timeout from previous attempts (>10s Zephyr)
+            time.sleep(1.0)  # Short sleep for rapid transitions
             response = self.master.read_isdu(index=0x0012, subindex=0x00)
             if response:
                 success_count += 1
@@ -203,7 +203,7 @@ class TestErrorInjectionConformance(unittest.TestCase):
         self.assertIsNotNone(initial, "Initial state should be good")
 
         # 2. Induce error (communication loss)
-        time.sleep(1.5)  # 1.5s host = 15s Zephyr > 10s T_inactivity
+        time.sleep(25.0)
 
         # 3. Try to recover with fresh startup
         print("[INFO] Attempting recovery...")
@@ -300,7 +300,7 @@ class TestErrorInjectionConformance(unittest.TestCase):
 
             # Device should now be in FALLBACK state, transitioning to STARTUP with COM1
             print("[INFO] Bad CRC frames sent, device should enter FALLBACK → STARTUP")
-            time.sleep(1.5)  # Allow fallback state transition (>10s Zephyr)
+            time.sleep(25.0)  # Allow fallback state transition (>20s)
         else:
             print("[SKIP] Bad CRC injection not supported, simulating with delay")
             time.sleep(0.3)
