@@ -9,4 +9,4 @@ WORKDIR /workdir
 CMD ["bash", "-c", "west list && \
     west build -d build_zephyr -p auto -b native_sim modules/lib/iolinki/examples/zephyr_app && \
     export IOLINK_DEVICE_PATH=/workdir/modules/lib/iolinki/tools/zephyr_wrapper.sh && \
-    python3 modules/lib/iolinki/tools/virtual_master/test_type1.py"]
+    python3 -u modules/lib/iolinki/tools/virtual_master/test_type1.py"]

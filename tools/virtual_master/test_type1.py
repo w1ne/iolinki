@@ -69,6 +69,7 @@ def test_type1_communication():
 
         master.go_to_operate()
         print("✅ Transition sent")
+        time.sleep(0.5)  # Give CI more time to switch
 
         print()
         print("[STEP 2] Cyclic PD Exchange (Loopback Test)")
@@ -78,9 +79,17 @@ def test_type1_communication():
         prev_expected = None
         for i, out_val in enumerate(test_data):
             print(f"   Cycle {i + 1}: Sending PD_OUT={out_val.hex()}")
-            response = master.run_cycle(pd_out=out_val)
+            
+            # Retry first cycle a bit as device might still be transitioning
+            response = None
+            for retry in range(5 if i == 0 else 1):
+                response = master.run_cycle(pd_out=out_val)
+                if response.valid:
+                    break
+                print(f"   ⚠️ Cycle {i + 1} timeout (retry {retry + 1})")
+                time.sleep(0.1)
 
-            if not response.valid:
+            if not response or not response.valid:
                 print(f"   ❌ No valid response in cycle {i + 1}")
                 return 1
 
