@@ -14,4 +14,4 @@ if [ ! -f "$EXE" ]; then
     exit 1
 fi
 
-exec "$EXE"
+exec "$EXE" --rt
