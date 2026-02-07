@@ -10,5 +10,8 @@ zephyr_library_sources(
     ../src/isdu.c
     ../src/events.c
     ../src/data_storage.c
+    ../src/params.c
+    ../src/device_info.c
+    ../src/platform.c
     ../src/platform/zephyr/time_utils.c
 )

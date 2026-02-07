@@ -7,7 +7,7 @@ WORKDIR /workdir
 
 # Build and Run (expects repo mounted at /workdir/modules/lib/iolinki)
 CMD ["bash", "-c", "west list && \
-    west build -p auto -b native_sim modules/lib/iolinki/examples/zephyr_app -DZEPHYR_EXTRA_MODULES=/workdir/modules/lib/iolinki -- -DZEPHYR_DEBUG=1 && \
+    west build -p auto -b native_sim modules/lib/iolinki/examples/zephyr_app && \
     chmod +x modules/lib/iolinki/tools/zephyr_wrapper.sh && \
     export IOLINK_DEVICE_PATH=/workdir/modules/lib/iolinki/tools/zephyr_wrapper.sh && \
     python3 modules/lib/iolinki/tools/virtual_master/test_type1.py"]
