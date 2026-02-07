@@ -7,6 +7,6 @@ WORKDIR /workdir
 
 # Build and Run (expects repo mounted at /workdir/modules/lib/iolinki)
 CMD ["bash", "-c", "west list && \
-    west build -p auto -b native_sim modules/lib/iolinki/examples/zephyr_app && \
+    west build -d build_zephyr -p auto -b native_sim modules/lib/iolinki/examples/zephyr_app && \
     export IOLINK_DEVICE_PATH=/workdir/modules/lib/iolinki/tools/zephyr_wrapper.sh && \
     python3 modules/lib/iolinki/tools/virtual_master/test_type1.py"]
