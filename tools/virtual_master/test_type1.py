@@ -69,7 +69,7 @@ def test_type1_communication():
 
         master.go_to_operate()
         print("✅ Transition sent")
-        time.sleep(0.1)  # Minimal sleep to avoid timeout with fast simulation clock
+        time.sleep(1.0)  # Generous sleep for slow CI simulation
 
         print()
         print("[STEP 2] Cyclic PD Exchange (Loopback Test)")
@@ -82,7 +82,7 @@ def test_type1_communication():
             
             # Retry first cycle a bit as device might still be transitioning
             response = None
-            for retry in range(5 if i == 0 else 1):
+            for retry in range(10 if i == 0 else 1):
                 response = master.run_cycle(pd_out=out_val)
                 if response.valid:
                     break

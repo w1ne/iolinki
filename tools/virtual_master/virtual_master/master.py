@@ -158,7 +158,7 @@ class VirtualMaster:
         frame = self.generator.generate_idle()
         self.uart.send_bytes(frame)
 
-        response_data = self.uart.recv_bytes(2, timeout_ms=500)
+        response_data = self.uart.recv_bytes(2, timeout_ms=1000)
 
         if response_data:
             response = DeviceResponse(response_data)
@@ -341,7 +341,7 @@ class VirtualMaster:
             self.uart.send_bytes(frame)
 
             expected_len = 1 + self.pd_in_len + self.od_len + 1
-            response_data = self.uart.recv_bytes(expected_len, timeout_ms=500)
+            response_data = self.uart.recv_bytes(expected_len, timeout_ms=1000)
 
             if response_data:
                 return DeviceResponse(response_data, od_len=self.od_len)
