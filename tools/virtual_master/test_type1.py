@@ -69,7 +69,7 @@ def test_type1_communication():
 
         master.go_to_operate()
         print("✅ Transition sent")
-        time.sleep(0.5)  # Sleep < Inactivity Timeout (1.0s) but > transition time
+        time.sleep(0.05)  # Minimal sleep: 0.05s * 10x speed = 0.5s < 1s timeout
 
         print()
         print("[STEP 2] Cyclic PD Exchange (Loopback Test)")
