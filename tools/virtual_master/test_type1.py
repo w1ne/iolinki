@@ -69,7 +69,7 @@ def test_type1_communication():
 
         master.go_to_operate()
         print("✅ Transition sent")
-        time.sleep(0.5)  # Give CI time, safely under 1s timeout
+        time.sleep(0.1)  # Minimal sleep to avoid timeout with fast simulation clock
 
         print()
         print("[STEP 2] Cyclic PD Exchange (Loopback Test)")
