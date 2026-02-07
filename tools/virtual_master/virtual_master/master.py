@@ -288,15 +288,15 @@ class VirtualMaster:
         print("[Master] === Starting Startup Sequence ===")
 
         self.send_wakeup()
-        time.sleep(0.1)  # Wait for Device to wake up
+        time.sleep(0.5)  # Wait for Device to wake up (increased for CI)
 
-        for i in range(3):
+        for i in range(10):  # Increased retries for CI stability
             response = self.send_idle()
             if response.valid:
                 print(f"[Master] Communication established (attempt {i + 1})")
                 self.state = MasterState.PREOPERATE
                 return True
-            time.sleep(0.05)
+            time.sleep(0.2)
 
         print("[Master] Startup failed - no valid response")
         return False
