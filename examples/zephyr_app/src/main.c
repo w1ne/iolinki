@@ -18,6 +18,7 @@
 #include "iolinki/phy_virtual.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 LOG_MODULE_REGISTER(iolink_demo, LOG_LEVEL_INF);
 
@@ -25,36 +26,35 @@ int main(void)
 {
     LOG_INF("Starting IO-Link Zephyr Demo");
 
-    const char* port = getenv("IOLINK_PORT");
+    const char *port = getenv("IOLINK_PORT");
     if (port) {
         iolink_phy_virtual_set_port(port);
         LOG_INF("Connecting to %s", port);
-    }
-    else {
+    } else {
         LOG_WRN("IOLINK_PORT not set, using default");
         /* phy_virtual default is /dev/pts/1 or similar? */
     }
 
     /* Prepare configuration from environment */
     iolink_config_t config;
-    (void) memset(&config, 0, sizeof(config));
-    
+    memset(&config, 0, sizeof(config));
+
     /* Set defaults */
     config.m_seq_type = IOLINK_M_SEQ_TYPE_0;
     config.pd_in_len = 2; /* Default */
     config.pd_out_len = 2; /* Default */
 
-    const char* m_seq_env = getenv("IOLINK_M_SEQ_TYPE");
+    const char *m_seq_env = getenv("IOLINK_M_SEQ_TYPE");
     if (m_seq_env) {
-        config.m_seq_type = (iolink_m_seq_type_t) atoi(m_seq_env);
+        config.m_seq_type = (iolink_m_seq_type_t)atoi(m_seq_env);
         LOG_INF("Configured M-Sequence Type: %d", config.m_seq_type);
     }
 
-    const char* pd_len_env = getenv("IOLINK_PD_LEN");
+    const char *pd_len_env = getenv("IOLINK_PD_LEN");
     if (pd_len_env) {
         int len = atoi(pd_len_env);
-        config.pd_in_len = (uint8_t) len;
-        config.pd_out_len = (uint8_t) len;
+        config.pd_in_len = (uint8_t)len;
+        config.pd_out_len = (uint8_t)len;
         LOG_INF("Configured PD Length: %d", len);
     }
 
