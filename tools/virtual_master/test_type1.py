@@ -32,7 +32,10 @@ def run_device_in_background(tty_path, m_seq_type=1, pd_len=2):
         return None
 
     try:
-        proc = subprocess.Popen([device_path, tty_path, str(m_seq_type), str(pd_len)])
+        env = os.environ.copy()
+        env["IOLINK_M_SEQ_TYPE"] = str(m_seq_type)
+        env["IOLINK_PD_LEN"] = str(pd_len)
+        proc = subprocess.Popen([device_path, tty_path, str(m_seq_type), str(pd_len)], env=env)
         print(
             f"[INFO] Device started (PID: {proc.pid}, Type={m_seq_type}, PD={pd_len})"
         )
