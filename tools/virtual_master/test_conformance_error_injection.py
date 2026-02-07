@@ -36,7 +36,6 @@ class TestErrorInjectionConformance(unittest.TestCase):
             self.process.wait()
         self.master.close()
 
-    @unittest.skip("Skipping flaky timeout test in CI environment")
     def test_01_communication_loss_recovery(self):
 
         self.process = subprocess.Popen(
@@ -59,8 +58,8 @@ class TestErrorInjectionConformance(unittest.TestCase):
         self.assertIsNotNone(resp1, "PD should work before dropout")
 
         # Simulate communication loss
-        print("[INFO] Simulating 25s communication dropout...")
-        time.sleep(25.0)
+        print("[INFO] Simulating 15s communication dropout (Responsive Strategy)...")
+        time.sleep(15.0)
 
         # Try to recover with fresh startup
         self.master.m_seq_type = 0
@@ -72,7 +71,6 @@ class TestErrorInjectionConformance(unittest.TestCase):
         self.assertIsNotNone(response, "Device ISDU should work after recovery")
         print("[PASS] Device recovered successfully")
 
-    @unittest.skip("Skipping flaky rapid transition test in CI environment")
     def test_02_rapid_state_transitions(self):
 
         self.process = subprocess.Popen(
@@ -163,7 +161,6 @@ class TestErrorInjectionConformance(unittest.TestCase):
         self.assertIsNotNone(readback, "Large ISDU should be readable")
         print("[PASS] 16-byte ISDU write/read successful")
 
-    @unittest.skip("Skipping flaky recovery test in CI environment")
     def test_05_error_recovery_sequence(self):
 
         self.process = subprocess.Popen(
@@ -179,7 +176,7 @@ class TestErrorInjectionConformance(unittest.TestCase):
         self.assertIsNotNone(initial, "Initial state should be good")
 
         # 2. Induce error (communication loss)
-        time.sleep(25.0)
+        time.sleep(15.0)
 
         # 3. Try to recover with fresh startup
         print("[INFO] Attempting recovery...")
@@ -276,7 +273,7 @@ class TestErrorInjectionConformance(unittest.TestCase):
 
             # Device should now be in FALLBACK state, transitioning to STARTUP with COM1
             print("[INFO] Bad CRC frames sent, device should enter FALLBACK → STARTUP")
-            time.sleep(25.0)  # Allow fallback state transition (>20s)
+            time.sleep(15.0)  # Allow fallback state transition (>1s Zephyr)
         else:
             print("[SKIP] Bad CRC injection not supported, simulating with delay")
             time.sleep(0.3)
