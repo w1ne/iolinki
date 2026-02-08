@@ -15,14 +15,14 @@
 #include "iolinki/platform.h"
 #include "iolinki/utils.h"
 
-void iolink_events_init(iolink_events_ctx_t *ctx)
+void iolink_events_init(iolink_events_ctx_t* ctx)
 {
     if (!iolink_ctx_zero(ctx, sizeof(iolink_events_ctx_t))) {
         return;
     }
 }
 
-void iolink_event_trigger(iolink_events_ctx_t *ctx, uint16_t code, iolink_event_type_t type)
+void iolink_event_trigger(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_type_t type)
 {
     if (ctx == NULL) {
         return;
@@ -44,13 +44,13 @@ void iolink_event_trigger(iolink_events_ctx_t *ctx, uint16_t code, iolink_event_
     iolink_critical_exit();
 }
 
-bool iolink_events_pending(iolink_events_ctx_t *ctx)
+bool iolink_events_pending(const iolink_events_ctx_t* ctx)
 {
     /* Single byte read is typically atomic, avoiding lock for perf */
     return ((ctx != NULL) && (ctx->count > 0U));
 }
 
-bool iolink_events_pop(iolink_events_ctx_t *ctx, iolink_event_t *event)
+bool iolink_events_pop(iolink_events_ctx_t* ctx, iolink_event_t* event)
 {
     if ((ctx == NULL) || (event == NULL)) {
         return false;
@@ -70,7 +70,7 @@ bool iolink_events_pop(iolink_events_ctx_t *ctx, iolink_event_t *event)
     return ret;
 }
 
-bool iolink_events_peek(const iolink_events_ctx_t *ctx, iolink_event_t *event)
+bool iolink_events_peek(const iolink_events_ctx_t* ctx, iolink_event_t* event)
 {
     if ((ctx == NULL) || (event == NULL)) {
         return false;
@@ -89,7 +89,7 @@ bool iolink_events_peek(const iolink_events_ctx_t *ctx, iolink_event_t *event)
     return ret;
 }
 
-uint8_t iolink_events_get_highest_severity(iolink_events_ctx_t *ctx)
+uint8_t iolink_events_get_highest_severity(iolink_events_ctx_t* ctx)
 {
     if ((ctx == NULL) || (ctx->count == 0U)) {
         return 0U; /* OK */
@@ -125,7 +125,7 @@ uint8_t iolink_events_get_highest_severity(iolink_events_ctx_t *ctx)
     return highest_msp;
 }
 
-uint8_t iolink_events_get_all(iolink_events_ctx_t *ctx, iolink_event_t *out_events,
+uint8_t iolink_events_get_all(iolink_events_ctx_t* ctx, iolink_event_t* out_events,
                               uint8_t max_count)
 {
     if ((ctx == NULL) || (out_events == NULL) || (max_count == 0U)) {

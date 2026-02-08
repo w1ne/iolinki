@@ -20,32 +20,52 @@
 #include <stdio.h>
 
 #include "iolinki/isdu.h"
+#include "iolinki/params.h"
+#include "iolinki/device_info.h"
+#include "test_helpers.h"
+
+static int test_setup(void** state)
+{
+    (void) state;
+    iolink_nvm_mock_cleanup();
+    return 0;
+}
+
+static int test_teardown(void** state)
+{
+    (void) state;
+    iolink_nvm_mock_cleanup();
+    return 0;
+}
 
 /* Removed unused test stub to avoid -Werror=unused-function */
 
-static void test_isdu_segmented_write_corrected(void **state)
+static void test_isdu_segmented_write_corrected(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
     iolink_isdu_init(&ctx);
 
     /* Write Index 0x18, 2 bytes */
-    iolink_isdu_collect_byte(&ctx, 0x81);
-    iolink_isdu_collect_byte(&ctx, 0xA2);
+    /* Write Index 0x18, 2 bytes */
+    iolink_isdu_collect_byte(&ctx, 0x80); /* Start, Seq=0 */
+    iolink_isdu_collect_byte(&ctx, 0x92);
 
-    iolink_isdu_collect_byte(&ctx, 0x02);
+    iolink_isdu_collect_byte(&ctx, 0x01); /* Seq=1 */
     iolink_isdu_collect_byte(&ctx, 0x00);
 
-    iolink_isdu_collect_byte(&ctx, 0x03);
+    iolink_isdu_collect_byte(&ctx, 0x02); /* Seq=2 */
     iolink_isdu_collect_byte(&ctx, 0x18);
 
-    iolink_isdu_collect_byte(&ctx, 0x04);
+    iolink_isdu_collect_byte(&ctx, 0x03); /* Seq=3 */
     iolink_isdu_collect_byte(&ctx, 0x00);
 
-    iolink_isdu_collect_byte(&ctx, 0x05);
+    iolink_isdu_collect_byte(&ctx, 0x04); /* Seq=4 */
     iolink_isdu_collect_byte(&ctx, 0xAA);
 
-    iolink_isdu_collect_byte(&ctx, 0x46);
+    iolink_isdu_collect_byte(&ctx, 0x45); /* Last, Seq=5 */
     assert_int_equal(iolink_isdu_collect_byte(&ctx, 0xBB), 1);
 
     iolink_isdu_process(&ctx);
@@ -60,15 +80,17 @@ static void test_isdu_segmented_write_corrected(void **state)
     assert_int_equal(byte & 0xC0, 0xC0);
 }
 
-static void test_isdu_busy_response(void **state)
+static void test_isdu_busy_response(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
     iolink_isdu_init(&ctx);
 
     /* 1. Start a write request */
     iolink_isdu_collect_byte(&ctx, 0x81); /* Start, Seq=1 */
-    iolink_isdu_collect_byte(&ctx, 0xA2); /* Write, Len=2 */
+    iolink_isdu_collect_byte(&ctx, 0x92); /* Write, Len=2 */
 
     /* 2. Before finishing, send another Start bit (Concurrent request) */
     /* iolink_isdu_collect_byte should return 1 to indicate a response is now ready (the error
@@ -100,17 +122,20 @@ static void test_isdu_busy_response(void **state)
     assert_int_equal(byte, 0x30);
 }
 
-static void test_isdu_segmentation_error(void **state)
+static void test_isdu_segmentation_error(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    /* Unused info struct */
+    iolink_device_info_init(NULL);
+    iolink_params_init();
     iolink_isdu_init(&ctx);
 
     /* 1. Start a segmented write */
     iolink_isdu_collect_byte(&ctx, 0x81); /* Start, Seq=1, !Last */
-    iolink_isdu_collect_byte(&ctx, 0xA1); /* Write, Len=1 */
+    iolink_isdu_collect_byte(&ctx, 0x91); /* Write, Len=1 */
 
-    /* 2. Send wrong sequence number (Expected 2, send 3) */
+    /* 2. Send wrong sequence number (Expected 0x02, send 0x03) */
     assert_int_equal(iolink_isdu_collect_byte(&ctx, 0x03), -1);
 
     iolink_isdu_process(&ctx);
@@ -137,9 +162,10 @@ static void test_isdu_segmentation_error(void **state)
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_isdu_segmented_write_corrected),
-        cmocka_unit_test(test_isdu_busy_response),
-        cmocka_unit_test(test_isdu_segmentation_error),
+        cmocka_unit_test_setup_teardown(test_isdu_segmented_write_corrected, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_busy_response, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_segmentation_error, test_setup, test_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

@@ -69,7 +69,7 @@ Acceptance:
 - Tests validate event generation and retrieval.
 
 ## Task 4: ISDU Flow Control (Busy/Retry)
-Status: claimed by Antigravity (2026-02-04)
+Status: done by Antigravity (2026-02-05)
 Scope:
 - Implement busy/retry handling for concurrent ISDU requests.
 - Ensure segmented transfers remain consistent under load.
@@ -97,7 +97,7 @@ Acceptance:
 - Tests cover each index.
 
 ## Task 6: Frame Synchronization + t_byte/t_bit Timing
-Status: unclaimed
+Status: done by Frame Sync and Timing (2026-02-05)
 Scope:
 - Implement frame synchronization and enforce `t_byte` / `t_bit` timing where feasible.
 - Add measurement counters for inter-byte timing violations.
@@ -125,7 +125,7 @@ Acceptance:
 - Tests validate metric updates.
 
 ## Task 8: PHY Diagnostics (L+ Voltage + Short Circuit)
-Status: unclaimed
+Status: done by Antigravity (2026-02-05)
 Scope:
 - Implement default handling paths for `get_voltage_mv` and `is_short_circuit`.
 - Add device events on fault conditions if supported.
@@ -152,7 +152,7 @@ Acceptance:
 - Tests cover at least CRC and timeout counters.
 
 ## Task 10: SIO Fallback Behavior
-Status: unclaimed
+Status: done by Antigravity (2026-02-05)
 Scope:
 - Implement SIO fallback when validation fails or repeated errors occur.
 - Ensure safe transition back to SDCI.
@@ -182,7 +182,7 @@ Acceptance:
 - Unit tests cover all seven subcommands with expected responses.
 
 ## Task 12: Process Data Consistency Toggle Bit
-Status: unclaimed
+Status: done by Antigravity (2026-02-05)
 Scope:
 - Implement PD consistency toggle bit mechanism for cyclic process data.
 - Ensure toggle behavior follows IO-Link V1.1.5 expectations across PDIn/PDOut.
@@ -198,7 +198,7 @@ Acceptance:
 - Tests validate consistency behavior for both input and output PD.
 
 ## Task 13: Standard Event Code Mapping
-Status: unclaimed
+Status: done by Antigravity (2026-02-05)
 Scope:
 - Map diagnostic events to standard event code ranges (0x1xxx–0x8xxx).
 - Define event mode (single/multiple) handling and qualifiers as needed.
@@ -213,7 +213,7 @@ Acceptance:
 - Tests validate event codes and retrieval behavior.
 
 ## Task 14: Data Storage Integration with Device Access Locks
-Status: unclaimed
+Status: done by Antigravity (2026-02-05)
 Scope:
 - Integrate Data Storage (DS) upload/download flow with Device Access Locks (0x000C).
 - Implement DS commands: Upload Start/End, Download Start/End.
@@ -228,7 +228,7 @@ Acceptance:
 - Tests cover upload, download, and checksum mismatch recovery.
 
 ## Task 15: SIO Mode Switching Logic
-Status: unclaimed
+Status: claimed by Antigravity (2026-02-05)
 Scope:
 - Implement dynamic SIO ↔ SDCI transitions and AutoComm behavior.
 - Ensure safe mode switching and error recovery.
@@ -258,3 +258,18 @@ Primary files:
 Acceptance:
 - No global context remains in core modules.
 - All tests compile and pass with context-based API usage.
+
+## Task 17: Power-On Delay (t_pd) Enforcement
+Status: done by codex (2026-02-05)
+Scope:
+- Implement `t_pd` power-on delay handling before responding to the Master.
+- Add a timer/counter and configuration hook for the delay value.
+- Emit a timing violation counter/event if communication occurs before `t_pd` elapses.
+Primary files:
+- `src/dll.c`
+- `include/iolinki/dll.h`
+- `include/iolinki/config.h`
+- `tests/test_timing.c`
+Acceptance:
+- Device does not respond to frames until `t_pd` has elapsed.
+- Unit test covers at least one pre-`t_pd` violation case.

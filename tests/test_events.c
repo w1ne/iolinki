@@ -19,7 +19,7 @@
 
 #include "iolinki/events.h"
 
-static void test_event_queue_flow(void **state)
+static void test_event_queue_flow(void** state)
 {
     (void) state;
     iolink_events_ctx_t ctx;
@@ -37,7 +37,7 @@ static void test_event_queue_flow(void **state)
     assert_false(iolink_events_pending(&ctx));
 }
 
-static void test_event_queue_overflow(void **state)
+static void test_event_queue_overflow(void** state)
 {
     (void) state;
     iolink_events_ctx_t ctx;
@@ -57,7 +57,7 @@ static void test_event_queue_overflow(void **state)
     assert_true(iolink_events_pending(&ctx));
 }
 
-static void test_standard_codes(void **state)
+static void test_standard_codes(void** state)
 {
     (void) state;
     iolink_events_ctx_t ctx;
@@ -73,7 +73,26 @@ static void test_standard_codes(void **state)
     assert_int_equal(ev.code, IOLINK_EVENT_COMM_TIMEOUT);
 }
 
-static void test_event_peek(void **state)
+static void test_phy_diagnostic_codes(void** state)
+{
+    (void) state;
+    iolink_events_ctx_t ctx;
+    iolink_events_init(&ctx);
+
+    iolink_event_trigger(&ctx, IOLINK_EVENT_PHY_VOLTAGE_FAULT, IOLINK_EVENT_TYPE_WARNING);
+    iolink_event_trigger(&ctx, IOLINK_EVENT_PHY_SHORT_CIRCUIT, IOLINK_EVENT_TYPE_ERROR);
+
+    iolink_event_t ev;
+    assert_true(iolink_events_pop(&ctx, &ev));
+    assert_int_equal(ev.code, IOLINK_EVENT_PHY_VOLTAGE_FAULT);
+    assert_int_equal(ev.type, IOLINK_EVENT_TYPE_WARNING);
+
+    assert_true(iolink_events_pop(&ctx, &ev));
+    assert_int_equal(ev.code, IOLINK_EVENT_PHY_SHORT_CIRCUIT);
+    assert_int_equal(ev.type, IOLINK_EVENT_TYPE_ERROR);
+}
+
+static void test_event_peek(void** state)
 {
     (void) state;
     iolink_events_ctx_t ctx;
@@ -92,7 +111,7 @@ static void test_event_peek(void **state)
     assert_false(iolink_events_pending(&ctx));
 }
 
-static void test_event_helpers(void **state)
+static void test_event_helpers(void** state)
 {
     (void) state;
     iolink_events_ctx_t ctx;
@@ -127,8 +146,8 @@ int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_event_queue_flow), cmocka_unit_test(test_event_queue_overflow),
-        cmocka_unit_test(test_standard_codes),   cmocka_unit_test(test_event_peek),
-        cmocka_unit_test(test_event_helpers),
+        cmocka_unit_test(test_standard_codes),   cmocka_unit_test(test_phy_diagnostic_codes),
+        cmocka_unit_test(test_event_peek),       cmocka_unit_test(test_event_helpers),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

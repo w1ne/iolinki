@@ -31,10 +31,26 @@ typedef enum
 /**
  * @brief Standard IO-Link Event Codes (Spec V1.1.2)
  */
+/* Communication Layer Events (0x18XX) */
 #define IOLINK_EVENT_COMM_CRC 0x1801U     /**< CRC error in communication */
 #define IOLINK_EVENT_COMM_TIMEOUT 0x1802U /**< Timeout in communication */
 #define IOLINK_EVENT_COMM_FRAMING 0x1803U /**< Framing error in communication */
 #define IOLINK_EVENT_COMM_TIMING 0x1804U  /**< Timing violation in communication */
+
+/* PHY Diagnostic Event Codes (0x18XX) */
+#define IOLINK_EVENT_PHY_VOLTAGE_FAULT 0x1805U /**< L+ voltage out of range */
+#define IOLINK_EVENT_PHY_SHORT_CIRCUIT 0x1806U /**< Short circuit detected */
+
+/* Application Layer Events (0x5XXX) */
+#define IOLINK_EVENT_APP_TEMP_UNDERFLOW 0x5110U /**< Temperature below operating range */
+#define IOLINK_EVENT_APP_TEMP_OVERFLOW 0x5120U  /**< Temperature above operating range */
+#define IOLINK_EVENT_APP_TEMP_SHOCK 0x5130U     /**< Rapid temperature change */
+
+/* Hardware/Device Events (0x6XXX) */
+#define IOLINK_EVENT_HW_GENERAL_FAULT 0x6000U  /**< General hardware fault */
+#define IOLINK_EVENT_HW_MEMORY_FAULT 0x6310U   /**< Memory error detected */
+#define IOLINK_EVENT_HW_SENSOR_FAULT 0x6320U   /**< Sensor element fault */
+#define IOLINK_EVENT_HW_ACTUATOR_FAULT 0x6330U /**< Actuator element fault */
 
 /**
  * @brief Event Descriptor
@@ -67,7 +83,7 @@ typedef struct
  *
  * @param ctx Event context to initialize
  */
-void iolink_events_init(iolink_events_ctx_t *ctx);
+void iolink_events_init(iolink_events_ctx_t* ctx);
 
 /**
  * @brief Trigger a new diagnostic event
@@ -79,7 +95,7 @@ void iolink_events_init(iolink_events_ctx_t *ctx);
  * @param code 16-bit IO-Link EventCode
  * @param type Severity level
  */
-void iolink_event_trigger(iolink_events_ctx_t *ctx, uint16_t code, iolink_event_type_t type);
+void iolink_event_trigger(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_type_t type);
 
 /**
  * @brief Check if any events are pending for Master retrieval
@@ -87,7 +103,7 @@ void iolink_event_trigger(iolink_events_ctx_t *ctx, uint16_t code, iolink_event_
  * @param ctx Event context
  * @return true if one or more events are in the queue
  */
-bool iolink_events_pending(iolink_events_ctx_t *ctx);
+bool iolink_events_pending(const iolink_events_ctx_t* ctx);
 
 /**
  * @brief Pop the oldest event from the queue
@@ -98,7 +114,7 @@ bool iolink_events_pending(iolink_events_ctx_t *ctx);
  * @param event [out] Pointer to store the popped event details
  * @return true if an event was successfully popped, false if queue was empty
  */
-bool iolink_events_pop(iolink_events_ctx_t *ctx, iolink_event_t *event);
+bool iolink_events_pop(iolink_events_ctx_t* ctx, iolink_event_t* event);
 
 /**
  * @brief Peek at the oldest event without removing it from the queue
@@ -109,7 +125,7 @@ bool iolink_events_pop(iolink_events_ctx_t *ctx, iolink_event_t *event);
  * @param event [out] Pointer to store the event details
  * @return true if an event was available, false if queue was empty
  */
-bool iolink_events_peek(const iolink_events_ctx_t *ctx, iolink_event_t *event);
+bool iolink_events_peek(const iolink_events_ctx_t* ctx, iolink_event_t* event);
 
 /**
  * @brief Get the highest severity level currently in the event queue
@@ -119,7 +135,7 @@ bool iolink_events_peek(const iolink_events_ctx_t *ctx, iolink_event_t *event);
  * @param ctx Event context
  * @return uint8_t Highest severity level (0-3)
  */
-uint8_t iolink_events_get_highest_severity(iolink_events_ctx_t *ctx);
+uint8_t iolink_events_get_highest_severity(iolink_events_ctx_t* ctx);
 
 /**
  * @brief Copy all pending events to a buffer without popping them
@@ -129,7 +145,7 @@ uint8_t iolink_events_get_highest_severity(iolink_events_ctx_t *ctx);
  * @param max_count Maximum number of events to copy
  * @return uint8_t Number of events copied
  */
-uint8_t iolink_events_get_all(iolink_events_ctx_t *ctx, iolink_event_t *out_events,
+uint8_t iolink_events_get_all(iolink_events_ctx_t* ctx, iolink_event_t* out_events,
                               uint8_t max_count);
 
 #endif  // IOLINK_EVENTS_H

@@ -12,7 +12,7 @@ graph TD
     AL --> DLL[Data Link Layer]
     DLL --> PHY[PHY Abstraction Layer]
     PHY --> HW[Specific Hardware / Simulation]
-    
+
     subgraph "iolinki Core"
         AL
         DLL

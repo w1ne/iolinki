@@ -23,7 +23,7 @@
 #include "iolinki/dll.h"
 #include "test_helpers.h"
 
-static void test_crc_error_recovery(void **state)
+static void test_crc_error_recovery(void** state)
 {
     (void) state;
     iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1};
@@ -57,14 +57,19 @@ static void test_crc_error_recovery(void **state)
     assert_true(iolink_events_pending(iolink_get_events_ctx()));
 }
 
-static void test_communication_timeout(void **state)
+static void test_communication_timeout(void** state)
 {
     (void) state;
     setup_mock_phy();
     will_return(mock_phy_init, 0);
     iolink_init(&g_phy_mock, NULL);
 
-    /* Ensure no data available */
+    /* Trigger wakeup to move from SIO to SDCI */
+    iolink_phy_mock_set_wakeup(1);
+    iolink_process();
+    iolink_phy_mock_set_wakeup(0);
+
+    /* Ensure no data available in SDCI mode */
     will_return(mock_phy_recv_byte, 0);
     iolink_process();
 }

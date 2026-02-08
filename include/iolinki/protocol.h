@@ -32,8 +32,8 @@
 #define IOLINK_ISDU_CTRL_SEQ_MASK 0x3FU
 
 /* ISDU Service IDs */
-#define IOLINK_ISDU_SERVICE_READ 0x09U
-#define IOLINK_ISDU_SERVICE_WRITE 0x0AU
+#define IOLINK_ISDU_SERVICE_READ 0x08U
+#define IOLINK_ISDU_SERVICE_WRITE 0x09U
 
 /* Mandatory ISDU Indices */
 #define IOLINK_IDX_DIRECT_PARAMETERS_1 0x0000U
@@ -62,6 +62,13 @@
 #define IOLINK_IDX_ERROR_STATS 0x0025U /**< Vendor-specific error statistics */
 
 /* System Commands (Index 0x0002) */
+#define IOLINK_CMD_PARAM_DOWNLOAD_START 0x05U
+#define IOLINK_CMD_PARAM_DOWNLOAD_END 0x06U
+#define IOLINK_CMD_PARAM_UPLOAD_START 0x07U
+#define IOLINK_CMD_PARAM_UPLOAD_END 0x08U
+#define IOLINK_CMD_PARAM_DOWNLOAD_STORE 0x09U /* V1.0 legacy or optional */
+
+/* Legacy/Non-Standard Commands (Deprecating) */
 #define IOLINK_CMD_DEVICE_RESET 0x80U
 #define IOLINK_CMD_APPLICATION_RESET 0x81U
 #define IOLINK_CMD_RESTORE_FACTORY_SETTINGS 0x82U
@@ -71,12 +78,19 @@
 #define IOLINK_CMD_PARAM_DOWNLOAD 0x96U
 #define IOLINK_CMD_PARAM_BREAK 0x97U
 
+/* Device Access Locks (Index 0x000C) */
+#define IOLINK_LOCK_PARAM 0x01U       /* Bit 0: Parameter (Write) Access */
+#define IOLINK_LOCK_DS 0x02U          /* Bit 1: Data Storage Access */
+#define IOLINK_LOCK_LOCAL_PARAM 0x04U /* Bit 2: Local Parameterization */
+#define IOLINK_LOCK_LOCAL_UI 0x08U    /* Bit 3: Local User Interface */
+
 /* ISDU Error Codes (0x80xx) */
 #define IOLINK_ISDU_ERROR_NONE 0x00U
 #define IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL 0x11U
 #define IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL 0x12U
 #define IOLINK_ISDU_ERROR_BUSY 0x30U
 #define IOLINK_ISDU_ERROR_WRITE_PROTECTED 0x33U
+#define IOLINK_ISDU_ERROR_SEGMENTATION 0x81U
 
 /* Event Constants */
 #define IOLINK_EVENT_BIT_STATUS 0x80U /* MSB of status byte in Type 1/2 */
@@ -93,7 +107,7 @@
 
 /* OD Status Byte Bit Definitions (First byte of OD) */
 #define IOLINK_OD_STATUS_EVENT 0x80U       /* Bit 7: Event present */
-#define IOLINK_OD_STATUS_RESERVED 0x40U    /* Bit 6: Reserved */
+#define IOLINK_OD_STATUS_PD_TOGGLE 0x40U   /* Bit 6: PD Toggle (Consistency) */
 #define IOLINK_OD_STATUS_PD_VALID 0x20U    /* Bit 5: PD_In valid */
 #define IOLINK_OD_STATUS_DEVICE_MASK 0x1FU /* Bits 4-0: Device status flags */
 

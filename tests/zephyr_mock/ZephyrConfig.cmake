@@ -20,7 +20,7 @@ function(zephyr_library_sources)
         else()
             set(abs_src "${CMAKE_CURRENT_SOURCE_DIR}/${src}")
         endif()
-        
+
         if(NOT EXISTS "${abs_src}")
              message(FATAL_ERROR "Zephyr Source Validation Failed: File not found: ${abs_src}")
         else()

@@ -5,7 +5,6 @@ set -e
 # Note: pulling 'zephyrprojectrtos/zephyr-build:latest' is approx 2-4GB.
 # We assume the user has docker installed.
 
-IMAGE_NAME="iolinki-zephyr-builder"
 
 # Create minimal Dockerfile locally if needed, but we can usually run directly
 # if we just want to compile.
@@ -19,7 +18,7 @@ echo "=== Building IO-Link Zephyr App via Docker ==="
 
 # Standard Zephyr Build Command using the official container
 docker run --rm \
-    -v $(pwd):/workdir/modules/lib/iolinki \
+    -v "$(pwd)":/workdir/modules/lib/iolinki \
     -w /workdir/modules/lib/iolinki \
     zephyrprojectrtos/cmockunity:latest \
     /bin/bash -c "

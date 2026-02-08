@@ -19,7 +19,7 @@
 
 #include "iolinki/crc.h"
 
-static void test_crc6_basic(void **state)
+static void test_crc6_basic(void** state)
 {
     (void) state;
     /* Known test vectors for IO-Link CRC6 (Polynomial 0x1D, Seed 0x15)
@@ -34,7 +34,7 @@ static void test_crc6_basic(void **state)
     assert_int_equal(iolink_crc6(data2, 2), 0x0D);
 }
 
-static void test_checksum_ck_basic(void **state)
+static void test_checksum_ck_basic(void** state)
 {
     (void) state;
     /* MC=0, CKT=0 -> CRC6(0x00, 0x00) = 0x24 */

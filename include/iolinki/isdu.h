@@ -82,9 +82,9 @@ typedef struct
     uint8_t error_code;            /**< IO-Link ISDU Error Code (0x80XX) */
 
     /* Pointers to external dependencies */
-    void *event_ctx; /**< Diagnostic host backlink */
-    void *ds_ctx;    /**< Data Storage context for system commands */
-    void *dll_ctx;   /**< DLL context for statistics access */
+    void* event_ctx; /**< Diagnostic host backlink */
+    void* ds_ctx;    /**< Data Storage context for system commands */
+    void* dll_ctx;   /**< DLL context for statistics access */
 
     /* System Command Flags */
     bool reset_pending;     /**< Device reset requested (0x80) */
@@ -96,7 +96,7 @@ typedef struct
  *
  * @param ctx ISDU context to initialize
  */
-void iolink_isdu_init(iolink_isdu_ctx_t *ctx);
+void iolink_isdu_init(iolink_isdu_ctx_t* ctx);
 
 /**
  * @brief Process ISDU engine logic
@@ -105,7 +105,7 @@ void iolink_isdu_init(iolink_isdu_ctx_t *ctx);
  *
  * @param ctx ISDU context to process
  */
-void iolink_isdu_process(iolink_isdu_ctx_t *ctx);
+void iolink_isdu_process(iolink_isdu_ctx_t* ctx);
 
 /**
  * @brief Collect a byte from an M-sequence (on-request data slot)
@@ -116,7 +116,7 @@ void iolink_isdu_process(iolink_isdu_ctx_t *ctx);
  * @param byte Incoming data byte
  * @return int 0 if still collecting, 1 if request completely parsed, negative on protocol error
  */
-int iolink_isdu_collect_byte(iolink_isdu_ctx_t *ctx, uint8_t byte);
+int iolink_isdu_collect_byte(iolink_isdu_ctx_t* ctx, uint8_t byte);
 
 /**
  * @brief Get the next byte to send in an ISDU response
@@ -127,6 +127,6 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t *ctx, uint8_t byte);
  * @param byte [out] Pointer to store the response byte
  * @return int 1 if byte fetched, 0 if no response data is ready
  */
-int iolink_isdu_get_response_byte(iolink_isdu_ctx_t *ctx, uint8_t *byte);
+int iolink_isdu_get_response_byte(iolink_isdu_ctx_t* ctx, uint8_t* byte);
 
 #endif  // IOLINK_ISDU_H

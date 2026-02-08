@@ -12,7 +12,7 @@
 #include "iolinki/iolink.h"
 #include "iolinki/phy_virtual.h"
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     if (argc < 2) {
         printf("Usage: %s <tty_device> [m_seq_type] [pd_len]\n", argv[0]);
@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
     iolink_phy_virtual_set_port(argv[1]);
 
     /* Initialize stack with virtual PHY and config */
-    const iolink_phy_api_t *phy = iolink_phy_virtual_get();
+    const iolink_phy_api_t* phy = iolink_phy_virtual_get();
 
     if (iolink_init(phy, &config) != 0) {
         printf("ERROR: Failed to initialize IO-Link stack\n");
@@ -80,10 +80,8 @@ int main(int argc, char *argv[])
     /* Simulate periodic processing and PD exchange */
 
     while (1) {
-        /* Update input data (Device -> Master) */
-        // printf("Cycle %d: Processing stack... PD IN: %02X\n", i, pd_in);
-
         iolink_process();
+        // ...
 
         /* Update input data (Device -> Master) */
 

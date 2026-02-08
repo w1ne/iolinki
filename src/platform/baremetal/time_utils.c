@@ -27,5 +27,5 @@ uint32_t iolink_time_get_ms(void)
 uint64_t iolink_time_get_us(void)
 {
     /* Rough approximation or need a high-res timer */
-    return IOLINK_US_FROM_MS(g_iolink_ticks_ms);
+    return iolink_us_from_ms(g_iolink_ticks_ms);
 }

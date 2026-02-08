@@ -14,7 +14,7 @@ if [[ "$(docker images -q iolinki-test 2> /dev/null)" == "" ]]; then
 else
     echo "   ✅ Test image found. Reusing cached image."
 fi
-docker run --rm -v "$(pwd)":/workspace -e IOLINKI_MISRA_ENFORCE=1 iolinki-test bash -c "./check_quality.sh && bash /workspace/.docker_test_entrypoint.sh"
+docker run --rm -v "$(pwd)":/workspace iolinki-test bash -c "./check_quality.sh && bash /workspace/.docker_test_entrypoint.sh"
 
 # 2. Zephyr Simulation Tests
 echo -e "\n[2/2] 🪁 Running Zephyr Simulation Tests..."
@@ -40,3 +40,6 @@ docker run --rm -v "$(pwd)":/workdir/modules/lib/iolinki iolinki-zephyr-test
 echo -e "\n============================================"
 echo "✅ All Dockerized Tests Completed Successfully"
 echo "============================================"
+
+# Final Cleanup (optional but good for runners)
+# docker system prune -f

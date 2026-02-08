@@ -9,7 +9,7 @@
 #include "iolinki/device_info.h"
 #include <string.h>
 
-static const iolink_device_info_t *g_device_info = NULL;
+static const iolink_device_info_t* g_device_info = NULL;
 
 /* Default device info (can be overridden by application) */
 static iolink_device_info_t g_default_info = {
@@ -38,7 +38,7 @@ static iolink_device_info_t g_default_info = {
 
 static char g_app_tag_buffer[33] = "DefaultTag";
 
-void iolink_device_info_init(const iolink_device_info_t *info)
+void iolink_device_info_init(const iolink_device_info_t* info)
 {
     /* If user provides info, we use it (const). */
     /* Note: Writing to app tag when using user-provided const info will fail or require separate
@@ -55,7 +55,7 @@ void iolink_device_info_init(const iolink_device_info_t *info)
     }
 }
 
-int iolink_device_info_set_application_tag(const char *tag, uint8_t len)
+int iolink_device_info_set_application_tag(const char* tag, uint8_t len)
 {
     if (tag == NULL) {
         return -1;
@@ -74,7 +74,7 @@ int iolink_device_info_set_application_tag(const char *tag, uint8_t len)
     return -1; /* Cannot update read-only user info */
 }
 
-const iolink_device_info_t *iolink_device_info_get(void)
+const iolink_device_info_t* iolink_device_info_get(void)
 {
     if (g_device_info == NULL) {
         g_device_info = &g_default_info;
@@ -84,7 +84,7 @@ const iolink_device_info_t *iolink_device_info_get(void)
 
 uint16_t iolink_device_info_get_access_locks(void)
 {
-    const iolink_device_info_t *info = iolink_device_info_get();
+    const iolink_device_info_t* info = iolink_device_info_get();
     if (info == NULL) {
         return 0U;
     }

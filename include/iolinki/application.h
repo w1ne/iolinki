@@ -26,7 +26,7 @@
  * @param valid Data validity flag (true = valid, false = invalid)
  * @return int 0 on success, negative on error
  */
-int iolink_pd_input_update(const uint8_t *data, size_t len, bool valid);
+int iolink_pd_input_update(const uint8_t* data, size_t len, bool valid);
 
 /**
  * @brief Read Process Data Output (Master -> Device)
@@ -35,6 +35,6 @@ int iolink_pd_input_update(const uint8_t *data, size_t len, bool valid);
  * @param len Max length to read
  * @return int Number of bytes read, negative on error
  */
-int iolink_pd_output_read(uint8_t *data, size_t len);
+int iolink_pd_output_read(uint8_t* data, size_t len);
 
 #endif  // IOLINK_APPLICATION_H

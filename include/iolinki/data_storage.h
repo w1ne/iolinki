@@ -9,6 +9,7 @@
 #ifndef IOLINK_DATA_STORAGE_H
 #define IOLINK_DATA_STORAGE_H
 
+#include "iolinki/protocol.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -51,7 +52,7 @@ typedef struct
      * @param len Number of bytes to read
      * @return 0 on success, negative on hardware error
      */
-    int (*read)(uint32_t addr, uint8_t *buf, size_t len);
+    int (*read)(uint32_t addr, uint8_t* buf, size_t len);
 
     /**
      * @brief Write data to NVM
@@ -60,7 +61,7 @@ typedef struct
      * @param len Number of bytes to write
      * @return 0 on success, negative on hardware error
      */
-    int (*write)(uint32_t addr, const uint8_t *buf, size_t len);
+    int (*write)(uint32_t addr, const uint8_t* buf, size_t len);
 
     /**
      * @brief Erase a range of NVM (if required by hardware)
@@ -79,7 +80,7 @@ typedef struct
 typedef struct
 {
     iolink_ds_state_t state;                /**< Current DS state machine position */
-    const iolink_ds_storage_api_t *storage; /**< Bound storage implementation API */
+    const iolink_ds_storage_api_t* storage; /**< Bound storage implementation API */
     uint16_t current_checksum;              /**< Last calculated local parameter checksum */
     uint16_t master_checksum;               /**< Most recent checksum verified by Master */
 } iolink_ds_ctx_t;
@@ -90,7 +91,7 @@ typedef struct
  * @param ctx DS context to initialize
  * @param storage Optional storage implementation hooks (can be NULL for RAM-only)
  */
-void iolink_ds_init(iolink_ds_ctx_t *ctx, const iolink_ds_storage_api_t *storage);
+void iolink_ds_init(iolink_ds_ctx_t* ctx, const iolink_ds_storage_api_t* storage);
 
 /**
  * @brief Calculate a standard 16-bit checksum for a parameter block
@@ -101,7 +102,7 @@ void iolink_ds_init(iolink_ds_ctx_t *ctx, const iolink_ds_storage_api_t *storage
  * @param len Length of the data in bytes
  * @return uint16_t Calculated CCITT-style or parity checksum
  */
-uint16_t iolink_ds_calc_checksum(const uint8_t *data, size_t len);
+uint16_t iolink_ds_calc_checksum(const uint8_t* data, size_t len);
 
 /**
  * @brief Process Data Storage engine logic
@@ -110,7 +111,7 @@ uint16_t iolink_ds_calc_checksum(const uint8_t *data, size_t len);
  *
  * @param ctx DS context to process
  */
-void iolink_ds_process(iolink_ds_ctx_t *ctx);
+void iolink_ds_process(iolink_ds_ctx_t* ctx);
 
 /**
  * @brief Trigger a DS consistency check with the Master
@@ -120,7 +121,7 @@ void iolink_ds_process(iolink_ds_ctx_t *ctx);
  * @param ctx DS context
  * @param master_checksum The 16-bit checksum provided by the IO-Link Master
  */
-void iolink_ds_check(iolink_ds_ctx_t *ctx, uint16_t master_checksum);
+void iolink_ds_check(iolink_ds_ctx_t* ctx, uint16_t master_checksum);
 
 /**
  * @brief Start parameter upload to Master (System Command 0x95)
@@ -128,7 +129,7 @@ void iolink_ds_check(iolink_ds_ctx_t *ctx, uint16_t master_checksum);
  * @param ctx DS context
  * @return int 0 on success, negative if DS not initialized
  */
-int iolink_ds_start_upload(iolink_ds_ctx_t *ctx);
+int iolink_ds_start_upload(iolink_ds_ctx_t* ctx);
 
 /**
  * @brief Start parameter download from Master (System Command 0x96)
@@ -136,14 +137,22 @@ int iolink_ds_start_upload(iolink_ds_ctx_t *ctx);
  * @param ctx DS context
  * @return int 0 on success, negative if DS not initialized
  */
-int iolink_ds_start_download(iolink_ds_ctx_t *ctx);
+int iolink_ds_start_download(iolink_ds_ctx_t* ctx);
 
 /**
- * @brief Abort current DS operation (System Command 0x97)
- *
  * @param ctx DS context
  * @return int 0 on success
  */
-int iolink_ds_abort(iolink_ds_ctx_t *ctx);
+int iolink_ds_abort(iolink_ds_ctx_t* ctx);
+
+/**
+ * @brief Handle standard DS System Command
+ *
+ * @param ctx DS context
+ * @param cmd System Command (0x05-0x08)
+ * @param access_locks Current Access Lock state (Index 0x000C)
+ * @return int 0: Success, -1: Busy, -2: Access Denied, -3: Unknown
+ */
+int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_locks);
 
 #endif  // IOLINK_DATA_STORAGE_H

@@ -6,6 +6,11 @@ This file is part of iolinki.
 See LICENSE for details.
 """
 
+from .master import VirtualMaster
+from .protocol import MSequenceType
+
+__all__ = ["VirtualMaster", "MSequenceType"]
+
 """
 Python Virtual IO-Link Master
 
@@ -14,6 +19,3 @@ of IO-Link Device implementations without requiring physical hardware.
 """
 
 __version__ = "0.1.0"
-
-from .master import VirtualMaster, MasterState
-from .protocol import MSequenceType, DeviceResponse

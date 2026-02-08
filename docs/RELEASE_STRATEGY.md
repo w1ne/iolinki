@@ -7,11 +7,11 @@ This document outlines the development workflow, versioning, and release procedu
 We use a simplified **Gitflow** model.
 
 ### Branches
-- **`main`**: Production code. Stable releases.
-- **`develop`**: Integration branch. All features merge here first.
-- **`feature/*`**: Feature branches. Created from and merged back to `develop`.
-- **`release/*`**: Release preparation steps (version bumps, changelogs).
-- **`bugfix/*`**: Fixes for bugs found in `develop`.
+- **`main`**: Production code. Stable releases. **Protected: All official version tags (`vX.Y.Z`) MUST be pushed from this branch**.
+- **`develop`**: Integration branch. Source for `feature/*` and destination for verified features.
+- **`feature/*`**: Feature branches. Created from and merged back to `develop` via PR.
+- **`release/*`**: Release preparation. Source for `vX.Y.Z-rcN` tags. Merged to `main` via PR for official release.
+- **`bugfix/*`**: Fixes for production bugs. Merged to `develop` and `main` via PRs.
 
 ## 2. Versioning
 
@@ -45,30 +45,39 @@ Automated pipelines run on every push to `main` or `develop`.
 
 ## 4. Release Process
 
-### Automated Release (Recommended)
+### Automated Release (Main-only)
 
-Releases are automated via GitHub Actions. Simply push a version tag:
+Official releases are triggered ONLY from the `main` branch. 
 
-```bash
-git tag -a v0.1.0 -m "Release version 0.1.0"
-git push origin v0.1.0
-```
+1. **Tagging**: Push a semantic version tag to `main`:
+   ```bash
+   git checkout main && git pull
+   git tag -a v1.0.0 -m "Release version 1.0.0"
+   git push origin v1.0.0
+   ```
 
-The workflow automatically:
-1. Builds the project in Release mode with **Code Coverage** instrumentation.
-2. Runs all tests and generates a pass/fail report.
-3. Generates **Automated Release Notes** including:
-   - Quality Report (Test counts + Coverage %)
-   - Categorized Feature/Bug list (from Git history)
-   - Documentation updates
-4. Packages binaries (examples + tests)
-5. Creates GitHub Release
-6. **Automatically merges `main` back to `develop`** to keep branches in sync.
+2. **Workflow**: The GitHub Action automatically:
+   - Builds with **Code Coverage**.
+   - Generates **Automated Release Notes**.
+   - Packages binaries and creates a GitHub Release.
+   - **Back-merges `main` to `develop`**.
 
-> [!IMPORTANT]
-> Ensure `CHANGELOG.md` is updated and use **Conventional Commits** (`feat:`, `fix:`) in your PRs so the release notes generator can categorize changes correctly.
+### Release Candidates (RC)
 
-### Manual Release (if needed)
+RCs are used to verify the release workflow and quality before finalizing on `main`.
+
+1. **RC Tagging**: Push an RC tag from a `release/*` branch:
+   ```bash
+   git checkout release/1.0.0
+   git tag -a v1.0.0-rc1 -m "Release Candidate 1"
+   git push origin v1.0.0-rc1
+   ```
+2. **Verification**: RC tags trigger the same build/test pipeline but do NOT update `main` or perform back-merges.
+
+> [!TIP]
+> Use RC tags to "dry-run" the release notes and binary packaging without affecting the production baseline.
+
+### Manual Release (PR-Based Flow)
 
 1. **Prepare Release Branch**:
    ```bash
@@ -78,36 +87,49 @@ The workflow automatically:
 
 2. **Update Documentation**:
    - Update version in `CMakeLists.txt`
-   - Update `CHANGELOG.md` (if exists)
+   - Update `CHANGELOG.md`
    - Update `ROADMAP.md` milestones
 
-3. **Verify Quality**:
+3. **Verify Quality Locally**:
    ```bash
    cmake -B build -DCMAKE_BUILD_TYPE=Release
    cmake --build build
    cd build && ctest --output-on-failure
    ```
 
-4. **Merge to Main**:
-   ```bash
-   git checkout main
-   git merge release/x.y.z
-   git tag -a vx.y.z -m "Release vx.y.z"
-   git push origin main --tags
-   ```
+4. **Open Pull Requests**:
+   - Push the `release/x.y.z` branch to remote.
+   - Open a PR from `release/x.y.z` to **`main`**.
+   - **Wait for CI to pass** and get approval.
+   - Merge the PR (this will update `main`).
 
-5. **Back-merge to Develop**:
-   ```bash
-   git checkout develop
-   git merge main
-   git push origin develop
-   ```
+5. **Tag the Release**:
+   - On the updated `main` branch locally:
+     ```bash
+     git pull origin main
+     git tag -a vx.y.z -m "Release vx.y.z"
+     git push origin vx.y.z
+     ```
+
+6. **Troubleshooting & Retries**:
+   - **Failed Release**: If the CI fails on a tag, delete the tag on remote and local, fix the issue on `main`, and re-tag:
+     ```bash
+     git tag -d v1.0.0
+     git push origin :v1.0.0
+     # Fix issue on main...
+     git tag v1.0.0
+     git push origin v1.0.0
+     ```
+   - **Pre-commit Blocks**: If hooks (e.g., branch name checks) block release housekeeping commits, use `--no-verify`:
+     ```bash
+     git commit -m "chore(release): bump version" --no-verify
+     ```
 
 ## 5. Release Artifacts
 
 Each GitHub Release includes:
 - **Test Results**: Test count and pass/fail summary
-- **Build Artifacts**: 
+- **Build Artifacts**:
   - `simple_device` - Example executable
   - `test_init` - Unit test executable
 - **Documentation**: Links to all project docs

@@ -1,15 +1,25 @@
 #!/bin/bash
 set -e
 
-if [ -f "build/CMakeCache.txt" ]; then
-    cached_src=$(grep -E '^CMAKE_HOME_DIRECTORY:INTERNAL=' "build/CMakeCache.txt" | cut -d= -f2-)
-    if [ -n "${cached_src}" ] && [ "${cached_src}" != "$(pwd)" ]; then
-        rm -rf build
-    fi
-fi
+rm -rf build_docker
 
-cmake -B build -DPLATFORM=LINUX
-cmake --build build
-export IOLINK_DEVICE_PATH=/workspace/build/examples/host_demo/host_demo
+cmake -B build_docker -DPLATFORM=LINUX
+cmake --build build_docker
+
+# Run Unit Tests
+cd build_docker
+ctest --output-on-failure
+cd ..
+
+# Run Bare Metal Build Verification
+echo -e "\nRunning Bare Metal Build Verification..."
+rm -rf build_bare
+cmake -B build_bare -DIOLINK_PLATFORM=BAREMETAL
+cmake --build build_bare
+export IOLINK_DEVICE_PATH=/workspace/build_docker/examples/host_demo/host_demo
 python3 tools/virtual_master/test_automated_mandatory.py
 python3 tools/virtual_master/test_pd_variable.py
+python3 tools/virtual_master/test_conformance_error_injection.py
+python3 tools/virtual_master/test_conformance_isdu.py
+python3 tools/virtual_master/test_conformance_state_machine.py
+python3 tools/virtual_master/test_conformance_timing.py

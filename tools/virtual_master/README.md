@@ -56,7 +56,7 @@ from virtual_master import VirtualMaster
 # Create Virtual Master (Type 0 - ISDU only)
 with VirtualMaster() as master:
     print(f"Connect Device to: {master.get_device_tty()}")
-    
+
     # Run startup sequence
     if master.run_startup_sequence():
         # Read ISDU

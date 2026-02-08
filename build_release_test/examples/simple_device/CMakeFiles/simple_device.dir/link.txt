@@ -1,1 +1,0 @@
-/usr/bin/cc  -Wall -Wextra -O3 -DNDEBUG CMakeFiles/simple_device.dir/src/main.c.o -o simple_device  ../../libiolinki.a 

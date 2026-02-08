@@ -24,7 +24,7 @@
 #include "iolinki/crc.h"
 #include "test_helpers.h"
 
-static void test_m_seq_type_1_1(void **state)
+static void test_m_seq_type_1_1(void** state)
 {
     (void) state;
     iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 2, .pd_out_len = 2};
