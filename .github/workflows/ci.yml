@@ -54,5 +54,6 @@ jobs:
 
       - name: Save Zephyr Base Image for Cache
         if: steps.cache-zephyr.outputs.cache-hit != 'true'
+        continue-on-error: true
         run: |
           docker save iolinki-zephyr-base > zephyr-base-image.tar
