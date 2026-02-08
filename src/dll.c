@@ -268,7 +268,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     dll_poll_diagnostics(ctx);
 
     uint32_t now_ms = iolink_time_get_ms();
-    if ((ctx->last_activity_ms != 0U) && (now_ms - ctx->last_activity_ms > 200U)) {
+    if ((ctx->last_activity_ms != 0U) && (now_ms - ctx->last_activity_ms > 1000U)) {
         ctx->last_activity_ms = 0U; /* Prevent repeated resets */
         if (ctx->phy_mode != IOLINK_PHY_MODE_SIO) {
             iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);

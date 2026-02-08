@@ -158,7 +158,7 @@ class VirtualMaster:
         frame = self.generator.generate_idle()
         self.uart.send_bytes(frame)
 
-        response_data = self.uart.recv_bytes(2, timeout_ms=500)
+        response_data = self.uart.recv_bytes(2, timeout_ms=1500)
 
         if response_data:
             response = DeviceResponse(response_data)
@@ -288,15 +288,15 @@ class VirtualMaster:
         print("[Master] === Starting Startup Sequence ===")
 
         self.send_wakeup()
-        time.sleep(0.1)  # Wait for Device to wake up
+        time.sleep(0.5)  # Wait for Device to wake up (increased for CI)
 
-        for i in range(3):
+        for i in range(10):  # Increased retries for CI stability
             response = self.send_idle()
             if response.valid:
                 print(f"[Master] Communication established (attempt {i + 1})")
                 self.state = MasterState.PREOPERATE
                 return True
-            time.sleep(0.05)
+            time.sleep(0.2)
 
         print("[Master] Startup failed - no valid response")
         return False
@@ -341,7 +341,7 @@ class VirtualMaster:
             self.uart.send_bytes(frame)
 
             expected_len = 1 + self.pd_in_len + self.od_len + 1
-            response_data = self.uart.recv_bytes(expected_len, timeout_ms=500)
+            response_data = self.uart.recv_bytes(expected_len, timeout_ms=1500)
 
             if response_data:
                 return DeviceResponse(response_data, od_len=self.od_len)

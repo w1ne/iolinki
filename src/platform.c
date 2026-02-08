@@ -25,3 +25,21 @@ WEAK void iolink_critical_exit(void)
 {
     /* Default: Do nothing */
 }
+
+WEAK int iolink_nvm_read(uint32_t offset, uint8_t* data, size_t len)
+{
+    (void) offset;
+    (void) data;
+    (void) len;
+    /* Default: Not implemented */
+    return -1;
+}
+
+WEAK int iolink_nvm_write(uint32_t offset, const uint8_t* data, size_t len)
+{
+    (void) offset;
+    (void) data;
+    (void) len;
+    /* Default: Not implemented */
+    return -1;
+}

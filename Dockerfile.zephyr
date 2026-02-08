@@ -2,10 +2,11 @@ FROM iolinki-zephyr-base
 
 # Environment
 ENV ZEPHYR_BASE=/workdir/zephyr
-WORKDIR /workdir/modules/lib/iolinki
+ENV ZEPHYR_EXTRA_MODULES=/workdir/modules/lib/iolinki
+WORKDIR /workdir
 
 # Build and Run (expects repo mounted at /workdir/modules/lib/iolinki)
-CMD ["bash", "-c", "west build -p auto -b native_sim examples/zephyr_app && \
-    chmod +x tools/zephyr_wrapper.sh && \
+CMD ["bash", "-c", "west list && \
+    west build -d build_zephyr -p auto -b native_sim modules/lib/iolinki/examples/zephyr_app && \
     export IOLINK_DEVICE_PATH=/workdir/modules/lib/iolinki/tools/zephyr_wrapper.sh && \
-    python3 tools/virtual_master/test_type1.py"]
+    python3 -u modules/lib/iolinki/tools/virtual_master/test_type1.py"]

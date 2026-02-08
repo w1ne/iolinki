@@ -1,6 +1,6 @@
 zephyr_library()
 
-zephyr_library_include_directories(../include)
+zephyr_include_directories(../include)
 
 zephyr_library_sources(
     ../src/iolink_core.c
@@ -10,5 +10,8 @@ zephyr_library_sources(
     ../src/isdu.c
     ../src/events.c
     ../src/data_storage.c
+    ../src/params.c
+    ../src/device_info.c
+    ../src/platform.c
     ../src/platform/zephyr/time_utils.c
 )

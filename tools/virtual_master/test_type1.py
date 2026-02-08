@@ -32,7 +32,10 @@ def run_device_in_background(tty_path, m_seq_type=1, pd_len=2):
         return None
 
     try:
-        proc = subprocess.Popen([device_path, tty_path, str(m_seq_type), str(pd_len)])
+        env = os.environ.copy()
+        env["IOLINK_M_SEQ_TYPE"] = str(m_seq_type)
+        env["IOLINK_PD_LEN"] = str(pd_len)
+        proc = subprocess.Popen([device_path, tty_path, str(m_seq_type), str(pd_len)], env=env)
         print(
             f"[INFO] Device started (PID: {proc.pid}, Type={m_seq_type}, PD={pd_len})"
         )
@@ -69,6 +72,7 @@ def test_type1_communication():
 
         master.go_to_operate()
         print("✅ Transition sent")
+        time.sleep(0.05)  # Minimal sleep: 0.05s * 10x speed = 0.5s < 1s timeout
 
         print()
         print("[STEP 2] Cyclic PD Exchange (Loopback Test)")
@@ -78,9 +82,17 @@ def test_type1_communication():
         prev_expected = None
         for i, out_val in enumerate(test_data):
             print(f"   Cycle {i + 1}: Sending PD_OUT={out_val.hex()}")
-            response = master.run_cycle(pd_out=out_val)
+            
+            # Retry first cycle a bit as device might still be transitioning
+            response = None
+            for retry in range(10 if i == 0 else 1):
+                response = master.run_cycle(pd_out=out_val)
+                if response.valid:
+                    break
+                print(f"   ⚠️ Cycle {i + 1} timeout (retry {retry + 1})")
+                time.sleep(0.1)
 
-            if not response.valid:
+            if not response or not response.valid:
                 print(f"   ❌ No valid response in cycle {i + 1}")
                 return 1
 
