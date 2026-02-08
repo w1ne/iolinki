@@ -30,7 +30,8 @@ int main(void)
     if (port) {
         iolink_phy_virtual_set_port(port);
         LOG_INF("Connecting to %s", port);
-    } else {
+    }
+    else {
         LOG_WRN("IOLINK_PORT not set, using default");
         /* phy_virtual default is /dev/pts/1 or similar? */
     }
@@ -41,20 +42,20 @@ int main(void)
 
     /* Set defaults */
     config.m_seq_type = IOLINK_M_SEQ_TYPE_0;
-    config.pd_in_len = 2; /* Default */
+    config.pd_in_len = 2;  /* Default */
     config.pd_out_len = 2; /* Default */
 
     const char *m_seq_env = getenv("IOLINK_M_SEQ_TYPE");
     if (m_seq_env) {
-        config.m_seq_type = (iolink_m_seq_type_t)atoi(m_seq_env);
+        config.m_seq_type = (iolink_m_seq_type_t) atoi(m_seq_env);
         LOG_INF("Configured M-Sequence Type: %d", config.m_seq_type);
     }
 
     const char *pd_len_env = getenv("IOLINK_PD_LEN");
     if (pd_len_env) {
         int len = atoi(pd_len_env);
-        config.pd_in_len = (uint8_t)len;
-        config.pd_out_len = (uint8_t)len;
+        config.pd_in_len = (uint8_t) len;
+        config.pd_out_len = (uint8_t) len;
         LOG_INF("Configured PD Length: %d", len);
     }
 
