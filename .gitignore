@@ -38,3 +38,4 @@ build_strict/
 # Documentation
 docs/html/
 docs/latex/
+build_master/
