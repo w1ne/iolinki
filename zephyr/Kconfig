@@ -3,3 +3,34 @@ menuconfig IOLINKI
     default y
     help
       Enable iolinki IO-Link Device Stack.
+
+if IOLINKI
+
+choice
+    prompt "IO-Link PHY Driver"
+    default IOLINK_PHY_VIRTUAL
+    help
+      Select the Physical Layer driver to use.
+
+config IOLINK_PHY_VIRTUAL
+    bool "Virtual PHY (over serialized bytes/file)"
+    help
+      Use a virtual PHY driver useful for simulation or testing over pipes/sockets.
+
+config IOLINK_PHY_UART
+    bool "UART PHY (Real Hardware)"
+    select SERIAL
+    select UART_INTERRUPT_DRIVEN
+    help
+      Use a real UART hardware peripheral as the IO-Link PHY.
+
+endchoice
+
+config IOLINK_DEMO_MASTER
+    bool "Build as Simple Master (for testing)"
+    default n
+    help
+      If enabled, the application acts as a simple IO-Link Master generator
+      instead of a Device. Useful for Nucleo-to-Nucleo testing.
+
+endif # IOLINKI
