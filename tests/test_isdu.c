@@ -113,8 +113,9 @@ static void test_isdu_detailed_device_status_read(void** state)
 
     uint8_t detailed_buf[3];
     assert_int_equal(isdu_collect_response(&ctx, detailed_buf, sizeof(detailed_buf)), 3);
-    assert_int_equal(detailed_buf[0],
-                     0x9A); /* Appeared (0x80) | Error (0x03<<3 = 0x18) | Instance DLL (0x02) */
+    /* EventQualifier per V1.1.5: MODE=appears(0xC0) | TYPE=error(0x03<<4=0x30)
+       | SOURCE=device(0) | INSTANCE=DL(0x02) = 0xF2 */
+    assert_int_equal(detailed_buf[0], 0xF2);
     assert_int_equal(detailed_buf[1], 0x18); /* Code High */
     assert_int_equal(detailed_buf[2], 0x01); /* Code Low */
 }
@@ -402,21 +403,26 @@ static void test_isdu_pdin_descriptor_read(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    iolink_dll_ctx_t dll = {0};
     iolink_device_info_init(NULL);
     iolink_params_init();
     iolink_isdu_init(&ctx);
+
+    /* Wire a DLL context with a configured PD-in length of 3 so the descriptor
+       reflects the real runtime length rather than a hardcoded constant. */
+    assert_int_equal(iolink_dll_set_pd_length(&dll, 3, 0), 0);
+    ctx.dll_ctx = &dll;
 
     /* Read PD Input Descriptor (Index 0x1D) */
     assert_int_equal(isdu_send_read_request(&ctx, 0x001D, 0x00), 1);
 
     iolink_isdu_process(&ctx);
 
-    /* Verify response contains PD length */
+    /* Verify response reports the configured PD-in length */
     uint8_t byte;
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Control */
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Data: PD length */
-    /* Default device info has pdin_len = 2 */
-    assert_int_equal(byte, 2);
+    assert_int_equal(byte, 3);
 
     /* Test write protection */
     iolink_isdu_init(&ctx);

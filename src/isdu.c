@@ -372,8 +372,16 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
                 ctx->state = ISDU_STATE_RESPONSE_READY;
                 return;
             }
-            /* Return PD Input length (default: 2 bytes) */
-            ctx->response_buf[0] = 2U; /* Default PD length */
+            /* Return the actual configured PD Input length (1 byte). */
+            {
+                uint8_t pd_in = 0U;
+                uint8_t pd_out = 0U;
+                if (ctx->dll_ctx != NULL) {
+                    iolink_dll_get_pd_length((const iolink_dll_ctx_t*) ctx->dll_ctx, &pd_in,
+                                             &pd_out);
+                }
+                ctx->response_buf[0] = pd_in;
+            }
             ctx->response_len = 1U;
             ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
@@ -387,46 +395,8 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
             ctx->state = ISDU_STATE_RESPONSE_READY;
             return;
 
-        case IOLINK_IDX_DETAILED_DEVICE_STATUS: {
-            iolink_event_t events[8];
-            uint8_t count =
-                iolink_events_get_all((iolink_events_ctx_t*) ctx->event_ctx, events, 8U);
-            if (count == 0U) {
-                /* Special case: No events -> return 3 bytes of 0 as per spec pattern?
-                   Actually, spec says it returns a list of active events. If none, length 0 or
-                   error? Most masters expect 3 bytes per event: [Qualifier] [Code(2)]. If no
-                   events, we'll return 0 length. */
-                ctx->response_len = 0U;
-            }
-            else {
-                for (uint8_t i = 0U; i < count; i++) {
-                    /* Qualifier: [Type(7-6)] [Instance(5-0)]
-                       IO-Link Spec: 00=Reserved, 01=Notification, 10=Warning, 11=Error */
-                    uint8_t qualifier = 0U;
-                    switch (events[i].type) {
-                        case IOLINK_EVENT_TYPE_NOTIFICATION:
-                            qualifier = 0x40U;
-                            break;
-                        case IOLINK_EVENT_TYPE_WARNING:
-                            qualifier = 0x80U;
-                            break;
-                        case IOLINK_EVENT_TYPE_ERROR:
-                            qualifier = 0xC0U;
-                            break;
-                        default:
-                            qualifier = 0x00U;
-                            break;
-                    }
-                    ctx->response_buf[i * 3] = qualifier;
-                    ctx->response_buf[i * 3 + 1] = (uint8_t) (events[i].code >> 8);
-                    ctx->response_buf[i * 3 + 2] = (uint8_t) (events[i].code & 0xFF);
-                }
-                ctx->response_len = (uint8_t) (count * 3U);
-            }
-            ctx->response_idx = 0U;
-            ctx->state = ISDU_STATE_RESPONSE_READY;
-        }
-            return;
+            /* IOLINK_IDX_DETAILED_DEVICE_STATUS (0x1C) is handled earlier in
+               handle_standard_commands() via handle_detailed_device_status(). */
 
         case IOLINK_IDX_REVISION_ID:
             ctx->response_buf[0] = (uint8_t) (info->revision_id >> 8);
@@ -615,26 +585,27 @@ static void handle_detailed_device_status(iolink_isdu_ctx_t* ctx)
         uint8_t idx = (uint8_t) ((event_ctx->head + i) % IOLINK_EVENT_QUEUE_SIZE);
         const iolink_event_t* ev = &event_ctx->queue[idx];
 
-        /* EventQualifier:
-         * Mode: Appeared (0b10 << 6 = 0x80)
-         * Type: Map iolink_event_type_t
-         * Instance: DLL (0x02) for these, but let's keep it simple.
+        /* EventQualifier byte per IO-Link V1.1.5 (Table B.1):
+         *   MODE     (bits 7-6): 11 = event appears
+         *   TYPE     (bits 5-4): 01 notification, 10 warning, 11 error
+         *   SOURCE   (bit  3)  : 0 = device (local)
+         *   INSTANCE (bits 2-0): 2 = data link layer (DL) for comm events
          */
-        uint8_t qualifier = 0x80U; /* Appeared */
+        uint8_t qualifier = 0xC0U; /* MODE = event appears */
         switch (ev->type) {
             case IOLINK_EVENT_TYPE_NOTIFICATION:
-                qualifier |= (0x01U << 3);
+                qualifier |= (0x01U << 4);
                 break;
             case IOLINK_EVENT_TYPE_WARNING:
-                qualifier |= (0x02U << 3);
+                qualifier |= (0x02U << 4);
                 break;
             case IOLINK_EVENT_TYPE_ERROR:
-                qualifier |= (0x03U << 3);
+                qualifier |= (0x03U << 4);
                 break;
             default:
                 break;
         }
-        qualifier |= 0x02U; /* DLL instance as default for these errors */
+        qualifier |= 0x02U; /* INSTANCE = DL */
 
         ctx->response_buf[i * 3U] = qualifier;
         ctx->response_buf[i * 3U + 1U] = (uint8_t) (ev->code >> 8);
