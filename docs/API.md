@@ -320,7 +320,7 @@ Create `iolink_config.h` (future feature):
 ```c
 #define IOLINK_MAX_PD_SIZE 32
 #define IOLINK_ISDU_BUFFER_SIZE 256
-#define IOLINK_EVENT_QUEUE_SIZE 8
+#define IOLINK_EVENT_QUEUE_SIZE 4
 ```
 
 ## Thread Safety

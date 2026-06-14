@@ -18,7 +18,6 @@
 #include "iolinki/utils.h"
 #include <string.h>
 #include <stdint.h>
-#include <stdio.h>
 
 /*
  * IO-Link ISDU Segmentation Engine
@@ -801,8 +800,6 @@ int iolink_isdu_get_response_byte(iolink_isdu_ctx_t* ctx, uint8_t* byte)
         *byte = ctx->response_buf[ctx->response_idx++];
         if (ctx->response_idx >= ctx->response_len) {
             ctx->state = ISDU_STATE_IDLE;
-            printf("[ISDU] Response complete, entering IDLE\n");
-            fflush(stdout);
         }
         else {
             /* Mandatory for V1.1.5 on OD=1: Every byte is preceded by Control Byte. */

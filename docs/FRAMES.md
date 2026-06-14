@@ -45,7 +45,7 @@ To ensure synchronization and robust parsing in software simulation, the Master-
 ### 3.1 Stack Limits
 - **Max Process Data**: 32 bytes (Input and Output).
 - **ISDU Buffer**: 256 bytes.
-- **Event Queue**: 8 entries.
+- **Event Queue**: 4 entries (default `IOLINK_EVENT_QUEUE_SIZE`).
 
 ### 3.2 Dynamic Configuration
 The stack is configured during `iolink_init()` via the `iolink_config_t` structure:
