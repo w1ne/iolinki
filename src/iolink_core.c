@@ -17,6 +17,7 @@
 
 static iolink_dll_ctx_t g_dll_ctx;
 static iolink_config_t g_config;
+static iolink_reset_handler_t g_reset_handler;
 
 int iolink_init(const iolink_phy_api_t* phy, const iolink_config_t* config)
 {
@@ -82,9 +83,29 @@ int iolink_init(const iolink_phy_api_t* phy, const iolink_config_t* config)
     return 0;
 }
 
+void iolink_set_reset_handler(iolink_reset_handler_t handler)
+{
+    g_reset_handler = handler;
+}
+
 void iolink_process(void)
 {
     iolink_dll_process(&g_dll_ctx);
+
+    /* Consume Master-issued reset requests recorded during ISDU processing.
+       Cleared unconditionally so a request is acted on exactly once. */
+    if (g_dll_ctx.isdu.reset_pending) {
+        g_dll_ctx.isdu.reset_pending = false;
+        if (g_reset_handler != NULL) {
+            g_reset_handler(IOLINK_RESET_DEVICE);
+        }
+    }
+    if (g_dll_ctx.isdu.app_reset_pending) {
+        g_dll_ctx.isdu.app_reset_pending = false;
+        if (g_reset_handler != NULL) {
+            g_reset_handler(IOLINK_RESET_APPLICATION);
+        }
+    }
 }
 
 int iolink_pd_input_update(const uint8_t* data, size_t len, bool valid)

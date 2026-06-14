@@ -70,6 +70,34 @@ int iolink_init(const iolink_phy_api_t* phy, const iolink_config_t* config);
  */
 void iolink_process(void);
 
+/**
+ * @brief Reset request type delivered to the application reset handler.
+ */
+typedef enum
+{
+    IOLINK_RESET_DEVICE = 0,     /**< System Command 0x80 (Device Reset) */
+    IOLINK_RESET_APPLICATION = 1 /**< System Command 0x81 (Application Reset) */
+} iolink_reset_type_t;
+
+/**
+ * @brief Application callback invoked when the Master requests a reset.
+ *
+ * @param type IOLINK_RESET_DEVICE or IOLINK_RESET_APPLICATION
+ */
+typedef void (*iolink_reset_handler_t)(iolink_reset_type_t type);
+
+/**
+ * @brief Register an optional handler for Master-issued reset System Commands.
+ *
+ * The stack records reset requests (0x80/0x81) during ISDU processing and
+ * dispatches them to @p handler from within iolink_process(), then clears the
+ * pending flag. If no handler is registered the request is acknowledged and
+ * discarded (the stack cannot reboot the host on its own).
+ *
+ * @param handler Callback, or NULL to clear.
+ */
+void iolink_set_reset_handler(iolink_reset_handler_t handler);
+
 #include "iolinki/events.h"
 #include "iolinki/data_storage.h"
 
