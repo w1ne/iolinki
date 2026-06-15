@@ -142,12 +142,32 @@ static void test_event_helpers(void** state)
     assert_int_equal(count, 2);
 }
 
+static void test_event_classify(void** state)
+{
+    (void) state;
+    assert_int_equal(iolink_event_classify(IOLINK_EVENTCODE_NO_MALFUNCTION),
+                     IOLINK_EVENT_TYPE_NOTIFICATION);
+    assert_int_equal(iolink_event_classify(IOLINK_EVENTCODE_DS_UPLOAD_REQUEST),
+                     IOLINK_EVENT_TYPE_NOTIFICATION);
+    assert_int_equal(iolink_event_classify(IOLINK_EVENTCODE_SUPPLY_VOLTAGE_OVERRUN),
+                     IOLINK_EVENT_TYPE_WARNING);
+    assert_int_equal(iolink_event_classify(IOLINK_EVENTCODE_MAINTENANCE_REFILL),
+                     IOLINK_EVENT_TYPE_WARNING);
+    assert_int_equal(iolink_event_classify(IOLINK_EVENTCODE_HARDWARE_FAULT),
+                     IOLINK_EVENT_TYPE_ERROR);
+    assert_int_equal(iolink_event_classify(IOLINK_EVENTCODE_SHORT_CIRCUIT),
+                     IOLINK_EVENT_TYPE_ERROR);
+    /* Reserved/unknown defaults to error. */
+    assert_int_equal(iolink_event_classify(0x2222U), IOLINK_EVENT_TYPE_ERROR);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_event_queue_flow), cmocka_unit_test(test_event_queue_overflow),
         cmocka_unit_test(test_standard_codes),   cmocka_unit_test(test_phy_diagnostic_codes),
         cmocka_unit_test(test_event_peek),       cmocka_unit_test(test_event_helpers),
+        cmocka_unit_test(test_event_classify),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

@@ -145,3 +145,46 @@ uint8_t iolink_events_get_all(iolink_events_ctx_t* ctx, iolink_event_t* out_even
     iolink_critical_exit();
     return copied;
 }
+
+iolink_event_type_t iolink_event_classify(uint16_t code)
+{
+    switch (code) {
+        case IOLINK_EVENTCODE_NO_MALFUNCTION:
+        case IOLINK_EVENTCODE_DS_UPLOAD_REQUEST:
+            return IOLINK_EVENT_TYPE_NOTIFICATION;
+
+        case IOLINK_EVENTCODE_TEMPERATURE_OVERRUN:
+        case IOLINK_EVENTCODE_TEMPERATURE_UNDERRUN:
+        case IOLINK_EVENTCODE_BATTERY_LOW:
+        case IOLINK_EVENTCODE_SUPPLY_VOLTAGE_OVERRUN:
+        case IOLINK_EVENTCODE_SUPPLY_VOLTAGE_UNDERRUN:
+        case IOLINK_EVENTCODE_SIMULATION_ACTIVE:
+        case IOLINK_EVENTCODE_PV_RANGE_OVERRUN:
+        case IOLINK_EVENTCODE_PV_RANGE_UNDERRUN:
+        case IOLINK_EVENTCODE_MAINTENANCE_CLEANING:
+        case IOLINK_EVENTCODE_MAINTENANCE_REFILL:
+        case IOLINK_EVENTCODE_MAINTENANCE_WEAR:
+            return IOLINK_EVENT_TYPE_WARNING;
+
+        case IOLINK_EVENTCODE_GENERAL_MALFUNCTION:
+        case IOLINK_EVENTCODE_TEMPERATURE_OVERLOAD:
+        case IOLINK_EVENTCODE_HARDWARE_FAULT:
+        case IOLINK_EVENTCODE_COMPONENT_MALFUNCTION:
+        case IOLINK_EVENTCODE_NVM_LOSS:
+        case IOLINK_EVENTCODE_POWER_SUPPLY_FAULT:
+        case IOLINK_EVENTCODE_FUSE_BLOWN:
+        case IOLINK_EVENTCODE_SOFTWARE_FAULT:
+        case IOLINK_EVENTCODE_PARAMETER_ERROR:
+        case IOLINK_EVENTCODE_PARAMETER_MISSING:
+        case IOLINK_EVENTCODE_WIRE_BREAK:
+        case IOLINK_EVENTCODE_SHORT_CIRCUIT:
+        case IOLINK_EVENTCODE_GROUND_FAULT:
+        case IOLINK_EVENTCODE_APPLICATION_FAULT:
+        case IOLINK_EVENTCODE_MEASUREMENT_RANGE_EXCEEDED:
+            return IOLINK_EVENT_TYPE_ERROR;
+
+        default:
+            /* Reserved / vendor-specific / unknown -> safe default. */
+            return IOLINK_EVENT_TYPE_ERROR;
+    }
+}

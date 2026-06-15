@@ -150,15 +150,15 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [ ] Checksum mismatch recovery.
 - [ ] **Block Parameterization**: Efficient bulk data transfer.
 - [x] **Events**: Diagnostic event queue and transmission logic.
-    - [ ] **Standard Event Codes**:
-        - [ ] 0x1xxx: Device events
-        - [ ] 0x2xxx: Communication events
-        - [ ] 0x4xxx: Process events
-        - [ ] 0x5xxx: Application events
-        - [ ] 0x6xxx: Reserved
-        - [ ] 0x8xxx: Manufacturer-specific
+    - [x] **Standard Event Codes** (V1.1.5 Annex D Table D.1 constants + iolink_event_classify):
+        - [x] 0x1xxx: Device events (general malfunction)
+        - [x] 0x4xxx: Temperature events
+        - [x] 0x5xxx: Hardware / power-supply events
+        - [x] 0x6xxx: Software / parameter events
+        - [x] 0x7xxx: Wiring events (wire break, short, ground)
+        - [x] 0x8Cxx: Application / maintenance events
+    - [x] Event Qualifier: spec-correct MODE/TYPE/SOURCE/INSTANCE encoding (0x1C).
     - [ ] Event Mode: Single/Multiple event mode.
-    - [ ] Event Qualifier: Additional event context.
     - [ ] **Event Instance**: Multiple instances of same event.
     - [ ] **Event Acknowledgment**: Master ACK mechanism.
 

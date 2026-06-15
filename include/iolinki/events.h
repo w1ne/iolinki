@@ -52,6 +52,40 @@ typedef enum
 #define IOLINK_EVENT_HW_SENSOR_FAULT 0x6320U   /**< Sensor element fault */
 #define IOLINK_EVENT_HW_ACTUATOR_FAULT 0x6330U /**< Actuator element fault */
 
+/*
+ * Standardized IO-Link EventCodes for Devices, per V1.1.5 Annex D, Table D.1.
+ * The trailing comment gives the spec EventType. Vendor-specific Device events
+ * use the ranges 0x1800-0x18FF and 0x8CA0-0x8DFF.
+ */
+#define IOLINK_EVENTCODE_NO_MALFUNCTION 0x0000U             /**< Notification */
+#define IOLINK_EVENTCODE_GENERAL_MALFUNCTION 0x1000U        /**< Error */
+#define IOLINK_EVENTCODE_TEMPERATURE_OVERLOAD 0x4000U       /**< Error */
+#define IOLINK_EVENTCODE_TEMPERATURE_OVERRUN 0x4210U        /**< Warning */
+#define IOLINK_EVENTCODE_TEMPERATURE_UNDERRUN 0x4220U       /**< Warning */
+#define IOLINK_EVENTCODE_HARDWARE_FAULT 0x5000U             /**< Error */
+#define IOLINK_EVENTCODE_COMPONENT_MALFUNCTION 0x5010U      /**< Error */
+#define IOLINK_EVENTCODE_NVM_LOSS 0x5011U                   /**< Error */
+#define IOLINK_EVENTCODE_BATTERY_LOW 0x5012U                /**< Warning */
+#define IOLINK_EVENTCODE_POWER_SUPPLY_FAULT 0x5100U         /**< Error */
+#define IOLINK_EVENTCODE_FUSE_BLOWN 0x5101U                 /**< Error */
+#define IOLINK_EVENTCODE_SUPPLY_VOLTAGE_OVERRUN 0x5110U     /**< Warning */
+#define IOLINK_EVENTCODE_SUPPLY_VOLTAGE_UNDERRUN 0x5111U    /**< Warning */
+#define IOLINK_EVENTCODE_SOFTWARE_FAULT 0x6000U             /**< Error */
+#define IOLINK_EVENTCODE_PARAMETER_ERROR 0x6320U            /**< Error */
+#define IOLINK_EVENTCODE_PARAMETER_MISSING 0x6321U          /**< Error */
+#define IOLINK_EVENTCODE_WIRE_BREAK 0x7700U                 /**< Error */
+#define IOLINK_EVENTCODE_SHORT_CIRCUIT 0x7710U              /**< Error */
+#define IOLINK_EVENTCODE_GROUND_FAULT 0x7711U               /**< Error */
+#define IOLINK_EVENTCODE_APPLICATION_FAULT 0x8C00U          /**< Error */
+#define IOLINK_EVENTCODE_SIMULATION_ACTIVE 0x8C01U          /**< Warning */
+#define IOLINK_EVENTCODE_PV_RANGE_OVERRUN 0x8C10U           /**< Warning */
+#define IOLINK_EVENTCODE_MEASUREMENT_RANGE_EXCEEDED 0x8C20U /**< Error */
+#define IOLINK_EVENTCODE_PV_RANGE_UNDERRUN 0x8C30U          /**< Warning */
+#define IOLINK_EVENTCODE_MAINTENANCE_CLEANING 0x8C40U       /**< Warning (maintenance) */
+#define IOLINK_EVENTCODE_MAINTENANCE_REFILL 0x8C41U         /**< Warning (maintenance) */
+#define IOLINK_EVENTCODE_MAINTENANCE_WEAR 0x8C42U           /**< Warning (maintenance) */
+#define IOLINK_EVENTCODE_DS_UPLOAD_REQUEST 0xFF91U          /**< Notification (internal DS) */
+
 /**
  * @brief Event Descriptor
  *
@@ -147,5 +181,17 @@ uint8_t iolink_events_get_highest_severity(iolink_events_ctx_t* ctx);
  */
 uint8_t iolink_events_get_all(iolink_events_ctx_t* ctx, iolink_event_t* out_events,
                               uint8_t max_count);
+
+/**
+ * @brief Return the EventType the V1.1.5 spec defines for a standard EventCode.
+ *
+ * For standardized codes (Annex D, Table D.1) this returns the spec-defined
+ * notification/warning/error classification. For reserved or unknown codes it
+ * returns IOLINK_EVENT_TYPE_ERROR as a safe default.
+ *
+ * @param code 16-bit EventCode
+ * @return iolink_event_type_t Spec EventType
+ */
+iolink_event_type_t iolink_event_classify(uint16_t code);
 
 #endif  // IOLINK_EVENTS_H
