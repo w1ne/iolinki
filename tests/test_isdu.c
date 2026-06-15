@@ -482,6 +482,88 @@ static void test_isdu_data_storage_round_trip(void** state)
     assert_memory_equal(buf, app, strlen(app));
 }
 
+static void test_isdu_direct_parameters_page1(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+
+    /* Whole Direct Parameter page 1 (16 bytes). */
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_1, 0x00), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t page[16];
+    assert_int_equal(isdu_collect_response(&ctx, page, sizeof(page)), 16);
+
+    const iolink_device_info_t* info = iolink_device_info_get();
+    assert_int_equal(page[0x04], 0x11);          /* RevisionID = v1.1 */
+    assert_int_equal(page[0x03] & 0x01U, 0x01U); /* ISDU supported */
+    assert_int_equal(page[0x07], (uint8_t) (info->vendor_id >> 8));
+    assert_int_equal(page[0x08], (uint8_t) (info->vendor_id & 0xFFU));
+    assert_int_equal(page[0x09], (uint8_t) ((info->device_id >> 16) & 0xFFU));
+    assert_int_equal(page[0x0A], (uint8_t) ((info->device_id >> 8) & 0xFFU));
+    assert_int_equal(page[0x0B], (uint8_t) (info->device_id & 0xFFU));
+
+    /* Single-octet read via subindex (addr 0x04 -> subindex 5). */
+    iolink_isdu_init(&ctx);
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_1, 0x05), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t b[2];
+    assert_int_equal(isdu_collect_response(&ctx, b, sizeof(b)), 1);
+    assert_int_equal(b[0], 0x11);
+
+    /* Page 1 is read-only. */
+    iolink_isdu_init(&ctx);
+    uint8_t w = 0x55;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_1, 0x01, &w, 1), 1);
+    iolink_isdu_process(&ctx);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &w), 1); /* Control */
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &w), 1);
+    assert_int_equal(w, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &w), 1); /* Control */
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &w), 1);
+    assert_int_equal(w, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+}
+
+static void test_isdu_direct_parameters_page2(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_init(NULL);
+    iolink_isdu_init(&ctx);
+
+    /* Write the whole page 2, then read it back. */
+    uint8_t img[16];
+    for (uint8_t i = 0U; i < 16U; i++) {
+        img[i] = (uint8_t) (0xA0U + i);
+    }
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_2, 0x00, img, 16),
+                     1);
+    iolink_isdu_process(&ctx);
+
+    iolink_isdu_init(&ctx);
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_2, 0x00), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t rb[16];
+    assert_int_equal(isdu_collect_response(&ctx, rb, sizeof(rb)), 16);
+    assert_memory_equal(rb, img, 16);
+
+    /* Single-octet write at subindex 3, read back. */
+    iolink_isdu_init(&ctx);
+    uint8_t one = 0x5A;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_2, 0x03, &one, 1),
+                     1);
+    iolink_isdu_process(&ctx);
+
+    iolink_isdu_init(&ctx);
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_2, 0x03), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t one_rb[2];
+    assert_int_equal(isdu_collect_response(&ctx, one_rb, sizeof(one_rb)), 1);
+    assert_int_equal(one_rb[0], 0x5A);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -503,6 +585,10 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_isdu_location_tag_read_write, test_setup,
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_pdin_descriptor_read, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_direct_parameters_page1, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_direct_parameters_page2, test_setup,
+                                        test_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

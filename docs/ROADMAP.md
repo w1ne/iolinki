@@ -98,8 +98,8 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [x] **16-bit Index Support**: Support full 16-bit index.
     - [ ] **Write Verification**: Readback after write.
 - [ ] **Mandatory ISDU Indices**:
-    - [ ] 0x0000: Direct Parameter Page 1
-    - [ ] 0x0001: Direct Parameter Page 2
+    - [x] 0x0000: Direct Parameter Page 1 (read, packed identification/communication page)
+    - [x] 0x0001: Direct Parameter Page 2 (read/write, device-specific)
     - [x] 0x0002: System Command
         - [x] Subcommand 0x80: Device Reset (dispatched via iolink_set_reset_handler)
         - [x] Subcommand 0x81: Application Reset (dispatched via iolink_set_reset_handler)
