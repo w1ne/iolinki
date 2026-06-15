@@ -238,10 +238,24 @@ iolink_m_seq_type_t iolink_get_m_seq_type(void)
 
 uint8_t iolink_get_pd_in_len(void)
 {
-    return g_dll_ctx.pd_in_len;
+    /* Current length: equals the configured value for fixed types, and tracks
+       runtime changes for variable (TYPE_1_V / TYPE_2_V) M-sequences. */
+    return g_dll_ctx.pd_in_len_current;
 }
 
 uint8_t iolink_get_pd_out_len(void)
 {
-    return g_dll_ctx.pd_out_len;
+    return g_dll_ctx.pd_out_len_current;
+}
+
+int iolink_set_pd_length(uint8_t pd_in_len, uint8_t pd_out_len)
+{
+    if ((g_dll_ctx.m_seq_type != IOLINK_M_SEQ_TYPE_1_V) &&
+        (g_dll_ctx.m_seq_type != IOLINK_M_SEQ_TYPE_2_V)) {
+        return -2; /* Fixed-length M-sequence: PD length is not negotiable */
+    }
+    if ((pd_in_len > g_dll_ctx.pd_in_len_max) || (pd_out_len > g_dll_ctx.pd_out_len_max)) {
+        return -1; /* Exceeds configured maximum */
+    }
+    return iolink_dll_set_pd_length(&g_dll_ctx, pd_in_len, pd_out_len);
 }

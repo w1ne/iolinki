@@ -182,4 +182,19 @@ uint8_t iolink_get_pd_in_len(void);
  */
 uint8_t iolink_get_pd_out_len(void);
 
+/**
+ * @brief Set the runtime Process Data lengths for variable-length M-sequences.
+ *
+ * Only valid for variable PD M-sequence types (TYPE_1_V / TYPE_2_V). The new
+ * lengths take effect on the next cyclic exchange and are reflected in the PD
+ * descriptors (index 0x001D and Direct Parameter page 1), so a Master can
+ * re-read them. Lengths are clamped to the maximum configured at init.
+ *
+ * @param pd_in_len  New input PD length in bytes (Device -> Master)
+ * @param pd_out_len New output PD length in bytes (Master -> Device)
+ * @return int 0 on success, -1 if a length exceeds the configured maximum,
+ *         -2 if the configured M-sequence type is not variable.
+ */
+int iolink_set_pd_length(uint8_t pd_in_len, uint8_t pd_out_len);
+
 #endif  // IOLINK_H
