@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Documentation reconciled with the implementation (conformance test count, architecture, API reference).
+- Clarified dual-license terms: GPLv3 is free for open-source use (including production) under copyleft; a commercial license is required only for closed-source/proprietary products. Replaces the prior, unenforceable "90-day evaluation" framing.
 
 ## [1.0.0] - 2026-02-06
 ### Added

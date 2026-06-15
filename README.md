@@ -16,17 +16,16 @@
 
 ### Licensing
 
-**Dual-Licensed**: GPLv3 (Evaluation) + Commercial
+**Dual-licensed: GPLv3 or Commercial.** Pick the one that matches your product.
 
-- **GPLv3 (Evaluation)**: Free for evaluation in non-production environments for up to 90 days.
-- **Commercial**: Required for any production or commercial deployment.
-  - **Single Developer**: €1,399 (one-time, royalty-free)
-  - **Team (5 seats)**: €4,699 (one-time, royalty-free)
-  - **Enterprise**: Custom pricing
-  - **Included Support**: 12 months of updates and support
-  - **Integration Assistance**: Up to 8 hours included
+- **GPLv3 (free, open source)** — use, modify, and ship iolinki at no cost, provided your own work that includes it is also released under the GPLv3. Ideal for open-source projects, research, evaluation, and hobby use.
+- **Commercial license** — **required only if you ship a closed-source / proprietary product** and do not want the GPLv3 copyleft obligations. One-time, royalty-free:
+  - **Single Developer**: €1,399
+  - **Team (5 seats)**: €4,699
+  - **Enterprise / site-wide**: custom
+  - Includes 12 months of updates + support and up to 8 hours of integration assistance.
 
-See [LICENSE](LICENSE) and [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL) for full terms, or contact andrii@shylenko.com.
+**Shipping a closed-source product?** A commercial license removes the GPLv3 obligations — email **andrii@shylenko.com** for terms (fast, no-friction). See [LICENSE](LICENSE) and [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL).
 
 ## Quick Start
 
@@ -192,8 +191,10 @@ git push origin v0.1.0
 
 ## License
 
-This project is dual-licensed under GPLv3 (evaluation) and a commercial license.
-Refer to [LICENSE](LICENSE) and [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL) for details.
+This project is dual-licensed under the **GPLv3** (free, for open-source/GPLv3 use)
+and a **commercial license** (for closed-source / proprietary products that cannot
+accept the GPLv3 copyleft). Shipping a proprietary product? Email
+**andrii@shylenko.com**. See [LICENSE](LICENSE) and [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL).
 
 ## Contributing
 
