@@ -24,6 +24,6 @@ docker run --rm \
     /bin/bash -c "
     west init -l . && \
     west update && \
-    west build -b native_sim examples/zephyr_app"
+    west build -b native_sim samples/iolink_device"
 
 echo "=== Build Complete ==="

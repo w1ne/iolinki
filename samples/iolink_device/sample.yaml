@@ -1,0 +1,27 @@
+sample:
+  name: IO-Link Device
+  description: >
+    Minimal IO-Link device built on the iolinki stack. Initializes the stack,
+    registers application callbacks, and publishes process data each cycle.
+common:
+  tags: iolink fieldbus industrial
+  harness: console
+tests:
+  sample.iolink.device.virtual:
+    platform_allow:
+      - native_sim
+    integration_platforms:
+      - native_sim
+    extra_configs:
+      - CONFIG_IOLINK_PHY_VIRTUAL=y
+    harness_config:
+      type: one_line
+      regex:
+        - "Starting iolinki IO-Link device sample"
+  sample.iolink.device.uart:
+    platform_allow:
+      - nucleo_l476rg
+    extra_args: CONF_FILE=prj.conf
+    extra_configs:
+      - CONFIG_IOLINK_PHY_UART=y
+    build_only: true

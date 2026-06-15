@@ -1,3 +1,6 @@
+name: iolinki
 build:
   kconfig: zephyr/Kconfig
   cmake: zephyr
+samples:
+  - samples/iolink_device

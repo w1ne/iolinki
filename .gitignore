@@ -30,7 +30,7 @@ __pycache__/
 
 # Zephyr specific
 .zephyr/
-west.yml
+.west/
 Open-Source IO-Link Stack Business Case.md
 build_quality/
 build_strict/

@@ -1,15 +1,14 @@
 /*
  * Copyright (C) 2026 Andrii Shylenko
  * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * Binds the iolinki UART PHY to USART1 on the nucleo_l476rg. USART1 is exposed
+ * on the Arduino/Morpho headers, leaving USART2 free for the console/log.
  */
 
 / {
     chosen {
         zephyr,iolink-uart = &usart1;
-    };
-
-    aliases {
-        iolink-uart = &usart1;
     };
 };
 
@@ -17,4 +16,3 @@
     status = "okay";
     current-speed = <38400>;
 };
-
