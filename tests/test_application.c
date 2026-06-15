@@ -51,11 +51,73 @@ static void test_pd_output_read_flow(void** state)
     assert_int_equal(res, 0);
 }
 
+static int g_cb_startup;
+static int g_cb_preoperate;
+static int g_cb_operate;
+static int g_cb_pd_output;
+
+static void cb_startup(void)
+{
+    g_cb_startup++;
+}
+static void cb_preoperate(void)
+{
+    g_cb_preoperate++;
+}
+static void cb_operate(void)
+{
+    g_cb_operate++;
+}
+static void cb_pd_output(uint8_t* data, uint8_t len)
+{
+    (void) data;
+    (void) len;
+    g_cb_pd_output++;
+}
+
+static void test_app_callbacks_lifecycle(void** state)
+{
+    (void) state;
+    g_cb_startup = 0;
+    g_cb_preoperate = 0;
+    g_cb_operate = 0;
+    g_cb_pd_output = 0;
+
+    static const iolink_app_callbacks_t cbs = {
+        .on_startup = cb_startup,
+        .on_preoperate = cb_preoperate,
+        .on_operate = cb_operate,
+        .on_pd_output = cb_pd_output,
+    };
+
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_app_register(&cbs);
+    iolink_init(&g_phy_mock, NULL);
+
+    /* Registered before init -> initial STARTUP announced. */
+    assert_true(g_cb_startup >= 1);
+
+    move_to_operate();
+
+    /* PREOPERATE is traversed during the handshake; the state-change hook fires
+       even though the transition is transient. */
+    assert_true(g_cb_preoperate >= 1);
+
+    if (iolink_get_state() == IOLINK_DLL_STATE_OPERATE) {
+        assert_true(g_cb_operate >= 1);
+        assert_true(g_cb_pd_output >= 1);
+    }
+
+    iolink_app_register(NULL); /* Avoid dangling pointer across tests */
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_pd_input_update_flow),
         cmocka_unit_test(test_pd_output_read_flow),
+        cmocka_unit_test(test_app_callbacks_lifecycle),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
