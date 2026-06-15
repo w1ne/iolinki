@@ -2,9 +2,11 @@ FROM zephyrprojectrtos/zephyr-build:latest
 
 WORKDIR /workdir
 
-# Initialize Zephyr workspace (v3.5.0)
+# Initialize Zephyr workspace. Track Zephyr 'main' so the Zephyr version matches
+# the Zephyr SDK bundled in the base image (zephyr-build:latest); pinning an
+# older release (e.g. v3.5.0) against a newer SDK fails FindHostTools.
 # This layer is large (approx 3-5GB) and should be cached.
-RUN west init -m https://github.com/zephyrproject-rtos/zephyr --mr v3.5.0 .
+RUN west init -m https://github.com/zephyrproject-rtos/zephyr --mr main .
 RUN west update --narrow
 
 # Setup environment

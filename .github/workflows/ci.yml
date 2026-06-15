@@ -41,7 +41,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: zephyr-base-image.tar
-          key: ${{ runner.os }}-zephyr-base-3.5.0
+          key: ${{ runner.os }}-zephyr-base-main-sdk1
 
       - name: Load Zephyr Base Image
         if: steps.cache-zephyr.outputs.cache-hit == 'true'
