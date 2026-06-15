@@ -171,7 +171,7 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
  * @brief Serialize the device's DS-backed parameters into the image buffer.
  *
  * Reads every parameter in the DS set from the parameter manager and packs it
- * into @ref iolink_ds_ctx_t::image. Updates @ref current_checksum.
+ * into @ref iolink_ds_ctx_t::image. Updates @ref iolink_ds_ctx_t::current_checksum.
  *
  * @param ctx DS context
  * @return int Number of image bytes built (>= 0), or negative on error.
@@ -182,7 +182,7 @@ int iolink_ds_build_image(iolink_ds_ctx_t* ctx);
  * @brief Apply a parameter image received from the Master (restore).
  *
  * Parses the serialized records and writes each parameter back through the
- * parameter manager (persisting to NVM). Updates @ref current_checksum.
+ * parameter manager (persisting to NVM). Updates @ref iolink_ds_ctx_t::current_checksum.
  *
  * @param ctx DS context
  * @param data Serialized image bytes
