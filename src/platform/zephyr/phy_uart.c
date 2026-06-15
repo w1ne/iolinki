@@ -44,11 +44,11 @@ static void uart_phy_isr(const struct device* dev, void* user_data)
 {
     ARG_UNUSED(user_data);
 
-    if (!uart_irq_update(dev)) {
-        return;
-    }
+    /* Must be called once per ISR before querying IRQ state. Returns void in
+       current Zephyr (older versions returned int), so call it as a statement. */
+    uart_irq_update(dev);
 
-    while (uart_irq_rx_ready(dev)) {
+    while (uart_irq_rx_ready(dev) > 0) {
         uint8_t buf[32];
         int n = uart_fifo_read(dev, buf, sizeof(buf));
 

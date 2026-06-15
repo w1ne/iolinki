@@ -1,6 +1,6 @@
 # Doxygen Configuration for iolinki
 PROJECT_NAME           = "iolinki"
-PROJECT_NUMBER         = "1.1.0"
+PROJECT_NUMBER         = "1.1.1"
 PROJECT_BRIEF          = "Open-Source IO-Link Device Stack"
 OUTPUT_DIRECTORY       = docs
 INPUT                  = include/iolinki src/iolink_core.c src/dll.c src/isdu.c src/events.c src/params.c src/data_storage.c src/device_info.c src/phy_virtual.c src/crc.c

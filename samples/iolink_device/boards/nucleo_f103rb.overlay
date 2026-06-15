@@ -1,0 +1,18 @@
+/*
+ * Copyright (C) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * Binds the iolinki UART PHY to USART1 on the nucleo_f103rb. USART2 stays the
+ * Zephyr console (wired to the on-board ST-Link virtual COM port).
+ */
+
+/ {
+    chosen {
+        zephyr,iolink-uart = &usart1;
+    };
+};
+
+&usart1 {
+    status = "okay";
+    current-speed = <38400>;
+};
