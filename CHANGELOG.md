@@ -4,6 +4,13 @@ All notable changes to the `iolinki` project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.1.1] - 2026-06-15
+### Fixed
+- **Zephyr UART PHY build**: `uart_irq_update()` returns `void` in current Zephyr, but the PHY ISR used its result in a boolean (`if (!uart_irq_update(dev))`), so the UART PHY failed to compile when targeting real hardware. (`native_sim` builds use the virtual PHY, so this path was never exercised in CI.) Call it as a statement per the Zephyr API. Validated on a Nucleo-F103RB (Cortex-M3): builds (FLASH 25% / RAM 54% of 20 KB), flashes, boots, and runs on silicon.
+
+### Added
+- Board overlay for `nucleo_f103rb` (IO-Link UART on USART1).
+
 ## [1.1.0] - 2026-06-15
 ### Added
 - **Data Storage parameter server** (ISDU index 0x0003): real serialization and restore of device parameters, with Access-Lock integration and checksum-mismatch recovery.
