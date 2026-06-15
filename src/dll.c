@@ -311,6 +311,10 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                 dll_set_state(ctx, IOLINK_DLL_STATE_AWAITING_COMM);
                 ctx->wakeup_deadline_us = iolink_time_get_us() + IOLINK_T_DWU_US;
                 iolink_dll_set_sdci_mode(ctx);
+                /* A wake-up starts a fresh communication-establishment window.
+                   Reset the inactivity timer so a re-wake after a prior exchange
+                   is not immediately killed by the stale activity timestamp. */
+                ctx->last_activity_ms = iolink_time_get_ms();
             }
         }
         return;
