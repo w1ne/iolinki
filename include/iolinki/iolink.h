@@ -169,16 +169,22 @@ void iolink_set_t_ren_limit_us(uint32_t limit_us);
 iolink_m_seq_type_t iolink_get_m_seq_type(void);
 
 /**
- * @brief Get configured PD In length
+ * @brief Get the current PD In length
  *
- * @return uint8_t PD In length
+ * Returns the runtime length (equal to the configured value for fixed
+ * M-sequence types; tracks iolink_set_pd_length() for variable types).
+ *
+ * @return uint8_t PD In length in bytes
  */
 uint8_t iolink_get_pd_in_len(void);
 
 /**
- * @brief Get configured PD Out length
+ * @brief Get the current PD Out length
  *
- * @return uint8_t PD Out length
+ * Returns the runtime length (equal to the configured value for fixed
+ * M-sequence types; tracks iolink_set_pd_length() for variable types).
+ *
+ * @return uint8_t PD Out length in bytes
  */
 uint8_t iolink_get_pd_out_len(void);
 

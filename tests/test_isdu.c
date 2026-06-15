@@ -473,7 +473,7 @@ static void test_isdu_data_storage_round_trip(void** state)
     iolink_isdu_init(&ctx);
     ctx.ds_ctx = &ds;
     assert_int_equal(
-        isdu_send_write_request(&ctx, IOLINK_IDX_DATA_STORAGE, 0x00, image, (size_t) img_len), 1);
+        isdu_send_write_request(&ctx, IOLINK_IDX_DATA_STORAGE, 0x00, image, (uint8_t) img_len), 1);
     iolink_isdu_process(&ctx);
 
     /* ApplicationTag restored over the wire. */
@@ -588,6 +588,8 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_isdu_direct_parameters_page1, test_setup,
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_direct_parameters_page2, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_data_storage_round_trip, test_setup,
                                         test_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
