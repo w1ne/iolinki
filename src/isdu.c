@@ -765,8 +765,8 @@ void iolink_isdu_process(iolink_isdu_ctx_t* ctx)
     }
 
     if (ctx->state == ISDU_STATE_BUSY) {
-        /* In real implementation, we would check if the background task is done.
-           For now, we just move to RESPONSE_READY or IDLE. */
+        /* All ISDU services execute synchronously within handle_standard_commands(),
+           so BUSY is only used transiently for collision reporting; nothing to poll. */
         return;
     }
 

@@ -104,6 +104,9 @@ static void dll_enter_fallback(iolink_dll_ctx_t* ctx)
     ctx->total_retries++;
 
     if (ctx->fallback_count >= ctx->sio_fallback_threshold) {
+        /* Communication could not be sustained: enter FALLBACK, revert the PHY
+           to SIO at COM1, then settle back to STARTUP to await a new wake-up. */
+        dll_set_state(ctx, IOLINK_DLL_STATE_FALLBACK);
         iolink_dll_set_sio_mode(ctx);
         iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
         dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
