@@ -22,7 +22,6 @@
 #include "iolinki/phy_virtual.h"
 #endif
 
-
 #include <stdlib.h>
 #include <string.h>
 
@@ -32,7 +31,7 @@ int main(void)
 {
     LOG_INF("Starting IO-Link Zephyr Demo");
 
-    const char *port = NULL; 
+    const char *port = NULL;
 
 #ifdef CONFIG_IOLINK_PHY_VIRTUAL
     port = getenv("IOLINK_PORT");
@@ -44,7 +43,6 @@ int main(void)
         LOG_WRN("IOLINK_PORT not set, using default");
     }
 #endif
-
 
     /* Prepare configuration from environment */
     iolink_config_t config;
@@ -96,14 +94,14 @@ int main(void)
         /* Send Master Command: Read Direct Parameter 1 (Index 0) */
         /* Send Master Command: Read Direct Parameter 1 (Index 0) */
         /* MC = 0x80, CKT = 0x00, CK = 0x24 */
-        uint8_t frame[] = { 0x80, 0x24 }; 
+        uint8_t frame[] = {0x80, 0x24};
         phy_api->send(frame, 2);
-        
+
         uint8_t rx;
         while (phy_api->recv_byte(&rx) > 0) {
             LOG_INF("Master RX: 0x%02X", rx);
         }
-        
+
         k_msleep(2000);
     }
 #else
@@ -117,20 +115,20 @@ int main(void)
 
     while (1) {
         iolink_process();
-        
+
         /* Simulating sensor data change every 2000ms */
         uint32_t now = k_uptime_get_32();
         if (now - last_update > 2000) {
             last_update = now;
             sensor_val++;
-            
-            uint8_t pd[2] = { sensor_val, 0xA5 };
+
+            uint8_t pd[2] = {sensor_val, 0xA5};
             iolink_pd_input_update(pd, 2, true);
-            
+
             LOG_INF("Device PD Update: 0x%02X", sensor_val);
         }
-        
-        k_msleep(1); 
+
+        k_msleep(1);
     }
 #endif
     return 0;
