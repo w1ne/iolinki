@@ -1,0 +1,31 @@
+# Copyright (C) 2026 Andrii Shylenko
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Standalone west manifest for iolinki.
+#
+# This manifest lets you use iolinki as the manifest repository of a fresh
+# west workspace, pulling in a known-good Zephyr alongside it:
+#
+#     west init -m https://github.com/w1ne/iolinki --mr develop iolinki-ws
+#     cd iolinki-ws
+#     west update
+#     west build -b native_sim iolinki/samples/iolink_device
+#
+# If you instead want to add iolinki to an EXISTING Zephyr workspace, do NOT
+# use this file; add a projects entry to your own west.yml instead. See
+# zephyr/README.md for that snippet.
+manifest:
+  self:
+    # iolinki is the manifest repo; it is also a Zephyr module via zephyr/module.yml.
+    path: iolinki
+    west-commands: ""
+
+  remotes:
+    - name: zephyrproject-rtos
+      url-base: https://github.com/zephyrproject-rtos
+
+  projects:
+    - name: zephyr
+      remote: zephyrproject-rtos
+      revision: v3.7.0
+      import: true

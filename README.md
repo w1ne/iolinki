@@ -122,8 +122,14 @@ cmake --build build_bare
 
 ### Building for Zephyr
 
+iolinki is a first-class **Zephyr module**: add it to a `west` workspace, enable
+it in Kconfig, point it at a UART, and build an IO-Link device. See
+**[zephyr/README.md](zephyr/README.md)** for the full guide (west manifest
+snippet, Kconfig options, the `zephyr,iolink-uart` devicetree contract, and the
+PHY porting note).
+
 **Option 1: Docker (Recommended for testing)**
-If you have Docker installed, you can build the Zephyr example without installing the SDK on your host:
+If you have Docker installed, you can build the Zephyr sample without installing the SDK on your host:
 ```bash
 ./tools/build_zephyr_docker.sh
 ```
@@ -132,8 +138,11 @@ If you have Docker installed, you can build the Zephyr example without installin
 **Prerequisite**: You must have the [Zephyr SDK and tools installed](https://docs.zephyrproject.org/latest/develop/getting_started/index.html) and be running in an initialized Zephyr workspace (or have `ZEPHYR_BASE` set).
 
 ```bash
-# From your Zephyr workspace root
-west build -b native_sim modules/lib/iolinki/examples/zephyr_app
+# From your Zephyr workspace root, after adding iolinki as a module
+west build -b native_sim modules/lib/iolinki/samples/iolink_device
+
+# For real hardware (UART PHY)
+west build -b nucleo_l476rg modules/lib/iolinki/samples/iolink_device -- -DCONFIG_IOLINK_PHY_UART=y
 ```
 
 > **Troubleshooting**: If you see `west: error: argument <command>: invalid choice: 'build'`, it means `west` is installed but the build extensions are not loaded. This happens if you are not in a valid Zephyr workspace.
