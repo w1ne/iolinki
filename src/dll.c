@@ -269,7 +269,26 @@ void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy)
     ctx->t_ren_limit_us = dll_get_t_ren_limit_us(ctx);
     ctx->t_byte_limit_us = dll_get_t_byte_limit_us(ctx);
 
-    iolink_dll_set_sio_mode(ctx);
+    /*
+     * Initial line mode depends on whether the PHY can observe the electrical
+     * C/Q wake-up pulse:
+     *
+     *  - PHYs that can (detect_wakeup != NULL, e.g. a transceiver front-end or
+     *    the virtual PHY) start in SIO and switch to SDCI when a wake-up is
+     *    detected, matching the IO-Link startup handshake.
+     *
+     *  - PHYs that cannot (detect_wakeup == NULL, e.g. a plain UART sitting
+     *    behind a transceiver that has already established COM) would otherwise
+     *    sit in SIO forever and never service M-sequences. Such a link is, by
+     *    contract, an already-established SDCI link, so start in SDCI and accept
+     *    M-sequences immediately.
+     */
+    if (ctx->phy->detect_wakeup != NULL) {
+        iolink_dll_set_sio_mode(ctx);
+    }
+    else {
+        iolink_dll_set_sdci_mode(ctx);
+    }
 }
 
 void iolink_dll_process(iolink_dll_ctx_t* ctx)
