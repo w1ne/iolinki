@@ -4,6 +4,26 @@ All notable changes to the `iolinki` project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.1.0] - 2026-06-15
+### Added
+- **Data Storage parameter server** (ISDU index 0x0003): real serialization and restore of device parameters, with Access-Lock integration and checksum-mismatch recovery.
+- **Direct Parameter pages**: page 1 read (index 0x0000) and page 2 read/write (index 0x0001).
+- **Standard EventCodes**: V1.1.5 Annex D event-code constants and `iolink_event_classify()`.
+- **Variable Process Data negotiation**: runtime PD length changes for Type 1_V/2_V via `iolink_set_pd_length()`.
+- **Application callbacks API** (`iolink_app_register`): lifecycle (startup/preoperate/operate) and process-data callbacks.
+- **Application reset handler** (`iolink_set_reset_handler`) for System Commands 0x80/0x81.
+- **Zephyr module**: west-installable manifest, Kconfig-driven configuration, devicetree-bound UART PHY, and a `native_sim` sample.
+
+### Fixed
+- EventQualifier encoding (index 0x1C) corrected to the V1.1.5 layout.
+- PD Input Descriptor (index 0x1D) reports the actual configured PD length.
+- DLL resets the inactivity window on wake-up, making re-establishment after an idle period reliable.
+- FALLBACK state is now observable; stray ISDU debug output removed; `timeout_errors` counter wired through.
+- CI pipeline restored to green (strict compile, clang-format, Doxygen, and Zephyr build stage).
+
+### Changed
+- Documentation reconciled with the implementation (conformance test count, architecture, API reference).
+
 ## [1.0.0] - 2026-02-06
 ### Added
 - **Final V1.0.0 Stability**: Completed all mandatory ISDU index implementations and protocol state machine hardening.
