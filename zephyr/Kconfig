@@ -13,15 +13,20 @@ if IOLINKI
 
 choice
     prompt "IO-Link PHY Driver"
-    default IOLINK_PHY_VIRTUAL
+    default IOLINK_PHY_VIRTUAL if ARCH_POSIX
+    default IOLINK_PHY_UART
     help
-      Select the Physical Layer driver to use.
+      Select the Physical Layer driver to use. The default tracks the target:
+      the virtual PHY on native_sim/POSIX (host simulation), and the UART PHY
+      on real hardware.
 
 config IOLINK_PHY_VIRTUAL
     bool "Virtual PHY (over serialized bytes/file)"
+    depends on ARCH_POSIX
     help
       Use a virtual PHY driver useful for simulation or testing over
-      pipes/sockets. Primarily intended for native_sim builds.
+      pipes/sockets. It is implemented with POSIX termios and therefore only
+      builds on native_sim/POSIX targets; it is not offered on real hardware.
 
 config IOLINK_PHY_UART
     bool "UART PHY (Real Hardware)"
