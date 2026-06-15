@@ -128,10 +128,23 @@ int iolink_ds_apply_image(iolink_ds_ctx_t* ctx, const uint8_t* data, size_t len)
         pos += DS_RECORD_HEADER + rlen;
     }
 
-    (void) memcpy(ctx->image, data, len);
-    ctx->image_len = len;
-    ctx->current_checksum = iolink_ds_calc_checksum(ctx->image, len);
+    /* Recovery: re-serialize from the device's ACTUAL parameters so the stored
+       image and checksum reflect true device state rather than the raw download.
+       If the image could not be applied faithfully (e.g. unknown indices were
+       skipped), the resulting checksum differs from the Master's, which makes the
+       next iolink_ds_check() re-request a download until the two sides agree. */
+    if (iolink_ds_build_image(ctx) < 0) {
+        return -1;
+    }
     return 0;
+}
+
+bool iolink_ds_verify(const iolink_ds_ctx_t* ctx)
+{
+    if (ctx == NULL) {
+        return false;
+    }
+    return iolink_ds_calc_checksum(ctx->image, ctx->image_len) == ctx->current_checksum;
 }
 
 const uint8_t* iolink_ds_get_image(iolink_ds_ctx_t* ctx, size_t* out_len)

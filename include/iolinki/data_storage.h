@@ -200,4 +200,12 @@ int iolink_ds_apply_image(iolink_ds_ctx_t* ctx, const uint8_t* data, size_t len)
  */
 const uint8_t* iolink_ds_get_image(iolink_ds_ctx_t* ctx, size_t* out_len);
 
+/**
+ * @brief Verify the stored image is consistent with its recorded checksum.
+ *
+ * @param ctx DS context
+ * @return true if checksum(image) == current_checksum, false otherwise.
+ */
+bool iolink_ds_verify(const iolink_ds_ctx_t* ctx);
+
 #endif  // IOLINK_DATA_STORAGE_H

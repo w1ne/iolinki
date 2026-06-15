@@ -147,7 +147,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [x] Real parameter serialization/restore over DS_Data index 0x0003.
     - [x] Integration with Device Access Locks (0x000C).
     - [x] DS Commands: Upload Start/End, Download Start/End.
-    - [ ] Checksum mismatch recovery.
+    - [x] Checksum mismatch recovery (device re-serializes actual params; mismatch re-triggers download).
 - [ ] **Block Parameterization**: Efficient bulk data transfer.
 - [x] **Events**: Diagnostic event queue and transmission logic.
     - [x] **Standard Event Codes** (V1.1.5 Annex D Table D.1 constants + iolink_event_classify):

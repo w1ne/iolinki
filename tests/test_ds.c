@@ -176,6 +176,48 @@ static void test_ds_apply_rejects_truncated(void** state)
     assert_int_equal(iolink_ds_apply_image(&ds, bad, sizeof(bad)), -1);
 }
 
+static void test_ds_download_recovery(void** state)
+{
+    (void) state;
+    iolink_ds_ctx_t ds;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_ds_init(&ds, NULL);
+
+    /* Craft an image with a known parameter (ApplicationTag 0x18 = "X") plus an
+       UNKNOWN index (0x9999) the device cannot store. */
+    uint8_t img[16];
+    size_t p = 0U;
+    img[p++] = 0x00;
+    img[p++] = 0x18;
+    img[p++] = 0x00;
+    img[p++] = 0x01;
+    img[p++] = 'X';
+    img[p++] = 0x99;
+    img[p++] = 0x99;
+    img[p++] = 0x00;
+    img[p++] = 0x01;
+    img[p++] = 0xAB;
+    uint16_t downloaded_cs = iolink_ds_calc_checksum(img, p);
+
+    assert_int_equal(iolink_ds_apply_image(&ds, img, p), 0);
+
+    /* Known parameter was applied. */
+    uint8_t buf[8];
+    assert_int_equal(iolink_params_get(IOLINK_IDX_APPLICATION_TAG, 0U, buf, sizeof(buf)), 1);
+    assert_int_equal(buf[0], 'X');
+
+    /* Device checksum reflects ACTUAL state (unknown index dropped), so it
+       differs from the Master's downloaded image checksum, and the stored image
+       is internally consistent. */
+    assert_true(iolink_ds_verify(&ds));
+    assert_int_not_equal(ds.current_checksum, downloaded_cs);
+
+    /* A consistency check against the stale Master checksum re-requests download. */
+    iolink_ds_check(&ds, downloaded_cs);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_DOWNLOAD_REQ);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -186,6 +228,7 @@ int main(void)
         cmocka_unit_test(test_ds_commands_unlocked),
         cmocka_unit_test(test_ds_param_round_trip),
         cmocka_unit_test(test_ds_apply_rejects_truncated),
+        cmocka_unit_test(test_ds_download_recovery),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
