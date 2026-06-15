@@ -88,11 +88,47 @@ static void test_pd_invalid_flag(void** state)
     iolink_process();
 }
 
+static void test_pd_runtime_negotiation(void** state)
+{
+    (void) state;
+    /* Variable type with a maximum of 8 octets. */
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_V, .pd_in_len = 8, .pd_out_len = 8};
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_init(&g_phy_mock, &config);
+
+    assert_int_equal(iolink_get_pd_in_len(), 8);
+
+    /* Shrink the runtime PD lengths; change is observable via the getters. */
+    assert_int_equal(iolink_set_pd_length(4, 4), 0);
+    assert_int_equal(iolink_get_pd_in_len(), 4);
+    assert_int_equal(iolink_get_pd_out_len(), 4);
+
+    /* Exceeding the configured maximum is rejected. */
+    assert_int_equal(iolink_set_pd_length(16, 16), -1);
+    assert_int_equal(iolink_get_pd_in_len(), 4); /* unchanged */
+}
+
+static void test_pd_fixed_not_negotiable(void** state)
+{
+    (void) state;
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 2, .pd_out_len = 2};
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_init(&g_phy_mock, &config);
+
+    /* Fixed-length M-sequences reject runtime PD-length changes. */
+    assert_int_equal(iolink_set_pd_length(1, 1), -2);
+    assert_int_equal(iolink_get_pd_in_len(), 2);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_pd_variable_lengths),
         cmocka_unit_test(test_pd_invalid_flag),
+        cmocka_unit_test(test_pd_runtime_negotiation),
+        cmocka_unit_test(test_pd_fixed_not_negotiable),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
