@@ -249,6 +249,7 @@ void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy)
     iolink_ds_init(&ctx->ds, NULL);
     ctx->isdu.event_ctx = &ctx->events;
     ctx->isdu.dll_ctx = ctx;
+    ctx->isdu.ds_ctx = &ctx->ds;
 
     ctx->t_ren_limit_us = dll_get_t_ren_limit_us(ctx);
     ctx->t_byte_limit_us = dll_get_t_byte_limit_us(ctx);

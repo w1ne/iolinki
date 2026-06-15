@@ -20,6 +20,16 @@
  */
 
 /**
+ * @brief Maximum size of the serialized Data Storage parameter image.
+ *
+ * Must hold every DS-backed parameter record. Each record is laid out as
+ * [Index(2, big-endian)][Subindex(1)][Length(1)][Data(Length)].
+ */
+#ifndef IOLINK_DS_IMAGE_MAX
+#define IOLINK_DS_IMAGE_MAX 256U
+#endif
+
+/**
  * @brief DS engine states
  */
 /**
@@ -83,6 +93,8 @@ typedef struct
     const iolink_ds_storage_api_t* storage; /**< Bound storage implementation API */
     uint16_t current_checksum;              /**< Last calculated local parameter checksum */
     uint16_t master_checksum;               /**< Most recent checksum verified by Master */
+    uint8_t image[IOLINK_DS_IMAGE_MAX];     /**< Serialized parameter image (DS_Data 0x0003) */
+    size_t image_len;                       /**< Valid bytes in @ref image */
 } iolink_ds_ctx_t;
 
 /**
@@ -154,5 +166,38 @@ int iolink_ds_abort(iolink_ds_ctx_t* ctx);
  * @return int 0: Success, -1: Busy, -2: Access Denied, -3: Unknown
  */
 int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_locks);
+
+/**
+ * @brief Serialize the device's DS-backed parameters into the image buffer.
+ *
+ * Reads every parameter in the DS set from the parameter manager and packs it
+ * into @ref iolink_ds_ctx_t::image. Updates @ref current_checksum.
+ *
+ * @param ctx DS context
+ * @return int Number of image bytes built (>= 0), or negative on error.
+ */
+int iolink_ds_build_image(iolink_ds_ctx_t* ctx);
+
+/**
+ * @brief Apply a parameter image received from the Master (restore).
+ *
+ * Parses the serialized records and writes each parameter back through the
+ * parameter manager (persisting to NVM). Updates @ref current_checksum.
+ *
+ * @param ctx DS context
+ * @param data Serialized image bytes
+ * @param len  Number of image bytes
+ * @return int 0 on success, negative if the image is malformed or rejected.
+ */
+int iolink_ds_apply_image(iolink_ds_ctx_t* ctx, const uint8_t* data, size_t len);
+
+/**
+ * @brief Get the current serialized parameter image (building it on demand).
+ *
+ * @param ctx DS context
+ * @param out_len [out] Receives the image length in bytes
+ * @return const uint8_t* Pointer to the image buffer, or NULL on error.
+ */
+const uint8_t* iolink_ds_get_image(iolink_ds_ctx_t* ctx, size_t* out_len);
 
 #endif  // IOLINK_DATA_STORAGE_H

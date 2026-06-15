@@ -440,6 +440,48 @@ static void test_isdu_pdin_descriptor_read(void** state)
     assert_int_equal(byte, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
 }
 
+static void test_isdu_data_storage_round_trip(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_ds_ctx_t ds;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+    iolink_ds_init(&ds, NULL);
+    ctx.ds_ctx = &ds;
+
+    /* Configure a known ApplicationTag. */
+    const char* app = "ISDU-DS";
+    assert_int_equal(
+        iolink_params_set(IOLINK_IDX_APPLICATION_TAG, 0U, (const uint8_t*) app, strlen(app), true),
+        0);
+
+    /* Upload (read 0x0003): Master backs up the serialized parameter image. */
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DATA_STORAGE, 0x00), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t image[IOLINK_DS_IMAGE_MAX];
+    int img_len = isdu_collect_response(&ctx, image, sizeof(image));
+    assert_true(img_len > 0);
+
+    /* Wipe parameters. */
+    iolink_params_factory_reset();
+    uint8_t buf[40];
+    assert_int_equal(iolink_params_get(IOLINK_IDX_APPLICATION_TAG, 0U, buf, sizeof(buf)), 0);
+
+    /* Download (write 0x0003): Master restores the backed-up image. */
+    iolink_isdu_init(&ctx);
+    ctx.ds_ctx = &ds;
+    assert_int_equal(
+        isdu_send_write_request(&ctx, IOLINK_IDX_DATA_STORAGE, 0x00, image, (size_t) img_len), 1);
+    iolink_isdu_process(&ctx);
+
+    /* ApplicationTag restored over the wire. */
+    int len = iolink_params_get(IOLINK_IDX_APPLICATION_TAG, 0U, buf, sizeof(buf));
+    assert_int_equal(len, (int) strlen(app));
+    assert_memory_equal(buf, app, strlen(app));
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {

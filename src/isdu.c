@@ -661,6 +661,47 @@ static void handle_error_stats(iolink_isdu_ctx_t* ctx)
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
+static void handle_data_storage(iolink_isdu_ctx_t* ctx)
+{
+    iolink_ds_ctx_t* ds = (iolink_ds_ctx_t*) ctx->ds_ctx;
+    if (ds == NULL) {
+        ctx->response_buf[0] = 0x80U;
+        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+        ctx->response_len = 2U;
+        ctx->response_idx = 0U;
+        ctx->state = ISDU_STATE_RESPONSE_READY;
+        return;
+    }
+
+    if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
+        /* Restore: apply the parameter image provided by the Master. */
+        if (iolink_ds_apply_image(ds, ctx->buffer, ctx->buffer_idx) != 0) {
+            ctx->response_buf[0] = 0x80U;
+            ctx->response_buf[1] = IOLINK_ISDU_ERROR_PARAM_INCONSISTENT;
+            ctx->response_len = 2U;
+        }
+        else {
+            ctx->response_len = 0U; /* Write acknowledged */
+        }
+    }
+    else {
+        /* Backup: return the serialized parameter image. */
+        size_t len = 0U;
+        const uint8_t* img = iolink_ds_get_image(ds, &len);
+        if ((img == NULL) || (len > IOLINK_ISDU_BUFFER_SIZE)) {
+            ctx->response_len = 0U;
+        }
+        else {
+            if (len > 0U) {
+                (void) memcpy(ctx->response_buf, img, len);
+            }
+            ctx->response_len = len;
+        }
+    }
+    ctx->response_idx = 0U;
+    ctx->state = ISDU_STATE_RESPONSE_READY;
+}
+
 static void handle_standard_commands(iolink_isdu_ctx_t* ctx)
 {
     if (ctx->header.index == IOLINK_IDX_SYSTEM_COMMAND) {
@@ -697,6 +738,9 @@ static void handle_standard_commands(iolink_isdu_ctx_t* ctx)
             ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
         }
+    }
+    else if (ctx->header.index == IOLINK_IDX_DATA_STORAGE) {
+        handle_data_storage(ctx);
     }
     else if (ctx->header.index == IOLINK_IDX_DEVICE_ACCESS_LOCKS) {
         handle_access_locks(ctx);

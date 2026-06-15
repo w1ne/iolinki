@@ -19,6 +19,9 @@
 #include <string.h>
 
 #include "iolinki/data_storage.h"
+#include "iolinki/params.h"
+#include "iolinki/device_info.h"
+#include "iolinki/protocol.h"
 #include "test_helpers.h"
 
 static void test_ds_checksum(void** state)
@@ -109,12 +112,80 @@ static void test_ds_commands_unlocked(void** state)
     assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
 }
 
+static void test_ds_param_round_trip(void** state)
+{
+    (void) state;
+    iolink_ds_ctx_t ds;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_ds_init(&ds, NULL);
+
+    /* Configure known parameter values. */
+    const char* app = "APP-TAG-1";
+    const char* fun = "FLOW";
+    const char* loc = "TANK-7";
+    assert_int_equal(
+        iolink_params_set(IOLINK_IDX_APPLICATION_TAG, 0U, (const uint8_t*) app, strlen(app), true),
+        0);
+    assert_int_equal(
+        iolink_params_set(IOLINK_IDX_FUNCTION_TAG, 0U, (const uint8_t*) fun, strlen(fun), true), 0);
+    assert_int_equal(
+        iolink_params_set(IOLINK_IDX_LOCATION_TAG, 0U, (const uint8_t*) loc, strlen(loc), true), 0);
+
+    /* Upload: serialize current parameters into the DS image (backup). */
+    int n = iolink_ds_build_image(&ds);
+    assert_true(n > 0);
+    size_t backup_len = 0U;
+    const uint8_t* img = iolink_ds_get_image(&ds, &backup_len);
+    assert_non_null(img);
+    assert_int_equal((int) backup_len, n);
+    uint8_t backup[IOLINK_DS_IMAGE_MAX];
+    memcpy(backup, img, backup_len);
+    uint16_t backup_cs = ds.current_checksum;
+    assert_int_not_equal(backup_cs, 0);
+
+    /* Wipe the device parameters. */
+    iolink_params_factory_reset();
+    uint8_t buf[40];
+    assert_int_equal(iolink_params_get(IOLINK_IDX_APPLICATION_TAG, 0U, buf, sizeof(buf)), 0);
+    assert_int_equal(iolink_params_get(IOLINK_IDX_FUNCTION_TAG, 0U, buf, sizeof(buf)), 0);
+
+    /* Download: apply the backup image (restore). */
+    assert_int_equal(iolink_ds_apply_image(&ds, backup, backup_len), 0);
+    assert_int_equal(ds.current_checksum, backup_cs);
+
+    /* Parameters are restored byte-for-byte. */
+    int len = iolink_params_get(IOLINK_IDX_APPLICATION_TAG, 0U, buf, sizeof(buf));
+    assert_int_equal(len, (int) strlen(app));
+    assert_memory_equal(buf, app, strlen(app));
+    len = iolink_params_get(IOLINK_IDX_FUNCTION_TAG, 0U, buf, sizeof(buf));
+    assert_int_equal(len, (int) strlen(fun));
+    assert_memory_equal(buf, fun, strlen(fun));
+    len = iolink_params_get(IOLINK_IDX_LOCATION_TAG, 0U, buf, sizeof(buf));
+    assert_int_equal(len, (int) strlen(loc));
+    assert_memory_equal(buf, loc, strlen(loc));
+}
+
+static void test_ds_apply_rejects_truncated(void** state)
+{
+    (void) state;
+    iolink_ds_ctx_t ds;
+    iolink_ds_init(&ds, NULL);
+    /* Header claims a 5-byte value but only 2 data bytes follow -> rejected. */
+    uint8_t bad[] = {0x00, 0x18, 0x00, 0x05, 0xAA, 0xBB};
+    assert_int_equal(iolink_ds_apply_image(&ds, bad, sizeof(bad)), -1);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_ds_checksum),          cmocka_unit_test(test_ds_storage_integration),
-        cmocka_unit_test(test_ds_state_transitions), cmocka_unit_test(test_ds_commands_locked),
+        cmocka_unit_test(test_ds_checksum),
+        cmocka_unit_test(test_ds_storage_integration),
+        cmocka_unit_test(test_ds_state_transitions),
+        cmocka_unit_test(test_ds_commands_locked),
         cmocka_unit_test(test_ds_commands_unlocked),
+        cmocka_unit_test(test_ds_param_round_trip),
+        cmocka_unit_test(test_ds_apply_rejects_truncated),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
