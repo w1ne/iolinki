@@ -20,7 +20,7 @@ echo "=== Building IO-Link Zephyr App via Docker ==="
 docker run --rm \
     -v "$(pwd)":/workdir/modules/lib/iolinki \
     -w /workdir/modules/lib/iolinki \
-    zephyrprojectrtos/cmockunity:latest \
+    ghcr.io/zephyrproject-rtos/zephyr-build:latest \
     /bin/bash -c "
     west init -l . && \
     west update && \
