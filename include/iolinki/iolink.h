@@ -70,6 +70,34 @@ int iolink_init(const iolink_phy_api_t* phy, const iolink_config_t* config);
  */
 void iolink_process(void);
 
+/**
+ * @brief Reset request type delivered to the application reset handler.
+ */
+typedef enum
+{
+    IOLINK_RESET_DEVICE = 0,     /**< System Command 0x80 (Device Reset) */
+    IOLINK_RESET_APPLICATION = 1 /**< System Command 0x81 (Application Reset) */
+} iolink_reset_type_t;
+
+/**
+ * @brief Application callback invoked when the Master requests a reset.
+ *
+ * @param type IOLINK_RESET_DEVICE or IOLINK_RESET_APPLICATION
+ */
+typedef void (*iolink_reset_handler_t)(iolink_reset_type_t type);
+
+/**
+ * @brief Register an optional handler for Master-issued reset System Commands.
+ *
+ * The stack records reset requests (0x80/0x81) during ISDU processing and
+ * dispatches them to @p handler from within iolink_process(), then clears the
+ * pending flag. If no handler is registered the request is acknowledged and
+ * discarded (the stack cannot reboot the host on its own).
+ *
+ * @param handler Callback, or NULL to clear.
+ */
+void iolink_set_reset_handler(iolink_reset_handler_t handler);
+
 #include "iolinki/events.h"
 #include "iolinki/data_storage.h"
 
@@ -141,17 +169,38 @@ void iolink_set_t_ren_limit_us(uint32_t limit_us);
 iolink_m_seq_type_t iolink_get_m_seq_type(void);
 
 /**
- * @brief Get configured PD In length
+ * @brief Get the current PD In length
  *
- * @return uint8_t PD In length
+ * Returns the runtime length (equal to the configured value for fixed
+ * M-sequence types; tracks iolink_set_pd_length() for variable types).
+ *
+ * @return uint8_t PD In length in bytes
  */
 uint8_t iolink_get_pd_in_len(void);
 
 /**
- * @brief Get configured PD Out length
+ * @brief Get the current PD Out length
  *
- * @return uint8_t PD Out length
+ * Returns the runtime length (equal to the configured value for fixed
+ * M-sequence types; tracks iolink_set_pd_length() for variable types).
+ *
+ * @return uint8_t PD Out length in bytes
  */
 uint8_t iolink_get_pd_out_len(void);
+
+/**
+ * @brief Set the runtime Process Data lengths for variable-length M-sequences.
+ *
+ * Only valid for variable PD M-sequence types (TYPE_1_V / TYPE_2_V). The new
+ * lengths take effect on the next cyclic exchange and are reflected in the PD
+ * descriptors (index 0x001D and Direct Parameter page 1), so a Master can
+ * re-read them. Lengths are clamped to the maximum configured at init.
+ *
+ * @param pd_in_len  New input PD length in bytes (Device -> Master)
+ * @param pd_out_len New output PD length in bytes (Master -> Device)
+ * @return int 0 on success, -1 if a length exceeds the configured maximum,
+ *         -2 if the configured M-sequence type is not variable.
+ */
+int iolink_set_pd_length(uint8_t pd_in_len, uint8_t pd_out_len);
 
 #endif  // IOLINK_H

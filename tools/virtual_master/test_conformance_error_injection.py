@@ -80,14 +80,16 @@ class TestErrorInjectionConformance(unittest.TestCase):
         )
         time.sleep(0.5)
 
-        # Perform 5 rapid startup cycles
+        # Perform 5 rapid startup cycles. A real Master drives communication
+        # immediately after the wake-up, so read straight away; then idle long
+        # enough for the Device to fall back to SIO before the next wake-up.
         success_count = 0
         for i in range(5):
             self.master.send_wakeup()
-            time.sleep(1.0)  # Short sleep for rapid transitions
             response = self.master.read_isdu(index=0x0012, subindex=0x00)
             if response:
                 success_count += 1
+            time.sleep(1.0)  # let the Device revert to SIO before the next cycle
 
         self.assertGreaterEqual(
             success_count, 3, "At least 3/5 rapid transitions should succeed"

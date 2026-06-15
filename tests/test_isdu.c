@@ -113,8 +113,9 @@ static void test_isdu_detailed_device_status_read(void** state)
 
     uint8_t detailed_buf[3];
     assert_int_equal(isdu_collect_response(&ctx, detailed_buf, sizeof(detailed_buf)), 3);
-    assert_int_equal(detailed_buf[0],
-                     0x9A); /* Appeared (0x80) | Error (0x03<<3 = 0x18) | Instance DLL (0x02) */
+    /* EventQualifier per V1.1.5: MODE=appears(0xC0) | TYPE=error(0x03<<4=0x30)
+       | SOURCE=device(0) | INSTANCE=DL(0x02) = 0xF2 */
+    assert_int_equal(detailed_buf[0], 0xF2);
     assert_int_equal(detailed_buf[1], 0x18); /* Code High */
     assert_int_equal(detailed_buf[2], 0x01); /* Code Low */
 }
@@ -402,21 +403,26 @@ static void test_isdu_pdin_descriptor_read(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
+    iolink_dll_ctx_t dll = {0};
     iolink_device_info_init(NULL);
     iolink_params_init();
     iolink_isdu_init(&ctx);
+
+    /* Wire a DLL context with a configured PD-in length of 3 so the descriptor
+       reflects the real runtime length rather than a hardcoded constant. */
+    assert_int_equal(iolink_dll_set_pd_length(&dll, 3, 0), 0);
+    ctx.dll_ctx = &dll;
 
     /* Read PD Input Descriptor (Index 0x1D) */
     assert_int_equal(isdu_send_read_request(&ctx, 0x001D, 0x00), 1);
 
     iolink_isdu_process(&ctx);
 
-    /* Verify response contains PD length */
+    /* Verify response reports the configured PD-in length */
     uint8_t byte;
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Control */
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Data: PD length */
-    /* Default device info has pdin_len = 2 */
-    assert_int_equal(byte, 2);
+    assert_int_equal(byte, 3);
 
     /* Test write protection */
     iolink_isdu_init(&ctx);
@@ -432,6 +438,130 @@ static void test_isdu_pdin_descriptor_read(void** state)
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Control */
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Error code */
     assert_int_equal(byte, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+}
+
+static void test_isdu_data_storage_round_trip(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_ds_ctx_t ds;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+    iolink_ds_init(&ds, NULL);
+    ctx.ds_ctx = &ds;
+
+    /* Configure a known ApplicationTag. */
+    const char* app = "ISDU-DS";
+    assert_int_equal(
+        iolink_params_set(IOLINK_IDX_APPLICATION_TAG, 0U, (const uint8_t*) app, strlen(app), true),
+        0);
+
+    /* Upload (read 0x0003): Master backs up the serialized parameter image. */
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DATA_STORAGE, 0x00), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t image[IOLINK_DS_IMAGE_MAX];
+    int img_len = isdu_collect_response(&ctx, image, sizeof(image));
+    assert_true(img_len > 0);
+
+    /* Wipe parameters. */
+    iolink_params_factory_reset();
+    uint8_t buf[40];
+    assert_int_equal(iolink_params_get(IOLINK_IDX_APPLICATION_TAG, 0U, buf, sizeof(buf)), 0);
+
+    /* Download (write 0x0003): Master restores the backed-up image. */
+    iolink_isdu_init(&ctx);
+    ctx.ds_ctx = &ds;
+    assert_int_equal(
+        isdu_send_write_request(&ctx, IOLINK_IDX_DATA_STORAGE, 0x00, image, (uint8_t) img_len), 1);
+    iolink_isdu_process(&ctx);
+
+    /* ApplicationTag restored over the wire. */
+    int len = iolink_params_get(IOLINK_IDX_APPLICATION_TAG, 0U, buf, sizeof(buf));
+    assert_int_equal(len, (int) strlen(app));
+    assert_memory_equal(buf, app, strlen(app));
+}
+
+static void test_isdu_direct_parameters_page1(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+
+    /* Whole Direct Parameter page 1 (16 bytes). */
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_1, 0x00), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t page[16];
+    assert_int_equal(isdu_collect_response(&ctx, page, sizeof(page)), 16);
+
+    const iolink_device_info_t* info = iolink_device_info_get();
+    assert_int_equal(page[0x04], 0x11);          /* RevisionID = v1.1 */
+    assert_int_equal(page[0x03] & 0x01U, 0x01U); /* ISDU supported */
+    assert_int_equal(page[0x07], (uint8_t) (info->vendor_id >> 8));
+    assert_int_equal(page[0x08], (uint8_t) (info->vendor_id & 0xFFU));
+    assert_int_equal(page[0x09], (uint8_t) ((info->device_id >> 16) & 0xFFU));
+    assert_int_equal(page[0x0A], (uint8_t) ((info->device_id >> 8) & 0xFFU));
+    assert_int_equal(page[0x0B], (uint8_t) (info->device_id & 0xFFU));
+
+    /* Single-octet read via subindex (addr 0x04 -> subindex 5). */
+    iolink_isdu_init(&ctx);
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_1, 0x05), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t b[2];
+    assert_int_equal(isdu_collect_response(&ctx, b, sizeof(b)), 1);
+    assert_int_equal(b[0], 0x11);
+
+    /* Page 1 is read-only. */
+    iolink_isdu_init(&ctx);
+    uint8_t w = 0x55;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_1, 0x01, &w, 1), 1);
+    iolink_isdu_process(&ctx);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &w), 1); /* Control */
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &w), 1);
+    assert_int_equal(w, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &w), 1); /* Control */
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &w), 1);
+    assert_int_equal(w, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+}
+
+static void test_isdu_direct_parameters_page2(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_init(NULL);
+    iolink_isdu_init(&ctx);
+
+    /* Write the whole page 2, then read it back. */
+    uint8_t img[16];
+    for (uint8_t i = 0U; i < 16U; i++) {
+        img[i] = (uint8_t) (0xA0U + i);
+    }
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_2, 0x00, img, 16),
+                     1);
+    iolink_isdu_process(&ctx);
+
+    iolink_isdu_init(&ctx);
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_2, 0x00), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t rb[16];
+    assert_int_equal(isdu_collect_response(&ctx, rb, sizeof(rb)), 16);
+    assert_memory_equal(rb, img, 16);
+
+    /* Single-octet write at subindex 3, read back. */
+    iolink_isdu_init(&ctx);
+    uint8_t one = 0x5A;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_2, 0x03, &one, 1),
+                     1);
+    iolink_isdu_process(&ctx);
+
+    iolink_isdu_init(&ctx);
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_2, 0x03), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t one_rb[2];
+    assert_int_equal(isdu_collect_response(&ctx, one_rb, sizeof(one_rb)), 1);
+    assert_int_equal(one_rb[0], 0x5A);
 }
 
 int main(void)
@@ -455,6 +585,12 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_isdu_location_tag_read_write, test_setup,
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_pdin_descriptor_read, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_direct_parameters_page1, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_direct_parameters_page2, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_data_storage_round_trip, test_setup,
+                                        test_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

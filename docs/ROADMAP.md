@@ -98,17 +98,17 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [x] **16-bit Index Support**: Support full 16-bit index.
     - [ ] **Write Verification**: Readback after write.
 - [ ] **Mandatory ISDU Indices**:
-    - [ ] 0x0000: Direct Parameter Page 1
-    - [ ] 0x0001: Direct Parameter Page 2
-    - [x] 0x0002: System Command (partial - events only)
-        - [ ] Subcommand 0x80: Device Reset
-        - [ ] Subcommand 0x81: Application Reset
-        - [ ] Subcommand 0x82: Restore Factory Settings
-        - [ ] Subcommand 0x83: Restore Application Defaults
-        - [ ] Subcommand 0x84: Set Communication Mode
-        - [ ] Subcommand 0x95: Parameter Upload to Master
-        - [ ] Subcommand 0x96: Parameter Download from Master
-        - [ ] Subcommand 0x97: Parameter Break
+    - [x] 0x0000: Direct Parameter Page 1 (read, packed identification/communication page)
+    - [x] 0x0001: Direct Parameter Page 2 (read/write, device-specific)
+    - [x] 0x0002: System Command
+        - [x] Subcommand 0x80: Device Reset (dispatched via iolink_set_reset_handler)
+        - [x] Subcommand 0x81: Application Reset (dispatched via iolink_set_reset_handler)
+        - [x] Subcommand 0x82: Restore Factory Settings
+        - [x] Subcommand 0x83: Restore Application Defaults
+        - [ ] Subcommand 0x84: Set Communication Mode (handled by DLL; no-op here)
+        - [x] Subcommand 0x95: Parameter Upload to Master
+        - [x] Subcommand 0x96: Parameter Download from Master
+        - [x] Subcommand 0x97: Parameter Break
     - [ ] 0x0003: Master Command (optional)
     - [ ] 0x0004: Master Cycle Time
     - [ ] 0x0005: Min Cycle Time
@@ -131,11 +131,11 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [x] 0x0016: Hardware Revision
     - [x] 0x0017: Firmware Revision
     - [x] 0x0018: Application-specific Tag
-    - [ ] 0x0019: Function Tag
-    - [ ] 0x001A: Location Tag
+    - [x] 0x0019: Function Tag
+    - [x] 0x001A: Location Tag
     - [x] 0x001B: Device Status
-    - [ ] 0x001C: Detailed Device Status
-    - [ ] 0x001D: Process Data Input Descriptor
+    - [x] 0x001C: Detailed Device Status
+    - [x] 0x001D: Process Data Input Descriptor
     - [ ] 0x001E: Process Data Output Descriptor
     - [x] 0x0024: Min Cycle Time
     - [ ] 0x0025-0x0028: Alternate Identification (Vendor/Product Name/Text)
@@ -144,20 +144,21 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [x] **Data Storage (DS)**:
     - [x] Implement parameter checksum generation.
     - [x] "Upload/Download" state machine for automatic parameter server.
-    - [ ] Integration with Device Access Locks (0x000C).
-    - [ ] DS Commands: Upload Start/End, Download Start/End.
-    - [ ] Checksum mismatch recovery.
+    - [x] Real parameter serialization/restore over DS_Data index 0x0003.
+    - [x] Integration with Device Access Locks (0x000C).
+    - [x] DS Commands: Upload Start/End, Download Start/End.
+    - [x] Checksum mismatch recovery (device re-serializes actual params; mismatch re-triggers download).
 - [ ] **Block Parameterization**: Efficient bulk data transfer.
 - [x] **Events**: Diagnostic event queue and transmission logic.
-    - [ ] **Standard Event Codes**:
-        - [ ] 0x1xxx: Device events
-        - [ ] 0x2xxx: Communication events
-        - [ ] 0x4xxx: Process events
-        - [ ] 0x5xxx: Application events
-        - [ ] 0x6xxx: Reserved
-        - [ ] 0x8xxx: Manufacturer-specific
+    - [x] **Standard Event Codes** (V1.1.5 Annex D Table D.1 constants + iolink_event_classify):
+        - [x] 0x1xxx: Device events (general malfunction)
+        - [x] 0x4xxx: Temperature events
+        - [x] 0x5xxx: Hardware / power-supply events
+        - [x] 0x6xxx: Software / parameter events
+        - [x] 0x7xxx: Wiring events (wire break, short, ground)
+        - [x] 0x8Cxx: Application / maintenance events
+    - [x] Event Qualifier: spec-correct MODE/TYPE/SOURCE/INSTANCE encoding (0x1C).
     - [ ] Event Mode: Single/Multiple event mode.
-    - [ ] Event Qualifier: Additional event context.
     - [ ] **Event Instance**: Multiple instances of same event.
     - [ ] **Event Acknowledgment**: Master ACK mechanism.
 

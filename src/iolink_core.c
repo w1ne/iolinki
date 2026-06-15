@@ -17,6 +17,36 @@
 
 static iolink_dll_ctx_t g_dll_ctx;
 static iolink_config_t g_config;
+static iolink_reset_handler_t g_reset_handler;
+static const iolink_app_callbacks_t* g_app_callbacks;
+
+/* Trampoline bound to the DLL state-change hook; dispatches to the application
+   lifecycle callbacks so no transition is missed. */
+static void core_state_cb(iolink_dll_state_t state)
+{
+    if (g_app_callbacks == NULL) {
+        return;
+    }
+    switch (state) {
+        case IOLINK_DLL_STATE_STARTUP:
+            if (g_app_callbacks->on_startup != NULL) {
+                g_app_callbacks->on_startup();
+            }
+            break;
+        case IOLINK_DLL_STATE_PREOPERATE:
+            if (g_app_callbacks->on_preoperate != NULL) {
+                g_app_callbacks->on_preoperate();
+            }
+            break;
+        case IOLINK_DLL_STATE_OPERATE:
+            if (g_app_callbacks->on_operate != NULL) {
+                g_app_callbacks->on_operate();
+            }
+            break;
+        default:
+            break;
+    }
+}
 
 int iolink_init(const iolink_phy_api_t* phy, const iolink_config_t* config)
 {
@@ -42,6 +72,7 @@ int iolink_init(const iolink_phy_api_t* phy, const iolink_config_t* config)
     }
 
     iolink_dll_init(&g_dll_ctx, phy);
+    g_dll_ctx.state_cb = core_state_cb;
     iolink_params_init();
     g_dll_ctx.m_seq_type = (uint8_t) g_config.m_seq_type;
     g_dll_ctx.pd_in_len = g_config.pd_in_len;
@@ -79,12 +110,52 @@ int iolink_init(const iolink_phy_api_t* phy, const iolink_config_t* config)
         g_dll_ctx.pd_out_len_max = g_dll_ctx.pd_out_len;
     }
 
+    /* Announce the initial state to a callback registered before init. */
+    if ((g_app_callbacks != NULL) && (g_app_callbacks->on_startup != NULL)) {
+        g_app_callbacks->on_startup();
+    }
+
     return 0;
+}
+
+void iolink_app_register(const iolink_app_callbacks_t* callbacks)
+{
+    g_app_callbacks = callbacks;
+}
+
+void iolink_set_reset_handler(iolink_reset_handler_t handler)
+{
+    g_reset_handler = handler;
 }
 
 void iolink_process(void)
 {
     iolink_dll_process(&g_dll_ctx);
+
+    /* Consume Master-issued reset requests recorded during ISDU processing.
+       Cleared unconditionally so a request is acted on exactly once. */
+    if (g_dll_ctx.isdu.reset_pending) {
+        g_dll_ctx.isdu.reset_pending = false;
+        if (g_reset_handler != NULL) {
+            g_reset_handler(IOLINK_RESET_DEVICE);
+        }
+    }
+    if (g_dll_ctx.isdu.app_reset_pending) {
+        g_dll_ctx.isdu.app_reset_pending = false;
+        if (g_reset_handler != NULL) {
+            g_reset_handler(IOLINK_RESET_APPLICATION);
+        }
+    }
+
+    /* Cyclic Process Data callbacks while in OPERATE. */
+    if ((g_app_callbacks != NULL) && (g_dll_ctx.state == IOLINK_DLL_STATE_OPERATE)) {
+        if (g_app_callbacks->on_pd_output != NULL) {
+            g_app_callbacks->on_pd_output(g_dll_ctx.pd_out, g_dll_ctx.pd_out_len_current);
+        }
+        if (g_app_callbacks->on_pd_input != NULL) {
+            g_app_callbacks->on_pd_input(g_dll_ctx.pd_in, g_dll_ctx.pd_in_len_current);
+        }
+    }
 }
 
 int iolink_pd_input_update(const uint8_t* data, size_t len, bool valid)
@@ -167,10 +238,24 @@ iolink_m_seq_type_t iolink_get_m_seq_type(void)
 
 uint8_t iolink_get_pd_in_len(void)
 {
-    return g_dll_ctx.pd_in_len;
+    /* Current length: equals the configured value for fixed types, and tracks
+       runtime changes for variable (TYPE_1_V / TYPE_2_V) M-sequences. */
+    return g_dll_ctx.pd_in_len_current;
 }
 
 uint8_t iolink_get_pd_out_len(void)
 {
-    return g_dll_ctx.pd_out_len;
+    return g_dll_ctx.pd_out_len_current;
+}
+
+int iolink_set_pd_length(uint8_t pd_in_len, uint8_t pd_out_len)
+{
+    if ((g_dll_ctx.m_seq_type != IOLINK_M_SEQ_TYPE_1_V) &&
+        (g_dll_ctx.m_seq_type != IOLINK_M_SEQ_TYPE_2_V)) {
+        return -2; /* Fixed-length M-sequence: PD length is not negotiable */
+    }
+    if ((pd_in_len > g_dll_ctx.pd_in_len_max) || (pd_out_len > g_dll_ctx.pd_out_len_max)) {
+        return -1; /* Exceeds configured maximum */
+    }
+    return iolink_dll_set_pd_length(&g_dll_ctx, pd_in_len, pd_out_len);
 }

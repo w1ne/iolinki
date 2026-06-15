@@ -1,0 +1,20 @@
+/*
+ * Copyright (C) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/ {
+    chosen {
+        zephyr,iolink-uart = &usart1;
+    };
+
+    aliases {
+        iolink-uart = &usart1;
+    };
+};
+
+&usart1 {
+    status = "okay";
+    current-speed = <38400>;
+};
+

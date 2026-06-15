@@ -16,17 +16,16 @@
 
 ### Licensing
 
-**Dual-Licensed**: GPLv3 (Evaluation) + Commercial
+**Dual-licensed: GPLv3 or Commercial.** Pick the one that matches your product.
 
-- **GPLv3 (Evaluation)**: Free for evaluation in non-production environments for up to 90 days.
-- **Commercial**: Required for any production or commercial deployment.
-  - **Single Developer**: €1,399 (one-time, royalty-free)
-  - **Team (5 seats)**: €4,699 (one-time, royalty-free)
-  - **Enterprise**: Custom pricing
-  - **Included Support**: 12 months of updates and support
-  - **Integration Assistance**: Up to 8 hours included
+- **GPLv3 (free, open source)** — use, modify, and ship iolinki at no cost, provided your own work that includes it is also released under the GPLv3. Ideal for open-source projects, research, evaluation, and hobby use.
+- **Commercial license** — **required only if you ship a closed-source / proprietary product** and do not want the GPLv3 copyleft obligations. One-time, royalty-free:
+  - **Single Developer**: €1,399
+  - **Team (5 seats)**: €4,699
+  - **Enterprise / site-wide**: custom
+  - Includes 12 months of updates + support and up to 8 hours of integration assistance.
 
-See [LICENSE](LICENSE) and [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL) for full terms, or contact andrii@shylenko.com.
+**Shipping a closed-source product?** A commercial license removes the GPLv3 obligations — email **andrii@shylenko.com** for terms (fast, no-friction). See [LICENSE](LICENSE) and [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL).
 
 ## Quick Start
 
@@ -98,15 +97,17 @@ cd build && ctest --output-on-failure
 
 ## IO-Link V1.1.5 Conformance
 
-iolinki includes **33 automated conformance tests** validating compliance with the IO-Link V1.1.5 specification:
+iolinki includes **49 automated conformance tests** validating compliance with the IO-Link V1.1.5 specification:
 
-- ✅ **State Machine**: DLL transitions, fallback behavior (6 tests)
-- ✅ **Timing**: Cycle times, response delays (4 tests)
-- ✅ **ISDU Protocol**: All 11 mandatory indices + error handling (12 tests)
-- ✅ **Error Injection**: Recovery, robustness, edge cases (6 tests)
+- ✅ **State Machine**: DLL transitions, ESTAB_COM, fallback behavior (7 tests)
+- ✅ **Timing**: Cycle times, response delays, wake-up timing (5 tests)
+- ✅ **ISDU Protocol**: All mandatory indices + error handling (13 tests)
+- ✅ **System Commands**: Reset, factory restore, Data Storage upload/download (9 tests)
+- ✅ **Error Injection**: Recovery, robustness, edge cases (7 tests)
+- ✅ **PD / Events / SIO**: Process Data, event signalling, SIO fallback (3 tests)
 - ✅ **Performance**: Sustained operation, stress testing (5 tests)
 
-**Coverage**: 100% of mandatory ISDU indices (0x0010-0x0018, 0x001E, 0x0024), state machine transitions, timing requirements, and error handling.
+**Coverage**: 100% of mandatory ISDU indices (0x0010-0x0018, 0x001E, 0x0024), Data Storage (0x0003), state machine transitions, timing requirements, and error handling.
 
 See [docs/CONFORMANCE.md](docs/CONFORMANCE.md) for detailed test specifications and coverage matrix.
 
@@ -120,8 +121,14 @@ cmake --build build_bare
 
 ### Building for Zephyr
 
+iolinki is a first-class **Zephyr module**: add it to a `west` workspace, enable
+it in Kconfig, point it at a UART, and build an IO-Link device. See
+**[zephyr/README.md](zephyr/README.md)** for the full guide (west manifest
+snippet, Kconfig options, the `zephyr,iolink-uart` devicetree contract, and the
+PHY porting note).
+
 **Option 1: Docker (Recommended for testing)**
-If you have Docker installed, you can build the Zephyr example without installing the SDK on your host:
+If you have Docker installed, you can build the Zephyr sample without installing the SDK on your host:
 ```bash
 ./tools/build_zephyr_docker.sh
 ```
@@ -130,8 +137,11 @@ If you have Docker installed, you can build the Zephyr example without installin
 **Prerequisite**: You must have the [Zephyr SDK and tools installed](https://docs.zephyrproject.org/latest/develop/getting_started/index.html) and be running in an initialized Zephyr workspace (or have `ZEPHYR_BASE` set).
 
 ```bash
-# From your Zephyr workspace root
-west build -b native_sim modules/lib/iolinki/examples/zephyr_app
+# From your Zephyr workspace root, after adding iolinki as a module
+west build -b native_sim modules/lib/iolinki/samples/iolink_device
+
+# For real hardware (UART PHY)
+west build -b nucleo_l476rg modules/lib/iolinki/samples/iolink_device -- -DCONFIG_IOLINK_PHY_UART=y
 ```
 
 > **Troubleshooting**: If you see `west: error: argument <command>: invalid choice: 'build'`, it means `west` is installed but the build extensions are not loaded. This happens if you are not in a valid Zephyr workspace.
@@ -181,8 +191,10 @@ git push origin v0.1.0
 
 ## License
 
-This project is dual-licensed under GPLv3 (evaluation) and a commercial license.
-Refer to [LICENSE](LICENSE) and [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL) for details.
+This project is dual-licensed under the **GPLv3** (free, for open-source/GPLv3 use)
+and a **commercial license** (for closed-source / proprietary products that cannot
+accept the GPLv3 copyleft). Shipping a proprietary product? Email
+**andrii@shylenko.com**. See [LICENSE](LICENSE) and [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL).
 
 ## Contributing
 

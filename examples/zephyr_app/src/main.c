@@ -15,7 +15,12 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include "iolinki/iolink.h"
+
+#ifdef CONFIG_IOLINK_PHY_UART
+#include "platform/zephyr/phy_uart.h"
+#else
 #include "iolinki/phy_virtual.h"
+#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -26,15 +31,18 @@ int main(void)
 {
     LOG_INF("Starting IO-Link Zephyr Demo");
 
-    const char *port = getenv("IOLINK_PORT");
+    const char *port = NULL;
+
+#ifdef CONFIG_IOLINK_PHY_VIRTUAL
+    port = getenv("IOLINK_PORT");
     if (port) {
         iolink_phy_virtual_set_port(port);
         LOG_INF("Connecting to %s", port);
     }
     else {
         LOG_WRN("IOLINK_PORT not set, using default");
-        /* phy_virtual default is /dev/pts/1 or similar? */
     }
+#endif
 
     /* Prepare configuration from environment */
     iolink_config_t config;
@@ -59,15 +67,69 @@ int main(void)
         LOG_INF("Configured PD Length: %d", len);
     }
 
-    /* Use virtual PHY for demo */
-    if (iolink_init(iolink_phy_virtual_get(), &config) != 0) {
+    /* Initialize PHY */
+    const iolink_phy_api_t *phy_api = NULL;
+
+#ifdef CONFIG_IOLINK_PHY_UART
+    const struct device *uart_dev = DEVICE_DT_GET(DT_ALIAS(iolink_uart));
+    if (!device_is_ready(uart_dev)) {
+        LOG_ERR("UART device not ready");
+        return -1;
+    }
+    if (iolink_phy_uart_init(uart_dev) != 0) {
+        LOG_ERR("Failed to init UART PHY");
+        return -1;
+    }
+    phy_api = iolink_phy_uart_get();
+    LOG_INF("Using UART PHY with device: %s", uart_dev->name);
+#else
+    phy_api = iolink_phy_virtual_get();
+    LOG_INF("Using Virtual PHY");
+#endif
+
+#ifdef CONFIG_IOLINK_DEMO_MASTER
+    LOG_INF("Running as DEMO MASTER");
+
+    while (1) {
+        /* Send Master Command: Read Direct Parameter 1 (Index 0) */
+        /* Send Master Command: Read Direct Parameter 1 (Index 0) */
+        /* MC = 0x80, CKT = 0x00, CK = 0x24 */
+        uint8_t frame[] = {0x80, 0x24};
+        phy_api->send(frame, 2);
+
+        uint8_t rx;
+        while (phy_api->recv_byte(&rx) > 0) {
+            LOG_INF("Master RX: 0x%02X", rx);
+        }
+
+        k_msleep(2000);
+    }
+#else
+    if (iolink_init(phy_api, &config) != 0) {
         LOG_ERR("Failed to init IO-Link");
         return -1;
     }
 
+    uint8_t sensor_val = 0;
+    uint32_t last_update = 0;
+
     while (1) {
         iolink_process();
-        k_msleep(1); /* 1ms cycle */
+
+        /* Simulating sensor data change every 2000ms */
+        uint32_t now = k_uptime_get_32();
+        if (now - last_update > 2000) {
+            last_update = now;
+            sensor_val++;
+
+            uint8_t pd[2] = {sensor_val, 0xA5};
+            iolink_pd_input_update(pd, 2, true);
+
+            LOG_INF("Device PD Update: 0x%02X", sensor_val);
+        }
+
+        k_msleep(1);
     }
+#endif
     return 0;
 }

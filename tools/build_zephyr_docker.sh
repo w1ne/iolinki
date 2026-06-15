@@ -18,12 +18,14 @@ echo "=== Building IO-Link Zephyr App via Docker ==="
 
 # Standard Zephyr Build Command using the official container
 docker run --rm \
+    --user root \
+    -v iolinki_zws:/workdir/modules/lib \
     -v "$(pwd)":/workdir/modules/lib/iolinki \
     -w /workdir/modules/lib/iolinki \
-    zephyrprojectrtos/cmockunity:latest \
+    ghcr.io/zephyrproject-rtos/zephyr-build:latest \
     /bin/bash -c "
-    west init -l . && \
+    west init -l . 2>/dev/null || true; \
     west update && \
-    west build -b native_sim examples/zephyr_app"
+    west build -p auto -b native_sim samples/iolink_device"
 
 echo "=== Build Complete ==="

@@ -9,6 +9,7 @@
 #include "iolinki/protocol.h"
 #include "iolinki/isdu.h"
 #include "iolinki/dll.h"
+#include "iolinki/iolink.h"
 #include "iolinki/crc.h"
 #include "iolinki/events.h"
 #include "iolinki/device_info.h"
@@ -18,7 +19,6 @@
 #include "iolinki/utils.h"
 #include <string.h>
 #include <stdint.h>
-#include <stdio.h>
 
 /*
  * IO-Link ISDU Segmentation Engine
@@ -373,8 +373,16 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
                 ctx->state = ISDU_STATE_RESPONSE_READY;
                 return;
             }
-            /* Return PD Input length (default: 2 bytes) */
-            ctx->response_buf[0] = 2U; /* Default PD length */
+            /* Return the actual configured PD Input length (1 byte). */
+            {
+                uint8_t pd_in = 0U;
+                uint8_t pd_out = 0U;
+                if (ctx->dll_ctx != NULL) {
+                    iolink_dll_get_pd_length((const iolink_dll_ctx_t*) ctx->dll_ctx, &pd_in,
+                                             &pd_out);
+                }
+                ctx->response_buf[0] = pd_in;
+            }
             ctx->response_len = 1U;
             ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
@@ -388,46 +396,8 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
             ctx->state = ISDU_STATE_RESPONSE_READY;
             return;
 
-        case IOLINK_IDX_DETAILED_DEVICE_STATUS: {
-            iolink_event_t events[8];
-            uint8_t count =
-                iolink_events_get_all((iolink_events_ctx_t*) ctx->event_ctx, events, 8U);
-            if (count == 0U) {
-                /* Special case: No events -> return 3 bytes of 0 as per spec pattern?
-                   Actually, spec says it returns a list of active events. If none, length 0 or
-                   error? Most masters expect 3 bytes per event: [Qualifier] [Code(2)]. If no
-                   events, we'll return 0 length. */
-                ctx->response_len = 0U;
-            }
-            else {
-                for (uint8_t i = 0U; i < count; i++) {
-                    /* Qualifier: [Type(7-6)] [Instance(5-0)]
-                       IO-Link Spec: 00=Reserved, 01=Notification, 10=Warning, 11=Error */
-                    uint8_t qualifier = 0U;
-                    switch (events[i].type) {
-                        case IOLINK_EVENT_TYPE_NOTIFICATION:
-                            qualifier = 0x40U;
-                            break;
-                        case IOLINK_EVENT_TYPE_WARNING:
-                            qualifier = 0x80U;
-                            break;
-                        case IOLINK_EVENT_TYPE_ERROR:
-                            qualifier = 0xC0U;
-                            break;
-                        default:
-                            qualifier = 0x00U;
-                            break;
-                    }
-                    ctx->response_buf[i * 3] = qualifier;
-                    ctx->response_buf[i * 3 + 1] = (uint8_t) (events[i].code >> 8);
-                    ctx->response_buf[i * 3 + 2] = (uint8_t) (events[i].code & 0xFF);
-                }
-                ctx->response_len = (uint8_t) (count * 3U);
-            }
-            ctx->response_idx = 0U;
-            ctx->state = ISDU_STATE_RESPONSE_READY;
-        }
-            return;
+            /* IOLINK_IDX_DETAILED_DEVICE_STATUS (0x1C) is handled earlier in
+               handle_standard_commands() via handle_detailed_device_status(). */
 
         case IOLINK_IDX_REVISION_ID:
             ctx->response_buf[0] = (uint8_t) (info->revision_id >> 8);
@@ -616,26 +586,27 @@ static void handle_detailed_device_status(iolink_isdu_ctx_t* ctx)
         uint8_t idx = (uint8_t) ((event_ctx->head + i) % IOLINK_EVENT_QUEUE_SIZE);
         const iolink_event_t* ev = &event_ctx->queue[idx];
 
-        /* EventQualifier:
-         * Mode: Appeared (0b10 << 6 = 0x80)
-         * Type: Map iolink_event_type_t
-         * Instance: DLL (0x02) for these, but let's keep it simple.
+        /* EventQualifier byte per IO-Link V1.1.5 (Table B.1):
+         *   MODE     (bits 7-6): 11 = event appears
+         *   TYPE     (bits 5-4): 01 notification, 10 warning, 11 error
+         *   SOURCE   (bit  3)  : 0 = device (local)
+         *   INSTANCE (bits 2-0): 2 = data link layer (DL) for comm events
          */
-        uint8_t qualifier = 0x80U; /* Appeared */
+        uint8_t qualifier = 0xC0U; /* MODE = event appears */
         switch (ev->type) {
             case IOLINK_EVENT_TYPE_NOTIFICATION:
-                qualifier |= (0x01U << 3);
+                qualifier |= (0x01U << 4);
                 break;
             case IOLINK_EVENT_TYPE_WARNING:
-                qualifier |= (0x02U << 3);
+                qualifier |= (0x02U << 4);
                 break;
             case IOLINK_EVENT_TYPE_ERROR:
-                qualifier |= (0x03U << 3);
+                qualifier |= (0x03U << 4);
                 break;
             default:
                 break;
         }
-        qualifier |= 0x02U; /* DLL instance as default for these errors */
+        qualifier |= 0x02U; /* INSTANCE = DL */
 
         ctx->response_buf[i * 3U] = qualifier;
         ctx->response_buf[i * 3U + 1U] = (uint8_t) (ev->code >> 8);
@@ -691,6 +662,174 @@ static void handle_error_stats(iolink_isdu_ctx_t* ctx)
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
+/* Direct Parameter page 2 (device-specific, addresses 0x10-0x1F). RAM-backed;
+   single-instance to match the stack's existing global model. */
+static uint8_t g_direct_param_page2[16];
+
+/* Encode a Process Data length (in octets) per IO-Link V1.1.5 Figure B.5:
+   <=2 octets are expressed as bit length (BYTE=0); larger as octets (BYTE=1). */
+static uint8_t direct_param_encode_pd(uint8_t octets)
+{
+    if (octets == 0U) {
+        return 0x00U;
+    }
+    if (octets <= 2U) {
+        return (uint8_t) (octets * 8U); /* BYTE=0, Length in bits (8 or 16) */
+    }
+    return (uint8_t) (0x80U | (uint8_t) (octets - 1U)); /* BYTE=1, Length=octets-1 */
+}
+
+/* M-sequenceCapability byte (Direct Parameter addr 0x03, Figure B.3):
+   bit0 = ISDU supported, bits1-3 = OPERATE M-sequence code, bits4-5 = PREOPERATE. */
+static uint8_t direct_param_mseq_capability(uint8_t m_seq_type)
+{
+    uint8_t cap = 0x01U; /* ISDU supported */
+    uint8_t operate_code;
+    switch (m_seq_type) {
+        case IOLINK_M_SEQ_TYPE_1_1:
+        case IOLINK_M_SEQ_TYPE_1_2:
+            operate_code = 1U;
+            break;
+        case IOLINK_M_SEQ_TYPE_1_V:
+        case IOLINK_M_SEQ_TYPE_2_V:
+            operate_code = 5U;
+            break;
+        default:
+            operate_code = 0U; /* TYPE_0 / TYPE_2_1 / TYPE_2_2 */
+            break;
+    }
+    cap |= (uint8_t) ((operate_code & 0x07U) << 1);
+    /* PREOPERATE M-sequence in this stack is TYPE_0 (code 0) -> bits 4-5 = 0. */
+    return cap;
+}
+
+static void build_direct_param_page1(iolink_isdu_ctx_t* ctx, uint8_t* page)
+{
+    const iolink_device_info_t* info = iolink_device_info_get();
+    uint8_t pd_in = 0U;
+    uint8_t pd_out = 0U;
+    uint8_t m_seq = 0U;
+    if (ctx->dll_ctx != NULL) {
+        const iolink_dll_ctx_t* dll = (const iolink_dll_ctx_t*) ctx->dll_ctx;
+        iolink_dll_get_pd_length(dll, &pd_in, &pd_out);
+        m_seq = dll->m_seq_type;
+    }
+
+    (void) memset(page, 0, 16);
+    /* 0x00 MasterCommand (W) and 0x01 MasterCycleTime default to 0. */
+    page[0x02] = (info != NULL) ? info->min_cycle_time : 0U; /* MinCycleTime */
+    page[0x03] = direct_param_mseq_capability(m_seq);        /* M-sequenceCapability */
+    page[0x04] = 0x11U;                                      /* RevisionID = v1.1 */
+    page[0x05] = direct_param_encode_pd(pd_in);              /* ProcessDataIn */
+    page[0x06] = direct_param_encode_pd(pd_out);             /* ProcessDataOut */
+    if (info != NULL) {
+        page[0x07] = (uint8_t) (info->vendor_id >> 8);            /* VendorID MSB */
+        page[0x08] = (uint8_t) (info->vendor_id & 0xFFU);         /* VendorID LSB */
+        page[0x09] = (uint8_t) ((info->device_id >> 16) & 0xFFU); /* DeviceID octet2 */
+        page[0x0A] = (uint8_t) ((info->device_id >> 8) & 0xFFU);  /* DeviceID octet1 */
+        page[0x0B] = (uint8_t) (info->device_id & 0xFFU);         /* DeviceID octet0 */
+    }
+    /* 0x0C-0x0E reserved (0); 0x0F SystemCommand (W) reads 0. */
+}
+
+static void handle_direct_parameters(iolink_isdu_ctx_t* ctx)
+{
+    bool page2 = (ctx->header.index == IOLINK_IDX_DIRECT_PARAMETERS_2);
+    uint8_t sub = ctx->header.subindex;
+
+    if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
+        if (!page2) {
+            /* Page 1 is read-only. */
+            ctx->response_buf[0] = 0x80U;
+            ctx->response_buf[1] = IOLINK_ISDU_ERROR_WRITE_PROTECTED;
+            ctx->response_len = 2U;
+        }
+        else if (sub == 0U) {
+            size_t n = ctx->buffer_idx;
+            if (n > sizeof(g_direct_param_page2)) {
+                n = sizeof(g_direct_param_page2);
+            }
+            (void) memcpy(g_direct_param_page2, ctx->buffer, n);
+            ctx->response_len = 0U;
+        }
+        else if ((sub <= 16U) && (ctx->buffer_idx >= 1U)) {
+            g_direct_param_page2[sub - 1U] = ctx->buffer[0];
+            ctx->response_len = 0U;
+        }
+        else {
+            ctx->response_buf[0] = 0x80U;
+            ctx->response_buf[1] = IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL;
+            ctx->response_len = 2U;
+        }
+    }
+    else {
+        uint8_t page[16];
+        if (page2) {
+            (void) memcpy(page, g_direct_param_page2, sizeof(page));
+        }
+        else {
+            build_direct_param_page1(ctx, page);
+        }
+
+        if (sub == 0U) {
+            (void) memcpy(ctx->response_buf, page, sizeof(page));
+            ctx->response_len = sizeof(page);
+        }
+        else if (sub <= 16U) {
+            ctx->response_buf[0] = page[sub - 1U]; /* Unimplemented bytes already read 0 */
+            ctx->response_len = 1U;
+        }
+        else {
+            ctx->response_buf[0] = 0x80U;
+            ctx->response_buf[1] = IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL;
+            ctx->response_len = 2U;
+        }
+    }
+    ctx->response_idx = 0U;
+    ctx->state = ISDU_STATE_RESPONSE_READY;
+}
+
+static void handle_data_storage(iolink_isdu_ctx_t* ctx)
+{
+    iolink_ds_ctx_t* ds = (iolink_ds_ctx_t*) ctx->ds_ctx;
+    if (ds == NULL) {
+        ctx->response_buf[0] = 0x80U;
+        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+        ctx->response_len = 2U;
+        ctx->response_idx = 0U;
+        ctx->state = ISDU_STATE_RESPONSE_READY;
+        return;
+    }
+
+    if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
+        /* Restore: apply the parameter image provided by the Master. */
+        if (iolink_ds_apply_image(ds, ctx->buffer, ctx->buffer_idx) != 0) {
+            ctx->response_buf[0] = 0x80U;
+            ctx->response_buf[1] = IOLINK_ISDU_ERROR_PARAM_INCONSISTENT;
+            ctx->response_len = 2U;
+        }
+        else {
+            ctx->response_len = 0U; /* Write acknowledged */
+        }
+    }
+    else {
+        /* Backup: return the serialized parameter image. */
+        size_t len = 0U;
+        const uint8_t* img = iolink_ds_get_image(ds, &len);
+        if ((img == NULL) || (len > IOLINK_ISDU_BUFFER_SIZE)) {
+            ctx->response_len = 0U;
+        }
+        else {
+            if (len > 0U) {
+                (void) memcpy(ctx->response_buf, img, len);
+            }
+            ctx->response_len = len;
+        }
+    }
+    ctx->response_idx = 0U;
+    ctx->state = ISDU_STATE_RESPONSE_READY;
+}
+
 static void handle_standard_commands(iolink_isdu_ctx_t* ctx)
 {
     if (ctx->header.index == IOLINK_IDX_SYSTEM_COMMAND) {
@@ -728,6 +867,13 @@ static void handle_standard_commands(iolink_isdu_ctx_t* ctx)
             ctx->state = ISDU_STATE_RESPONSE_READY;
         }
     }
+    else if ((ctx->header.index == IOLINK_IDX_DIRECT_PARAMETERS_1) ||
+             (ctx->header.index == IOLINK_IDX_DIRECT_PARAMETERS_2)) {
+        handle_direct_parameters(ctx);
+    }
+    else if (ctx->header.index == IOLINK_IDX_DATA_STORAGE) {
+        handle_data_storage(ctx);
+    }
     else if (ctx->header.index == IOLINK_IDX_DEVICE_ACCESS_LOCKS) {
         handle_access_locks(ctx);
     }
@@ -751,8 +897,8 @@ void iolink_isdu_process(iolink_isdu_ctx_t* ctx)
     }
 
     if (ctx->state == ISDU_STATE_BUSY) {
-        /* In real implementation, we would check if the background task is done.
-           For now, we just move to RESPONSE_READY or IDLE. */
+        /* All ISDU services execute synchronously within handle_standard_commands(),
+           so BUSY is only used transiently for collision reporting; nothing to poll. */
         return;
     }
 
@@ -801,8 +947,6 @@ int iolink_isdu_get_response_byte(iolink_isdu_ctx_t* ctx, uint8_t* byte)
         *byte = ctx->response_buf[ctx->response_idx++];
         if (ctx->response_idx >= ctx->response_len) {
             ctx->state = ISDU_STATE_IDLE;
-            printf("[ISDU] Response complete, entering IDLE\n");
-            fflush(stdout);
         }
         else {
             /* Mandatory for V1.1.5 on OD=1: Every byte is preceded by Control Byte. */

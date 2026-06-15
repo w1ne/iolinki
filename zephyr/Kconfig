@@ -1,5 +1,136 @@
+# Copyright (C) 2026 Andrii Shylenko
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 menuconfig IOLINKI
     bool "IO-Link Device Stack"
     default y
     help
-      Enable iolinki IO-Link Device Stack.
+      Enable the iolinki IO-Link Device Stack. iolinki implements the
+      device-side IO-Link Data Link Layer, ISDU engine, events and data
+      storage, with a hardware-agnostic PHY abstraction.
+
+if IOLINKI
+
+choice
+    prompt "IO-Link PHY Driver"
+    default IOLINK_PHY_VIRTUAL
+    help
+      Select the Physical Layer driver to use.
+
+config IOLINK_PHY_VIRTUAL
+    bool "Virtual PHY (over serialized bytes/file)"
+    help
+      Use a virtual PHY driver useful for simulation or testing over
+      pipes/sockets. Primarily intended for native_sim builds.
+
+config IOLINK_PHY_UART
+    bool "UART PHY (Real Hardware)"
+    select SERIAL
+    select UART_INTERRUPT_DRIVEN
+    select RING_BUFFER
+    help
+      Use a real UART hardware peripheral as the IO-Link PHY. The UART is
+      selected through the devicetree "zephyr,iolink-uart" chosen node (an
+      "iolink-uart" alias is also accepted as a fallback). This driver
+      targets links where COM mode is already established by an IO-Link
+      transceiver front-end; wake-up pulse generation/detection is not
+      electrically possible over a plain UART (see zephyr/README.md).
+
+endchoice
+
+config IOLINK_DEMO_MASTER
+    bool "Build as Simple Master (for testing)"
+    default n
+    help
+      If enabled, the application acts as a simple IO-Link Master generator
+      instead of a Device. Useful for Nucleo-to-Nucleo testing.
+
+config IOLINK_PHY_UART_RX_RING_SIZE
+    int "UART PHY receive ring buffer size (bytes)"
+    depends on IOLINK_PHY_UART
+    default 256
+    help
+      Size of the interrupt-fed receive ring buffer for the UART PHY. Must
+      be large enough to hold the longest M-sequence response burst the
+      Master may send between iolink_process() calls.
+
+menu "IO-Link buffer and capacity tuning"
+
+config IOLINK_ISDU_BUFFER_SIZE
+    int "ISDU service data buffer size (bytes)"
+    default 256
+    help
+      Maximum size of a single ISDU read/write transaction. Maps to the
+      core macro IOLINK_ISDU_BUFFER_SIZE.
+
+config IOLINK_EVENT_QUEUE_SIZE
+    int "Diagnostic event queue depth"
+    default 4
+    help
+      Number of diagnostic events that can be queued. Maps to the core
+      macro IOLINK_EVENT_QUEUE_SIZE.
+
+config IOLINK_PD_IN_MAX_SIZE
+    int "Max input Process Data size (Device -> Master, bytes)"
+    default 32
+    range 1 32
+    help
+      Maximum input Process Data length. The IO-Link V1.1 specification
+      allows up to 32 bytes. Maps to the core macro IOLINK_PD_IN_MAX_SIZE.
+
+config IOLINK_PD_OUT_MAX_SIZE
+    int "Max output Process Data size (Master -> Device, bytes)"
+    default 32
+    range 1 32
+    help
+      Maximum output Process Data length. The IO-Link V1.1 specification
+      allows up to 32 bytes. Maps to the core macro IOLINK_PD_OUT_MAX_SIZE.
+
+endmenu # IO-Link buffer and capacity tuning
+
+choice
+    prompt "Default M-sequence type"
+    default IOLINK_M_SEQ_DEFAULT_TYPE_0
+    help
+      Default M-sequence type advertised by the sample/demo application.
+      The runtime value can still be overridden by the application through
+      iolink_config_t.m_seq_type at iolink_init(). Maps to the core macro
+      IOLINK_M_SEQ_DEFAULT_TYPE.
+
+config IOLINK_M_SEQ_DEFAULT_TYPE_0
+    bool "Type 0 (On-request data / ISDU only)"
+
+config IOLINK_M_SEQ_DEFAULT_TYPE_1_1
+    bool "Type 1_1 (fixed PD + 1 OD byte)"
+
+config IOLINK_M_SEQ_DEFAULT_TYPE_1_2
+    bool "Type 1_2 (fixed PD + 1 OD byte + ISDU)"
+
+config IOLINK_M_SEQ_DEFAULT_TYPE_1_V
+    bool "Type 1_V (variable PD + 1 OD byte)"
+
+config IOLINK_M_SEQ_DEFAULT_TYPE_2_1
+    bool "Type 2_1 (fixed PD + 2 OD bytes)"
+
+config IOLINK_M_SEQ_DEFAULT_TYPE_2_2
+    bool "Type 2_2 (fixed PD + 2 OD bytes + ISDU)"
+
+config IOLINK_M_SEQ_DEFAULT_TYPE_2_V
+    bool "Type 2_V (variable PD + 2 OD bytes + ISDU)"
+
+endchoice
+
+config IOLINK_M_SEQ_DEFAULT_TYPE
+    int
+    default 0 if IOLINK_M_SEQ_DEFAULT_TYPE_0
+    default 1 if IOLINK_M_SEQ_DEFAULT_TYPE_1_1
+    default 2 if IOLINK_M_SEQ_DEFAULT_TYPE_1_2
+    default 3 if IOLINK_M_SEQ_DEFAULT_TYPE_1_V
+    default 4 if IOLINK_M_SEQ_DEFAULT_TYPE_2_1
+    default 5 if IOLINK_M_SEQ_DEFAULT_TYPE_2_2
+    default 6 if IOLINK_M_SEQ_DEFAULT_TYPE_2_V
+    help
+      Numeric M-sequence type matching iolink_m_seq_type_t. Set by the
+      IOLINK_M_SEQ_DEFAULT_TYPE_* choice; consumed by the sample.
+
+endif # IOLINKI
