@@ -17,6 +17,18 @@
 
 #define DLL_LOG(...)
 
+/* Centralised state transition: updates the state and notifies the optional
+   state-change hook on an actual change, so no transition is ever missed. */
+static void dll_set_state(iolink_dll_ctx_t* ctx, iolink_dll_state_t new_state)
+{
+    if (ctx->state != new_state) {
+        ctx->state = new_state;
+        if (ctx->state_cb != NULL) {
+            ctx->state_cb(new_state);
+        }
+    }
+}
+
 static uint32_t dll_get_t_ren_limit_us(const iolink_dll_ctx_t* ctx)
 {
     if (ctx == NULL) {
@@ -94,7 +106,7 @@ static void dll_enter_fallback(iolink_dll_ctx_t* ctx)
     if (ctx->fallback_count >= ctx->sio_fallback_threshold) {
         iolink_dll_set_sio_mode(ctx);
         iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
-        ctx->state = IOLINK_DLL_STATE_STARTUP;
+        dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
         ctx->fallback_count = 0U;
         ctx->frame_index = 0U;
         iolink_event_trigger(&ctx->events, IOLINK_EVENT_CODE_COMM_ERR_FRAMING,
@@ -102,7 +114,7 @@ static void dll_enter_fallback(iolink_dll_ctx_t* ctx)
     }
     else if (ctx->state != IOLINK_DLL_STATE_OPERATE && ctx->state != IOLINK_DLL_STATE_ESTAB_COM) {
         iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
-        ctx->state = IOLINK_DLL_STATE_STARTUP;
+        dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
     }
 }
 
@@ -110,7 +122,7 @@ static void dll_handle_preoperate(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t ck)
 {
     (void) ck;
     if (mc == IOLINK_MC_TRANSITION_COMMAND) {
-        ctx->state = IOLINK_DLL_STATE_ESTAB_COM;
+        dll_set_state(ctx, IOLINK_DLL_STATE_ESTAB_COM);
         ctx->fallback_count = 0U;
         /* No response to transition command per spec */
     }
@@ -220,7 +232,7 @@ void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy)
     if ((phy == NULL) || (!iolink_ctx_zero(ctx, sizeof(iolink_dll_ctx_t)))) {
         return;
     }
-    ctx->state = IOLINK_DLL_STATE_STARTUP;
+    dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
     ctx->phy = phy;
     ctx->enforce_timing = (IOLINK_TIMING_ENFORCE_DEFAULT != 0U);
     ctx->sio_fallback_threshold = 3U;
@@ -276,7 +288,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
             iolink_dll_set_sio_mode(ctx);
         }
-        ctx->state = IOLINK_DLL_STATE_STARTUP;
+        dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
         ctx->frame_index = 0U;
     }
 
@@ -293,7 +305,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
         if ((ctx->frame_index == 0U) && (ctx->phy->detect_wakeup != NULL)) {
             if (ctx->phy->detect_wakeup() > 0) {
                 ctx->wakeup_seen = true;
-                ctx->state = IOLINK_DLL_STATE_AWAITING_COMM;
+                dll_set_state(ctx, IOLINK_DLL_STATE_AWAITING_COMM);
                 ctx->wakeup_deadline_us = iolink_time_get_us() + IOLINK_T_DWU_US;
                 iolink_dll_set_sdci_mode(ctx);
             }
@@ -401,7 +413,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             if (crc_ok) {
                 if ((ctx->state == IOLINK_DLL_STATE_AWAITING_COMM) ||
                     (ctx->state == IOLINK_DLL_STATE_STARTUP)) {
-                    ctx->state = IOLINK_DLL_STATE_PREOPERATE;
+                    dll_set_state(ctx, IOLINK_DLL_STATE_PREOPERATE);
                 }
 
                 if (ctx->state == IOLINK_DLL_STATE_PREOPERATE) {
@@ -420,7 +432,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                             dll_enter_fallback(ctx);
                         }
                         else {
-                            ctx->state = IOLINK_DLL_STATE_OPERATE;
+                            dll_set_state(ctx, IOLINK_DLL_STATE_OPERATE);
                             dll_handle_operate_type1_2(ctx);
                         }
                     }

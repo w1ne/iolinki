@@ -2,7 +2,7 @@
 
 ## Overview
 
-iolinki includes a comprehensive conformance test suite that validates compliance with the IO-Link V1.1.5 specification. The suite consists of **36 automated test cases** across 5 categories, executed via the Virtual IO-Link Master.
+iolinki includes a comprehensive conformance test suite that validates compliance with the IO-Link V1.1.5 specification. The suite consists of **49 automated test cases** across 7 categories, executed via the Virtual IO-Link Master.
 
 ## Test Coverage Summary
 
@@ -11,9 +11,11 @@ iolinki includes a comprehensive conformance test suite that validates complianc
 | State Machine | 7 | DLL transitions, ESTAB_COM, fallback behavior |
 | Timing Requirements | 5 | Cycle times, response delays, wake-up timing |
 | ISDU Protocol | 13 | All mandatory indices + error handling |
-| Error Injection | 6 | Recovery, robustness, edge cases |
+| System Commands | 9 | Reset, factory restore, Data Storage upload/download |
+| Error Injection | 7 | Recovery, robustness, edge cases |
+| PD / Events / SIO | 3 | Process Data, event signalling, SIO fallback |
 | Performance | 5 | Sustained operation, stress testing |
-| **Total** | **36** | **IO-Link V1.1.5 Device Specification** |
+| **Total** | **49** | **IO-Link V1.1.5 Device Specification** |
 
 ## Test Suites
 
@@ -212,15 +214,17 @@ graph TD
 
 ## Success Criteria
 
-For iolinki to be considered **IO-Link V1.1.5 conformant**, all 36 test cases must pass:
+For iolinki to be considered **IO-Link V1.1.5 conformant**, all 49 test cases must pass:
 
 - **State Machine**: All 7 tests pass
 - **Timing**: All 5 tests pass
 - **ISDU Protocol**: All 13 tests pass
-- **Error Injection**: All 6 tests pass
+- **System Commands**: All 9 tests pass
+- **Error Injection**: All 7 tests pass
+- **PD / Events / SIO**: All 3 tests pass
 - **Performance**: All 5 tests pass
 
-**Current Status**: ✅ All 36 tests passing (as of v0.8.0)
+**Current Status**: ✅ All 49 tests passing
 
 ---
 

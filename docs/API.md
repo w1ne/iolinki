@@ -174,7 +174,7 @@ const iolink_app_callbacks_t app_callbacks = {
 
 int main(void) {
     iolink_app_register(&app_callbacks);
-    iolink_init(&g_phy_virtual);
+    iolink_init(&g_phy_virtual, NULL); /* NULL = default configuration */
     // ...
 }
 ```
@@ -316,11 +316,14 @@ option(IOLINK_ENABLE_EXAMPLES "Enable examples" ON)
 
 ### Compile-Time Configuration
 
-Create `iolink_config.h` (future feature):
+Compile-time buffer sizes are defined in `include/iolinki/config.h` and may be
+overridden by defining them before the header is included (each is guarded with
+`#ifndef`):
 ```c
-#define IOLINK_MAX_PD_SIZE 32
-#define IOLINK_ISDU_BUFFER_SIZE 256
-#define IOLINK_EVENT_QUEUE_SIZE 4
+#define IOLINK_PD_IN_MAX_SIZE   32   /* Max input Process Data bytes */
+#define IOLINK_PD_OUT_MAX_SIZE  32   /* Max output Process Data bytes */
+#define IOLINK_ISDU_BUFFER_SIZE 256  /* ISDU request/response buffer */
+#define IOLINK_EVENT_QUEUE_SIZE 4    /* Event FIFO depth */
 ```
 
 ## Thread Safety

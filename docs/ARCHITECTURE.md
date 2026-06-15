@@ -30,13 +30,17 @@ The `iolink_phy_api_t` (defined in `phy.h`) is the only point of contact with th
 ### 1.2 Data Link Layer (DLL)
 The DLL (`dll.c`) implements the IO-Link state machine:
 - **STARTUP**: Initial state, power-on synchronization.
-- **PREOPERATE**: Parameter exchange and identification.
+- **AWAITING_COMM**: Wake-up detected, waiting for the first valid frame.
+- **PREOPERATE**: Parameter exchange and identification (On-request Data / ISDU).
+- **ESTAB_COM**: Communication established, transitioning to OPERATE.
 - **OPERATE**: Cyclic Process Data (PD) exchange.
+- **FALLBACK**: Error recovery toward SIO/STARTUP.
 
 ### 1.3 Application Layer (AL)
 The AL (`application.h`) provides the interface for the user application to interact with the stack without knowing protocol details.
-- **Process Data API**: Acyclic and cyclic data access.
-- **ISDU**: Indexed Service Data Unit for larger parameter sets (Planned).
+- **Process Data API**: Acyclic and cyclic data access (`iolink_pd_input_update` / `iolink_pd_output_read`).
+- **Lifecycle & PD callbacks**: Optional `iolink_app_register()` hooks (`on_startup`/`on_preoperate`/`on_operate`, PD in/out).
+- **ISDU**: Indexed Service Data Unit for parameters, identification, and Data Storage (`isdu.c`, implemented).
 
 ## 2. Design Principles & MISRA Compliance
 

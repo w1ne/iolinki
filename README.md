@@ -98,15 +98,17 @@ cd build && ctest --output-on-failure
 
 ## IO-Link V1.1.5 Conformance
 
-iolinki includes **33 automated conformance tests** validating compliance with the IO-Link V1.1.5 specification:
+iolinki includes **49 automated conformance tests** validating compliance with the IO-Link V1.1.5 specification:
 
-- ✅ **State Machine**: DLL transitions, fallback behavior (6 tests)
-- ✅ **Timing**: Cycle times, response delays (4 tests)
-- ✅ **ISDU Protocol**: All 11 mandatory indices + error handling (12 tests)
-- ✅ **Error Injection**: Recovery, robustness, edge cases (6 tests)
+- ✅ **State Machine**: DLL transitions, ESTAB_COM, fallback behavior (7 tests)
+- ✅ **Timing**: Cycle times, response delays, wake-up timing (5 tests)
+- ✅ **ISDU Protocol**: All mandatory indices + error handling (13 tests)
+- ✅ **System Commands**: Reset, factory restore, Data Storage upload/download (9 tests)
+- ✅ **Error Injection**: Recovery, robustness, edge cases (7 tests)
+- ✅ **PD / Events / SIO**: Process Data, event signalling, SIO fallback (3 tests)
 - ✅ **Performance**: Sustained operation, stress testing (5 tests)
 
-**Coverage**: 100% of mandatory ISDU indices (0x0010-0x0018, 0x001E, 0x0024), state machine transitions, timing requirements, and error handling.
+**Coverage**: 100% of mandatory ISDU indices (0x0010-0x0018, 0x001E, 0x0024), Data Storage (0x0003), state machine transitions, timing requirements, and error handling.
 
 See [docs/CONFORMANCE.md](docs/CONFORMANCE.md) for detailed test specifications and coverage matrix.
 

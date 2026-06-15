@@ -32,6 +32,15 @@ typedef enum
     IOLINK_DLL_STATE_FALLBACK = 5U       /**< Error recovery / fallback */
 } iolink_dll_state_t;
 
+/**
+ * @brief Optional hook invoked when the DLL state machine changes state.
+ *
+ * Fired from within iolink_dll_process() at the actual transition, so no
+ * transient state is missed. Used by the core to drive application lifecycle
+ * callbacks.
+ */
+typedef void (*iolink_dll_state_cb_t)(iolink_dll_state_t state);
+
 #include "iolinki/events.h"
 #include "iolinki/isdu.h"
 #include "iolinki/data_storage.h"
@@ -113,6 +122,8 @@ typedef struct
     iolink_events_ctx_t events; /**< Diagnostic Events engine */
     iolink_isdu_ctx_t isdu;     /**< ISDU Service engine */
     iolink_ds_ctx_t ds;         /**< Data Storage engine */
+
+    iolink_dll_state_cb_t state_cb; /**< Optional state-change hook (set by core) */
 } iolink_dll_ctx_t;
 
 /**
