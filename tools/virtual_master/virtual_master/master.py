@@ -278,17 +278,31 @@ class VirtualMaster:
             return event_code
         return None
 
-    def run_startup_sequence(self) -> bool:
+    def run_startup_sequence(self, send_wakeup: bool = True) -> bool:
         """
         Run complete startup sequence.
+
+        Args:
+            send_wakeup: Send the 0x55 wake-up byte before the IDLE frames.
+                This simulates the electrical C/Q wake-up pulse for PHYs that
+                detect it from the byte stream (e.g. the virtual PHY). On an
+                already-established-COM link such as a plain UART behind a
+                transceiver front-end, no wake-up byte exists on the wire; it
+                would be a spurious data byte that desynchronises framing, so
+                pass send_wakeup=False there.
 
         Returns:
             True if startup successful
         """
         print("[Master] === Starting Startup Sequence ===")
 
-        self.send_wakeup()
-        time.sleep(0.5)  # Wait for Device to wake up (increased for CI)
+        if send_wakeup:
+            self.send_wakeup()
+            time.sleep(0.5)  # Wait for Device to wake up (increased for CI)
+        elif hasattr(self.uart, "flush"):
+            # Established-COM link: discard boot noise / partial frames before
+            # establishing comms (no wake-up byte delimits the start here).
+            self.uart.flush()
 
         for i in range(10):  # Increased retries for CI stability
             response = self.send_idle()

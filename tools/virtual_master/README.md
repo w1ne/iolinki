@@ -201,6 +201,26 @@ python3 test_m_sequence_types.py
 - [ ] Timing validation
 - [ ] Docker integration
 
+## Running against real hardware
+
+`nucleo_master.py` drives a physical Device over a serial port:
+
+```bash
+# Established-COM UART link (a plain UART behind a transceiver front-end):
+python3 nucleo_master.py /dev/ttyACM0 --no-wakeup
+
+# Board whose USB-serial resets on control-line toggles (e.g. ESP32-C3
+# native USB-Serial-JTAG): also hold DTR/RTS low.
+python3 nucleo_master.py /dev/ttyACM0 --no-wakeup --hold-lines
+```
+
+`--no-wakeup` skips the `0x55` byte that simulates the electrical C/Q wake-up
+pulse for the virtual PHY. On a real, already-established-COM UART link there is
+no such byte on the wire; sending it would be spurious data that desynchronises
+M-sequence framing. The Device stack starts a UART PHY (which cannot detect the
+electrical wake-up) directly in SDCI, so it services M-sequences immediately —
+no wake-up byte required.
+
 ## License
 
 Same as iolinki project (see root LICENSE file)

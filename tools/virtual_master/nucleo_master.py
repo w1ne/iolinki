@@ -25,6 +25,19 @@ def main():
     parser.add_argument(
         "--baud", type=int, default=38400, help="Baudrate (default: 38400)"
     )
+    parser.add_argument(
+        "--no-wakeup",
+        action="store_true",
+        help="Skip the 0x55 wake-up byte. Use for an already-established-COM "
+        "link (a plain UART behind a transceiver front-end), where the byte "
+        "would be spurious and desynchronise framing.",
+    )
+    parser.add_argument(
+        "--hold-lines",
+        action="store_true",
+        help="Hold DTR/RTS low. Required for boards whose USB-serial resets on "
+        "control-line changes (e.g. the ESP32-C3 native USB-Serial-JTAG).",
+    )
     args = parser.parse_args()
 
     print(f"=== IO-Link Master - Real Hardware Test ===")
@@ -36,11 +49,16 @@ def main():
         print(f"Error opening serial port: {e}")
         return 1
 
+    if args.hold_lines:
+        uart.ser.dtr = False
+        uart.ser.rts = False
+        uart.flush()
+
     with VirtualMaster(uart=uart) as master:
         print("Waiting 2 seconds for stability...")
         time.sleep(2)
 
-        if master.run_startup_sequence():
+        if master.run_startup_sequence(send_wakeup=not args.no_wakeup):
             print()
             print("[SUCCESS] Startup complete! Device is in PREOPERATE.")
             

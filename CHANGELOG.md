@@ -4,6 +4,17 @@ All notable changes to the `iolinki` project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.1.2] - 2026-06-15
+### Fixed
+- **Device communication over the UART PHY**: the DLL booted in SIO mode and only left it upon electrical wake-up detection. A plain UART PHY cannot observe the C/Q wake-up pulse (`detect_wakeup == NULL`), so a device on real UART hardware stayed in SIO forever and never serviced M-sequences. The DLL now starts in SDCI when the PHY cannot detect wake-up (the already-established-COM contract of the UART PHY), so the device responds to the Master immediately.
+- **Real-hardware build out of the box**: the Zephyr module defaulted to the virtual PHY, which is implemented with POSIX `termios` and therefore failed to compile for any real board (ARM/RISC-V). The PHY choice now tracks the target — virtual on `native_sim`/POSIX, UART on real hardware — and the virtual PHY is no longer offered (cannot be mis-selected) off POSIX.
+
+### Tools
+- `nucleo_master.py` gains `--no-wakeup` (drive an already-established-COM UART link without the `0x55` wake-up artifact, which would otherwise desynchronise framing) and `--hold-lines` (hold DTR/RTS low for boards whose USB-serial resets on control-line changes, e.g. the ESP32-C3 native USB-Serial-JTAG).
+
+### Validated
+- End-to-end IO-Link Master↔Device exchange on an ESP32-C3 (RISC-V) over the native USB-Serial-JTAG: PHY `send`/`recv_byte` round-trip, and a full startup → PREOPERATE → OPERATE sequence reading the device's live Process Data with valid checksums.
+
 ## [1.1.1] - 2026-06-15
 ### Fixed
 - **Zephyr UART PHY build**: `uart_irq_update()` returns `void` in current Zephyr, but the PHY ISR used its result in a boolean (`if (!uart_irq_update(dev))`), so the UART PHY failed to compile when targeting real hardware. (`native_sim` builds use the virtual PHY, so this path was never exercised in CI.) Call it as a statement per the Zephyr API. Validated on a Nucleo-F103RB (Cortex-M3): builds (FLASH 25% / RAM 54% of 20 KB), flashes, boots, and runs on silicon.
