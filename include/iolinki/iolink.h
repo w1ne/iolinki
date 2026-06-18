@@ -56,7 +56,13 @@ typedef struct
  *
  * Configures the internal state machine, ISDU engine, and PHY interface.
  *
- * @param phy Pointer to the PHY implementation API
+ * Lifetime contract: the config is copied internally, but the PHY is retained
+ * BY POINTER (the stack stores `phy`, not a copy). The `iolink_phy_api_t` must
+ * outlive the stack — pass a pointer to storage with at least the stack's
+ * lifetime, never an automatic/stack temporary (it compiles but dangles on the
+ * next iolink_process()).
+ *
+ * @param phy Pointer to the PHY implementation API (retained by pointer)
  * @param config Pointer to stack configuration (copied internally)
  * @return int 0 on success, negative error code (e.g. -1 for NULL PHY)
  */
