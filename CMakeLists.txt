@@ -26,6 +26,7 @@ add_library(iolinki STATIC
     src/phy_generic.c
     src/phy_virtual.c
     src/crc.c
+    src/frame.c
     src/dll.c
     src/isdu.c
     src/events.c
