@@ -23,11 +23,8 @@ int iolink_frame_encode_type0(uint8_t mc, uint8_t* out, size_t out_size)
     return (int) IOLINK_M_SEQ_TYPE0_LEN;
 }
 
-int iolink_frame_encode_type1_cycle(const uint8_t* pd_out,
-                                    uint8_t pd_out_len,
-                                    uint8_t od_len,
-                                    uint8_t* out,
-                                    size_t out_size)
+int iolink_frame_encode_type1_cycle(const uint8_t* pd_out, uint8_t pd_out_len, uint8_t od_len,
+                                    uint8_t* out, size_t out_size)
 {
     size_t pos = 0U;
     const size_t frame_len = (size_t) IOLINK_M_SEQ_HEADER_LEN + pd_out_len + od_len + 1U;
@@ -46,27 +43,23 @@ int iolink_frame_encode_type1_cycle(const uint8_t* pd_out,
         pos += pd_out_len;
     }
 
-    if (od_len > 0U) {
-        memset(&out[pos], 0, od_len);
-        pos += od_len;
-    }
+    /* od_len is guaranteed non-zero by the guard above. */
+    memset(&out[pos], 0, od_len);
+    pos += od_len;
 
     out[pos] = iolink_crc6(out, (uint8_t) pos);
 
     return (int) frame_len;
 }
 
-int iolink_frame_decode_operate_response(const uint8_t* frame,
-                                         size_t frame_len,
-                                         uint8_t pd_in_len,
-                                         uint8_t od_len,
-                                         iolink_frame_operate_response_t* out)
+int iolink_frame_decode_operate_response(const uint8_t* frame, size_t frame_len, uint8_t pd_in_len,
+                                         uint8_t od_len, iolink_frame_operate_response_t* out)
 {
     size_t pos = 0U;
     const size_t expected_len = 1U + pd_in_len + od_len + 1U;
 
-    if ((frame == NULL) || (out == NULL) || (pd_in_len > IOLINK_PD_IN_MAX_SIZE) ||
-        (od_len == 0U) || (od_len > IOLINK_OD_MAX_SIZE) || (frame_len != expected_len) || (frame_len < 2U)) {
+    if ((frame == NULL) || (out == NULL) || (pd_in_len > IOLINK_PD_IN_MAX_SIZE) || (od_len == 0U) ||
+        (od_len > IOLINK_OD_MAX_SIZE) || (frame_len != expected_len)) {
         return -1;
     }
 
@@ -83,10 +76,9 @@ int iolink_frame_decode_operate_response(const uint8_t* frame,
         pos += pd_in_len;
     }
 
-    if (od_len > 0U) {
-        memcpy(out->od, &frame[pos], od_len);
-        out->od_len = od_len;
-    }
+    /* od_len is guaranteed non-zero by the guard above. */
+    memcpy(out->od, &frame[pos], od_len);
+    out->od_len = od_len;
 
     return 0;
 }
