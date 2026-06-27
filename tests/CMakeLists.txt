@@ -25,6 +25,7 @@ if(CMOCKA_FOUND)
     # Initial tests
     add_iolink_test(test_init test_init.c)
     add_iolink_test(test_crc test_crc.c)
+    add_iolink_test(test_frame test_frame.c)
     add_iolink_test(test_dll test_dll.c)
     add_iolink_test(test_pd test_pd.c)
     add_iolink_test(test_isdu test_isdu.c)
