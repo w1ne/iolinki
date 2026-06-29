@@ -18,7 +18,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "iolinki/iolink.h"
+#include "iolinki/device.h"
 #include "iolinki/application.h"
 #include "iolinki/crc.h"
 #include "test_helpers.h"
@@ -28,17 +28,18 @@ static void test_pd_input_output(void** state)
     (void) state;
 
     iolink_config_t config = {.pd_in_len = 2, .pd_out_len = 2, .m_seq_type = IOLINK_M_SEQ_TYPE_2_2};
+    iolink_test_device_t dev;
 
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, &config);
+    assert_int_equal(iolink_test_device_init(&dev, &config, NULL), 0);
 
     /* Move to OPERATE */
-    move_to_operate();
+    move_to_operate_ctx(&dev.ctx);
 
     /* 1. Set Input PD */
     uint8_t input[2] = {0x11, 0x22};
-    iolink_pd_input_update(input, 2, true);
+    iolink_device_pd_input_update(&dev.ctx, input, 2, true);
 
     /* 2. Simulate Master Frame (Type 2_2: MC, CKT, PD_OUT(2), OD(2), CK) -> 7 bytes */
     uint8_t frame[7] = {0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -55,7 +56,7 @@ static void test_pd_input_output(void** state)
     expect_value(mock_phy_send, len, 6);
     will_return(mock_phy_send, 0);
 
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 }
 
 int main(void)

@@ -18,7 +18,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "iolinki/iolink.h"
+#include "iolinki/device.h"
 #include "iolinki/application.h"
 #include "iolinki/crc.h"
 #include "iolinki/protocol.h"
@@ -58,10 +58,12 @@ static void test_pd_toggle_bit(void** state)
 {
     (void) state;
     iolink_config_t config = {.pd_in_len = 2, .pd_out_len = 2, .m_seq_type = IOLINK_M_SEQ_TYPE_2_2};
+    iolink_test_device_t dev;
+
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, &config);
-    move_to_operate();
+    assert_int_equal(iolink_test_device_init(&dev, &config, NULL), 0);
+    move_to_operate_ctx(&dev.ctx);
 
     /* Helper variables for frame simulation */
     uint8_t frame[7] = {0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -74,7 +76,7 @@ static void test_pd_toggle_bit(void** state)
     uint8_t input[2] = {0x11, 0x22};
 
     /* Update 1: Valid=True. Flip 0->1. Toggle bit should be 1 (0x40). */
-    iolink_pd_input_update(input, 2, true);
+    iolink_device_pd_input_update(&dev.ctx, input, 2, true);
 
     /* Simulate Frame */
     for (int i = 0; i < 7; i++) {
@@ -88,10 +90,10 @@ static void test_pd_toggle_bit(void** state)
                  (void*) (uintptr_t) IOLINK_OD_STATUS_PD_TOGGLE);
     expect_value(mock_phy_send, len, 6);
     will_return(mock_phy_send, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 
     /* Update 2: Valid=True. Flip 1->0. Toggle bit should be 0 (0x00). */
-    iolink_pd_input_update(input, 2, true);
+    iolink_device_pd_input_update(&dev.ctx, input, 2, true);
 
     /* Simulate Frame */
     for (int i = 0; i < 7; i++) {
@@ -104,10 +106,10 @@ static void test_pd_toggle_bit(void** state)
     expect_check(mock_phy_send, data, check_status_byte, (void*) (uintptr_t) 0x00);
     expect_value(mock_phy_send, len, 6);
     will_return(mock_phy_send, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 
     /* Update 3: Valid=True. Flip 0->1. Toggle bit should be 0x40. */
-    iolink_pd_input_update(input, 2, true);
+    iolink_device_pd_input_update(&dev.ctx, input, 2, true);
 
     /* Simulate Frame */
     for (int i = 0; i < 7; i++) {
@@ -121,7 +123,7 @@ static void test_pd_toggle_bit(void** state)
                  (void*) (uintptr_t) IOLINK_OD_STATUS_PD_TOGGLE);
     expect_value(mock_phy_send, len, 6);
     will_return(mock_phy_send, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 }
 
 int main(void)
