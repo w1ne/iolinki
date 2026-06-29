@@ -24,19 +24,7 @@ typedef uint64_t (*iolink_device_time_us_fn)(void* user);
 typedef void (*iolink_device_lock_fn)(void* user);
 typedef void (*iolink_device_unlock_fn)(void* user);
 
-typedef struct
-{
-    void* user;
-    int (*init)(void* user);
-    void (*set_mode)(void* user, iolink_phy_mode_t mode);
-    void (*set_baudrate)(void* user, iolink_baudrate_t baudrate);
-    int (*send)(void* user, const uint8_t* data, size_t len);
-    int (*recv_byte)(void* user, uint8_t* byte);
-    int (*detect_wakeup)(void* user);
-    void (*set_cq_line)(void* user, uint8_t state);
-    int (*get_voltage_mv)(void* user);
-    bool (*is_short_circuit)(void* user);
-} iolink_device_phy_t;
+typedef iolink_phy_api_t iolink_device_phy_t;
 
 typedef struct
 {

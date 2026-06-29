@@ -34,6 +34,7 @@ add_library(iolinki STATIC
     src/params.c
     src/data_storage.c
     src/device_info.c
+    src/device.c
     src/platform_stubs.c
 )
 

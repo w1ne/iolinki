@@ -21,26 +21,31 @@
 #include "iolinki/iolink.h"
 
 /* Local mocks to avoid linking issues with CMocka symbols */
-static int local_mock_phy_init(void)
+static int local_mock_phy_init(void* user)
 {
+    (void) user;
     return (int) mock();
 }
-static void local_mock_phy_set_mode(iolink_phy_mode_t mode)
+static void local_mock_phy_set_mode(void* user, iolink_phy_mode_t mode)
 {
+    (void) user;
     (void) mode;
 }
-static void local_mock_phy_set_baudrate(iolink_baudrate_t baudrate)
+static void local_mock_phy_set_baudrate(void* user, iolink_baudrate_t baudrate)
 {
+    (void) user;
     (void) baudrate;
 }
-static int local_mock_phy_send(const uint8_t* data, size_t len)
+static int local_mock_phy_send(void* user, const uint8_t* data, size_t len)
 {
+    (void) user;
     (void) data;
     (void) len;
     return 0;
 }
-static int local_mock_phy_recv_byte(uint8_t* byte)
+static int local_mock_phy_recv_byte(void* user, uint8_t* byte)
 {
+    (void) user;
     (void) byte;
     return 0;
 }

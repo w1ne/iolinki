@@ -22,8 +22,9 @@ static const iolink_app_callbacks_t* g_app_callbacks;
 
 /* Trampoline bound to the DLL state-change hook; dispatches to the application
    lifecycle callbacks so no transition is missed. */
-static void core_state_cb(iolink_dll_state_t state)
+static void core_state_cb(void* user, iolink_dll_state_t state)
 {
+    (void) user;
     if (g_app_callbacks == NULL) {
         return;
     }
@@ -65,7 +66,7 @@ int iolink_init(const iolink_phy_api_t* phy, const iolink_config_t* config)
     }
 
     if (phy->init != NULL) {
-        int err = phy->init();
+        int err = phy->init(phy->user);
         if (err != 0) {
             return err;
         }

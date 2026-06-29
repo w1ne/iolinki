@@ -39,7 +39,7 @@ typedef enum
  * transient state is missed. Used by the core to drive application lifecycle
  * callbacks.
  */
-typedef void (*iolink_dll_state_cb_t)(iolink_dll_state_t state);
+typedef void (*iolink_dll_state_cb_t)(void* user, iolink_dll_state_t state);
 
 #include "iolinki/events.h"
 #include "iolinki/isdu.h"
@@ -124,6 +124,7 @@ typedef struct
     iolink_ds_ctx_t ds;         /**< Data Storage engine */
 
     iolink_dll_state_cb_t state_cb; /**< Optional state-change hook (set by core) */
+    void* state_cb_user;            /**< User pointer passed to state_cb */
 } iolink_dll_ctx_t;
 
 /**

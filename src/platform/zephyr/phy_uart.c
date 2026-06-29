@@ -63,8 +63,10 @@ static void uart_phy_isr(const struct device* dev, void* user_data)
     }
 }
 
-static int uart_phy_init(void)
+static int uart_phy_init(void* user)
 {
+    (void) user;
+
     if (g_uart_dev == NULL) {
         LOG_ERR("UART device not set; call iolink_phy_uart_init[_default]() first");
         return -1;
@@ -94,8 +96,10 @@ static int uart_phy_init(void)
     return 0;
 }
 
-static void uart_phy_set_mode(iolink_phy_mode_t mode)
+static void uart_phy_set_mode(void* user, iolink_phy_mode_t mode)
 {
+    (void) user;
+
     /*
      * A plain UART cannot drive SIO/SDCI mode switching on the C/Q line; the
      * line discipline is owned by the transceiver front-end. The mode hint is
@@ -104,8 +108,10 @@ static void uart_phy_set_mode(iolink_phy_mode_t mode)
     LOG_DBG("set_mode(%d): no-op for plain UART PHY", mode);
 }
 
-static void uart_phy_set_baudrate(iolink_baudrate_t baudrate)
+static void uart_phy_set_baudrate(void* user, iolink_baudrate_t baudrate)
 {
+    (void) user;
+
     if (g_uart_dev == NULL) {
         return;
     }
@@ -143,8 +149,10 @@ static void uart_phy_set_baudrate(iolink_baudrate_t baudrate)
     }
 }
 
-static int uart_phy_send(const uint8_t* data, size_t len)
+static int uart_phy_send(void* user, const uint8_t* data, size_t len)
 {
+    (void) user;
+
     if (g_uart_dev == NULL) {
         return -1;
     }
@@ -155,8 +163,10 @@ static int uart_phy_send(const uint8_t* data, size_t len)
     return (int) len;
 }
 
-static int uart_phy_recv_byte(uint8_t* byte)
+static int uart_phy_recv_byte(void* user, uint8_t* byte)
 {
+    (void) user;
+
     if (g_uart_dev == NULL) {
         return -1;
     }
