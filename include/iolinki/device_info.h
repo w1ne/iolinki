@@ -51,6 +51,22 @@ typedef struct
     uint16_t access_locks; /* Index 0x000C - Device Access Locks */
 } iolink_device_info_t;
 
+typedef struct
+{
+    const iolink_device_info_t* configured;
+    iolink_device_info_t defaults;
+    char application_tag[33];
+    uint16_t access_locks;
+} iolink_device_info_ctx_t;
+
+void iolink_device_info_ctx_init(iolink_device_info_ctx_t* ctx,
+                                 const iolink_device_info_t* configured);
+const iolink_device_info_t* iolink_device_info_ctx_get(const iolink_device_info_ctx_t* ctx);
+int iolink_device_info_ctx_set_application_tag(iolink_device_info_ctx_t* ctx, const char* tag,
+                                               uint8_t len);
+uint16_t iolink_device_info_ctx_get_access_locks(const iolink_device_info_ctx_t* ctx);
+void iolink_device_info_ctx_set_access_locks(iolink_device_info_ctx_t* ctx, uint16_t locks);
+
 /**
  * @brief Initialize device information
  * @param info Pointer to device info structure
