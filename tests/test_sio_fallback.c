@@ -15,7 +15,7 @@
 #include <unistd.h>
 #include <stdio.h>
 
-#include "iolinki/iolink.h"
+#include "iolinki/device.h"
 #include "iolinki/dll.h"
 #include "iolinki/phy.h"
 #include "iolinki/crc.h"
@@ -28,16 +28,17 @@ static void test_sio_fallback_on_repeated_errors(void** state)
     iolink_config_t config = {.pd_in_len = 0, .pd_out_len = 0, .m_seq_type = IOLINK_M_SEQ_TYPE_0};
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, &config);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, &config, NULL);
 
     /* Verify we're in SIO mode initially (default new behavior) */
-    assert_int_equal(iolink_get_phy_mode(), IOLINK_PHY_MODE_SIO);
+    assert_int_equal(iolink_device_get_phy_mode(&dev.ctx), IOLINK_PHY_MODE_SIO);
 
     /* Move to OPERATE */
-    move_to_operate();
+    move_to_operate_ctx(&dev.ctx);
 
     /* Verify we're in SDCI mode */
-    assert_int_equal(iolink_get_phy_mode(), IOLINK_PHY_MODE_SDCI);
+    assert_int_equal(iolink_device_get_phy_mode(&dev.ctx), IOLINK_PHY_MODE_SDCI);
 
     /* Inject CRC errors to trigger fallback threshold (3 is the stack's threshold) */
     for (int i = 0; i < 3; i++) {
@@ -50,11 +51,11 @@ static void test_sio_fallback_on_repeated_errors(void** state)
         will_return(mock_phy_recv_byte, bad_frame[1]);
         will_return(mock_phy_recv_byte, 0);
 
-        iolink_process();
+        iolink_device_process(&dev.ctx);
     }
 
     /* After 3 fallbacks, should be in SIO mode */
-    assert_int_equal(iolink_get_phy_mode(), IOLINK_PHY_MODE_SIO);
+    assert_int_equal(iolink_device_get_phy_mode(&dev.ctx), IOLINK_PHY_MODE_SIO);
 }
 
 static void test_sio_recovery_on_stable_communication(void** state)
@@ -64,10 +65,11 @@ static void test_sio_recovery_on_stable_communication(void** state)
     iolink_config_t config = {.pd_in_len = 0, .pd_out_len = 0, .m_seq_type = IOLINK_M_SEQ_TYPE_0};
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, &config);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, &config, NULL);
 
     /* Move to OPERATE */
-    move_to_operate();
+    move_to_operate_ctx(&dev.ctx);
 
     /* Trigger SIO fallback by injecting errors (3 is the threshold) */
     for (int i = 0; i < 3; i++) {
@@ -77,16 +79,16 @@ static void test_sio_recovery_on_stable_communication(void** state)
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, bad_frame[1]);
         will_return(mock_phy_recv_byte, 0);
-        iolink_process();
+        iolink_device_process(&dev.ctx);
     }
 
-    assert_int_equal(iolink_get_phy_mode(), IOLINK_PHY_MODE_SIO);
+    assert_int_equal(iolink_device_get_phy_mode(&dev.ctx), IOLINK_PHY_MODE_SIO);
 
     /* Now send valid frames to recover */
 
     /* 1. WakeUp (SIO -> AWAITING_COMM) */
     iolink_phy_mock_set_wakeup(1);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
     usleep(200);
 
     /* 2. Transition (AWAITING_COMM handles first byte) */
@@ -99,7 +101,7 @@ static void test_sio_recovery_on_stable_communication(void** state)
     will_return(mock_phy_recv_byte, ck);
     will_return(mock_phy_recv_byte, 0);
 
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 
     /* 3. Send valid OPERATE frame */
     uint8_t idle_mc = 0x00;
@@ -113,10 +115,10 @@ static void test_sio_recovery_on_stable_communication(void** state)
     expect_any(mock_phy_send, data);
     expect_value(mock_phy_send, len, 2);
     will_return(mock_phy_send, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 
     /* Should recover back to SDCI */
-    assert_int_equal(iolink_get_phy_mode(), IOLINK_PHY_MODE_SDCI);
+    assert_int_equal(iolink_device_get_phy_mode(&dev.ctx), IOLINK_PHY_MODE_SDCI);
 }
 
 int main(void)

@@ -20,7 +20,7 @@
 #include <unistd.h>
 
 #include "iolinki/crc.h"
-#include "iolinki/iolink.h"
+#include "iolinki/device.h"
 #include "iolinki/time_utils.h"
 #include "test_helpers.h"
 
@@ -58,13 +58,14 @@ static void test_t_cycle_violation(void** state)
 
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, &config);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, &config, NULL);
 
     /* Move to OPERATE without timing enforcement */
-    move_to_operate();
+    move_to_operate_ctx(&dev.ctx);
 
     /* Enable timing enforcement */
-    iolink_set_timing_enforcement(true);
+    iolink_device_set_timing_enforcement(&dev.ctx, true);
 
     /* Send two back-to-back valid frames (Type 1_1) */
     uint8_t frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
@@ -78,7 +79,7 @@ static void test_t_cycle_violation(void** state)
     expect_any(mock_phy_send, data);
     expect_value(mock_phy_send, len, 4);
     will_return(mock_phy_send, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 
     for (int i = 0; i < 5; i++) {
         will_return(mock_phy_recv_byte, 1);
@@ -88,10 +89,10 @@ static void test_t_cycle_violation(void** state)
     expect_any(mock_phy_send, data);
     expect_value(mock_phy_send, len, 4);
     will_return(mock_phy_send, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 
     iolink_dll_stats_t stats;
-    iolink_get_dll_stats(&stats);
+    iolink_device_get_dll_stats(&dev.ctx, &stats);
     assert_true(stats.t_cycle_violations > 0U);
 }
 
@@ -102,9 +103,10 @@ static void test_t_ren_violation(void** state)
 
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, &config);
-    move_to_operate();
-    iolink_set_timing_enforcement(true);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, &config, NULL);
+    move_to_operate_ctx(&dev.ctx);
+    iolink_device_set_timing_enforcement(&dev.ctx, true);
 
     /* Send a valid frame, but mock PHY send will be too slow?
        Actually t_ren is checked against DLL processing time. */
@@ -124,9 +126,9 @@ static void test_t_ren_violation(void** state)
 
     /* We need to trick the time. Since we use real time, we just wait a bit in a mock?
        But DLL calls send() immediately after data collect.
-       To trigger t_ren violation, we'd need iolink_process to take long.
+       To trigger t_ren violation, we'd need device processing to take long.
     */
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 
     /* No violation expected in normal run.
        Testing timing enforcement is hard with real system clock in unit tests.
@@ -141,7 +143,8 @@ static void test_t_pd_delay(void** state)
 
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, &config);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, &config, NULL);
 
     /* Send a valid Type 0 frame before t_pd expires; expect no response */
     uint8_t mc = 0x00;
@@ -151,10 +154,10 @@ static void test_t_pd_delay(void** state)
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, ck);
     will_return(mock_phy_recv_byte, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 
     iolink_dll_stats_t stats;
-    iolink_get_dll_stats(&stats);
+    iolink_device_get_dll_stats(&dev.ctx, &stats);
     assert_true(stats.timing_errors > 0U);
     assert_true(stats.t_pd_violations > 0U);
 
@@ -163,7 +166,7 @@ static void test_t_pd_delay(void** state)
 
     /* Trigger WakeUp to get out of STARTUP */
     iolink_phy_mock_set_wakeup(1);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
     iolink_phy_mock_set_wakeup(0);
 
     /* Move to PREOPERATE state (AWAITING_COMM handles first byte) */
@@ -177,7 +180,7 @@ static void test_t_pd_delay(void** state)
     expect_any(mock_phy_send, data);
     expect_value(mock_phy_send, len, 2);
     will_return(mock_phy_send, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 
     /* In PREOPERATE, send Transition Command (0x0F) - no response expected */
     uint8_t trans_mc = 0x0F;
@@ -187,7 +190,7 @@ static void test_t_pd_delay(void** state)
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, trans_ck);
     will_return(mock_phy_recv_byte, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 }
 
 static void test_t_byte_violation(void** state)
@@ -197,9 +200,10 @@ static void test_t_byte_violation(void** state)
 
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, &config);
-    move_to_operate();
-    iolink_set_timing_enforcement(true);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, &config, NULL);
+    move_to_operate_ctx(&dev.ctx);
+    iolink_device_set_timing_enforcement(&dev.ctx, true);
 
     /* Mock a slow byte reception (t_byte violation) */
     /* Master sends 5 bytes for Type 1_1. We send 2 and then timeout. */
@@ -216,15 +220,15 @@ static void test_t_byte_violation(void** state)
 
     /* Byte 3 -> Timeout */
     will_return(mock_phy_recv_byte, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 
     /* Now wait for t_byte_limit and call process again to trigger silence detection */
     usleep(5000); /* COM2 t_byte limit is ~416us, 5ms is plenty */
     will_return(mock_phy_recv_byte, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 
     iolink_dll_stats_t stats;
-    iolink_get_dll_stats(&stats);
+    iolink_device_get_dll_stats(&dev.ctx, &stats);
     /* Should have 1 timing error (t_byte) */
     assert_true(stats.t_byte_violations > 0U);
 }
