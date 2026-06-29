@@ -41,7 +41,6 @@ extern const iolink_phy_api_t g_phy_mock;
 /* Helper to setup mock expectations */
 void setup_mock_phy(void);
 void iolink_phy_mock_reset(void);
-void move_to_operate(void);
 void iolink_phy_mock_set_wakeup(int detected);
 uint8_t iolink_phy_mock_get_cq_state(void);
 void iolink_phy_mock_set_send_delay_us(uint32_t delay_us);

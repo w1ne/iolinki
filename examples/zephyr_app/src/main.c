@@ -14,7 +14,7 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include "iolinki/iolink.h"
+#include "iolinki/device.h"
 
 #ifdef CONFIG_IOLINK_PHY_UART
 #include "platform/zephyr/phy_uart.h"
@@ -95,17 +95,20 @@ int main(void)
         /* Send Master Command: Read Direct Parameter 1 (Index 0) */
         /* MC = 0x80, CKT = 0x00, CK = 0x24 */
         uint8_t frame[] = {0x80, 0x24};
-        phy_api->send(frame, 2);
+        phy_api->send(phy_api->user, frame, 2);
 
         uint8_t rx;
-        while (phy_api->recv_byte(&rx) > 0) {
+        while (phy_api->recv_byte(phy_api->user, &rx) > 0) {
             LOG_INF("Master RX: 0x%02X", rx);
         }
 
         k_msleep(2000);
     }
 #else
-    if (iolink_init(phy_api, &config) != 0) {
+    iolink_device_ctx_t ctx;
+    iolink_device_config_t dev_config = {.phy = *phy_api, .stack = config};
+
+    if (iolink_device_init(&ctx, &dev_config) != 0) {
         LOG_ERR("Failed to init IO-Link");
         return -1;
     }
@@ -114,7 +117,7 @@ int main(void)
     uint32_t last_update = 0;
 
     while (1) {
-        iolink_process();
+        iolink_device_process(&ctx);
 
         /* Simulating sensor data change every 2000ms */
         uint32_t now = k_uptime_get_32();
@@ -123,7 +126,7 @@ int main(void)
             sensor_val++;
 
             uint8_t pd[2] = {sensor_val, 0xA5};
-            iolink_pd_input_update(pd, 2, true);
+            iolink_device_pd_input_update(&ctx, pd, 2, true);
 
             LOG_INF("Device PD Update: 0x%02X", sensor_val);
         }

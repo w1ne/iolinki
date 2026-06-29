@@ -12,14 +12,14 @@
  *   - initializes the stack with a small fixed-PD configuration,
  *   - registers application lifecycle and process-data callbacks,
  *   - publishes a 2-byte input process-data word every cycle,
- *   - services the stack from the main loop via iolink_process().
+ *   - services the stack from the main loop via iolink_device_process().
  */
 
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <string.h>
 
-#include "iolinki/iolink.h"
+#include "iolinki/device.h"
 
 #ifdef CONFIG_IOLINK_PHY_UART
 #include "platform/zephyr/phy_uart.h"
@@ -76,18 +76,23 @@ int main(void)
     config.pd_out_len = SAMPLE_PD_OUT_LEN;
     config.t_pd_us = 0;
 
-    if (iolink_init(phy, &config) != 0) {
-        LOG_ERR("iolink_init failed");
+    iolink_device_ctx_t ctx;
+    iolink_device_config_t dev_config = {
+        .phy = *phy,
+        .stack = config,
+        .app_callbacks = &app_callbacks,
+    };
+
+    if (iolink_device_init(&ctx, &dev_config) != 0) {
+        LOG_ERR("iolink_device_init failed");
         return -1;
     }
-
-    iolink_app_register(&app_callbacks);
 
     uint8_t counter = 0;
     uint32_t last_update = 0;
 
     while (1) {
-        iolink_process();
+        iolink_device_process(&ctx);
 
         uint32_t now = k_uptime_get_32();
         if (now - last_update >= 1000) {
@@ -95,7 +100,7 @@ int main(void)
             counter++;
 
             const uint8_t pd_in[SAMPLE_PD_IN_LEN] = {counter, 0xA5};
-            iolink_pd_input_update(pd_in, sizeof(pd_in), true);
+            iolink_device_pd_input_update(&ctx, pd_in, sizeof(pd_in), true);
             LOG_INF("Published PD in: 0x%02X 0x%02X", pd_in[0], pd_in[1]);
         }
 
