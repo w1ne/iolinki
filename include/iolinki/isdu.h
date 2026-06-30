@@ -85,6 +85,7 @@ typedef struct
     void* event_ctx; /**< Diagnostic host backlink */
     void* ds_ctx;    /**< Data Storage context for system commands */
     void* dll_ctx;   /**< DLL context for statistics access */
+    void* direct_param_page2; /**< Per-device Direct Parameter page 2 storage */
 
     /* System Command Flags */
     bool reset_pending;     /**< Device reset requested (0x80) */

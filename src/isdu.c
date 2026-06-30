@@ -662,9 +662,16 @@ static void handle_error_stats(iolink_isdu_ctx_t* ctx)
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
-/* Direct Parameter page 2 (device-specific, addresses 0x10-0x1F). RAM-backed;
-   single-instance to match the stack's existing global model. */
-static uint8_t g_direct_param_page2[16];
+/* Direct Parameter page 2 (device-specific, addresses 0x10-0x1F). */
+static uint8_t* direct_param_page2(iolink_isdu_ctx_t* ctx)
+{
+    static uint8_t fallback_page2[16];
+
+    if ((ctx != NULL) && (ctx->direct_param_page2 != NULL)) {
+        return (uint8_t*) ctx->direct_param_page2;
+    }
+    return fallback_page2;
+}
 
 /* Encode a Process Data length (in octets) per IO-Link V1.1.5 Figure B.5:
    <=2 octets are expressed as bit length (BYTE=0); larger as octets (BYTE=1). */
@@ -736,6 +743,7 @@ static void handle_direct_parameters(iolink_isdu_ctx_t* ctx)
 {
     bool page2 = (ctx->header.index == IOLINK_IDX_DIRECT_PARAMETERS_2);
     uint8_t sub = ctx->header.subindex;
+    uint8_t* page2_storage = direct_param_page2(ctx);
 
     if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
         if (!page2) {
@@ -746,14 +754,14 @@ static void handle_direct_parameters(iolink_isdu_ctx_t* ctx)
         }
         else if (sub == 0U) {
             size_t n = ctx->buffer_idx;
-            if (n > sizeof(g_direct_param_page2)) {
-                n = sizeof(g_direct_param_page2);
+            if (n > 16U) {
+                n = 16U;
             }
-            (void) memcpy(g_direct_param_page2, ctx->buffer, n);
+            (void) memcpy(page2_storage, ctx->buffer, n);
             ctx->response_len = 0U;
         }
         else if ((sub <= 16U) && (ctx->buffer_idx >= 1U)) {
-            g_direct_param_page2[sub - 1U] = ctx->buffer[0];
+            page2_storage[sub - 1U] = ctx->buffer[0];
             ctx->response_len = 0U;
         }
         else {
@@ -765,7 +773,7 @@ static void handle_direct_parameters(iolink_isdu_ctx_t* ctx)
     else {
         uint8_t page[16];
         if (page2) {
-            (void) memcpy(page, g_direct_param_page2, sizeof(page));
+            (void) memcpy(page, page2_storage, sizeof(page));
         }
         else {
             build_direct_param_page1(ctx, page);
