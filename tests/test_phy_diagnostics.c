@@ -26,41 +26,48 @@
 static int mock_voltage_mv = 24000; /* Default: 24V (normal) */
 static bool mock_short_circuit = false;
 
-static int mock_init(void)
+static int mock_init(void* user)
 {
+    (void) user;
     return 0;
 }
 
-static void mock_set_mode(iolink_phy_mode_t mode)
+static void mock_set_mode(void* user, iolink_phy_mode_t mode)
 {
+    (void) user;
     (void) mode;
 }
 
-static void mock_set_baudrate(iolink_baudrate_t baudrate)
+static void mock_set_baudrate(void* user, iolink_baudrate_t baudrate)
 {
+    (void) user;
     (void) baudrate;
 }
 
-static int mock_send(const uint8_t* data, size_t len)
+static int mock_send(void* user, const uint8_t* data, size_t len)
 {
+    (void) user;
     (void) data;
     (void) len;
     return (int) len;
 }
 
-static int mock_recv_byte(uint8_t* byte)
+static int mock_recv_byte(void* user, uint8_t* byte)
 {
+    (void) user;
     (void) byte;
     return 0; /* No data */
 }
 
-static int mock_get_voltage_mv(void)
+static int mock_get_voltage_mv(void* user)
 {
+    (void) user;
     return mock_voltage_mv;
 }
 
-static bool mock_is_short_circuit(void)
+static bool mock_is_short_circuit(void* user)
 {
+    (void) user;
     return mock_short_circuit;
 }
 

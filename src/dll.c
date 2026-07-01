@@ -24,7 +24,7 @@ static void dll_set_state(iolink_dll_ctx_t* ctx, iolink_dll_state_t new_state)
     if (ctx->state != new_state) {
         ctx->state = new_state;
         if (ctx->state_cb != NULL) {
-            ctx->state_cb(new_state);
+            ctx->state_cb(ctx->state_cb_user, new_state);
         }
     }
 }
@@ -88,7 +88,7 @@ static bool dll_drain_rx(iolink_dll_ctx_t* ctx)
     }
     bool saw_byte = false;
     uint8_t byte = 0U;
-    while (ctx->phy->recv_byte(&byte) > 0) {
+    while (ctx->phy->recv_byte(ctx->phy->user, &byte) > 0) {
         saw_byte = true;
     }
     return saw_byte;
@@ -144,7 +144,7 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
     resp[0] = od_resp;
     resp[1] = iolink_checksum_ck(resp[0], 0U);
     if (ctx->phy->send != NULL) {
-        ctx->phy->send(resp, 2);
+        ctx->phy->send(ctx->phy->user, resp, 2);
     }
 }
 
@@ -188,7 +188,7 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
     pos++;
 
     if (ctx->phy->send != NULL) {
-        ctx->phy->send(resp, pos);
+        ctx->phy->send(ctx->phy->user, resp, pos);
         ctx->fallback_count = 0U;
         uint32_t end_tx_us = (uint32_t) iolink_time_get_us();
         ctx->response_time_us = end_tx_us - (uint32_t) ctx->last_cycle_start_us;
@@ -213,7 +213,7 @@ static void dll_poll_diagnostics(iolink_dll_ctx_t* ctx)
     }
 
     if (ctx->phy->get_voltage_mv != NULL) {
-        int voltage = ctx->phy->get_voltage_mv();
+        int voltage = ctx->phy->get_voltage_mv(ctx->phy->user);
         if ((voltage < 18000) || (voltage > 30000)) {
             ctx->voltage_faults++;
             iolink_event_trigger(&ctx->events, IOLINK_EVENT_PHY_VOLTAGE_FAULT,
@@ -222,7 +222,7 @@ static void dll_poll_diagnostics(iolink_dll_ctx_t* ctx)
     }
 
     if (ctx->phy->is_short_circuit != NULL) {
-        if (ctx->phy->is_short_circuit()) {
+        if (ctx->phy->is_short_circuit(ctx->phy->user)) {
             ctx->short_circuits++;
             iolink_event_trigger(&ctx->events, IOLINK_EVENT_PHY_SHORT_CIRCUIT,
                                  IOLINK_EVENT_TYPE_ERROR);
@@ -256,7 +256,7 @@ void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy)
 
     ctx->baudrate = IOLINK_BAUDRATE_COM2;
     if (ctx->phy->set_baudrate != NULL) {
-        ctx->phy->set_baudrate(IOLINK_BAUDRATE_COM2);
+        ctx->phy->set_baudrate(ctx->phy->user, IOLINK_BAUDRATE_COM2);
     }
 
     iolink_events_init(&ctx->events);
@@ -325,7 +325,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
 
     if (ctx->phy_mode == IOLINK_PHY_MODE_SIO) {
         if ((ctx->frame_index == 0U) && (ctx->phy->detect_wakeup != NULL)) {
-            if (ctx->phy->detect_wakeup() > 0) {
+            if (ctx->phy->detect_wakeup(ctx->phy->user) > 0) {
                 ctx->wakeup_seen = true;
                 dll_set_state(ctx, IOLINK_DLL_STATE_AWAITING_COMM);
                 ctx->wakeup_deadline_us = iolink_time_get_us() + IOLINK_T_DWU_US;
@@ -361,7 +361,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     }
 
     uint8_t byte;
-    while ((ctx->phy->recv_byte != NULL) && (ctx->phy->recv_byte(&byte) > 0)) {
+    while ((ctx->phy->recv_byte != NULL) && (ctx->phy->recv_byte(ctx->phy->user, &byte) > 0)) {
         uint64_t now_us = iolink_time_get_us();
         ctx->last_activity_ms = iolink_time_get_ms();
         if ((ctx->frame_index > 0U) && (ctx->enforce_timing) && (ctx->t_byte_limit_us > 0U)) {
@@ -515,7 +515,7 @@ int iolink_dll_set_baudrate(iolink_dll_ctx_t* ctx, iolink_baudrate_t baudrate)
 {
     if (ctx == NULL) return -1;
     ctx->baudrate = baudrate;
-    if (ctx->phy->set_baudrate != NULL) ctx->phy->set_baudrate(baudrate);
+    if (ctx->phy->set_baudrate != NULL) ctx->phy->set_baudrate(ctx->phy->user, baudrate);
     ctx->t_ren_limit_us = dll_get_t_ren_limit_us(ctx);
     ctx->t_byte_limit_us = dll_get_t_byte_limit_us(ctx);
     return 0;
@@ -541,7 +541,7 @@ void iolink_dll_get_pd_length(const iolink_dll_ctx_t* ctx, uint8_t* pd_in_len, u
 int iolink_dll_set_sio_mode(iolink_dll_ctx_t* ctx)
 {
     if (ctx == NULL) return -1;
-    if (ctx->phy->set_mode != NULL) ctx->phy->set_mode(IOLINK_PHY_MODE_SIO);
+    if (ctx->phy->set_mode != NULL) ctx->phy->set_mode(ctx->phy->user, IOLINK_PHY_MODE_SIO);
     ctx->phy_mode = IOLINK_PHY_MODE_SIO;
     return 0;
 }
@@ -549,7 +549,7 @@ int iolink_dll_set_sio_mode(iolink_dll_ctx_t* ctx)
 int iolink_dll_set_sdci_mode(iolink_dll_ctx_t* ctx)
 {
     if (ctx == NULL) return -1;
-    if (ctx->phy->set_mode != NULL) ctx->phy->set_mode(IOLINK_PHY_MODE_SDCI);
+    if (ctx->phy->set_mode != NULL) ctx->phy->set_mode(ctx->phy->user, IOLINK_PHY_MODE_SDCI);
     ctx->phy_mode = IOLINK_PHY_MODE_SDCI;
     return 0;
 }

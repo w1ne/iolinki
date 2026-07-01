@@ -18,7 +18,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "iolinki/iolink.h"
+#include "iolinki/device.h"
 #include "iolinki/dll.h"
 #include "iolinki/application.h"
 #include "iolinki/crc.h"
@@ -28,11 +28,12 @@ static void test_pd_variable_lengths(void** state)
 {
     (void) state;
     iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_V, .pd_in_len = 8, .pd_out_len = 8};
+    iolink_test_device_t dev;
 
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, &config);
-    move_to_operate();
+    assert_int_equal(iolink_test_device_init(&dev, &config, NULL), 0);
+    move_to_operate_ctx(&dev.ctx);
 
     /* Type 1_V: Req = MC, CKT, PD(8), OD(1), CK = 12 bytes. */
     uint8_t frame[12];
@@ -51,23 +52,24 @@ static void test_pd_variable_lengths(void** state)
     expect_value(mock_phy_send, len, 11);
     will_return(mock_phy_send, 0);
 
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 }
 
 static void test_pd_invalid_flag(void** state)
 {
     (void) state;
     iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1};
+    iolink_test_device_t dev;
 
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, &config);
+    assert_int_equal(iolink_test_device_init(&dev, &config, NULL), 0);
 
     /* Ensure pd_in_len is 1 for this test to match 4-byte response expectation */
     uint8_t dummy = 0;
-    iolink_pd_input_update(&dummy, 1, false);
+    iolink_device_pd_input_update(&dev.ctx, &dummy, 1, false);
 
-    move_to_operate();
+    move_to_operate_ctx(&dev.ctx);
 
     /* Type 1_1 with 1-byte PD: Req = MC, CKT, PD(1), OD(1), CK = 5 bytes.
        Resp: Stat, PD(1), OD(1), CK = 4 bytes.
@@ -85,7 +87,7 @@ static void test_pd_invalid_flag(void** state)
     expect_value(mock_phy_send, len, 4);
     will_return(mock_phy_send, 0);
 
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 }
 
 static void test_pd_runtime_negotiation(void** state)
@@ -93,33 +95,37 @@ static void test_pd_runtime_negotiation(void** state)
     (void) state;
     /* Variable type with a maximum of 8 octets. */
     iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_V, .pd_in_len = 8, .pd_out_len = 8};
+    iolink_test_device_t dev;
+
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, &config);
+    assert_int_equal(iolink_test_device_init(&dev, &config, NULL), 0);
 
-    assert_int_equal(iolink_get_pd_in_len(), 8);
+    assert_int_equal(iolink_device_get_pd_in_len(&dev.ctx), 8);
 
     /* Shrink the runtime PD lengths; change is observable via the getters. */
-    assert_int_equal(iolink_set_pd_length(4, 4), 0);
-    assert_int_equal(iolink_get_pd_in_len(), 4);
-    assert_int_equal(iolink_get_pd_out_len(), 4);
+    assert_int_equal(iolink_device_set_pd_length(&dev.ctx, 4, 4), 0);
+    assert_int_equal(iolink_device_get_pd_in_len(&dev.ctx), 4);
+    assert_int_equal(iolink_device_get_pd_out_len(&dev.ctx), 4);
 
     /* Exceeding the configured maximum is rejected. */
-    assert_int_equal(iolink_set_pd_length(16, 16), -1);
-    assert_int_equal(iolink_get_pd_in_len(), 4); /* unchanged */
+    assert_int_equal(iolink_device_set_pd_length(&dev.ctx, 16, 16), -1);
+    assert_int_equal(iolink_device_get_pd_in_len(&dev.ctx), 4); /* unchanged */
 }
 
 static void test_pd_fixed_not_negotiable(void** state)
 {
     (void) state;
     iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 2, .pd_out_len = 2};
+    iolink_test_device_t dev;
+
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, &config);
+    assert_int_equal(iolink_test_device_init(&dev, &config, NULL), 0);
 
     /* Fixed-length M-sequences reject runtime PD-length changes. */
-    assert_int_equal(iolink_set_pd_length(1, 1), -2);
-    assert_int_equal(iolink_get_pd_in_len(), 2);
+    assert_int_equal(iolink_device_set_pd_length(&dev.ctx, 1, 1), -2);
+    assert_int_equal(iolink_device_get_pd_in_len(&dev.ctx), 2);
 }
 
 int main(void)

@@ -28,8 +28,10 @@ void iolink_phy_virtual_set_port(const char* port)
     g_port_path = port;
 }
 
-static int virtual_init(void)
+static int virtual_init(void* user)
 {
+    (void) user;
+
     if (g_port_path == NULL) {
         printf("[PHY-VIRTUAL] Error: Port not set\n");
         return -1;
@@ -67,18 +69,22 @@ static int virtual_init(void)
     return 0;
 }
 
-static void virtual_set_mode(iolink_phy_mode_t mode)
+static void virtual_set_mode(void* user, iolink_phy_mode_t mode)
 {
+    (void) user;
     printf("[PHY-VIRTUAL] Mode set to: %d\n", (int) mode);
 }
 
-static void virtual_set_baudrate(iolink_baudrate_t baudrate)
+static void virtual_set_baudrate(void* user, iolink_baudrate_t baudrate)
 {
+    (void) user;
     printf("[PHY-VIRTUAL] Baudrate set to: %d\n", (int) baudrate);
 }
 
-static int virtual_send(const uint8_t* data, size_t len)
+static int virtual_send(void* user, const uint8_t* data, size_t len)
 {
+    (void) user;
+
     if ((g_fd < 0) || (data == NULL)) {
         return -1;
     }
@@ -88,8 +94,10 @@ static int virtual_send(const uint8_t* data, size_t len)
     return (int) write(g_fd, data, len);
 }
 
-static int virtual_recv_byte(uint8_t* byte)
+static int virtual_recv_byte(void* user, uint8_t* byte)
 {
+    (void) user;
+
     if ((g_fd < 0) || (byte == NULL)) {
         return 0;
     }
@@ -98,8 +106,10 @@ static int virtual_recv_byte(uint8_t* byte)
     return (n > 0) ? 1 : 0;
 }
 
-static int virtual_detect_wakeup(void)
+static int virtual_detect_wakeup(void* user)
 {
+    (void) user;
+
     if (g_fd < 0) {
         return 0;
     }

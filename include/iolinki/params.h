@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include "iolinki/device_info.h"
 
 /**
  * @file params.h
@@ -19,10 +20,30 @@
  */
 
 /**
+ * Per-device parameter manager context.
+ */
+typedef struct
+{
+    char application_tag[33];
+    char function_tag[33];
+    char location_tag[33];
+    bool application_tag_valid;
+    bool function_tag_valid;
+    bool location_tag_valid;
+    iolink_device_info_ctx_t* device_info;
+} iolink_params_ctx_t;
+
+void iolink_params_ctx_init(iolink_params_ctx_t* ctx, iolink_device_info_ctx_t* device_info);
+int iolink_params_ctx_get(const iolink_params_ctx_t* ctx, uint16_t index, uint8_t subindex,
+                          uint8_t* buffer, size_t max_len);
+int iolink_params_ctx_set(iolink_params_ctx_t* ctx, uint16_t index, uint8_t subindex,
+                          const uint8_t* data, size_t len, bool persist);
+void iolink_params_ctx_factory_reset(iolink_params_ctx_t* ctx);
+
+/**
  * @brief Initialize the parameter manager
  *
- * Sets up internal lookup tables and attempts to load persistent
- * configuration from Non-Volatile Memory (NVM).
+ * Compatibility wrapper around the context API.
  */
 void iolink_params_init(void);
 

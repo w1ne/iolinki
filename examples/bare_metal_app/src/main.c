@@ -6,7 +6,7 @@
  * See LICENSE for details.
  */
 
-#include "iolinki/iolink.h"
+#include "iolinki/device.h"
 #include "iolinki/phy_virtual.h"
 
 /* Extern the volatile tick counter from time_utils_baremetal.c */
@@ -22,15 +22,17 @@ int main(void)
     /* Initialize stack with virtual PHY (simplified for bare metal, typically uses UART/SPI) */
     iolink_phy_virtual_set_port("/dev/null");
     const iolink_phy_api_t* phy = iolink_phy_virtual_get();
+    iolink_device_ctx_t ctx;
+    iolink_device_config_t dev_config = {.phy = *phy};
 
-    if (iolink_init(phy, NULL) != 0) {
+    if (iolink_device_init(&ctx, &dev_config) != 0) {
         return -1;
     }
 
     /* Main Super-Loop */
     while (1) {
         /* Process Stack */
-        iolink_process();
+        iolink_device_process(&ctx);
 
         /* Simulate System Tick (Time Passage) */
         sys_tick_handler();

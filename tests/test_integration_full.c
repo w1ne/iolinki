@@ -20,7 +20,7 @@
 #include <unistd.h>
 #include <stdio.h>
 
-#include "iolinki/iolink.h"
+#include "iolinki/device.h"
 #include "iolinki/dll.h"
 #include "iolinki/isdu.h"
 #include "iolinki/events.h"
@@ -38,14 +38,15 @@ static void test_full_stack_lifecycle(void** state)
     /* Initialize stack with mock PHY and mock storage */
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, NULL);
-    iolink_ds_init(iolink_get_ds_ctx(), &g_ds_storage_mock);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, NULL, NULL);
+    iolink_ds_init(iolink_device_get_ds_ctx(&dev.ctx), &g_ds_storage_mock);
 
     /*** STEP 1: STARTUP -> PREOPERATE ***/
 
     /* 1. Inject WakeUp (Transitions SIO -> AWAITING_COMM) */
     iolink_phy_mock_set_wakeup(1);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
     usleep(200);
 
     /* Note: We rely on the first byte of STEP 2 (ISDU Read) to transition
@@ -66,10 +67,10 @@ static void test_full_stack_lifecycle(void** state)
     expect_any(mock_phy_send, data);
     expect_value(mock_phy_send, len, 2);
     will_return(mock_phy_send, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 
     /*** STEP 3: EVENT TRIGGERING ***/
-    iolink_events_ctx_t* evt_ctx = iolink_get_events_ctx();
+    iolink_events_ctx_t* evt_ctx = iolink_device_get_events_ctx(&dev.ctx);
     iolink_event_trigger(evt_ctx, 0x1234, IOLINK_EVENT_TYPE_WARNING);
     assert_true(iolink_events_pending(evt_ctx));
 
@@ -86,7 +87,7 @@ static void test_full_stack_lifecycle(void** state)
     expect_any(mock_phy_send, data);
     expect_value(mock_phy_send, len, 2);
     will_return(mock_phy_send, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 
     assert_true(iolink_events_pending(evt_ctx));
 }
@@ -99,12 +100,13 @@ static void test_full_stack_timing_enforcement(void** state)
 
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, &config);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, &config, NULL);
 
-    move_to_operate();
+    move_to_operate_ctx(&dev.ctx);
 
-    iolink_set_timing_enforcement(true);
-    iolink_set_t_ren_limit_us(100);
+    iolink_device_set_timing_enforcement(&dev.ctx, true);
+    iolink_device_set_t_ren_limit_us(&dev.ctx, 100);
     iolink_phy_mock_set_send_delay_us(500);
 
     uint8_t frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
@@ -118,7 +120,7 @@ static void test_full_stack_timing_enforcement(void** state)
     expect_any(mock_phy_send, data);
     expect_value(mock_phy_send, len, 4);
     will_return(mock_phy_send, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 
     for (int i = 0; i < 5; i++) {
         will_return(mock_phy_recv_byte, 1);
@@ -128,10 +130,10 @@ static void test_full_stack_timing_enforcement(void** state)
     expect_any(mock_phy_send, data);
     expect_value(mock_phy_send, len, 4);
     will_return(mock_phy_send, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 
     iolink_dll_stats_t stats;
-    iolink_get_dll_stats(&stats);
+    iolink_device_get_dll_stats(&dev.ctx, &stats);
     assert_true(stats.t_ren_violations > 0U);
     assert_true(stats.t_cycle_violations > 0U);
 }

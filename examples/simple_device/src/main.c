@@ -7,7 +7,7 @@
  */
 
 #include <stdio.h>
-#include "iolinki/iolink.h"
+#include "iolinki/device.h"
 
 /**
  * @brief Placeholder for a real hardware PHY implementation
@@ -23,7 +23,10 @@ int main(void)
     printf("IO-Link Simple Device Example\n");
 
     /* Use default configuration */
-    if (iolink_init(&g_hw_phy, NULL) != 0) {
+    iolink_device_ctx_t ctx;
+    iolink_device_config_t dev_config = {.phy = g_hw_phy};
+
+    if (iolink_device_init(&ctx, &dev_config) != 0) {
         printf("Failed to initialize IO-Link stack\n");
         return -1;
     }

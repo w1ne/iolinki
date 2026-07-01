@@ -10,6 +10,7 @@
 #define IOLINK_DATA_STORAGE_H
 
 #include "iolinki/protocol.h"
+#include "iolinki/params.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -91,6 +92,7 @@ typedef struct
 {
     iolink_ds_state_t state;                /**< Current DS state machine position */
     const iolink_ds_storage_api_t* storage; /**< Bound storage implementation API */
+    iolink_params_ctx_t* params_ctx;        /**< Device-local writable parameter context */
     uint16_t current_checksum;              /**< Last calculated local parameter checksum */
     uint16_t master_checksum;               /**< Most recent checksum verified by Master */
     uint8_t image[IOLINK_DS_IMAGE_MAX];     /**< Serialized parameter image (DS_Data 0x0003) */
@@ -104,6 +106,7 @@ typedef struct
  * @param storage Optional storage implementation hooks (can be NULL for RAM-only)
  */
 void iolink_ds_init(iolink_ds_ctx_t* ctx, const iolink_ds_storage_api_t* storage);
+void iolink_ds_bind_params(iolink_ds_ctx_t* ctx, iolink_params_ctx_t* params_ctx);
 
 /**
  * @brief Calculate a standard 16-bit checksum for a parameter block

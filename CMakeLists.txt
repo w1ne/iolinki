@@ -17,12 +17,7 @@ endif()
 # Include directories
 include_directories(include)
 
-# Core Library
-set(IOLINKI_SOURCES
-    src/iolink_core.c
-)
 add_library(iolinki STATIC
-    src/iolink_core.c
     src/phy_generic.c
     src/phy_virtual.c
     src/crc.c
@@ -34,6 +29,7 @@ add_library(iolinki STATIC
     src/params.c
     src/data_storage.c
     src/device_info.c
+    src/device.c
     src/platform_stubs.c
 )
 

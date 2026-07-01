@@ -20,7 +20,7 @@
 #define pdMS_TO_TICKS(x) ((x) / 10)
 #endif
 
-#include "iolinki/iolink.h"
+#include "iolinki/device.h"
 #include "iolinki/platform.h"
 #include "iolinki/phy.h"
 
@@ -43,19 +43,27 @@ const iolink_phy_api_t g_phy_freertos = {
     .recv_byte = NULL  // Implement actual UART recv
 };
 
+static iolink_device_ctx_t g_device_ctx;
+static iolink_device_config_t g_device_config = {
+    .phy = g_phy_freertos,
+};
+
 /* IO-Link Stack Task */
 void iolink_task_entry(void* pvParameters)
 {
     (void) pvParameters;
 
     /* Initialize Stack */
-    iolink_init(&g_phy_freertos);
+    if (iolink_device_init(&g_device_ctx, &g_device_config) != 0) {
+        printf("IO-Link init failed\n");
+        return;
+    }
 
     printf("IO-Link Task Started\n");
 
     for (;;) {
         /* Process Stack */
-        iolink_process();
+        iolink_device_process(&g_device_ctx);
 
         /* Yield / Sleep to allow other tasks (1ms cycle) */
         vTaskDelay(pdMS_TO_TICKS(1));
@@ -69,7 +77,8 @@ void app_task_entry(void* pvParameters)
 
     for (;;) {
         /* Trigger an event every 5 seconds safely */
-        iolink_event_trigger(NULL /* ctx */, 0x1800, IOLINK_EVENT_TYPE_NOTIFICATION);
+        iolink_event_trigger(iolink_device_get_events_ctx(&g_device_ctx), 0x1800,
+                             IOLINK_EVENT_TYPE_NOTIFICATION);
 
         vTaskDelay(pdMS_TO_TICKS(5000));
     }

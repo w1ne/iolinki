@@ -18,7 +18,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "iolinki/iolink.h"
+#include "iolinki/device.h"
 #include "iolinki/events.h"
 #include "iolinki/dll.h"
 #include "test_helpers.h"
@@ -30,9 +30,10 @@ static void test_crc_error_recovery(void** state)
 
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, &config);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, &config, NULL);
 
-    move_to_operate();
+    move_to_operate_ctx(&dev.ctx);
 
     /* 2. Simulate 3 CRC errors (Type 1_1 with 1-byte PD: MC, CKT, PD(1), OD(1), CK = 5 bytes) */
     for (int r = 0; r < 3; r++) {
@@ -50,11 +51,11 @@ static void test_crc_error_recovery(void** state)
         will_return(mock_phy_recv_byte, 0);    /* End frame */
 
         /* One call to process the whole available frame */
-        iolink_process();
+        iolink_device_process(&dev.ctx);
     }
 
     /* 3. Check if error was detected (Event 0x5000 triggered after 3 retries) */
-    assert_true(iolink_events_pending(iolink_get_events_ctx()));
+    assert_true(iolink_events_pending(iolink_device_get_events_ctx(&dev.ctx)));
 }
 
 static void test_communication_timeout(void** state)
@@ -62,16 +63,17 @@ static void test_communication_timeout(void** state)
     (void) state;
     setup_mock_phy();
     will_return(mock_phy_init, 0);
-    iolink_init(&g_phy_mock, NULL);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, NULL, NULL);
 
     /* Trigger wakeup to move from SIO to SDCI */
     iolink_phy_mock_set_wakeup(1);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
     iolink_phy_mock_set_wakeup(0);
 
     /* Ensure no data available in SDCI mode */
     will_return(mock_phy_recv_byte, 0);
-    iolink_process();
+    iolink_device_process(&dev.ctx);
 }
 
 int main(void)

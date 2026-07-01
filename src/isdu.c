@@ -43,6 +43,24 @@ void iolink_isdu_init(iolink_isdu_ctx_t* ctx)
     ctx->next_state = ISDU_STATE_IDLE;
 }
 
+static int isdu_params_get(const iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subindex,
+                           uint8_t* buffer, size_t max_len)
+{
+    if ((ctx != NULL) && (ctx->params_ctx != NULL)) {
+        return iolink_params_ctx_get(ctx->params_ctx, index, subindex, buffer, max_len);
+    }
+    return iolink_params_get(index, subindex, buffer, max_len);
+}
+
+static int isdu_params_set(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subindex,
+                           const uint8_t* data, size_t len, bool persist)
+{
+    if ((ctx != NULL) && (ctx->params_ctx != NULL)) {
+        return iolink_params_ctx_set(ctx->params_ctx, index, subindex, data, len, persist);
+    }
+    return iolink_params_set(index, subindex, data, len, persist);
+}
+
 static int isdu_handle_idle(iolink_isdu_ctx_t* ctx, uint8_t byte)
 {
     bool start = ((byte & IOLINK_ISDU_CTRL_START) != 0U);
@@ -295,8 +313,8 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
 
         case IOLINK_IDX_APPLICATION_TAG:
             if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
-                if (iolink_params_set(IOLINK_IDX_APPLICATION_TAG, 0U, ctx->buffer, ctx->buffer_idx,
-                                      true) == 0) {
+                if (isdu_params_set(ctx, IOLINK_IDX_APPLICATION_TAG, 0U, ctx->buffer,
+                                    ctx->buffer_idx, true) == 0) {
                     ctx->response_len = 0U;
                     ctx->response_idx = 0U;
                     ctx->state = ISDU_STATE_RESPONSE_READY;
@@ -305,8 +323,8 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
                 }
             }
             else {
-                int res = iolink_params_get(IOLINK_IDX_APPLICATION_TAG, 0U, ctx->response_buf,
-                                            (size_t) IOLINK_ISDU_BUFFER_SIZE);
+                int res = isdu_params_get(ctx, IOLINK_IDX_APPLICATION_TAG, 0U, ctx->response_buf,
+                                          (size_t) IOLINK_ISDU_BUFFER_SIZE);
                 if (res >= 0) {
                     ctx->response_len = (uint8_t) res;
                     ctx->response_idx = 0U;
@@ -319,8 +337,8 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
 
         case IOLINK_IDX_FUNCTION_TAG:
             if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
-                if (iolink_params_set(IOLINK_IDX_FUNCTION_TAG, 0U, ctx->buffer, ctx->buffer_idx,
-                                      true) == 0) {
+                if (isdu_params_set(ctx, IOLINK_IDX_FUNCTION_TAG, 0U, ctx->buffer, ctx->buffer_idx,
+                                    true) == 0) {
                     ctx->response_len = 0U;
                     ctx->response_idx = 0U;
                     ctx->state = ISDU_STATE_RESPONSE_READY;
@@ -329,8 +347,8 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
                 }
             }
             else {
-                int res = iolink_params_get(IOLINK_IDX_FUNCTION_TAG, 0U, ctx->response_buf,
-                                            (size_t) IOLINK_ISDU_BUFFER_SIZE);
+                int res = isdu_params_get(ctx, IOLINK_IDX_FUNCTION_TAG, 0U, ctx->response_buf,
+                                          (size_t) IOLINK_ISDU_BUFFER_SIZE);
                 if (res >= 0) {
                     ctx->response_len = (uint8_t) res;
                     ctx->response_idx = 0U;
@@ -343,8 +361,8 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
 
         case IOLINK_IDX_LOCATION_TAG:
             if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
-                if (iolink_params_set(IOLINK_IDX_LOCATION_TAG, 0U, ctx->buffer, ctx->buffer_idx,
-                                      true) == 0) {
+                if (isdu_params_set(ctx, IOLINK_IDX_LOCATION_TAG, 0U, ctx->buffer, ctx->buffer_idx,
+                                    true) == 0) {
                     ctx->response_len = 0U;
                     ctx->response_idx = 0U;
                     ctx->state = ISDU_STATE_RESPONSE_READY;
@@ -352,8 +370,8 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
                 }
             }
             else {
-                int res = iolink_params_get(IOLINK_IDX_LOCATION_TAG, 0U, ctx->response_buf,
-                                            (size_t) IOLINK_ISDU_BUFFER_SIZE);
+                int res = isdu_params_get(ctx, IOLINK_IDX_LOCATION_TAG, 0U, ctx->response_buf,
+                                          (size_t) IOLINK_ISDU_BUFFER_SIZE);
                 if (res >= 0) {
                     ctx->response_len = (uint8_t) res;
                     ctx->response_idx = 0U;
@@ -662,9 +680,16 @@ static void handle_error_stats(iolink_isdu_ctx_t* ctx)
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
-/* Direct Parameter page 2 (device-specific, addresses 0x10-0x1F). RAM-backed;
-   single-instance to match the stack's existing global model. */
-static uint8_t g_direct_param_page2[16];
+/* Direct Parameter page 2 (device-specific, addresses 0x10-0x1F). */
+static uint8_t* direct_param_page2(iolink_isdu_ctx_t* ctx)
+{
+    static uint8_t fallback_page2[16] = {0U};
+
+    if ((ctx != NULL) && (ctx->direct_param_page2 != NULL)) {
+        return (uint8_t*) ctx->direct_param_page2;
+    }
+    return fallback_page2;
+}
 
 /* Encode a Process Data length (in octets) per IO-Link V1.1.5 Figure B.5:
    <=2 octets are expressed as bit length (BYTE=0); larger as octets (BYTE=1). */
@@ -736,6 +761,7 @@ static void handle_direct_parameters(iolink_isdu_ctx_t* ctx)
 {
     bool page2 = (ctx->header.index == IOLINK_IDX_DIRECT_PARAMETERS_2);
     uint8_t sub = ctx->header.subindex;
+    uint8_t* page2_storage = direct_param_page2(ctx);
 
     if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
         if (!page2) {
@@ -746,14 +772,14 @@ static void handle_direct_parameters(iolink_isdu_ctx_t* ctx)
         }
         else if (sub == 0U) {
             size_t n = ctx->buffer_idx;
-            if (n > sizeof(g_direct_param_page2)) {
-                n = sizeof(g_direct_param_page2);
+            if (n > 16U) {
+                n = 16U;
             }
-            (void) memcpy(g_direct_param_page2, ctx->buffer, n);
+            (void) memcpy(page2_storage, ctx->buffer, n);
             ctx->response_len = 0U;
         }
         else if ((sub <= 16U) && (ctx->buffer_idx >= 1U)) {
-            g_direct_param_page2[sub - 1U] = ctx->buffer[0];
+            page2_storage[sub - 1U] = ctx->buffer[0];
             ctx->response_len = 0U;
         }
         else {
@@ -765,7 +791,7 @@ static void handle_direct_parameters(iolink_isdu_ctx_t* ctx)
     else {
         uint8_t page[16];
         if (page2) {
-            (void) memcpy(page, g_direct_param_page2, sizeof(page));
+            (void) memcpy(page, page2_storage, sizeof(page));
         }
         else {
             build_direct_param_page1(ctx, page);

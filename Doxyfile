@@ -3,7 +3,7 @@ PROJECT_NAME           = "iolinki"
 PROJECT_NUMBER         = "1.1.2"
 PROJECT_BRIEF          = "Open-Source IO-Link Device Stack"
 OUTPUT_DIRECTORY       = docs
-INPUT                  = include/iolinki src/iolink_core.c src/dll.c src/isdu.c src/events.c src/params.c src/data_storage.c src/device_info.c src/phy_virtual.c src/crc.c
+INPUT                  = include/iolinki src/device.c src/dll.c src/isdu.c src/events.c src/params.c src/data_storage.c src/device_info.c src/phy_virtual.c src/crc.c
 RECURSIVE              = NO
 OPTIMIZE_OUTPUT_FOR_C  = YES
 EXTRACT_ALL            = YES
@@ -14,13 +14,11 @@ GENERATE_MAN           = NO
 GENERATE_RTF           = NO
 
 # Graphviz Support
-HAVE_DOT               = YES
-DOT_PATH               = /usr/bin
-CLASS_DIAGRAMS         = NO
-COLLABORATION_GRAPH    = YES
-INCLUDE_GRAPH          = YES
-INCLUDED_BY_GRAPH      = YES
-GRAPHICAL_HIERARCHY    = YES
+HAVE_DOT               = NO
+COLLABORATION_GRAPH    = NO
+INCLUDE_GRAPH          = NO
+INCLUDED_BY_GRAPH      = NO
+GRAPHICAL_HIERARCHY    = NO
 
 # Warning settings
 WARN_IF_UNDOCUMENTED   = YES

@@ -46,6 +46,31 @@ void iolink_ds_init(iolink_ds_ctx_t* ctx, const iolink_ds_storage_api_t* storage
     ctx->state = IOLINK_DS_STATE_IDLE;
 }
 
+void iolink_ds_bind_params(iolink_ds_ctx_t* ctx, iolink_params_ctx_t* params_ctx)
+{
+    if (ctx != NULL) {
+        ctx->params_ctx = params_ctx;
+    }
+}
+
+static int ds_params_get(const iolink_ds_ctx_t* ctx, uint16_t index, uint8_t subindex,
+                         uint8_t* buffer, size_t max_len)
+{
+    if ((ctx != NULL) && (ctx->params_ctx != NULL)) {
+        return iolink_params_ctx_get(ctx->params_ctx, index, subindex, buffer, max_len);
+    }
+    return iolink_params_get(index, subindex, buffer, max_len);
+}
+
+static int ds_params_set(iolink_ds_ctx_t* ctx, uint16_t index, uint8_t subindex,
+                         const uint8_t* data, size_t len, bool persist)
+{
+    if ((ctx != NULL) && (ctx->params_ctx != NULL)) {
+        return iolink_params_ctx_set(ctx->params_ctx, index, subindex, data, len, persist);
+    }
+    return iolink_params_set(index, subindex, data, len, persist);
+}
+
 uint16_t iolink_ds_calc_checksum(const uint8_t* data, size_t len)
 {
     /* Fletcher-16 over the serialized image. The Master treats the DS blob and
@@ -73,7 +98,7 @@ int iolink_ds_build_image(iolink_ds_ctx_t* ctx)
     for (size_t i = 0U; i < DS_PARAM_COUNT; ++i) {
         uint8_t value[DS_PARAM_VALUE_MAX];
         int n =
-            iolink_params_get(k_ds_params[i].index, k_ds_params[i].subindex, value, sizeof(value));
+            ds_params_get(ctx, k_ds_params[i].index, k_ds_params[i].subindex, value, sizeof(value));
         if (n < 0) {
             n = 0; /* Parameter not present -> empty record */
         }
@@ -124,7 +149,7 @@ int iolink_ds_apply_image(iolink_ds_ctx_t* ctx, const uint8_t* data, size_t len)
         uint16_t index = (uint16_t) (((uint16_t) data[pos] << 8) | (uint16_t) data[pos + 1U]);
         uint8_t subindex = data[pos + 2U];
         size_t rlen = (size_t) data[pos + 3U];
-        (void) iolink_params_set(index, subindex, &data[pos + DS_RECORD_HEADER], rlen, true);
+        (void) ds_params_set(ctx, index, subindex, &data[pos + DS_RECORD_HEADER], rlen, true);
         pos += DS_RECORD_HEADER + rlen;
     }
 

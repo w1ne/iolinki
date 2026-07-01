@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "iolinki/iolink.h"
+#include "iolinki/device.h"
 #include "iolinki/phy_virtual.h"
 
 int main(int argc, char* argv[])
@@ -68,8 +68,10 @@ int main(int argc, char* argv[])
 
     /* Initialize stack with virtual PHY and config */
     const iolink_phy_api_t* phy = iolink_phy_virtual_get();
+    iolink_device_ctx_t ctx;
+    iolink_device_config_t dev_config = {.phy = *phy, .stack = config};
 
-    if (iolink_init(phy, &config) != 0) {
+    if (iolink_device_init(&ctx, &dev_config) != 0) {
         printf("ERROR: Failed to initialize IO-Link stack\n");
         return -1;
     }
@@ -80,22 +82,22 @@ int main(int argc, char* argv[])
     /* Simulate periodic processing and PD exchange */
 
     while (1) {
-        iolink_process();
+        iolink_device_process(&ctx);
         // ...
 
         /* Update input data (Device -> Master) */
 
-        iolink_process();
+        iolink_device_process(&ctx);
 
         /* Check for output data (Master -> Device) */
         uint8_t pd_buffer[32];
-        int len = iolink_pd_output_read(pd_buffer, sizeof(pd_buffer));
+        int len = iolink_device_pd_output_read(&ctx, pd_buffer, sizeof(pd_buffer));
         if (len > 0) {
             /* Echo + 1 */
             for (int i = 0; i < len; i++) {
                 pd_buffer[i]++;
             }
-            iolink_pd_input_update(pd_buffer, (size_t) len, true);
+            iolink_device_pd_input_update(&ctx, pd_buffer, (size_t) len, true);
         }
 
         /* 1ms cycle time simulation */
