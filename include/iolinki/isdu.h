@@ -13,6 +13,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include "iolinki/config.h"
+#include "iolinki/params.h"
 
 /**
  * @file isdu.h
@@ -82,10 +83,11 @@ typedef struct
     uint8_t error_code;            /**< IO-Link ISDU Error Code (0x80XX) */
 
     /* Pointers to external dependencies */
-    void* event_ctx; /**< Diagnostic host backlink */
-    void* ds_ctx;    /**< Data Storage context for system commands */
-    void* dll_ctx;   /**< DLL context for statistics access */
-    void* direct_param_page2; /**< Per-device Direct Parameter page 2 storage */
+    void* event_ctx;                 /**< Diagnostic host backlink */
+    void* ds_ctx;                    /**< Data Storage context for system commands */
+    void* dll_ctx;                   /**< DLL context for statistics access */
+    iolink_params_ctx_t* params_ctx; /**< Device-local writable parameter context */
+    void* direct_param_page2;        /**< Per-device Direct Parameter page 2 storage */
 
     /* System Command Flags */
     bool reset_pending;     /**< Device reset requested (0x80) */

@@ -95,12 +95,14 @@ int iolink_device_init(iolink_device_ctx_t* ctx, const iolink_device_config_t* c
     iolink_params_ctx_init(&ctx->params, &ctx->device_info);
     iolink_dll_init(&ctx->dll, &config->phy);
     ctx->dll.isdu.direct_param_page2 = ctx->direct_param_page2;
+    ctx->dll.isdu.params_ctx = &ctx->params;
     ctx->dll.state_cb = device_state_cb;
     ctx->dll.state_cb_user = ctx;
     if (config->ds_storage != NULL) {
         iolink_ds_init(&ctx->dll.ds, config->ds_storage);
         ctx->dll.isdu.ds_ctx = &ctx->dll.ds;
     }
+    iolink_ds_bind_params(&ctx->dll.ds, &ctx->params);
     device_apply_stack_config(ctx);
 
     if ((config->app_callbacks != NULL) && (config->app_callbacks->on_startup != NULL)) {
@@ -134,12 +136,10 @@ void iolink_device_process(iolink_device_ctx_t* ctx)
     if ((ctx->config != NULL) && (ctx->config->app_callbacks != NULL) &&
         (ctx->dll.state == IOLINK_DLL_STATE_OPERATE)) {
         if (ctx->config->app_callbacks->on_pd_output != NULL) {
-            ctx->config->app_callbacks->on_pd_output(ctx->dll.pd_out,
-                                                     ctx->dll.pd_out_len_current);
+            ctx->config->app_callbacks->on_pd_output(ctx->dll.pd_out, ctx->dll.pd_out_len_current);
         }
         if (ctx->config->app_callbacks->on_pd_input != NULL) {
-            ctx->config->app_callbacks->on_pd_input(ctx->dll.pd_in,
-                                                    ctx->dll.pd_in_len_current);
+            ctx->config->app_callbacks->on_pd_input(ctx->dll.pd_in, ctx->dll.pd_in_len_current);
         }
     }
 }

@@ -166,6 +166,55 @@ static void test_ds_param_round_trip(void** state)
     assert_memory_equal(buf, loc, strlen(loc));
 }
 
+static void test_ds_bound_params_restore_device_context_only(void** state)
+{
+    (void) state;
+    iolink_device_info_ctx_t info_a;
+    iolink_device_info_ctx_t info_b;
+    iolink_params_ctx_t params_a;
+    iolink_params_ctx_t params_b;
+    iolink_ds_ctx_t ds_a;
+    iolink_ds_ctx_t ds_b;
+    static const uint8_t tag_a[] = "CtxA";
+    static const uint8_t tag_b[] = "CtxB";
+    uint8_t backup[IOLINK_DS_IMAGE_MAX];
+    uint8_t out[16] = {0U};
+
+    iolink_device_info_ctx_init(&info_a, NULL);
+    iolink_device_info_ctx_init(&info_b, NULL);
+    iolink_params_ctx_init(&params_a, &info_a);
+    iolink_params_ctx_init(&params_b, &info_b);
+    iolink_ds_init(&ds_a, NULL);
+    iolink_ds_init(&ds_b, NULL);
+    iolink_ds_bind_params(&ds_a, &params_a);
+    iolink_ds_bind_params(&ds_b, &params_b);
+
+    assert_int_equal(iolink_params_ctx_set(&params_a, IOLINK_IDX_APPLICATION_TAG, 0U, tag_a,
+                                           sizeof(tag_a) - 1U, true),
+                     0);
+    assert_int_equal(iolink_params_ctx_set(&params_b, IOLINK_IDX_APPLICATION_TAG, 0U, tag_b,
+                                           sizeof(tag_b) - 1U, true),
+                     0);
+
+    assert_true(iolink_ds_build_image(&ds_a) > 0);
+    assert_true(ds_a.image_len <= sizeof(backup));
+    memcpy(backup, ds_a.image, ds_a.image_len);
+
+    iolink_params_ctx_factory_reset(&params_a);
+    assert_int_equal(iolink_ds_apply_image(&ds_a, backup, ds_a.image_len), 0);
+
+    assert_int_equal(
+        iolink_params_ctx_get(&params_a, IOLINK_IDX_APPLICATION_TAG, 0U, out, sizeof(out)),
+        (int) (sizeof(tag_a) - 1U));
+    assert_memory_equal(out, tag_a, sizeof(tag_a) - 1U);
+
+    memset(out, 0, sizeof(out));
+    assert_int_equal(
+        iolink_params_ctx_get(&params_b, IOLINK_IDX_APPLICATION_TAG, 0U, out, sizeof(out)),
+        (int) (sizeof(tag_b) - 1U));
+    assert_memory_equal(out, tag_b, sizeof(tag_b) - 1U);
+}
+
 static void test_ds_apply_rejects_truncated(void** state)
 {
     (void) state;
@@ -227,6 +276,7 @@ int main(void)
         cmocka_unit_test(test_ds_commands_locked),
         cmocka_unit_test(test_ds_commands_unlocked),
         cmocka_unit_test(test_ds_param_round_trip),
+        cmocka_unit_test(test_ds_bound_params_restore_device_context_only),
         cmocka_unit_test(test_ds_apply_rejects_truncated),
         cmocka_unit_test(test_ds_download_recovery),
     };

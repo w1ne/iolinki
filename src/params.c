@@ -107,12 +107,13 @@ void iolink_params_ctx_init(iolink_params_ctx_t* ctx, iolink_device_info_ctx_t* 
         const iolink_device_info_t* info = iolink_device_info_ctx_get(ctx->device_info);
         if ((info != NULL) && (info->application_tag != NULL)) {
             copy_tag(ctx->application_tag, &ctx->application_tag_valid,
-                     (const uint8_t*) info->application_tag, bounded_tag_len(info->application_tag));
+                     (const uint8_t*) info->application_tag,
+                     bounded_tag_len(info->application_tag));
         }
     }
 }
 
-int iolink_params_ctx_get(iolink_params_ctx_t* ctx, uint16_t index, uint8_t subindex,
+int iolink_params_ctx_get(const iolink_params_ctx_t* ctx, uint16_t index, uint8_t subindex,
                           uint8_t* buffer, size_t max_len)
 {
     if ((ctx == NULL) || (buffer == NULL)) {

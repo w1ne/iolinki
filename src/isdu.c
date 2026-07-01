@@ -43,6 +43,24 @@ void iolink_isdu_init(iolink_isdu_ctx_t* ctx)
     ctx->next_state = ISDU_STATE_IDLE;
 }
 
+static int isdu_params_get(const iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subindex,
+                           uint8_t* buffer, size_t max_len)
+{
+    if ((ctx != NULL) && (ctx->params_ctx != NULL)) {
+        return iolink_params_ctx_get(ctx->params_ctx, index, subindex, buffer, max_len);
+    }
+    return iolink_params_get(index, subindex, buffer, max_len);
+}
+
+static int isdu_params_set(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subindex,
+                           const uint8_t* data, size_t len, bool persist)
+{
+    if ((ctx != NULL) && (ctx->params_ctx != NULL)) {
+        return iolink_params_ctx_set(ctx->params_ctx, index, subindex, data, len, persist);
+    }
+    return iolink_params_set(index, subindex, data, len, persist);
+}
+
 static int isdu_handle_idle(iolink_isdu_ctx_t* ctx, uint8_t byte)
 {
     bool start = ((byte & IOLINK_ISDU_CTRL_START) != 0U);
@@ -295,8 +313,8 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
 
         case IOLINK_IDX_APPLICATION_TAG:
             if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
-                if (iolink_params_set(IOLINK_IDX_APPLICATION_TAG, 0U, ctx->buffer, ctx->buffer_idx,
-                                      true) == 0) {
+                if (isdu_params_set(ctx, IOLINK_IDX_APPLICATION_TAG, 0U, ctx->buffer,
+                                    ctx->buffer_idx, true) == 0) {
                     ctx->response_len = 0U;
                     ctx->response_idx = 0U;
                     ctx->state = ISDU_STATE_RESPONSE_READY;
@@ -305,8 +323,8 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
                 }
             }
             else {
-                int res = iolink_params_get(IOLINK_IDX_APPLICATION_TAG, 0U, ctx->response_buf,
-                                            (size_t) IOLINK_ISDU_BUFFER_SIZE);
+                int res = isdu_params_get(ctx, IOLINK_IDX_APPLICATION_TAG, 0U, ctx->response_buf,
+                                          (size_t) IOLINK_ISDU_BUFFER_SIZE);
                 if (res >= 0) {
                     ctx->response_len = (uint8_t) res;
                     ctx->response_idx = 0U;
@@ -319,8 +337,8 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
 
         case IOLINK_IDX_FUNCTION_TAG:
             if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
-                if (iolink_params_set(IOLINK_IDX_FUNCTION_TAG, 0U, ctx->buffer, ctx->buffer_idx,
-                                      true) == 0) {
+                if (isdu_params_set(ctx, IOLINK_IDX_FUNCTION_TAG, 0U, ctx->buffer, ctx->buffer_idx,
+                                    true) == 0) {
                     ctx->response_len = 0U;
                     ctx->response_idx = 0U;
                     ctx->state = ISDU_STATE_RESPONSE_READY;
@@ -329,8 +347,8 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
                 }
             }
             else {
-                int res = iolink_params_get(IOLINK_IDX_FUNCTION_TAG, 0U, ctx->response_buf,
-                                            (size_t) IOLINK_ISDU_BUFFER_SIZE);
+                int res = isdu_params_get(ctx, IOLINK_IDX_FUNCTION_TAG, 0U, ctx->response_buf,
+                                          (size_t) IOLINK_ISDU_BUFFER_SIZE);
                 if (res >= 0) {
                     ctx->response_len = (uint8_t) res;
                     ctx->response_idx = 0U;
@@ -343,8 +361,8 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
 
         case IOLINK_IDX_LOCATION_TAG:
             if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
-                if (iolink_params_set(IOLINK_IDX_LOCATION_TAG, 0U, ctx->buffer, ctx->buffer_idx,
-                                      true) == 0) {
+                if (isdu_params_set(ctx, IOLINK_IDX_LOCATION_TAG, 0U, ctx->buffer, ctx->buffer_idx,
+                                    true) == 0) {
                     ctx->response_len = 0U;
                     ctx->response_idx = 0U;
                     ctx->state = ISDU_STATE_RESPONSE_READY;
@@ -352,8 +370,8 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
                 }
             }
             else {
-                int res = iolink_params_get(IOLINK_IDX_LOCATION_TAG, 0U, ctx->response_buf,
-                                            (size_t) IOLINK_ISDU_BUFFER_SIZE);
+                int res = isdu_params_get(ctx, IOLINK_IDX_LOCATION_TAG, 0U, ctx->response_buf,
+                                          (size_t) IOLINK_ISDU_BUFFER_SIZE);
                 if (res >= 0) {
                     ctx->response_len = (uint8_t) res;
                     ctx->response_idx = 0U;
@@ -665,7 +683,7 @@ static void handle_error_stats(iolink_isdu_ctx_t* ctx)
 /* Direct Parameter page 2 (device-specific, addresses 0x10-0x1F). */
 static uint8_t* direct_param_page2(iolink_isdu_ctx_t* ctx)
 {
-    static uint8_t fallback_page2[16];
+    static uint8_t fallback_page2[16] = {0U};
 
     if ((ctx != NULL) && (ctx->direct_param_page2 != NULL)) {
         return (uint8_t*) ctx->direct_param_page2;

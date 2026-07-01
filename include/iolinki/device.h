@@ -69,7 +69,6 @@ void iolink_device_set_t_ren_limit_us(iolink_device_ctx_t* ctx, uint32_t limit_u
 iolink_m_seq_type_t iolink_device_get_m_seq_type(const iolink_device_ctx_t* ctx);
 uint8_t iolink_device_get_pd_in_len(const iolink_device_ctx_t* ctx);
 uint8_t iolink_device_get_pd_out_len(const iolink_device_ctx_t* ctx);
-int iolink_device_set_pd_length(iolink_device_ctx_t* ctx, uint8_t pd_in_len,
-                                uint8_t pd_out_len);
+int iolink_device_set_pd_length(iolink_device_ctx_t* ctx, uint8_t pd_in_len, uint8_t pd_out_len);
 
 #endif  // IOLINK_DEVICE_H

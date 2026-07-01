@@ -31,9 +31,9 @@ int main(void)
 {
     LOG_INF("Starting IO-Link Zephyr Demo");
 
+#ifdef CONFIG_IOLINK_PHY_VIRTUAL
     const char *port = NULL;
 
-#ifdef CONFIG_IOLINK_PHY_VIRTUAL
     port = getenv("IOLINK_PORT");
     if (port) {
         iolink_phy_virtual_set_port(port);
@@ -125,7 +125,7 @@ int main(void)
             last_update = now;
             sensor_val++;
 
-            uint8_t pd[2] = {sensor_val, 0xA5};
+            const uint8_t pd[2] = {sensor_val, 0xA5};
             iolink_device_pd_input_update(&ctx, pd, 2, true);
 
             LOG_INF("Device PD Update: 0x%02X", sensor_val);

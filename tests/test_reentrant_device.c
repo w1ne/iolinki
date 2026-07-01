@@ -29,23 +29,25 @@ static void test_device_context_api_initializes_two_configs(void** state)
     static iolink_device_phy_t phy = {.init = noop_user};
     iolink_device_config_t cfg_a = {
         .phy = phy,
-        .stack = {
-            .m_seq_type = IOLINK_M_SEQ_TYPE_1_1,
-            .min_cycle_time = 10U,
-            .pd_in_len = 1U,
-            .pd_out_len = 0U,
-            .t_pd_us = 0U,
-        },
+        .stack =
+            {
+                .m_seq_type = IOLINK_M_SEQ_TYPE_1_1,
+                .min_cycle_time = 10U,
+                .pd_in_len = 1U,
+                .pd_out_len = 0U,
+                .t_pd_us = 0U,
+            },
     };
     iolink_device_config_t cfg_b = {
         .phy = phy,
-        .stack = {
-            .m_seq_type = IOLINK_M_SEQ_TYPE_2_1,
-            .min_cycle_time = 10U,
-            .pd_in_len = 2U,
-            .pd_out_len = 2U,
-            .t_pd_us = 0U,
-        },
+        .stack =
+            {
+                .m_seq_type = IOLINK_M_SEQ_TYPE_2_1,
+                .min_cycle_time = 10U,
+                .pd_in_len = 2U,
+                .pd_out_len = 2U,
+                .t_pd_us = 0U,
+            },
     };
 
     assert_true(iolink_device_ctx_size() == sizeof(iolink_device_ctx_t));
@@ -80,12 +82,12 @@ static void test_parameter_contexts_keep_writable_tags_isolated(void** state)
     assert_int_equal(iolink_params_ctx_set(&params_b, IOLINK_IDX_APPLICATION_TAG, 0U, tag_b,
                                            sizeof(tag_b) - 1U, true),
                      0);
-    assert_int_equal(iolink_params_ctx_get(&params_a, IOLINK_IDX_APPLICATION_TAG, 0U, out_a,
-                                           sizeof(out_a)),
-                     (int) (sizeof(tag_a) - 1U));
-    assert_int_equal(iolink_params_ctx_get(&params_b, IOLINK_IDX_APPLICATION_TAG, 0U, out_b,
-                                           sizeof(out_b)),
-                     (int) (sizeof(tag_b) - 1U));
+    assert_int_equal(
+        iolink_params_ctx_get(&params_a, IOLINK_IDX_APPLICATION_TAG, 0U, out_a, sizeof(out_a)),
+        (int) (sizeof(tag_a) - 1U));
+    assert_int_equal(
+        iolink_params_ctx_get(&params_b, IOLINK_IDX_APPLICATION_TAG, 0U, out_b, sizeof(out_b)),
+        (int) (sizeof(tag_b) - 1U));
     assert_memory_equal(out_a, tag_a, sizeof(tag_a) - 1U);
     assert_memory_equal(out_b, tag_b, sizeof(tag_b) - 1U);
 }

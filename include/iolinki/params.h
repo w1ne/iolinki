@@ -34,7 +34,7 @@ typedef struct
 } iolink_params_ctx_t;
 
 void iolink_params_ctx_init(iolink_params_ctx_t* ctx, iolink_device_info_ctx_t* device_info);
-int iolink_params_ctx_get(iolink_params_ctx_t* ctx, uint16_t index, uint8_t subindex,
+int iolink_params_ctx_get(const iolink_params_ctx_t* ctx, uint16_t index, uint8_t subindex,
                           uint8_t* buffer, size_t max_len);
 int iolink_params_ctx_set(iolink_params_ctx_t* ctx, uint16_t index, uint8_t subindex,
                           const uint8_t* data, size_t len, bool persist);
