@@ -47,20 +47,30 @@ Automated pipelines run on every push to `main` or `develop`.
 
 ### Automated Release (Main-only)
 
-Official releases are triggered ONLY from the `main` branch. 
+Official releases are triggered ONLY from the `main` branch.
 
-1. **Tagging**: Push a semantic version tag to `main`:
+Both `main` and `develop` are protected: the required checks are the *real* CI
+jobs (`docker-validation`, `zephyr-validation`, `sbom-tools`) with no admin
+bypass. Because a freshly created merge commit has no check results, release
+promotion works by **fast-forwarding `main` to a develop SHA whose checks are
+already green** — never by merging with a new commit. This keeps `main` an
+exact subset of `develop`, so no back-merge is needed.
+
+1. **Promote + tag**: Fast-forward `main` to the green `develop` SHA and tag it:
    ```bash
-   git checkout main && git pull
-   git tag -a v1.0.0 -m "Release version 1.0.0"
+   git fetch origin
+   git push origin origin/develop:main   # fast-forward; rejected if main diverged
+   git tag -a v1.0.0 -m "Release version 1.0.0" origin/develop
    git push origin v1.0.0
    ```
 
 2. **Workflow**: The GitHub Action automatically:
    - Builds with **Code Coverage**.
    - Generates **Automated Release Notes**.
-   - Packages binaries and creates a GitHub Release.
-   - **Back-merges `main` to `develop`**.
+   - Packages binaries, **SBOMs (CycloneDX + SPDX)**, and creates a GitHub Release.
+   - **Back-merge safety net**: if `main` somehow diverged from `develop`, the
+     workflow opens a back-merge PR (it cannot push to the protected branch
+     directly). In the normal fast-forward flow this is a no-op.
 
 ### Release Candidates (RC)
 
