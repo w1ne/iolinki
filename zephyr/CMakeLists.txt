@@ -12,7 +12,7 @@ zephyr_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
 zephyr_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src)
 
 zephyr_library_sources(
-    ../src/iolink_core.c
+    ../src/device.c
     ../src/crc.c
     ../src/frame.c
     ../src/dll.c

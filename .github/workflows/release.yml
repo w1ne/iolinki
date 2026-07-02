@@ -87,6 +87,20 @@ jobs:
           # Cat to console for debugging
           cat release_notes.md
 
+      - name: Generate SBOMs
+        run: |
+          # Reproducible timestamps: pin to the release commit time
+          export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+          python3 tools/test_generate_sbom.py
+          python3 tools/generate_sbom.py \
+            --version "${{ steps.version.outputs.version }}" \
+            --format cyclonedx \
+            --output "iolinki-${{ steps.version.outputs.version }}.cdx.json"
+          python3 tools/generate_sbom.py \
+            --version "${{ steps.version.outputs.version }}" \
+            --format spdx \
+            --output "iolinki-${{ steps.version.outputs.version }}.spdx.json"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -98,6 +112,8 @@ jobs:
           files: |
             build/examples/simple_device/simple_device
             build/tests/test_init
+            iolinki-${{ steps.version.outputs.version }}.cdx.json
+            iolinki-${{ steps.version.outputs.version }}.spdx.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
