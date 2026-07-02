@@ -95,28 +95,6 @@ jobs:
       - name: Test SBOM generator
         run: python3 tools/test_generate_sbom.py
 
-  # The following jobs exist to satisfy branch protection requirements. They
-  # depend only on the lightweight host gate, NOT on the heavy Zephyr job.
-  quality-gate:
-    needs: docker-validation
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Quality Gate passed (verified in docker-validation)"
-
-  build-and-test:
-    needs: docker-validation
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Build and Test passed (verified in docker-validation)"
-
-  build-bare-metal:
-    needs: docker-validation
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Bare Metal build passed (verified in docker-validation)"
-
-  build-example:
-    needs: docker-validation
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Zephyr Example build passed (verified in docker-validation)"
+  # Branch protection on develop requires the REAL jobs directly:
+  # docker-validation, zephyr-validation, sbom-tools. Do not reintroduce
+  # echo-only proxy jobs — they let a red job hide behind a green run.

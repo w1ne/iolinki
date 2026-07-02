@@ -65,8 +65,8 @@ negotiable per contract.
   pattern of `tools/generate_release_notes.py`.
 - Inputs: `--version` (from the release tag), `--format cyclonedx|spdx`, `--output`.
 - Emits CycloneDX 1.6 JSON and SPDX 2.3 JSON describing one root component:
-  the iolinki library (supplier, dual license `MIT OR LicenseRef-iolinki-Commercial`
-  — match actual LICENSE terms at implementation time, purl
+  the iolinki library (supplier, dual license
+  `GPL-3.0-only OR LicenseRef-iolinki-Commercial`, purl
   `pkg:github/w1ne/iolinki@v<version>`), with explicit zero third-party
   runtime dependencies. Optional components section lists build/test-only tooling
   (cmocka, CMake) marked as excluded-from-runtime so the "no dependencies" claim is

@@ -40,7 +40,7 @@ def main():
     )
     args = parser.parse_args()
 
-    print(f"=== IO-Link Master - Real Hardware Test ===")
+    print("=== IO-Link Master - Real Hardware Test ===")
     print(f"Connecting to {args.port} at {args.baud} baud...")
 
     try:
