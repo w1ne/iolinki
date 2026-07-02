@@ -88,6 +88,13 @@ jobs:
         run: |
           docker save iolinki-zephyr-base > zephyr-base-image.tar
 
+  sbom-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test SBOM generator
+        run: python3 tools/test_generate_sbom.py
+
   # The following jobs exist to satisfy branch protection requirements. They
   # depend only on the lightweight host gate, NOT on the heavy Zephyr job.
   quality-gate:
