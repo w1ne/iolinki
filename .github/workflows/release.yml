@@ -117,20 +117,33 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # develop is a protected branch (required checks, no admin bypass), so a
+  # direct push of a fresh merge commit is rejected. When main only ever
+  # fast-forwards to green develop SHAs (see RELEASE_STRATEGY.md) develop
+  # already contains main and this job is a no-op. If main diverged anyway,
+  # open a back-merge PR instead of pushing.
   back-merge-develop:
     needs: create-release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Merge Main to Develop
+      - name: Back-merge main into develop (PR if diverged)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git checkout develop
-          git merge origin/main
-          git push origin develop
+          git fetch origin develop main
+          if git merge-base --is-ancestor origin/main origin/develop; then
+            echo "develop already contains main — nothing to back-merge"
+          else
+            gh pr create --base develop --head main \
+              --title "Back-merge main into develop after release" \
+              --body "Automated post-release back-merge. If required checks did not start (GITHUB_TOKEN-created PRs do not trigger workflows), close and reopen this PR." \
+              || echo "back-merge PR already exists"
+          fi
