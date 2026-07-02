@@ -170,6 +170,17 @@ See [ROADMAP.md](./docs/ROADMAP.md) for detailed development phases.
 - **[INSTALL.md](./INSTALL.md)** - Detailed installation instructions
 - **[PUPPETEER.md](./docs/PUPPETEER.md)** - Agent task mutex workflow (submodule)
 
+## Security
+
+- **[SECURITY.md](./SECURITY.md)** — coordinated disclosure policy and CRA-ready
+  vulnerability handling
+- **[Threat model](./docs/security/THREAT_MODEL.md)** — STRIDE analysis aligned to
+  the IO-Link Security Design and Development Guideline (Order No. 10.512), every
+  claim anchored to code and tests
+- **[CRA overview](./docs/security/CRA.md)** — what the EU Cyber Resilience Act
+  means for devices built on this stack; free vs. commercial deliverables
+- **SBOMs** — CycloneDX 1.6 + SPDX 2.3 attached to every tagged release
+
 ## Releases
 
 Official releases are available on [GitHub Releases](https://github.com/yourusername/iolinki/releases).
