@@ -181,9 +181,16 @@ See [ROADMAP.md](./docs/ROADMAP.md) for detailed development phases.
   means for devices built on this stack; free vs. commercial deliverables
 - **SBOMs** — CycloneDX 1.6 + SPDX 2.3 attached to every tagged release
 
+## Related Projects
+
+- **[iolinki-master](https://github.com/w1ne/iolinki-master)** — the companion
+  standalone IO-Link **master** stack (multi-port controller). Split from this
+  repository on purpose; it reuses only the narrow shared CRC/frame/PHY pieces
+  and is CI-validated against this device stack over a simulated wire.
+
 ## Releases
 
-Official releases are available on [GitHub Releases](https://github.com/yourusername/iolinki/releases).
+Official releases are available on [GitHub Releases](https://github.com/w1ne/iolinki/releases).
 
 Each release includes:
 - **Test Results**: Complete test suite validation
