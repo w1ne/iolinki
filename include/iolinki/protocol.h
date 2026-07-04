@@ -32,8 +32,9 @@
 #define IOLINK_ISDU_CTRL_SEQ_MASK 0x3FU
 
 /* ISDU Service IDs */
-#define IOLINK_ISDU_SERVICE_READ 0x08U
-#define IOLINK_ISDU_SERVICE_WRITE 0x09U
+/* I-Service nibble, IO-Link spec Table A.12 (16-bit Index + Subindex form). */
+#define IOLINK_ISDU_SERVICE_READ 0x0BU
+#define IOLINK_ISDU_SERVICE_WRITE 0x03U
 
 /* Mandatory ISDU Indices */
 #define IOLINK_IDX_DIRECT_PARAMETERS_1 0x0000U
