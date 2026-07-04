@@ -138,7 +138,8 @@ static void dll_handle_preoperate(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t ck)
 static void dll_handle_page_channel_read(iolink_dll_ctx_t* ctx, uint8_t mc)
 {
     uint8_t resp[2];
-    resp[0] = iolink_isdu_direct_param_page1_octet(&ctx->isdu, (uint8_t) (mc & IOLINK_MC_ADDR_MASK));
+    resp[0] =
+        iolink_isdu_direct_param_page1_octet(&ctx->isdu, (uint8_t) (mc & IOLINK_MC_ADDR_MASK));
     resp[1] = iolink_checksum_ck(resp[0], 0U);
     if (ctx->phy->send != NULL) {
         ctx->phy->send(ctx->phy->user, resp, 2);

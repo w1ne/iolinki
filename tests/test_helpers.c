@@ -313,7 +313,8 @@ int isdu_send_write_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subi
     /* Data: Write service */
     uint8_t service_byte;
     if (data_len <= 15) {
-        service_byte = 0x30 | data_len; /* I-Service WRITE nibble 0x03 (Table A.12), embedded length */
+        service_byte =
+            0x30 | data_len; /* I-Service WRITE nibble 0x03 (Table A.12), embedded length */
     }
     else {
         service_byte = 0x3F; /* I-Service WRITE nibble 0x03, extended length */

@@ -82,7 +82,8 @@ static void test_maximum_segmented_transfer(void** state)
     /* Write 16 bytes to Index 0x0018 (App Tag) using segmentation */
     /* Header: [RW+Len] [ExtLen] [IndexH] [IndexL] [Subindex] */
     iolink_isdu_collect_byte(&ctx, 0x81); /* Start, Seq=1, !Last */
-    iolink_isdu_collect_byte(&ctx, 0x3F); /* Write (I-Service nibble 0x03), Len=15 (extended length follows) */
+    iolink_isdu_collect_byte(
+        &ctx, 0x3F); /* Write (I-Service nibble 0x03), Len=15 (extended length follows) */
 
     /* Extended length: 16 bytes total */
     iolink_isdu_collect_byte(&ctx, 0x02); /* Seq=2, !Last */
