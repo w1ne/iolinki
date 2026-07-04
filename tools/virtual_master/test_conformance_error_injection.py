@@ -146,7 +146,7 @@ class TestErrorInjectionConformance(unittest.TestCase):
         time.sleep(0.5)
 
         self.master.run_startup_sequence()
-        # Transition to OPERATE to avoid Type 0 MC collision (0x0F)
+        # Transition to OPERATE via DeviceOperate (MC=0x20, OD=0x99)
         self.master.m_seq_type = 2
         self.master.pd_out_len = 2
         self.master.pd_in_len = 2

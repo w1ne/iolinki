@@ -61,6 +61,20 @@ static int isdu_params_set(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subin
     return iolink_params_set(index, subindex, data, len, persist);
 }
 
+static void isdu_params_factory_reset(iolink_isdu_ctx_t* ctx)
+{
+    /* Reset the device's own parameter context when one is bound (as device.c
+       does via ctx->params_ctx); otherwise fall back to the legacy global set.
+       Using the bound context is required, else a per-device app tag survives a
+       Restore Factory Settings command. */
+    if ((ctx != NULL) && (ctx->params_ctx != NULL)) {
+        iolink_params_ctx_factory_reset(ctx->params_ctx);
+    }
+    else {
+        iolink_params_factory_reset();
+    }
+}
+
 static int isdu_handle_idle(iolink_isdu_ctx_t* ctx, uint8_t byte)
 {
     bool start = ((byte & IOLINK_ISDU_CTRL_START) != 0U);
@@ -150,12 +164,14 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t* ctx, uint8_t byte)
             uint8_t service = (uint8_t) ((byte >> 4) & 0x0FU);
             uint8_t length = (uint8_t) (byte & 0x0FU);
 
-            if (service == 0x08U) {
+            /* I-Service nibble per spec Table A.12 (16-bit Index + Subindex form,
+             * which is what the master emits): read = 0x0B, write = 0x03. */
+            if (service == IOLINK_ISDU_SERVICE_READ) {
                 ctx->header.type = IOLINK_ISDU_SERVICE_TYPE_READ;
                 ctx->header.length = 0U;
                 ctx->next_state = ISDU_STATE_HEADER_INDEX_HIGH;
             }
-            else if (service == 0x09U) {
+            else if (service == IOLINK_ISDU_SERVICE_WRITE) {
                 ctx->header.type = IOLINK_ISDU_SERVICE_TYPE_WRITE;
                 if (length == 15U) {
                     ctx->next_state = ISDU_STATE_HEADER_EXT_LEN;
@@ -468,12 +484,12 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
 
         case IOLINK_CMD_RESTORE_FACTORY_SETTINGS: /* 0x82 */
             /* Reset all parameters to factory defaults */
-            iolink_params_factory_reset();
+            isdu_params_factory_reset(ctx);
             break;
 
         case IOLINK_CMD_RESTORE_APP_DEFAULTS: /* 0x83 */
             /* Reset application-specific parameters (currently same as factory) */
-            iolink_params_factory_reset();
+            isdu_params_factory_reset(ctx);
             break;
 
         case IOLINK_CMD_SET_COMM_MODE: /* 0x84 */
@@ -755,6 +771,18 @@ static void build_direct_param_page1(iolink_isdu_ctx_t* ctx, uint8_t* page)
         page[0x0B] = (uint8_t) (info->device_id & 0xFFU);         /* DeviceID octet0 */
     }
     /* 0x0C-0x0E reserved (0); 0x0F SystemCommand (W) reads 0. */
+}
+
+uint8_t iolink_isdu_direct_param_page1_octet(iolink_isdu_ctx_t* ctx, uint8_t addr)
+{
+    uint8_t page[16];
+
+    if ((ctx == NULL) || (addr >= sizeof(page))) {
+        return 0U;
+    }
+
+    build_direct_param_page1(ctx, page);
+    return page[addr];
 }
 
 static void handle_direct_parameters(iolink_isdu_ctx_t* ctx)

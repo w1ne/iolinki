@@ -233,7 +233,7 @@ class TestStateMachineConformance(unittest.TestCase):
         Requirement: IO-Link V1.1.5 Section 7.3 - DLL State Machine
 
         Validates:
-        - Device enters ESTAB_COM state on transition command (MC=0x0F)
+        - Device enters ESTAB_COM state on DeviceOperate (MC=0x20, OD=0x99)
         - First valid PD frame triggers ESTAB_COM → OPERATE transition
         - Subsequent PD frames are processed in OPERATE state
         - Invalid frames in ESTAB_COM don't cause premature transition
@@ -256,7 +256,7 @@ class TestStateMachineConformance(unittest.TestCase):
 
         self.master.go_to_operate()
         time.sleep(0.05)
-        print("[INFO] Sent transition command (MC=0x0F), device should be in ESTAB_COM")
+        print("[INFO] Sent DeviceOperate (MC=0x20, OD=0x99), device should be in ESTAB_COM")
 
         resp1 = self.master.run_cycle(pd_out=b"\x12\x34")
         self.assertIsNotNone(resp1, "First PD frame should get response")

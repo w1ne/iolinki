@@ -131,6 +131,21 @@ static void dll_handle_preoperate(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t ck)
     }
 }
 
+/* Answer a startup Type-0 read on the page communication channel (spec startup
+   transition T1): the master reads a Direct Parameter page octet (address in the
+   MC address field, e.g. 0x02 = MinCycleTime). Reply with a 2-octet Type-0 frame
+   carrying that octet, rather than feeding the MC into the ISDU engine. */
+static void dll_handle_page_channel_read(iolink_dll_ctx_t* ctx, uint8_t mc)
+{
+    uint8_t resp[2];
+    resp[0] =
+        iolink_isdu_direct_param_page1_octet(&ctx->isdu, (uint8_t) (mc & IOLINK_MC_ADDR_MASK));
+    resp[1] = iolink_checksum_ck(resp[0], 0U);
+    if (ctx->phy->send != NULL) {
+        ctx->phy->send(ctx->phy->user, resp, 2);
+    }
+}
+
 static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t cks)
 {
     (void) cks;
@@ -383,7 +398,16 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             ctx->frame_index = 1U;
             ctx->last_frame_us = now_us;
 
-            if (ctx->baudrate == IOLINK_BAUDRATE_COM1) {
+            /* DeviceOperate MC = WRITE (RW=0) to Direct Parameter address 0x00 on
+               the page channel = 0x20. It is the only 3-octet Type-0 request the
+               device expects in PREOPERATE (MC + OD + CK); every other PREOPERATE
+               Type-0 frame is a 2-octet ISDU exchange. */
+            bool is_preop_device_operate =
+                (ctx->state == IOLINK_DLL_STATE_PREOPERATE) && (byte == 0x20U);
+            if (is_preop_device_operate) {
+                ctx->req_len = 3U;
+            }
+            else if (ctx->baudrate == IOLINK_BAUDRATE_COM1) {
                 ctx->req_len = 2U;
             }
             else {
@@ -437,17 +461,41 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             }
 
             if (crc_ok) {
-                if ((ctx->state == IOLINK_DLL_STATE_AWAITING_COMM) ||
-                    (ctx->state == IOLINK_DLL_STATE_STARTUP)) {
+                bool was_establishing = (ctx->state == IOLINK_DLL_STATE_AWAITING_COMM) ||
+                                        (ctx->state == IOLINK_DLL_STATE_STARTUP);
+                if (was_establishing) {
                     dll_set_state(ctx, IOLINK_DLL_STATE_PREOPERATE);
                 }
 
                 if (ctx->state == IOLINK_DLL_STATE_PREOPERATE) {
-                    if (ctx->req_len == 2U) {
-                        if (ctx->frame_buf[0] == IOLINK_MC_TRANSITION_COMMAND)
-                            dll_handle_preoperate(ctx, ctx->frame_buf[0], ctx->frame_buf[1]);
-                        else
-                            dll_handle_operate_type0(ctx, ctx->frame_buf[0], ctx->frame_buf[1]);
+                    uint8_t mc = ctx->frame_buf[0];
+                    bool page_read = ((mc & IOLINK_MC_RW_MASK) != 0U) &&
+                                     ((mc & IOLINK_MC_COMM_CHANNEL_MASK) == 0x20U);
+                    if (was_establishing && (ctx->req_len == 2U) && page_read) {
+                        /* First message after wake-up is the spec startup probe
+                           (transition T1): a Type-0 READ of a Direct Parameter page
+                           octet on the page channel. Answer from the direct-parameter
+                           source rather than feeding the MC into ISDU. Later PREOPERATE
+                           Type-0 frames are ISDU traffic and are not intercepted. */
+                        dll_handle_page_channel_read(ctx, mc);
+                    }
+                    else if (ctx->req_len == 2U) {
+                        if (mc == IOLINK_MC_TRANSITION_COMMAND) {
+                            dll_handle_preoperate(ctx, mc, ctx->frame_buf[1]);
+                        }
+                        else {
+                            dll_handle_operate_type0(ctx, mc, ctx->frame_buf[1]);
+                        }
+                    }
+                    else if ((ctx->req_len == 3U) && ((mc & IOLINK_MC_RW_MASK) == 0U) &&
+                             ((mc & IOLINK_MC_COMM_CHANNEL_MASK) == 0x20U) &&
+                             ((mc & IOLINK_MC_ADDR_MASK) == 0x00U) &&
+                             (ctx->frame_buf[1] == IOLINK_CMD_DEVICE_OPERATE)) {
+                        /* Spec DeviceOperate: page-channel WRITE of MasterCommand
+                           0x99 to Direct Parameter address 0x00 establishes
+                           communication (no response per spec). */
+                        dll_set_state(ctx, IOLINK_DLL_STATE_ESTAB_COM);
+                        ctx->fallback_count = 0U;
                     }
                 }
                 else if (ctx->state == IOLINK_DLL_STATE_ESTAB_COM) {

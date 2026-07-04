@@ -268,8 +268,8 @@ int isdu_send_read_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subin
     ret = iolink_isdu_collect_byte(ctx, 0x80);
     if (ret != 0) return ret;
 
-    /* Data: Read service (0x80 = Read, Length=0) */
-    ret = iolink_isdu_collect_byte(ctx, 0x80);
+    /* Data: Read service (0xB0 = I-Service READ nibble 0x0B per Table A.12, Length=0) */
+    ret = iolink_isdu_collect_byte(ctx, 0xB0);
     if (ret != 0) return ret;
 
     /* Control: Seq=1 */
@@ -313,10 +313,11 @@ int isdu_send_write_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subi
     /* Data: Write service */
     uint8_t service_byte;
     if (data_len <= 15) {
-        service_byte = 0x90 | data_len; /* Write, embedded length */
+        service_byte =
+            0x30 | data_len; /* I-Service WRITE nibble 0x03 (Table A.12), embedded length */
     }
     else {
-        service_byte = 0x9F; /* Write, extended length */
+        service_byte = 0x3F; /* I-Service WRITE nibble 0x03, extended length */
     }
     ret = iolink_isdu_collect_byte(ctx, service_byte);
     if (ret != 0) return ret;

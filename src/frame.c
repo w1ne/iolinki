@@ -23,6 +23,22 @@ int iolink_frame_encode_type0(uint8_t mc, uint8_t* out, size_t out_size)
     return (int) IOLINK_M_SEQ_TYPE0_LEN;
 }
 
+int iolink_frame_encode_type0_write(uint8_t mc, uint8_t od, uint8_t* out, size_t out_size)
+{
+    if ((out == NULL) || (out_size < IOLINK_M_SEQ_MIN_LEN)) {
+        return -1;
+    }
+
+    /* Type-0 write frame (MC + one OD data octet + CK). The trailing checksum is
+       the 6-bit M-sequence CRC over the preceding octets, matching how the
+       device DLL verifies any request longer than the 2-octet Type-0 read. */
+    out[0] = mc;
+    out[1] = od;
+    out[2] = iolink_crc6(out, 2U);
+
+    return (int) IOLINK_M_SEQ_MIN_LEN;
+}
+
 int iolink_frame_encode_type1_cycle(const uint8_t* pd_out, uint8_t pd_out_len, uint8_t od_len,
                                     uint8_t* out, size_t out_size)
 {

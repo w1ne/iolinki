@@ -48,7 +48,7 @@ static void test_rapid_concurrent_requests(void** state)
 
     /* 1. Start a write request */
     iolink_isdu_collect_byte(&ctx, 0x81); /* Start, Seq=1 */
-    iolink_isdu_collect_byte(&ctx, 0x92); /* Write, Len=2 */
+    iolink_isdu_collect_byte(&ctx, 0x32); /* Write (I-Service nibble 0x03), Len=2 */
 
     /* 2. Send another Start bit immediately (Collision/Concurrency) */
     iolink_isdu_collect_byte(&ctx, 0x82);
@@ -82,7 +82,8 @@ static void test_maximum_segmented_transfer(void** state)
     /* Write 16 bytes to Index 0x0018 (App Tag) using segmentation */
     /* Header: [RW+Len] [ExtLen] [IndexH] [IndexL] [Subindex] */
     iolink_isdu_collect_byte(&ctx, 0x81); /* Start, Seq=1, !Last */
-    iolink_isdu_collect_byte(&ctx, 0x9F); /* Write, Len=15 (extended length follows) */
+    iolink_isdu_collect_byte(
+        &ctx, 0x3F); /* Write (I-Service nibble 0x03), Len=15 (extended length follows) */
 
     /* Extended length: 16 bytes total */
     iolink_isdu_collect_byte(&ctx, 0x02); /* Seq=2, !Last */
@@ -130,7 +131,7 @@ static void test_sequence_number_wraparound(void** state)
     /* Test sequence number wraparound (0-63) */
     /* Start with seq 61 */
     iolink_isdu_collect_byte(&ctx, 0x80 | 61); /* Start, Seq=61, !Last */
-    iolink_isdu_collect_byte(&ctx, 0x80);      /* Read, Len=0 */
+    iolink_isdu_collect_byte(&ctx, 0xB0);      /* Read (I-Service nibble 0x0B), Len=0 */
 
     iolink_isdu_collect_byte(&ctx, 62);   /* Seq=62, !Last */
     iolink_isdu_collect_byte(&ctx, 0x00); /* Index MSB */
