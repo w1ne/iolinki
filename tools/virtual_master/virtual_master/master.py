@@ -184,7 +184,7 @@ class VirtualMaster:
         )
 
         bytes_to_send = self.generator.generate_isdu_read_v11(
-            index, subindex, service_id=0x80
+            index, subindex, service_id=0xB0
         )
 
         def send_and_recv(byte_to_send: int):
@@ -316,9 +316,13 @@ class VirtualMaster:
         return False
 
     def go_to_operate(self) -> bool:
-        """Send transition command to Device."""
-        print("[Master] Sending OPERATE transition command (MC=0x0F)")
-        frame = self.generator.generate_type0(0x0F)  # Custom transition MC
+        """Send the spec DeviceOperate transition to the Device.
+
+        Type-0 WRITE: MC 0x20 (page channel, addr 0x00) + OD 0x99
+        (DeviceOperate) + CRC6. No response per spec.
+        """
+        print("[Master] Sending DeviceOperate transition (MC=0x20, OD=0x99)")
+        frame = self.generator.generate_device_operate()
         self.uart.send_bytes(frame)
         time.sleep(0.05)  # Give device time to switch
         self.state = MasterState.OPERATE
@@ -420,7 +424,7 @@ class VirtualMaster:
 
         data_len = len(data)
         if data_len > 15:
-            service_id = 0x9F
+            service_id = 0x3F  # I-Service WRITE nibble 0x03 (Table A.12), extended length
             request_data = [
                 service_id,
                 data_len,
@@ -430,7 +434,7 @@ class VirtualMaster:
             ] + list(data)
         else:
             request_data = [
-                0x90 | (data_len & 0x0F),
+                0x30 | (data_len & 0x0F),  # I-Service WRITE nibble 0x03, embedded length
                 (index >> 8) & 0xFF,
                 index & 0xFF,
                 subindex,

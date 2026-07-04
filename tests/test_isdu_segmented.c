@@ -51,7 +51,7 @@ static void test_isdu_segmented_write_corrected(void** state)
     /* Write Index 0x18, 2 bytes */
     /* Write Index 0x18, 2 bytes */
     iolink_isdu_collect_byte(&ctx, 0x80); /* Start, Seq=0 */
-    iolink_isdu_collect_byte(&ctx, 0x92);
+    iolink_isdu_collect_byte(&ctx, 0x32); /* Write (I-Service nibble 0x03), Len=2 */
 
     iolink_isdu_collect_byte(&ctx, 0x01); /* Seq=1 */
     iolink_isdu_collect_byte(&ctx, 0x00);
@@ -90,7 +90,7 @@ static void test_isdu_busy_response(void** state)
 
     /* 1. Start a write request */
     iolink_isdu_collect_byte(&ctx, 0x81); /* Start, Seq=1 */
-    iolink_isdu_collect_byte(&ctx, 0x92); /* Write, Len=2 */
+    iolink_isdu_collect_byte(&ctx, 0x32); /* Write (I-Service nibble 0x03), Len=2 */
 
     /* 2. Before finishing, send another Start bit (Concurrent request) */
     /* iolink_isdu_collect_byte should return 1 to indicate a response is now ready (the error
@@ -133,7 +133,7 @@ static void test_isdu_segmentation_error(void** state)
 
     /* 1. Start a segmented write */
     iolink_isdu_collect_byte(&ctx, 0x81); /* Start, Seq=1, !Last */
-    iolink_isdu_collect_byte(&ctx, 0x91); /* Write, Len=1 */
+    iolink_isdu_collect_byte(&ctx, 0x31); /* Write (I-Service nibble 0x03), Len=1 */
 
     /* 2. Send wrong sequence number (Expected 0x02, send 0x03) */
     assert_int_equal(iolink_isdu_collect_byte(&ctx, 0x03), -1);

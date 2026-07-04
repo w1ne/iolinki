@@ -7,7 +7,12 @@ See LICENSE for details.
 """
 
 from enum import IntEnum
-from .crc import calculate_checksum_type0, calculate_checksum_type1, verify_checksum
+from .crc import (
+    calculate_checksum_type0,
+    calculate_checksum_type1,
+    calculate_crc6,
+    verify_checksum,
+)
 
 """
 IO-Link protocol implementation - M-sequence generation and parsing.
@@ -42,6 +47,16 @@ class MasterCommand:
     MC_ISDU_WRITE = 0xA1
 
     MC_EVENT_REQ = 0xA2
+
+    # Spec-conformant startup probe (transition T1): Type-0 READ (RW=1, 0x80)
+    # on the page communication channel (0x20) of Direct Parameter address
+    # 0x02 = MinCycleTime. 0x80 | 0x20 | 0x02 = 0xA2.
+    MC_STARTUP_PROBE = 0xA2
+
+    # Spec DeviceOperate: page-channel WRITE (RW=0) at Direct Parameter
+    # address 0x00 (0x20 | 0x00) carrying MasterCommand 0x99 (DeviceOperate).
+    MC_DEVICE_OPERATE = 0x20
+    OD_DEVICE_OPERATE = 0x99
 
     @staticmethod
     def is_isdu_command(mc: int) -> bool:
@@ -98,29 +113,51 @@ class MSequenceGenerator:
         return self.generate_type0(MasterCommand.MC_WAKEUP)
 
     def generate_idle(self) -> bytes:
-        """Generate idle sequence."""
-        return self.generate_type0(MasterCommand.MC_IDLE)
+        """Generate the spec startup probe frame.
+
+        The device establishes communication on a Type-0 READ of the page
+        communication channel (MC=0xA2, MinCycleTime). It replies with the
+        MinCycleTime octet, which the master uses to confirm the link.
+        """
+        return self.generate_type0(MasterCommand.MC_STARTUP_PROBE)
+
+    def generate_device_operate(self) -> bytes:
+        """Generate the spec DeviceOperate transition frame.
+
+        Type-0 WRITE: MC 0x20 (page channel, address 0x00) + OD 0x99
+        (MasterCommand DeviceOperate) + 6-bit CRC over [MC, OD].
+        """
+        return self.generate_type0_write(
+            MasterCommand.MC_DEVICE_OPERATE, MasterCommand.OD_DEVICE_OPERATE
+        )
+
+    def generate_type0_write(self, mc: int, od: int) -> bytes:
+        """Generate a 3-octet Type-0 WRITE frame: [MC, OD, CRC6(MC,OD)].
+
+        Mirrors iolink_frame_encode_type0_write() in the device DLL.
+        """
+        return bytes([mc, od, calculate_crc6(bytes([mc, od]))])
 
     def generate_isdu_read(self, index: int, subindex: int = 0) -> list[bytes]:
         """
         Generate ISDU Read request frames (Old Type 0 / Type 1 legacy).
         """
         frames = []
-        frames.append(self.generate_type0(0x90))
+        frames.append(self.generate_type0(0xB0))
         frames.append(self.generate_type0((index >> 8) & 0xFF))
         frames.append(self.generate_type0(index & 0xFF))
         frames.append(self.generate_type0(subindex))
         return frames
 
     def generate_isdu_read_v11(
-        self, index: int, subindex: int = 0, service_id: int = 0x80
+        self, index: int, subindex: int = 0, service_id: int = 0xB0
     ) -> list[int]:
         """
         Generate ISDU Read request BYTES (excluding M-seq framing) for V1.1.5.
         Interleaves Control Bytes.
         """
         data = [
-            service_id,  # Read Service, Len 0 (Standard 0x80)
+            service_id,  # I-Service READ nibble 0x0B (Table A.12) -> 0xB0, Len 0
             (index >> 8) & 0xFF,
             index & 0xFF,
             subindex,

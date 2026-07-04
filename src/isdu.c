@@ -61,6 +61,20 @@ static int isdu_params_set(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subin
     return iolink_params_set(index, subindex, data, len, persist);
 }
 
+static void isdu_params_factory_reset(iolink_isdu_ctx_t* ctx)
+{
+    /* Reset the device's own parameter context when one is bound (as device.c
+       does via ctx->params_ctx); otherwise fall back to the legacy global set.
+       Using the bound context is required, else a per-device app tag survives a
+       Restore Factory Settings command. */
+    if ((ctx != NULL) && (ctx->params_ctx != NULL)) {
+        iolink_params_ctx_factory_reset(ctx->params_ctx);
+    }
+    else {
+        iolink_params_factory_reset();
+    }
+}
+
 static int isdu_handle_idle(iolink_isdu_ctx_t* ctx, uint8_t byte)
 {
     bool start = ((byte & IOLINK_ISDU_CTRL_START) != 0U);
@@ -470,12 +484,12 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
 
         case IOLINK_CMD_RESTORE_FACTORY_SETTINGS: /* 0x82 */
             /* Reset all parameters to factory defaults */
-            iolink_params_factory_reset();
+            isdu_params_factory_reset(ctx);
             break;
 
         case IOLINK_CMD_RESTORE_APP_DEFAULTS: /* 0x83 */
             /* Reset application-specific parameters (currently same as factory) */
-            iolink_params_factory_reset();
+            isdu_params_factory_reset(ctx);
             break;
 
         case IOLINK_CMD_SET_COMM_MODE: /* 0x84 */
