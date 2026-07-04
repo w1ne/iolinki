@@ -759,6 +759,18 @@ static void build_direct_param_page1(iolink_isdu_ctx_t* ctx, uint8_t* page)
     /* 0x0C-0x0E reserved (0); 0x0F SystemCommand (W) reads 0. */
 }
 
+uint8_t iolink_isdu_direct_param_page1_octet(iolink_isdu_ctx_t* ctx, uint8_t addr)
+{
+    uint8_t page[16];
+
+    if ((ctx == NULL) || (addr >= sizeof(page))) {
+        return 0U;
+    }
+
+    build_direct_param_page1(ctx, page);
+    return page[addr];
+}
+
 static void handle_direct_parameters(iolink_isdu_ctx_t* ctx)
 {
     bool page2 = (ctx->header.index == IOLINK_IDX_DIRECT_PARAMETERS_2);

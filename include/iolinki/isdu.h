@@ -132,4 +132,17 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t* ctx, uint8_t byte);
  */
 int iolink_isdu_get_response_byte(iolink_isdu_ctx_t* ctx, uint8_t* byte);
 
+/**
+ * @brief Read a single Direct Parameter page 1 octet.
+ *
+ * Builds the current Direct Parameter page 1 image (Table B.1) and returns the
+ * octet at the given address. Used by the DLL to answer a startup Type-0 read on
+ * the page communication channel.
+ *
+ * @param ctx ISDU context
+ * @param addr Direct Parameter page address (0x00-0x0F)
+ * @return uint8_t Octet value, or 0 for an out-of-range address or NULL context
+ */
+uint8_t iolink_isdu_direct_param_page1_octet(iolink_isdu_ctx_t* ctx, uint8_t addr);
+
 #endif  // IOLINK_ISDU_H

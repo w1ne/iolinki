@@ -32,6 +32,7 @@ typedef struct
 } iolink_frame_operate_response_t;
 
 int iolink_frame_encode_type0(uint8_t mc, uint8_t* out, size_t out_size);
+int iolink_frame_encode_type0_write(uint8_t mc, uint8_t od, uint8_t* out, size_t out_size);
 int iolink_frame_encode_type1_cycle(const uint8_t* pd_out, uint8_t pd_out_len, uint8_t od_len,
                                     uint8_t* out, size_t out_size);
 int iolink_frame_decode_operate_response(const uint8_t* frame, size_t frame_len, uint8_t pd_in_len,

@@ -26,6 +26,9 @@
 
 #define IOLINK_MC_TRANSITION_COMMAND 0x0FU
 
+/* MasterCommand values written to Direct Parameter page address 0x00 (Table B.2). */
+#define IOLINK_CMD_DEVICE_OPERATE 0x99U
+
 /* ISDU Control Byte Bits */
 #define IOLINK_ISDU_CTRL_START 0x80U
 #define IOLINK_ISDU_CTRL_LAST 0x40U
