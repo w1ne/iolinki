@@ -16,6 +16,17 @@
  * @brief Time abstractions for IO-Link timing enforcement
  */
 
+/**
+ * @defgroup iolinki_time Time Utilities
+ * @brief Time-unit conversions and system time sources.
+ * @{
+ */
+
+/**
+ * @brief Convert milliseconds to microseconds.
+ * @param ms Duration in milliseconds.
+ * @return Equivalent duration in microseconds.
+ */
 static inline uint64_t iolink_us_from_ms(uint32_t ms)
 {
     return (uint64_t) ms * 1000ULL;
@@ -32,5 +43,7 @@ uint32_t iolink_time_get_ms(void);
  * @return uint64_t current time in us
  */
 uint64_t iolink_time_get_us(void);
+
+/** @} */ /* end of iolinki_time */
 
 #endif  // IOLINK_TIME_UTILS_H

@@ -6,11 +6,22 @@
  * See LICENSE for details.
  */
 
+/**
+ * @file device.c
+ * @brief Device application layer: top-level stack lifecycle and I/O.
+ * @ingroup iolinki_device
+ *
+ * Wires together the DLL, ISDU, parameter, device-info and data-storage
+ * sub-contexts, drives the per-cycle processing, and exposes process-data
+ * exchange and status accessors to the application.
+ */
+
 #include "iolinki/device.h"
 #include "iolinki/platform.h"
 #include "iolinki/time_utils.h"
 #include <string.h>
 
+/** @brief DLL state-change callback: dispatches to the app startup/preoperate/operate hooks. */
 static void device_state_cb(void* user, iolink_dll_state_t state)
 {
     iolink_device_ctx_t* ctx = (iolink_device_ctx_t*) user;
@@ -40,6 +51,7 @@ static void device_state_cb(void* user, iolink_dll_state_t state)
     }
 }
 
+/** @brief Copy the user stack configuration into the DLL context and derive lengths/timing. */
 static void device_apply_stack_config(iolink_device_ctx_t* ctx)
 {
     ctx->dll.m_seq_type = (uint8_t) ctx->stack_config.m_seq_type;

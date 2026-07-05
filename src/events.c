@@ -9,6 +9,10 @@
 /**
  * @file events.c
  * @brief IO-Link Event Handling
+ * @ingroup iolinki_events
+ *
+ * Implements the device event queue (enqueue/pop/peek), severity ranking and
+ * event-code classification used to report diagnostics to the master.
  */
 
 #include "iolinki/events.h"

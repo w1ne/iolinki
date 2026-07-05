@@ -19,6 +19,12 @@
  */
 
 /**
+ * @defgroup iolinki_application Application Layer Callbacks
+ * @brief Application lifecycle and process-data callback hooks.
+ * @{
+ */
+
+/**
  * @brief Application lifecycle and Process Data callbacks.
  *
  * Any field may be NULL. Lifecycle callbacks fire once when the DLL enters the
@@ -35,5 +41,7 @@ typedef struct
     void (*on_pd_input)(const uint8_t* data, uint8_t len); /**< Input PD published */
     void (*on_pd_output)(uint8_t* data, uint8_t len);      /**< Output PD received */
 } iolink_app_callbacks_t;
+
+/** @} */ /* end of iolinki_application */
 
 #endif  // IOLINK_APPLICATION_H

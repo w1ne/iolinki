@@ -20,6 +20,12 @@
  * Platforms/RTOS integrations should override these to ensure thread safety.
  */
 
+/**
+ * @defgroup iolinki_platform Platform Abstraction
+ * @brief Critical-section and non-volatile memory hooks the integrator provides.
+ * @{
+ */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -63,5 +69,7 @@ int iolink_nvm_write(uint32_t offset, const uint8_t* data, size_t len);
 #ifdef __cplusplus
 }
 #endif
+
+/** @} */ /* end of iolinki_platform */
 
 #endif  // IOLINK_PLATFORM_H

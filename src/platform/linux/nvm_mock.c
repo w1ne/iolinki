@@ -6,6 +6,15 @@
  * See LICENSE for details.
  */
 
+/**
+ * @file nvm_mock.c
+ * @brief Linux file-backed NVM mock implementation.
+ * @ingroup iolinki_platform
+ *
+ * Implements the platform NVM read/write hooks against a local binary file,
+ * used for host-side testing of parameter persistence.
+ */
+
 #include "iolinki/platform.h"
 #include "iolinki/utils.h"
 #include <stdio.h>

@@ -6,6 +6,15 @@
  * See LICENSE for details.
  */
 
+/**
+ * @file time_utils.c
+ * @brief Linux time utilities implementation (CLOCK_MONOTONIC).
+ * @ingroup iolinki_time
+ *
+ * Provides the millisecond and microsecond monotonic time sources used by the
+ * stack, backed by POSIX clock_gettime().
+ */
+
 #include "iolinki/time_utils.h"
 #include <time.h>
 

@@ -21,6 +21,12 @@
  */
 
 /**
+ * @defgroup iolinki_data_storage Data Storage (DS)
+ * @brief Parameter image serialization, checksum compare, and upload/download services.
+ * @{
+ */
+
+/**
  * @brief Maximum size of the serialized Data Storage parameter image.
  *
  * Must hold every DS-backed parameter record. Each record is laid out as
@@ -106,6 +112,13 @@ typedef struct
  * @param storage Optional storage implementation hooks (can be NULL for RAM-only)
  */
 void iolink_ds_init(iolink_ds_ctx_t* ctx, const iolink_ds_storage_api_t* storage);
+
+/**
+ * @brief Bind the writable parameter context used as the DS parameter source.
+ *
+ * @param ctx DS context
+ * @param params_ctx Device-local parameter manager context to serialize/restore
+ */
 void iolink_ds_bind_params(iolink_ds_ctx_t* ctx, iolink_params_ctx_t* params_ctx);
 
 /**
@@ -155,6 +168,8 @@ int iolink_ds_start_upload(iolink_ds_ctx_t* ctx);
 int iolink_ds_start_download(iolink_ds_ctx_t* ctx);
 
 /**
+ * @brief Abort any in-progress DS upload/download and return to idle.
+ *
  * @param ctx DS context
  * @return int 0 on success
  */
@@ -210,5 +225,7 @@ const uint8_t* iolink_ds_get_image(iolink_ds_ctx_t* ctx, size_t* out_len);
  * @return true if checksum(image) == current_checksum, false otherwise.
  */
 bool iolink_ds_verify(const iolink_ds_ctx_t* ctx);
+
+/** @} */ /* end of iolinki_data_storage */
 
 #endif  // IOLINK_DATA_STORAGE_H

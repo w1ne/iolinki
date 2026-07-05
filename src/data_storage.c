@@ -6,13 +6,10 @@
  * See LICENSE for details.
  */
 
-#include "iolinki/data_storage.h"
-#include "iolinki/params.h"
-#include "iolinki/utils.h"
-#include <string.h>
-
-/*
- * IO-Link Data Storage parameter server.
+/**
+ * @file data_storage.c
+ * @brief IO-Link Data Storage (DS) parameter server.
+ * @ingroup iolinki_data_storage
  *
  * The Master keeps an opaque backup of a device's parameters so a replacement
  * unit can be restored automatically. The device serializes its DS-backed
@@ -20,6 +17,11 @@
  * image received from the Master on download. Each record is laid out as:
  *   [Index(2, big-endian)][Subindex(1)][Length(1)][Data(Length)]
  */
+
+#include "iolinki/data_storage.h"
+#include "iolinki/params.h"
+#include "iolinki/utils.h"
+#include <string.h>
 
 /* Parameters included in the Data Storage set (V1.1.5 device identification
    parameters that are writable and therefore worth backing up). */
@@ -53,6 +55,7 @@ void iolink_ds_bind_params(iolink_ds_ctx_t* ctx, iolink_params_ctx_t* params_ctx
     }
 }
 
+/** @brief Read a parameter via the bound params context, or the legacy global set. */
 static int ds_params_get(const iolink_ds_ctx_t* ctx, uint16_t index, uint8_t subindex,
                          uint8_t* buffer, size_t max_len)
 {
@@ -62,6 +65,7 @@ static int ds_params_get(const iolink_ds_ctx_t* ctx, uint16_t index, uint8_t sub
     return iolink_params_get(index, subindex, buffer, max_len);
 }
 
+/** @brief Write a parameter via the bound params context, or the legacy global set. */
 static int ds_params_set(iolink_ds_ctx_t* ctx, uint16_t index, uint8_t subindex,
                          const uint8_t* data, size_t len, bool persist)
 {

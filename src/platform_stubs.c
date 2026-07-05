@@ -6,6 +6,15 @@
  * See LICENSE for details.
  */
 
+/**
+ * @file platform_stubs.c
+ * @brief Test/stub weak platform NVM implementations.
+ * @ingroup iolinki_platform
+ *
+ * Weak NVM read/write stubs whose return values are driven by global test
+ * hooks, used when no real platform NVM port is linked.
+ */
+
 #include "iolinki/platform.h"
 
 /* Global variables for stubs to avoid static analysis "knownConditionTrueFalse"

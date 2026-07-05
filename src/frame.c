@@ -6,6 +6,15 @@
  * See LICENSE for details.
  */
 
+/**
+ * @file frame.c
+ * @brief M-sequence frame encoding and decoding.
+ * @ingroup iolinki_frame
+ *
+ * Builds Type-0/Type-1 request frames and decodes OPERATE-mode response
+ * frames, computing and verifying the associated M-sequence checksums.
+ */
+
 #include "iolinki/frame.h"
 #include "iolinki/crc.h"
 #include "iolinki/protocol.h"

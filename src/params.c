@@ -6,6 +6,17 @@
  * See LICENSE for details.
  */
 
+/**
+ * @file params.c
+ * @brief Parameter manager: writable device tags with NVM persistence.
+ * @ingroup iolinki_params
+ *
+ * Manages the application/function/location tag parameters, loading and
+ * persisting them via the platform NVM interface, and mirrors the application
+ * tag into the device-info context. A legacy singleton wrapper is provided for
+ * context-less callers.
+ */
+
 #include "iolinki/params.h"
 #include "iolinki/platform.h"
 #include "iolinki/protocol.h"
@@ -27,6 +38,7 @@ static iolink_device_info_ctx_t g_legacy_device_info_ctx;
 static iolink_params_ctx_t g_legacy_params_ctx;
 static bool g_legacy_params_ctx_initialized = false;
 
+/** @brief Copy up to 32 bytes into a NUL-terminated tag buffer and mark it valid. */
 static void copy_tag(char* dst, bool* valid, const uint8_t* data, size_t len)
 {
     size_t copy_len = (len > 32U) ? 32U : len;
@@ -38,6 +50,7 @@ static void copy_tag(char* dst, bool* valid, const uint8_t* data, size_t len)
     *valid = true;
 }
 
+/** @brief Return the tag string length, clamped to the 32-byte maximum. */
 static size_t bounded_tag_len(const char* tag)
 {
     size_t len = strlen(tag);
@@ -47,6 +60,7 @@ static size_t bounded_tag_len(const char* tag)
     return len;
 }
 
+/** @brief Copy a bounded tag string into an output buffer; returns bytes written. */
 static int read_tag(const char* tag, uint8_t* buffer, size_t max_len)
 {
     size_t len = bounded_tag_len(tag);
@@ -59,6 +73,7 @@ static int read_tag(const char* tag, uint8_t* buffer, size_t max_len)
     return (int) len;
 }
 
+/** @brief Serialize the valid tags into the NVM record and write it to storage. */
 static void params_ctx_write_nvm(const iolink_params_ctx_t* ctx)
 {
     iolink_params_nvm_t nvm;
@@ -200,6 +215,7 @@ void iolink_params_ctx_factory_reset(iolink_params_ctx_t* ctx)
     params_ctx_write_nvm(ctx);
 }
 
+/** @brief Lazily initialize and return the process-wide legacy parameter context. */
 static iolink_params_ctx_t* legacy_params_ctx(void)
 {
     if (!g_legacy_params_ctx_initialized) {

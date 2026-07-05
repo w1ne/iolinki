@@ -15,10 +15,25 @@
 #include <string.h>
 #include <stdio.h>
 
+/**
+ * @file dll.c
+ * @brief Data Link Layer (DLL): M-sequence state machine and framing.
+ * @ingroup iolinki_dll
+ *
+ * Drives the IO-Link device DLL: wake-up detection, mode/baudrate management,
+ * per-frame reception and CRC validation, the STARTUP -> PREOPERATE ->
+ * OPERATE state machine, timing enforcement, fallback handling, and dispatch
+ * of Type-0/Type-1/Type-2 M-sequences into the ISDU engine.
+ */
+
 #define DLL_LOG(...)
 
-/* Centralised state transition: updates the state and notifies the optional
-   state-change hook on an actual change, so no transition is ever missed. */
+/**
+ * @brief Centralised state transition.
+ *
+ * Updates the state and notifies the optional state-change hook on an actual
+ * change, so no transition is ever missed.
+ */
 static void dll_set_state(iolink_dll_ctx_t* ctx, iolink_dll_state_t new_state)
 {
     if (ctx->state != new_state) {
@@ -29,6 +44,7 @@ static void dll_set_state(iolink_dll_ctx_t* ctx, iolink_dll_state_t new_state)
     }
 }
 
+/** @brief Return the response-time (t_REN) limit in us for the active baudrate/override. */
 static uint32_t dll_get_t_ren_limit_us(const iolink_dll_ctx_t* ctx)
 {
     if (ctx == NULL) {
@@ -50,6 +66,7 @@ static uint32_t dll_get_t_ren_limit_us(const iolink_dll_ctx_t* ctx)
     }
 }
 
+/** @brief Return the inter-byte timeout (16 bit-times) in us for the active baudrate. */
 static uint32_t dll_get_t_byte_limit_us(const iolink_dll_ctx_t* ctx)
 {
     if (ctx == NULL) {
@@ -73,6 +90,7 @@ static uint32_t dll_get_t_byte_limit_us(const iolink_dll_ctx_t* ctx)
     return t_bit_us * 16U;
 }
 
+/** @brief Return true while the power-down/PD guard window (t_PD) is still active. */
 static bool dll_t_pd_active(const iolink_dll_ctx_t* ctx)
 {
     if ((ctx == NULL) || (ctx->t_pd_deadline_us == 0U)) {
@@ -81,6 +99,7 @@ static bool dll_t_pd_active(const iolink_dll_ctx_t* ctx)
     return iolink_time_get_us() < ctx->t_pd_deadline_us;
 }
 
+/** @brief Drain all pending RX bytes from the PHY; returns true if any were seen. */
 static bool dll_drain_rx(iolink_dll_ctx_t* ctx)
 {
     if ((ctx == NULL) || (ctx->phy == NULL) || (ctx->phy->recv_byte == NULL)) {
@@ -94,6 +113,7 @@ static bool dll_drain_rx(iolink_dll_ctx_t* ctx)
     return saw_byte;
 }
 
+/** @brief Handle a communication failure: count retries and revert toward SIO/STARTUP. */
 static void dll_enter_fallback(iolink_dll_ctx_t* ctx)
 {
     if (ctx == NULL) {
@@ -121,6 +141,7 @@ static void dll_enter_fallback(iolink_dll_ctx_t* ctx)
     }
 }
 
+/** @brief Handle a PREOPERATE master command: advance to ESTAB_COM on the transition command. */
 static void dll_handle_preoperate(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t ck)
 {
     (void) ck;
@@ -131,10 +152,14 @@ static void dll_handle_preoperate(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t ck)
     }
 }
 
-/* Answer a startup Type-0 read on the page communication channel (spec startup
-   transition T1): the master reads a Direct Parameter page octet (address in the
-   MC address field, e.g. 0x02 = MinCycleTime). Reply with a 2-octet Type-0 frame
-   carrying that octet, rather than feeding the MC into the ISDU engine. */
+/**
+ * @brief Answer a startup Type-0 read on the page communication channel.
+ *
+ * Spec startup transition T1: the master reads a Direct Parameter page octet
+ * (address in the MC address field, e.g. 0x02 = MinCycleTime). Reply with a
+ * 2-octet Type-0 frame carrying that octet, rather than feeding the MC into the
+ * ISDU engine.
+ */
 static void dll_handle_page_channel_read(iolink_dll_ctx_t* ctx, uint8_t mc)
 {
     uint8_t resp[2];
@@ -146,6 +171,7 @@ static void dll_handle_page_channel_read(iolink_dll_ctx_t* ctx, uint8_t mc)
     }
 }
 
+/** @brief Process a 2-octet Type-0 request through ISDU and send the OD response. */
 static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t cks)
 {
     (void) cks;
@@ -163,6 +189,7 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
     }
 }
 
+/** @brief Process a Type-1/Type-2 OPERATE frame (PD+OD) and build the response, enforcing t_REN. */
 static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
 {
     /* IO-Link V1.1 M-sequence structure: MC | CKT | PD | OD | CK */
@@ -221,6 +248,7 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
     ctx->last_response_us = iolink_time_get_us();
 }
 
+/** @brief Poll PHY voltage and short-circuit status and raise events on faults. */
 static void dll_poll_diagnostics(iolink_dll_ctx_t* ctx)
 {
     if ((ctx == NULL) || (ctx->phy == NULL)) {

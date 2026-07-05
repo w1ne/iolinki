@@ -6,6 +6,15 @@
  * See LICENSE for details.
  */
 
+/**
+ * @file time_utils.c
+ * @brief Zephyr time utilities implementation (kernel uptime).
+ * @ingroup iolinki_time
+ *
+ * Provides the millisecond and microsecond time sources backed by the Zephyr
+ * kernel uptime.
+ */
+
 #include "iolinki/time_utils.h"
 #include <zephyr/kernel.h>
 

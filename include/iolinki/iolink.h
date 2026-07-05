@@ -17,6 +17,12 @@
  */
 
 /**
+ * @defgroup iolinki_core Core Types and Baudrates
+ * @brief Shared IO-Link enumerations, configuration and callback types.
+ * @{
+ */
+
+/**
  * @brief IO-Link M-sequence types
  *
  * Defines the frame structure and capabilities of the communication cycle.
@@ -62,5 +68,7 @@ typedef enum
  * @param type IOLINK_RESET_DEVICE or IOLINK_RESET_APPLICATION
  */
 typedef void (*iolink_reset_handler_t)(iolink_reset_type_t type);
+
+/** @} */ /* end of iolinki_core */
 
 #endif  // IOLINK_H

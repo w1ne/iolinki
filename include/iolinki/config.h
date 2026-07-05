@@ -18,6 +18,12 @@
  * or in a private config header included before this file.
  */
 
+/**
+ * @defgroup iolinki_config Compile-time Configuration
+ * @brief Overridable buffer sizes, queue depths and timing defaults.
+ * @{
+ */
+
 /* -------------------------------------------------------------------------
  * ISDU Configuration
  * ------------------------------------------------------------------------- */
@@ -124,5 +130,7 @@
 #ifndef IOLINK_OD_EVENT_MODE
 #define IOLINK_OD_EVENT_MODE 0U
 #endif
+
+/** @} */ /* end of iolinki_config */
 
 #endif  // IOLINK_CONFIG_H

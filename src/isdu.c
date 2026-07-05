@@ -20,8 +20,15 @@
 #include <string.h>
 #include <stdint.h>
 
-/*
- * IO-Link ISDU Segmentation Engine
+/**
+ * @file isdu.c
+ * @brief ISDU service engine: acyclic parameter read/write handling.
+ * @ingroup iolinki_isdu
+ *
+ * Implements the ISDU segmentation state machine (byte collection, header
+ * parsing, sequence tracking and response segmentation) and dispatches
+ * standard indices and system commands to the device parameter, device-info,
+ * event, direct-parameter and data-storage handlers.
  *
  * ISDU Header (2 or 3 bytes):
  * [7:4] Service (Read/Write)
@@ -43,6 +50,7 @@ void iolink_isdu_init(iolink_isdu_ctx_t* ctx)
     ctx->next_state = ISDU_STATE_IDLE;
 }
 
+/** @brief Read a parameter via the bound params context, or the legacy global set. */
 static int isdu_params_get(const iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subindex,
                            uint8_t* buffer, size_t max_len)
 {
@@ -52,6 +60,7 @@ static int isdu_params_get(const iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t
     return iolink_params_get(index, subindex, buffer, max_len);
 }
 
+/** @brief Write a parameter via the bound params context, or the legacy global set. */
 static int isdu_params_set(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subindex,
                            const uint8_t* data, size_t len, bool persist)
 {
@@ -61,6 +70,7 @@ static int isdu_params_set(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subin
     return iolink_params_set(index, subindex, data, len, persist);
 }
 
+/** @brief Factory-reset the bound parameter context, or the legacy global set. */
 static void isdu_params_factory_reset(iolink_isdu_ctx_t* ctx)
 {
     /* Reset the device's own parameter context when one is bound (as device.c
@@ -75,6 +85,7 @@ static void isdu_params_factory_reset(iolink_isdu_ctx_t* ctx)
     }
 }
 
+/** @brief Begin a new ISDU transfer from the start control byte, resetting buffers. */
 static int isdu_handle_idle(iolink_isdu_ctx_t* ctx, uint8_t byte)
 {
     bool start = ((byte & IOLINK_ISDU_CTRL_START) != 0U);
@@ -257,6 +268,7 @@ int iolink_isdu_collect_byte(iolink_isdu_ctx_t* ctx, uint8_t byte)
     return 0;
 }
 
+/** @brief Serve the mandatory identification/status indices (vendor, product, tags, etc.). */
 static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
 {
     const iolink_device_info_t* info = iolink_device_info_get();
@@ -469,6 +481,7 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
     }
 }
 
+/** @brief Execute a SystemCommand (reset, factory restore, data-storage commands). */
 static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
 {
     switch (cmd) {
@@ -576,6 +589,7 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
+/** @brief Read or write the DeviceAccessLocks parameter (index 0x000C). */
 static void handle_access_locks(iolink_isdu_ctx_t* ctx)
 {
     if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_READ) {
@@ -596,6 +610,7 @@ static void handle_access_locks(iolink_isdu_ctx_t* ctx)
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
+/** @brief Serve DetailedDeviceStatus: encode up to 8 queued events as qualifier+code triplets. */
 static void handle_detailed_device_status(iolink_isdu_ctx_t* ctx)
 {
     if (ctx->header.type != IOLINK_ISDU_SERVICE_TYPE_READ) {
@@ -652,6 +667,7 @@ static void handle_detailed_device_status(iolink_isdu_ctx_t* ctx)
     iolink_critical_exit();
 }
 
+/** @brief Append a 32-bit value to a buffer in big-endian order, advancing the index. */
 static void isdu_write_u32_be(uint8_t* buf, size_t* idx, uint32_t value)
 {
     buf[(*idx)++] = (uint8_t) ((value >> 24) & 0xFFU);
@@ -660,6 +676,7 @@ static void isdu_write_u32_be(uint8_t* buf, size_t* idx, uint32_t value)
     buf[(*idx)++] = (uint8_t) (value & 0xFFU);
 }
 
+/** @brief Serve the vendor error-statistics index as four big-endian DLL counters. */
 static void handle_error_stats(iolink_isdu_ctx_t* ctx)
 {
     if (ctx->header.type != IOLINK_ISDU_SERVICE_TYPE_READ) {
@@ -696,7 +713,7 @@ static void handle_error_stats(iolink_isdu_ctx_t* ctx)
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
-/* Direct Parameter page 2 (device-specific, addresses 0x10-0x1F). */
+/** @brief Return the Direct Parameter page 2 storage (device-specific, addresses 0x10-0x1F). */
 static uint8_t* direct_param_page2(iolink_isdu_ctx_t* ctx)
 {
     static uint8_t fallback_page2[16] = {0U};
@@ -707,8 +724,11 @@ static uint8_t* direct_param_page2(iolink_isdu_ctx_t* ctx)
     return fallback_page2;
 }
 
-/* Encode a Process Data length (in octets) per IO-Link V1.1.5 Figure B.5:
-   <=2 octets are expressed as bit length (BYTE=0); larger as octets (BYTE=1). */
+/**
+ * @brief Encode a Process Data length (in octets) per IO-Link V1.1.5 Figure B.5.
+ *
+ * <=2 octets are expressed as bit length (BYTE=0); larger as octets (BYTE=1).
+ */
 static uint8_t direct_param_encode_pd(uint8_t octets)
 {
     if (octets == 0U) {
@@ -720,8 +740,11 @@ static uint8_t direct_param_encode_pd(uint8_t octets)
     return (uint8_t) (0x80U | (uint8_t) (octets - 1U)); /* BYTE=1, Length=octets-1 */
 }
 
-/* M-sequenceCapability byte (Direct Parameter addr 0x03, Figure B.3):
-   bit0 = ISDU supported, bits1-3 = OPERATE M-sequence code, bits4-5 = PREOPERATE. */
+/**
+ * @brief Build the M-sequenceCapability byte (Direct Parameter addr 0x03, Figure B.3).
+ *
+ * bit0 = ISDU supported, bits1-3 = OPERATE M-sequence code, bits4-5 = PREOPERATE.
+ */
 static uint8_t direct_param_mseq_capability(uint8_t m_seq_type)
 {
     uint8_t cap = 0x01U; /* ISDU supported */
@@ -744,6 +767,7 @@ static uint8_t direct_param_mseq_capability(uint8_t m_seq_type)
     return cap;
 }
 
+/** @brief Populate the 16-octet Direct Parameter page 1 from device-info and DLL state. */
 static void build_direct_param_page1(iolink_isdu_ctx_t* ctx, uint8_t* page)
 {
     const iolink_device_info_t* info = iolink_device_info_get();
@@ -785,6 +809,7 @@ uint8_t iolink_isdu_direct_param_page1_octet(iolink_isdu_ctx_t* ctx, uint8_t add
     return page[addr];
 }
 
+/** @brief Read/write Direct Parameter pages 1 (read-only) and 2 (device-specific). */
 static void handle_direct_parameters(iolink_isdu_ctx_t* ctx)
 {
     bool page2 = (ctx->header.index == IOLINK_IDX_DIRECT_PARAMETERS_2);
@@ -843,6 +868,7 @@ static void handle_direct_parameters(iolink_isdu_ctx_t* ctx)
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
+/** @brief Serve the Data Storage index: backup (read image) or restore (apply image). */
 static void handle_data_storage(iolink_isdu_ctx_t* ctx)
 {
     iolink_ds_ctx_t* ds = (iolink_ds_ctx_t*) ctx->ds_ctx;
@@ -884,6 +910,7 @@ static void handle_data_storage(iolink_isdu_ctx_t* ctx)
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
+/** @brief Dispatch an executed ISDU request to the handler for its index. */
 static void handle_standard_commands(iolink_isdu_ctx_t* ctx)
 {
     if (ctx->header.index == IOLINK_IDX_SYSTEM_COMMAND) {

@@ -19,6 +19,12 @@
  */
 
 /**
+ * @defgroup iolinki_phy Physical Layer (PHY) Interface
+ * @brief Hardware-agnostic transceiver contract, operating modes and baudrates.
+ * @{
+ */
+
+/**
  * @brief IO-Link Operating Modes
  */
 typedef enum
@@ -46,7 +52,7 @@ typedef enum
  */
 typedef struct
 {
-    void* user;
+    void* user; /**< Opaque driver context passed back to every callback. */
 
     /**
      * @brief Initialize transceiver hardware
@@ -107,5 +113,7 @@ typedef struct
      */
     bool (*is_short_circuit)(void* user);
 } iolink_phy_api_t;
+
+/** @} */ /* end of iolinki_phy */
 
 #endif  // IOLINK_PHY_H

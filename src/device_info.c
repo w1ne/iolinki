@@ -6,6 +6,16 @@
  * See LICENSE for details.
  */
 
+/**
+ * @file device_info.c
+ * @brief Device identification storage and access.
+ * @ingroup iolinki_device_info
+ *
+ * Holds the device identification parameters (vendor/product strings, IDs,
+ * access locks) in a context, with a legacy singleton wrapper for callers that
+ * do not manage their own context.
+ */
+
 #include "iolinki/device_info.h"
 #include <stdbool.h>
 #include <string.h>
@@ -111,6 +121,7 @@ void iolink_device_info_ctx_set_access_locks(iolink_device_info_ctx_t* ctx, uint
     ctx->defaults.access_locks = locks;
 }
 
+/** @brief Lazily initialize and return the process-wide legacy device-info context. */
 static iolink_device_info_ctx_t* legacy_device_info_ctx(void)
 {
     if (!g_legacy_device_info_ctx_initialized) {
