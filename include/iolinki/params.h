@@ -31,11 +31,11 @@
 typedef struct
 {
     char application_tag[33];              /**< Application tag (32 bytes + NUL). */
-    char function_tag[33];                /**< Function tag (32 bytes + NUL). */
-    char location_tag[33];                /**< Location tag (32 bytes + NUL). */
-    bool application_tag_valid;           /**< True if the application tag has been set. */
-    bool function_tag_valid;              /**< True if the function tag has been set. */
-    bool location_tag_valid;              /**< True if the location tag has been set. */
+    char function_tag[33];                 /**< Function tag (32 bytes + NUL). */
+    char location_tag[33];                 /**< Location tag (32 bytes + NUL). */
+    bool application_tag_valid;            /**< True if the application tag has been set. */
+    bool function_tag_valid;               /**< True if the function tag has been set. */
+    bool location_tag_valid;               /**< True if the location tag has been set. */
     iolink_device_info_ctx_t* device_info; /**< Associated device-info context. */
 } iolink_params_ctx_t;
 

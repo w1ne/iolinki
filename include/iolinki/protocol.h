@@ -108,7 +108,7 @@
 #define IOLINK_CMD_PARAM_DOWNLOAD_END 0x06U   /**< ParamDownloadEnd command. */
 #define IOLINK_CMD_PARAM_UPLOAD_START 0x07U   /**< ParamUploadStart command. */
 #define IOLINK_CMD_PARAM_UPLOAD_END 0x08U     /**< ParamUploadEnd command. */
-#define IOLINK_CMD_PARAM_DOWNLOAD_STORE 0x09U /**< ParamDownloadStore (V1.0 legacy or optional). */
+#define IOLINK_CMD_PARAM_DOWNLOAD_STORE 0x09U /**< ParamDownloadStore (V1.0/optional). */
 /** @} */
 
 /**

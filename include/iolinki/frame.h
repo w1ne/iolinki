@@ -35,14 +35,14 @@
  */
 typedef struct
 {
-    uint8_t status;                   /**< Status/checksum (CKS) byte from the frame. */
-    bool pd_valid;                    /**< True if the Process Data valid flag is set. */
-    bool event_pending;               /**< True if the frame signals a pending event. */
-    bool checksum_ok;                 /**< True if the frame checksum verified correctly. */
+    uint8_t status;                    /**< Status/checksum (CKS) byte from the frame. */
+    bool pd_valid;                     /**< True if the Process Data valid flag is set. */
+    bool event_pending;                /**< True if the frame signals a pending event. */
+    bool checksum_ok;                  /**< True if the frame checksum verified correctly. */
     uint8_t pd[IOLINK_PD_IN_MAX_SIZE]; /**< Decoded input Process Data bytes. */
-    uint8_t pd_len;                   /**< Number of valid bytes in @ref pd. */
-    uint8_t od[IOLINK_OD_MAX_SIZE];   /**< Decoded On-request Data bytes. */
-    uint8_t od_len;                   /**< Number of valid bytes in @ref od. */
+    uint8_t pd_len;                    /**< Number of valid bytes in @ref pd. */
+    uint8_t od[IOLINK_OD_MAX_SIZE];    /**< Decoded On-request Data bytes. */
+    uint8_t od_len;                    /**< Number of valid bytes in @ref od. */
 } iolink_frame_operate_response_t;
 
 /**

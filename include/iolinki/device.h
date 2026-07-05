@@ -58,15 +58,17 @@ typedef iolink_phy_api_t iolink_device_phy_t;
  */
 typedef struct
 {
-    iolink_device_phy_t phy;                        /**< Physical layer driver API. */
-    iolink_config_t stack;                          /**< Stack behavior configuration. */
-    const iolink_app_callbacks_t* app_callbacks;    /**< Application lifecycle/PD callbacks (may be NULL). */
-    const iolink_device_info_t* device_info;        /**< Static device identification data. */
-    const iolink_ds_storage_api_t* ds_storage;      /**< Data-storage persistence backend (may be NULL). */
-    iolink_device_time_us_fn time_us;               /**< Microsecond timestamp source. */
-    iolink_device_lock_fn lock;                     /**< Lock callback (may be NULL). */
-    iolink_device_unlock_fn unlock;                 /**< Unlock callback (may be NULL). */
-    void* user;                                     /**< Opaque pointer passed back to callbacks. */
+    iolink_device_phy_t phy; /**< Physical layer driver API. */
+    iolink_config_t stack;   /**< Stack behavior configuration. */
+    const iolink_app_callbacks_t*
+        app_callbacks; /**< Application lifecycle/PD callbacks (may be NULL). */
+    const iolink_device_info_t* device_info; /**< Static device identification data. */
+    const iolink_ds_storage_api_t*
+        ds_storage;                   /**< Data-storage persistence backend (may be NULL). */
+    iolink_device_time_us_fn time_us; /**< Microsecond timestamp source. */
+    iolink_device_lock_fn lock;       /**< Lock callback (may be NULL). */
+    iolink_device_unlock_fn unlock;   /**< Unlock callback (may be NULL). */
+    void* user;                       /**< Opaque pointer passed back to callbacks. */
 } iolink_device_config_t;
 
 /**
@@ -78,13 +80,13 @@ typedef struct
 typedef struct
 {
     /* Private fields. Allocate this object directly, but use API functions. */
-    iolink_dll_ctx_t dll;                        /**< Data link layer context. */
-    iolink_config_t stack_config;                /**< Active stack configuration. */
-    iolink_device_info_ctx_t device_info;        /**< Device identification context. */
-    iolink_params_ctx_t params;                  /**< Parameter manager context. */
-    const iolink_device_config_t* config;        /**< Pointer to the supplied configuration. */
-    iolink_reset_handler_t reset_handler;        /**< Application reset handler (may be NULL). */
-    uint8_t direct_param_page2[16];              /**< Direct Parameter Page 2 storage. */
+    iolink_dll_ctx_t dll;                 /**< Data link layer context. */
+    iolink_config_t stack_config;         /**< Active stack configuration. */
+    iolink_device_info_ctx_t device_info; /**< Device identification context. */
+    iolink_params_ctx_t params;           /**< Parameter manager context. */
+    const iolink_device_config_t* config; /**< Pointer to the supplied configuration. */
+    iolink_reset_handler_t reset_handler; /**< Application reset handler (may be NULL). */
+    uint8_t direct_param_page2[16];       /**< Direct Parameter Page 2 storage. */
 } iolink_device_ctx_t;
 
 /**
