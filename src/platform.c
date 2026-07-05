@@ -6,6 +6,16 @@
  * See LICENSE for details.
  */
 
+/**
+ * @file platform.c
+ * @brief Default weak platform abstraction implementations.
+ * @ingroup iolinki_platform
+ *
+ * Provides no-op / not-implemented weak defaults for the critical-section and
+ * NVM access hooks so the stack links without a platform port; a real port
+ * overrides these symbols.
+ */
+
 #include "iolinki/platform.h"
 
 /* Weak definitions allow the application to override them without link errors */

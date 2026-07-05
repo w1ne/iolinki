@@ -17,6 +17,12 @@
  */
 
 /**
+ * @defgroup iolinki_crc CRC / Checksum
+ * @brief IO-Link 6-bit CRC and 8-bit checksum computation.
+ * @{
+ */
+
+/**
  * @brief Calculate IO-Link 6-bit CRC
  *
  * Used for M-sequences and ISDU headers.
@@ -38,5 +44,7 @@ uint8_t iolink_crc6(const uint8_t* data, uint8_t len);
  * @return uint8_t Calculated CK
  */
 uint8_t iolink_checksum_ck(uint8_t mc, uint8_t ckt);
+
+/** @} */ /* end of iolinki_crc */
 
 #endif  // IOLINK_CRC_H

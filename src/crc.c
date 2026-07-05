@@ -6,6 +6,15 @@
  * See LICENSE for details.
  */
 
+/**
+ * @file crc.c
+ * @brief IO-Link CRC6 / checksum implementation.
+ * @ingroup iolinki_crc
+ *
+ * Implements the 6-bit M-sequence CRC and the derived checksum used to
+ * protect IO-Link frames.
+ */
+
 #include "iolinki/crc.h"
 #include "iolinki/utils.h"
 #include <stddef.h>

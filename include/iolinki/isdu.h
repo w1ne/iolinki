@@ -21,6 +21,12 @@
  */
 
 /**
+ * @defgroup iolinki_isdu ISDU Service (acyclic parameters)
+ * @brief Indexed acyclic read/write service engine and request/response handling.
+ * @{
+ */
+
+/**
  * @brief ISDU Service Types
  */
 typedef enum
@@ -144,5 +150,7 @@ int iolink_isdu_get_response_byte(iolink_isdu_ctx_t* ctx, uint8_t* byte);
  * @return uint8_t Octet value, or 0 for an out-of-range address or NULL context
  */
 uint8_t iolink_isdu_direct_param_page1_octet(iolink_isdu_ctx_t* ctx, uint8_t addr);
+
+/** @} */ /* end of iolinki_isdu */
 
 #endif  // IOLINK_ISDU_H

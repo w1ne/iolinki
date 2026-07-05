@@ -12,6 +12,16 @@
 #define _DEFAULT_SOURCE 1
 #endif
 
+/**
+ * @file phy_virtual.c
+ * @brief Virtual PHY backed by a POSIX serial port / pseudo-terminal.
+ * @ingroup iolinki_phy_virtual
+ *
+ * Implements the PHY API over a host file descriptor (TTY or pipe) so the
+ * device stack can be exercised via loopback or a virtual serial link during
+ * development and testing.
+ */
+
 #include "iolinki/phy_virtual.h"
 #include <stdio.h>
 #include <fcntl.h>
@@ -28,6 +38,7 @@ void iolink_phy_virtual_set_port(const char* port)
     g_port_path = port;
 }
 
+/** @brief Open and configure the backing serial port in raw, non-blocking mode. */
 static int virtual_init(void* user)
 {
     (void) user;
@@ -69,18 +80,21 @@ static int virtual_init(void* user)
     return 0;
 }
 
+/** @brief Log the requested PHY mode (no electrical effect on the virtual link). */
 static void virtual_set_mode(void* user, iolink_phy_mode_t mode)
 {
     (void) user;
     printf("[PHY-VIRTUAL] Mode set to: %d\n", (int) mode);
 }
 
+/** @brief Log the requested baudrate (no effect on the virtual link). */
 static void virtual_set_baudrate(void* user, iolink_baudrate_t baudrate)
 {
     (void) user;
     printf("[PHY-VIRTUAL] Baudrate set to: %d\n", (int) baudrate);
 }
 
+/** @brief Write a buffer to the backing file descriptor. */
 static int virtual_send(void* user, const uint8_t* data, size_t len)
 {
     (void) user;
@@ -94,6 +108,7 @@ static int virtual_send(void* user, const uint8_t* data, size_t len)
     return (int) write(g_fd, data, len);
 }
 
+/** @brief Non-blocking read of a single byte from the backing file descriptor. */
 static int virtual_recv_byte(void* user, uint8_t* byte)
 {
     (void) user;
@@ -106,6 +121,7 @@ static int virtual_recv_byte(void* user, uint8_t* byte)
     return (n > 0) ? 1 : 0;
 }
 
+/** @brief Scan buffered input for a 0x55 wake-up marker byte. */
 static int virtual_detect_wakeup(void* user)
 {
     (void) user;

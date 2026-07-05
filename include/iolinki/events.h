@@ -19,6 +19,12 @@
  */
 
 /**
+ * @defgroup iolinki_events Event Handling
+ * @brief Diagnostic event codes, severity levels and the Device event queue.
+ * @{
+ */
+
+/**
  * @brief IO-Link Event Severity Levels
  */
 typedef enum
@@ -193,5 +199,7 @@ uint8_t iolink_events_get_all(iolink_events_ctx_t* ctx, iolink_event_t* out_even
  * @return iolink_event_type_t Spec EventType
  */
 iolink_event_type_t iolink_event_classify(uint16_t code);
+
+/** @} */ /* end of iolinki_events */
 
 #endif  // IOLINK_EVENTS_H

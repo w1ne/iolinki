@@ -20,6 +20,12 @@
  */
 
 /**
+ * @defgroup iolinki_dll Data Link Layer (DLL)
+ * @brief Frame timing, M-sequence exchange, mode/baudrate control and DLL statistics.
+ * @{
+ */
+
+/**
  * @brief IO-Link DLL State Machine states
  */
 typedef enum
@@ -178,8 +184,8 @@ int iolink_dll_set_pd_length(iolink_dll_ctx_t* ctx, uint8_t pd_in_len, uint8_t p
  * @brief Get current PD lengths
  *
  * @param ctx DLL context
- * @param pd_in_len [out] Current PD_In length
- * @param pd_out_len [out] Current PD_Out length
+ * @param[out] pd_in_len Current PD_In length
+ * @param[out] pd_out_len Current PD_Out length
  */
 void iolink_dll_get_pd_length(const iolink_dll_ctx_t* ctx, uint8_t* pd_in_len, uint8_t* pd_out_len);
 
@@ -228,7 +234,7 @@ iolink_baudrate_t iolink_dll_get_baudrate(const iolink_dll_ctx_t* ctx);
  * @brief Get DLL statistics
  *
  * @param ctx DLL context
- * @param out_stats Output stats structure
+ * @param[out] out_stats Output stats structure, populated with a counter snapshot
  */
 void iolink_dll_get_stats(const iolink_dll_ctx_t* ctx, iolink_dll_stats_t* out_stats);
 
@@ -247,5 +253,7 @@ void iolink_dll_set_timing_enforcement(iolink_dll_ctx_t* ctx, bool enable);
  * @param limit_us New t_ren limit in microseconds (0 disables enforcement)
  */
 void iolink_dll_set_t_ren_limit_us(iolink_dll_ctx_t* ctx, uint32_t limit_us);
+
+/** @} */ /* end of iolinki_dll */
 
 #endif  // IOLINK_DLL_H

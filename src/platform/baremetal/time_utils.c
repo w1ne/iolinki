@@ -6,6 +6,16 @@
  * See LICENSE for details.
  */
 
+/**
+ * @file time_utils.c
+ * @brief Bare-metal time utilities implementation (SysTick tick counter).
+ * @ingroup iolinki_time
+ *
+ * Provides the millisecond and microsecond time sources backed by a global
+ * tick counter that the application is expected to increment from a SysTick
+ * (or equivalent) ISR.
+ */
+
 #include "iolinki/time_utils.h"
 
 /*

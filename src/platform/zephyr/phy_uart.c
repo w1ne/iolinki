@@ -6,6 +6,17 @@
  * See LICENSE for details.
  */
 
+/**
+ * @file phy_uart.c
+ * @brief Zephyr UART-backed IO-Link PHY implementation.
+ * @ingroup iolinki_phy
+ *
+ * Implements the PHY API over a Zephyr UART device: interrupt-driven RX into a
+ * ring buffer, polled TX, runtime baudrate configuration, and devicetree-based
+ * device resolution. Wake-up and C/Q line control are not supported over a
+ * plain UART and are left unimplemented.
+ */
+
 #include "phy_uart.h"
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/uart.h>
@@ -35,10 +46,11 @@ static const struct device* g_uart_dev;
 static uint8_t g_rx_storage[CONFIG_IOLINK_PHY_UART_RX_RING_SIZE];
 static struct ring_buf g_rx_rb;
 
-/*
- * UART interrupt service routine: drains the hardware FIFO into the RX ring
- * buffer. Bytes that do not fit are dropped (and counted via a log warning) to
- * keep the ISR bounded.
+/**
+ * @brief UART interrupt service routine.
+ *
+ * Drains the hardware FIFO into the RX ring buffer. Bytes that do not fit are
+ * dropped (and counted via a log warning) to keep the ISR bounded.
  */
 static void uart_phy_isr(const struct device* dev, void* user_data)
 {
@@ -63,6 +75,7 @@ static void uart_phy_isr(const struct device* dev, void* user_data)
     }
 }
 
+/** @brief Initialize the bound UART, set up the RX ring buffer and enable IRQ RX. */
 static int uart_phy_init(void* user)
 {
     (void) user;
@@ -96,6 +109,7 @@ static int uart_phy_init(void* user)
     return 0;
 }
 
+/** @brief Mode hint: no-op for a plain UART (mode is owned by the transceiver). */
 static void uart_phy_set_mode(void* user, iolink_phy_mode_t mode)
 {
     (void) user;
@@ -108,6 +122,7 @@ static void uart_phy_set_mode(void* user, iolink_phy_mode_t mode)
     LOG_DBG("set_mode(%d): no-op for plain UART PHY", mode);
 }
 
+/** @brief Reconfigure the UART speed to match the requested IO-Link COM baudrate. */
 static void uart_phy_set_baudrate(void* user, iolink_baudrate_t baudrate)
 {
     (void) user;
@@ -149,6 +164,7 @@ static void uart_phy_set_baudrate(void* user, iolink_baudrate_t baudrate)
     }
 }
 
+/** @brief Transmit a buffer via polled uart_poll_out(). */
 static int uart_phy_send(void* user, const uint8_t* data, size_t len)
 {
     (void) user;
@@ -163,6 +179,7 @@ static int uart_phy_send(void* user, const uint8_t* data, size_t len)
     return (int) len;
 }
 
+/** @brief Receive one byte from the RX ring buffer, falling back to a polled read. */
 static int uart_phy_recv_byte(void* user, uint8_t* byte)
 {
     (void) user;

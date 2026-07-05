@@ -24,11 +24,19 @@ extern "C" {
  */
 
 /**
+ * @defgroup iolinki_phy_generic Generic UART PHY Adapter
+ * @brief Reference PHY template to adapt for real transceiver hardware.
+ * @{
+ */
+
+/**
  * @brief Get the generic PHY API (template).
  *
  * @return const iolink_phy_api_t* Pointer to template PHY API
  */
 const iolink_phy_api_t* iolink_phy_generic_get(void);
+
+/** @} */ /* end of iolinki_phy_generic */
 
 #ifdef __cplusplus
 }
