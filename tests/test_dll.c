@@ -393,7 +393,6 @@ static void test_dll_event_flag_in_cks(void** state)
     assert_false(iolink_events_flag(iolink_device_get_events_ctx(&dev.ctx)));
 }
 
-
 /* Regression: after OPERATE with PD widths configured, a re-startup followed by
    a 3-octet Type-0 ISDU write in PREOPERATE must be parsed as a Type-0 frame
    (OD at offset 2) and answered with the CKS only, not with the OPERATE PD

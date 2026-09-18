@@ -319,7 +319,7 @@ static void test_isdu_wire_abort(void** state)
     assert_int_equal(octet, 0x00U);
 }
 
-/* ExtLength read of a 63-octet string: D1 42 <63 data> <CHKPDU> (Figure A.19 ex. 3: n = data + 3). */
+/* ExtLength read of a 63-octet string: D1 42 <63 data> <CHKPDU> (Figure A.19 ex. 3: n = data+3). */
 static void test_isdu_wire_extlength_read(void** state)
 {
     (void) state;

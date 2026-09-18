@@ -629,7 +629,8 @@ static void test_isdu_system_command_read_only_write(void** state)
     /* A write to 0x0002 still executes the command. */
     iolink_isdu_init(&ctx);
     uint8_t cmd_data[] = {IOLINK_CMD_DEVICE_RESET};
-    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, cmd_data, 1), 1);
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, cmd_data, 1),
+                     1);
     iolink_isdu_process(&ctx);
     assert_true(ctx.reset_pending);
     uint8_t resp_buf[1];

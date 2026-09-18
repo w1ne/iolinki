@@ -343,7 +343,7 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
     ctx->last_response_us = iolink_time_get_us();
 }
 
-/** @brief Process a 3-octet Type-0 OD WRITE (MC, CKT, OD) and reply with the CKS only (Figure A.5). */
+/** @brief Process a 3-octet Type-0 OD WRITE (MC, CKT, OD) and reply with CKS only (Figure A.5). */
 static void dll_handle_type0_od_write(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t od_in)
 {
     uint8_t od_resp = 0U;
