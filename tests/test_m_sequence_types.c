@@ -41,7 +41,7 @@ static void test_m_seq_type_1_1(void** state)
 
     /* Type 1_1 with 2-byte PD: Req = MC, CKT, PD(2), OD(1), CK = 6 bytes */
     uint8_t frame[] = {0x80, 0x00, 0x11, 0x22, 0x00, 0x00};
-    frame[5] = iolink_crc6(frame, 5);
+    frame[5] = iolink_checksum6(frame, 5);
 
     for (int i = 0; i < 6; i++) {
         will_return(mock_phy_recv_byte, 1);

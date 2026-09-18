@@ -144,7 +144,7 @@ void move_to_operate_ctx(iolink_device_ctx_t* ctx)
 
     /* PREOPERATE -> ESTAB_COM (on MC=0x0F + Correct CK) */
     uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;
-    uint8_t ck = iolink_checksum_ck(mc, 0U);
+    uint8_t ck = test_frame_checksum(mc);
 
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, mc);
@@ -164,7 +164,7 @@ void move_to_operate_ctx(iolink_device_ctx_t* ctx)
 
     if (type == IOLINK_M_SEQ_TYPE_0) {
         uint8_t idle_mc = 0x00;
-        uint8_t idle_ck = iolink_checksum_ck(idle_mc, 0U);
+        uint8_t idle_ck = test_frame_checksum(idle_mc);
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, idle_mc);
         will_return(mock_phy_recv_byte, 1);
@@ -183,7 +183,7 @@ void move_to_operate_ctx(iolink_device_ctx_t* ctx)
     uint8_t frame_len = (uint8_t) (IOLINK_M_SEQ_HEADER_LEN + pd_out_len + od_len + 1U);
     frame[0] = 0x80;
     frame[1] = 0x00;
-    frame[frame_len - 1U] = iolink_crc6(frame, (uint8_t) (frame_len - 1U));
+    frame[frame_len - 1U] = iolink_checksum6(frame, (uint8_t) (frame_len - 1U));
 
     for (uint8_t i = 0U; i < frame_len; i++) {
         will_return(mock_phy_recv_byte, 1);

@@ -27,7 +27,8 @@ int iolink_frame_encode_type0(uint8_t mc, uint8_t* out, size_t out_size)
     }
 
     out[0] = mc;
-    out[1] = iolink_checksum_ck(mc, 0U);
+    out[1] = 0x00U; /* CKT bits 0-5 zeroed before the A.1.6 checksum */
+    out[1] = iolink_checksum6(out, 2U);
 
     return (int) IOLINK_M_SEQ_TYPE0_LEN;
 }
@@ -39,11 +40,10 @@ int iolink_frame_encode_type0_write(uint8_t mc, uint8_t od, uint8_t* out, size_t
     }
 
     /* Type-0 write frame (MC + one OD data octet + CK). The trailing checksum is
-       the 6-bit M-sequence CRC over the preceding octets, matching how the
-       device DLL verifies any request longer than the 2-octet Type-0 read. */
+       the A.1.6 message checksum over the preceding octets. */
     out[0] = mc;
     out[1] = od;
-    out[2] = iolink_crc6(out, 2U);
+    out[2] = iolink_checksum6(out, 2U);
 
     return (int) IOLINK_M_SEQ_MIN_LEN;
 }
@@ -72,7 +72,7 @@ int iolink_frame_encode_type1_cycle(const uint8_t* pd_out, uint8_t pd_out_len, u
     memset(&out[pos], 0, od_len);
     pos += od_len;
 
-    out[pos] = iolink_crc6(out, (uint8_t) pos);
+    out[pos] = iolink_checksum6(out, pos);
 
     return (int) frame_len;
 }
@@ -93,7 +93,17 @@ int iolink_frame_decode_operate_response(const uint8_t* frame, size_t frame_len,
     out->status = frame[pos++];
     out->pd_valid = ((out->status & IOLINK_OD_STATUS_PD_VALID) != 0U);
     out->event_pending = ((out->status & IOLINK_OD_STATUS_EVENT) != 0U);
-    out->checksum_ok = (iolink_crc6(frame, (uint8_t) (frame_len - 1U)) == frame[frame_len - 1U]);
+
+    /* The CKS octet carries the 6-bit checksum in bits 0-5 and the event/PD
+       flags in bits 6-7; zero the checksum bits before re-computing (A.1.6). */
+    uint8_t msg[IOLINK_M_SEQ_HEADER_LEN + IOLINK_PD_IN_MAX_SIZE + IOLINK_OD_MAX_SIZE + 1U];
+    if (frame_len > sizeof(msg)) {
+        return -1;
+    }
+    (void) memcpy(msg, frame, frame_len);
+    msg[frame_len - 1U] = (uint8_t) (msg[frame_len - 1U] & 0xC0U);
+    out->checksum_ok =
+        (iolink_checksum6(msg, frame_len) == (uint8_t) (frame[frame_len - 1U] & 0x3FU));
 
     if (pd_in_len > 0U) {
         memcpy(out->pd, &frame[pos], pd_in_len);

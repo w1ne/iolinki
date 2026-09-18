@@ -93,7 +93,7 @@ static void test_sio_recovery_on_stable_communication(void** state)
 
     /* 2. Transition (AWAITING_COMM handles first byte) */
     uint8_t mc = 0x0F;
-    uint8_t ck = iolink_checksum_ck(mc, 0U);
+    uint8_t ck = test_frame_checksum(mc);
 
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, mc);
@@ -105,7 +105,7 @@ static void test_sio_recovery_on_stable_communication(void** state)
 
     /* 3. Send valid OPERATE frame */
     uint8_t idle_mc = 0x00;
-    uint8_t idle_ck = iolink_checksum_ck(idle_mc, 0U);
+    uint8_t idle_ck = test_frame_checksum(idle_mc);
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, idle_mc);
     will_return(mock_phy_recv_byte, 1);

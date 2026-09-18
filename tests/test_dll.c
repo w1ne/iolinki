@@ -57,7 +57,7 @@ static void test_dll_wakeup_to_preoperate(void** state)
 
     /* Send valid Type 0 frame (idle) to enter PREOPERATE */
     uint8_t mc = 0x00;
-    uint8_t ck = iolink_checksum_ck(mc, 0U);
+    uint8_t ck = test_frame_checksum(mc);
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, mc);
     will_return(mock_phy_recv_byte, 1);
@@ -89,7 +89,7 @@ static void test_dll_preoperate_to_operate(void** state)
 
     /* PREOPERATE -> ESTAB_COM */
     uint8_t trans_mc = IOLINK_MC_TRANSITION_COMMAND;
-    uint8_t trans_ck = iolink_checksum_ck(trans_mc, 0U);
+    uint8_t trans_ck = test_frame_checksum(trans_mc);
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, trans_mc);
     will_return(mock_phy_recv_byte, 1);
@@ -101,7 +101,7 @@ static void test_dll_preoperate_to_operate(void** state)
 
     /* ESTAB_COM -> OPERATE on first valid frame */
     uint8_t frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_crc6(frame, 4);
+    frame[4] = iolink_checksum6(frame, 4);
     for (int i = 0; i < 5; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
@@ -133,7 +133,7 @@ static void test_dll_fallback_on_crc_errors(void** state)
 
     /* PREOPERATE -> ESTAB_COM */
     uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;
-    uint8_t ck = iolink_checksum_ck(mc, 0U);
+    uint8_t ck = test_frame_checksum(mc);
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, mc);
     will_return(mock_phy_recv_byte, 1);
@@ -144,7 +144,7 @@ static void test_dll_fallback_on_crc_errors(void** state)
 
     /* ESTAB_COM -> OPERATE */
     uint8_t ok_frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
-    ok_frame[4] = iolink_crc6(ok_frame, 4);
+    ok_frame[4] = iolink_checksum6(ok_frame, 4);
     for (int i = 0; i < 5; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, ok_frame[i]);
@@ -193,7 +193,7 @@ static void test_dll_reject_transition_in_operate(void** state)
      * Type 1_1 frame for pd_out_len=1 is 5 bytes: MC, CKT, PD, OD, CK */
     uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;
     uint8_t frame[5] = {mc, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_crc6(frame, 4);
+    frame[4] = iolink_checksum6(frame, 4);
 
     for (int i = 0; i < 5; i++) {
         will_return(mock_phy_recv_byte, 1);
@@ -224,7 +224,7 @@ static void test_dll_reject_invalid_mc_channel(void** state)
     /* MC with reserved channel bits (e.g., 0x20 | 0x80) */
     uint8_t mc = 0xA0;
     uint8_t frame[5] = {mc, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_crc6(frame, 4);
+    frame[4] = iolink_checksum6(frame, 4);
 
     for (int i = 0; i < 5; i++) {
         will_return(mock_phy_recv_byte, 1);

@@ -43,7 +43,7 @@ static void test_pd_input_output(void** state)
 
     /* 2. Simulate Master Frame (Type 2_2: MC, CKT, PD_OUT(2), OD(2), CK) -> 7 bytes */
     uint8_t frame[7] = {0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    frame[6] = iolink_crc6(frame, 6);
+    frame[6] = iolink_checksum6(frame, 6);
 
     for (int i = 0; i < 7; i++) {
         will_return(mock_phy_recv_byte, 1);

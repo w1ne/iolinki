@@ -27,7 +27,7 @@ static void test_encode_type0_idle(void** state)
     uint8_t frame[2] = {0U};
 
     assert_int_equal(iolink_frame_encode_type0(0x00U, frame, sizeof(frame)), 2);
-    assert_memory_equal(frame, ((const uint8_t[]){0x00U, 0x24U}), sizeof(frame));
+    assert_memory_equal(frame, ((const uint8_t[]){0x00U, 0x2DU}), sizeof(frame));
 }
 
 static void test_encode_type0_transition(void** state)
@@ -36,7 +36,7 @@ static void test_encode_type0_transition(void** state)
     uint8_t frame[2] = {0U};
 
     assert_int_equal(iolink_frame_encode_type0(0x0FU, frame, sizeof(frame)), 2);
-    assert_memory_equal(frame, ((const uint8_t[]){0x0FU, 0x0DU}), sizeof(frame));
+    assert_memory_equal(frame, ((const uint8_t[]){0x0FU, 0x2DU}), sizeof(frame));
 }
 
 static void test_encode_type1_empty_cycle(void** state)
@@ -45,7 +45,7 @@ static void test_encode_type1_empty_cycle(void** state)
     uint8_t frame[4] = {0U};
 
     assert_int_equal(iolink_frame_encode_type1_cycle(NULL, 0U, 1U, frame, sizeof(frame)), 4);
-    assert_memory_equal(frame, ((const uint8_t[]){0x00U, 0x00U, 0x00U, 0x09U}), sizeof(frame));
+    assert_memory_equal(frame, ((const uint8_t[]){0x00U, 0x00U, 0x00U, 0x2DU}), sizeof(frame));
 }
 
 static void test_encode_type0_rejects_undersized_buffer(void** state)
@@ -87,7 +87,7 @@ static void test_encode_type1_allows_max_od_len(void** state)
 static void test_decode_operate_response_with_pd(void** state)
 {
     (void) state;
-    const uint8_t frame[] = {0x20U, 0xA5U, 0x00U, 0x0DU};
+    const uint8_t frame[] = {0x20U, 0xA5U, 0x00U, 0x06U};
     iolink_frame_operate_response_t resp = {0};
 
     assert_int_equal(iolink_frame_decode_operate_response(frame, sizeof(frame), 1U, 1U, &resp), 0);

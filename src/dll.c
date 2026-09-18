@@ -165,7 +165,8 @@ static void dll_handle_page_channel_read(iolink_dll_ctx_t* ctx, uint8_t mc)
     uint8_t resp[2];
     resp[0] =
         iolink_isdu_direct_param_page1_octet(&ctx->isdu, (uint8_t) (mc & IOLINK_MC_ADDR_MASK));
-    resp[1] = iolink_checksum_ck(resp[0], 0U);
+    resp[1] = 0x00U;
+    resp[1] = iolink_checksum6(resp, 2U);
     if (ctx->phy->send != NULL) {
         ctx->phy->send(ctx->phy->user, resp, 2);
     }
@@ -183,7 +184,8 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
 
     uint8_t resp[2];
     resp[0] = od_resp;
-    resp[1] = iolink_checksum_ck(resp[0], 0U);
+    resp[1] = 0x00U;
+    resp[1] = iolink_checksum6(resp, 2U);
     if (ctx->phy->send != NULL) {
         ctx->phy->send(ctx->phy->user, resp, 2);
     }
@@ -226,7 +228,7 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
     memcpy(&resp[pos], od_out, ctx->od_len);
     pos += ctx->od_len;
 
-    resp[pos] = iolink_crc6(resp, (uint8_t) pos);
+    resp[pos] = iolink_checksum6(resp, pos);
     pos++;
 
     if (ctx->phy->send != NULL) {
@@ -479,14 +481,14 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             }
             ctx->last_cycle_start_us = now_us_proc;
 
-            bool crc_ok;
-            if (ctx->req_len == 2U) {
-                crc_ok = (iolink_checksum_ck(ctx->frame_buf[0], 0U) == ctx->frame_buf[1]);
-            }
-            else {
-                crc_ok = (iolink_crc6(ctx->frame_buf, (uint8_t) (ctx->req_len - 1)) ==
-                          ctx->frame_buf[ctx->req_len - 1]);
-            }
+            /* A.1.6: the CKT octet carries the M-sequence type in bits 6-7 and
+               the checksum in bits 0-5, which must be zeroed before verifying. */
+            uint8_t crc_buf[sizeof(ctx->frame_buf)];
+            (void) memcpy(crc_buf, ctx->frame_buf, ctx->req_len);
+            const uint8_t crc_idx = (uint8_t) (ctx->req_len - 1U);
+            const uint8_t expected_ck = (uint8_t) (crc_buf[crc_idx] & 0x3FU);
+            crc_buf[crc_idx] = 0x00U;
+            bool crc_ok = (iolink_checksum6(crc_buf, ctx->req_len) == expected_ck);
 
             if (crc_ok) {
                 bool was_establishing = (ctx->state == IOLINK_DLL_STATE_AWAITING_COMM) ||

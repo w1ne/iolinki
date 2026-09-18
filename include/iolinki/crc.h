@@ -10,40 +10,34 @@
 #define IOLINK_CRC_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 /**
  * @file crc.h
- * @brief IO-Link CRC calculation (Spec V1.1.5)
+ * @brief IO-Link message checksum (Spec V1.1.5 A.1.6)
  */
 
 /**
- * @defgroup iolinki_crc CRC / Checksum
- * @brief IO-Link 6-bit CRC and 8-bit checksum computation.
+ * @defgroup iolinki_crc Checksum
+ * @brief IO-Link 6-bit message checksum computation (A.1.6).
  * @{
  */
 
 /**
- * @brief Calculate IO-Link 6-bit CRC
+ * @brief Calculate the IO-Link message checksum (A.1.6).
  *
- * Used for M-sequences and ISDU headers.
- * Polynomial: x^6 + x^4 + x^3 + x^2 + 1 (0x1D)
- * Initial value: 0x15
+ * Every octet of the message is XOR processed with a seed of 0x52, then
+ * compressed from 8 to 6 bits using equations (A.1). The checksum/M-sequence
+ * type octet (CKT for master messages, CKS for device replies) is part of the
+ * message with its checksum bits (0-5) set to zero; its type/status bits are
+ * included as-is. Callers OR the returned 6-bit value into that octet.
  *
- * @param data Data to checksum
- * @param len Length in bytes
- * @return uint8_t 6-bit CRC
+ * @param octets Message octets; the checksum octet must already have bits 0-5
+ *               cleared.
+ * @param len Number of octets in @p octets.
+ * @return uint8_t 6-bit compressed checksum (0x00-0x3F).
  */
-uint8_t iolink_crc6(const uint8_t* data, uint8_t len);
-
-/**
- * @brief Calculate IO-Link 8-bit Checksum (CK)
- *
- * Used in M-sequences.
- * @param mc Master Command byte
- * @param ckt Checksum/Status byte
- * @return uint8_t Calculated CK
- */
-uint8_t iolink_checksum_ck(uint8_t mc, uint8_t ckt);
+uint8_t iolink_checksum6(const uint8_t* octets, size_t len);
 
 /** @} */ /* end of iolinki_crc */
 

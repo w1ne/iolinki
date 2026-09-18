@@ -39,7 +39,7 @@ static void test_pd_variable_lengths(void** state)
     uint8_t frame[12];
     memset(frame, 0, 12);
     frame[0] = 0x80;
-    frame[11] = iolink_crc6(frame, 11);
+    frame[11] = iolink_checksum6(frame, 11);
 
     for (int i = 0; i < 12; i++) {
         will_return(mock_phy_recv_byte, 1);
@@ -75,7 +75,7 @@ static void test_pd_invalid_flag(void** state)
        Resp: Stat, PD(1), OD(1), CK = 4 bytes.
     */
     uint8_t frame[] = {0x80, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_crc6(frame, 4);
+    frame[4] = iolink_checksum6(frame, 4);
 
     for (int i = 0; i < 5; i++) {
         will_return(mock_phy_recv_byte, 1);

@@ -69,7 +69,7 @@ static void test_t_cycle_violation(void** state)
 
     /* Send two back-to-back valid frames (Type 1_1) */
     uint8_t frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_crc6(frame, 4);
+    frame[4] = iolink_checksum6(frame, 4);
 
     for (int i = 0; i < 5; i++) {
         will_return(mock_phy_recv_byte, 1);
@@ -111,7 +111,7 @@ static void test_t_ren_violation(void** state)
     /* Send a valid frame, but mock PHY send will be too slow?
        Actually t_ren is checked against DLL processing time. */
     uint8_t frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_crc6(frame, 4);
+    frame[4] = iolink_checksum6(frame, 4);
 
     for (int i = 0; i < 5; i++) {
         will_return(mock_phy_recv_byte, 1);
@@ -148,7 +148,7 @@ static void test_t_pd_delay(void** state)
 
     /* Send a valid Type 0 frame before t_pd expires; expect no response */
     uint8_t mc = 0x00;
-    uint8_t ck = iolink_checksum_ck(mc, 0U);
+    uint8_t ck = test_frame_checksum(mc);
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, mc);
     will_return(mock_phy_recv_byte, 1);
@@ -171,7 +171,7 @@ static void test_t_pd_delay(void** state)
 
     /* Move to PREOPERATE state (AWAITING_COMM handles first byte) */
     uint8_t mc_comm = 0x00;
-    uint8_t ck_comm = iolink_checksum_ck(mc_comm, 0U);
+    uint8_t ck_comm = test_frame_checksum(mc_comm);
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, mc_comm);
     will_return(mock_phy_recv_byte, 1);
@@ -184,7 +184,7 @@ static void test_t_pd_delay(void** state)
 
     /* In PREOPERATE, send Transition Command (0x0F) - no response expected */
     uint8_t trans_mc = 0x0F;
-    uint8_t trans_ck = iolink_checksum_ck(trans_mc, 0U);
+    uint8_t trans_ck = test_frame_checksum(trans_mc);
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, trans_mc);
     will_return(mock_phy_recv_byte, 1);
@@ -208,7 +208,7 @@ static void test_t_byte_violation(void** state)
     /* Mock a slow byte reception (t_byte violation) */
     /* Master sends 5 bytes for Type 1_1. We send 2 and then timeout. */
     uint8_t frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_crc6(frame, 4);
+    frame[4] = iolink_checksum6(frame, 4);
 
     /* Byte 1 (Control) */
     will_return(mock_phy_recv_byte, 1);

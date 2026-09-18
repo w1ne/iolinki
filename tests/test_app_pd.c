@@ -67,7 +67,7 @@ static void test_pd_toggle_bit(void** state)
 
     /* Helper variables for frame simulation */
     uint8_t frame[7] = {0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    frame[6] = iolink_crc6(frame, 6);
+    frame[6] = iolink_checksum6(frame, 6);
 
     /* 1. Initial State: Valid=False. Toggle should be 0 (default header init).
        Update: Actually, if Valid=False, Toggle might verify as anything.
