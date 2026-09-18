@@ -118,23 +118,23 @@ def test_standard_event_codes():
 
         print("✅ Startup successful")
 
-        # Try to read Device Status (Index 0x001B)
+        # Try to read Device Status (Index 0x0024, Table B.8)
         try:
-            device_status = master.read_isdu(index=0x001B)
+            device_status = master.read_isdu(index=0x0024)
             if device_status:
-                print(f"✅ Device Status (0x001B): 0x{device_status[0]:02X}")
+                print(f"✅ Device Status (0x0024): 0x{device_status[0]:02X}")
             else:
                 print("❌ Failed to read Device Status")
         except Exception as e:
             print(f"⚠️  Could not read Device Status: {e}")
 
-        # Try to read Detailed Device Status (Index 0x001C) - event code
+        # Try to read DetailedDeviceStatus (Index 0x0025, Table B.8) - event code
         try:
-            detailed_status = master.read_isdu(index=0x001C)
+            detailed_status = master.read_isdu(index=0x0025)
             if detailed_status and len(detailed_status) >= 2:
                 event_code = (detailed_status[0] << 8) | detailed_status[1]
                 print(
-                    f"✅ Detailed Device Status (0x001C): Event Code = 0x{event_code:04X}"
+                    f"✅ Detailed Device Status (0x0025): Event Code = 0x{event_code:04X}"
                 )
 
                 # Verify it's a valid event code range
@@ -146,7 +146,7 @@ def test_standard_event_codes():
                             f"⚠️  Event code 0x{event_code:04X} is outside standard range"
                         )
             else:
-                print("⚠️  Detailed Device Status (0x001C) is empty")
+                print("⚠️  Detailed Device Status (0x0025) is empty")
         except Exception as e:
             print(f"⚠️  Could not read Detailed Device Status: {e}")
 

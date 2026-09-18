@@ -87,12 +87,14 @@ def test_with_device():
     if event_count > 0:
         print()
         print("-" * 60)
-        print("TEST 3: Event Request")
+        print("TEST 3: Event Memory Readout")
         print("-" * 60)
 
-        event_code = master.request_event()
-        if event_code:
-            print(f"✅ Event code: 0x{event_code:04X}")
+        events = master.read_event_memory()
+        if events:
+            for qualifier, code in events:
+                print(f"✅ Event: qualifier=0x{qualifier:02X} code=0x{code:04X}")
+            master.ack_events()
         else:
             print("❌ No event received")
 

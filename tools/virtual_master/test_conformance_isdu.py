@@ -172,18 +172,17 @@ class TestISDUConformance(unittest.TestCase):
         profile_id = int.from_bytes(response[:2], byteorder="big")
         print(f"[PASS] Profile Characteristic: 0x{profile_id:04X}")
 
-    def test_12_min_cycle_time_0x0024(self):
-        """Test mandatory index 0x0024: Min Cycle Time"""
-        print("\n[TEST] ISDU Index 0x0024: Min Cycle Time")
+    def test_12_device_status_0x0024(self):
+        """Test optional index 0x0024: DeviceStatus (Table B.8, 1 octet)"""
+        print("\n[TEST] ISDU Index 0x0024: DeviceStatus")
 
         response = self.master.read_isdu(index=0x0024, subindex=0x00)
-        self.assertIsNotNone(response, "Min Cycle Time must be readable")
-        self.assertGreaterEqual(
-            len(response), 1, "Min Cycle Time should be at least 1 byte"
-        )
+        self.assertIsNotNone(response, "DeviceStatus must be readable")
+        self.assertEqual(len(response), 1, "DeviceStatus is one octet (Table B.13)")
 
-        min_cycle_time = response[0]
-        print(f"[PASS] Min Cycle Time: 0x{min_cycle_time:02X}")
+        device_status = response[0]
+        self.assertLessEqual(device_status, 4, "DeviceStatus values are 0..4 (Table B.13)")
+        print(f"[PASS] DeviceStatus: 0x{device_status:02X}")
 
     def test_13_invalid_index_error_handling(self):
         """Test error handling for invalid ISDU index"""

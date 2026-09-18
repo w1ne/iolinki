@@ -80,9 +80,9 @@ def main():
 
                 if response.has_event():
                     print(f"  Cycle {i}: Device has pending event!")
-                    event_code = master.request_event()
-                    if event_code:
+                    for _qualifier, event_code in master.read_event_memory():
                         print(f"  Event code: 0x{event_code:04X}")
+                    master.ack_events()
 
                 time.sleep(0.01)  # 10ms cycle time
 

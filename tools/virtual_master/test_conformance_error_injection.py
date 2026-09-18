@@ -304,8 +304,8 @@ class TestErrorInjectionConformance(unittest.TestCase):
         self.assertIsNotNone(serial, "Serial Number should be readable after recovery")
 
         # Step 6: Verify Event Reporting (Task 3 integration)
-        print("[INFO] Verifying Event Reporting via Index 0x001C...")
-        events_data = self.master.read_isdu(index=0x001C, subindex=0x00)
+        print("[INFO] Verifying Event Reporting via DetailedDeviceStatus (Index 0x0025)...")
+        events_data = self.master.read_isdu(index=0x0025, subindex=0x00)
         self.assertIsNotNone(events_data, "Detailed Device Status should be readable")
 
         # Look for CRC error event code 0x1801
@@ -320,46 +320,44 @@ class TestErrorInjectionConformance(unittest.TestCase):
             found_crc_event,
             "CRC error event (0x1801) should be present in Detailed Device Status",
         )
-        print("[INFO] CRC error event found in Index 0x001C")
+        print("[INFO] CRC error event found in Index 0x0025")
 
-        # Check Device Status (Index 0x1B)
-        status_data = self.master.read_isdu(index=0x001B, subindex=0x00)
+        # Check Device Status (Index 0x0024, Table B.8)
+        status_data = self.master.read_isdu(index=0x0024, subindex=0x00)
         self.assertIsNotNone(status_data, "Device Status should be readable")
         self.assertGreaterEqual(
             status_data[0], 1, "Device Status should be non-zero (reported error)"
         )
         print(f"[INFO] Device Status: {status_data[0]}")
 
-        # Step 7: Verify Event Popping via Index 2 (Task 3 specific)
-        print("[INFO] Verifying Event Popping via Index 2...")
-        event_pop_data = self.master.read_isdu(index=0x0002, subindex=0x00)
-        self.assertIsNotNone(event_pop_data, "Index 2 should be readable")
-        self.assertEqual(len(event_pop_data), 2, "Event code should be 2 bytes")
-        pop_code = (event_pop_data[0] << 8) | event_pop_data[1]
-        self.assertEqual(
-            pop_code,
+        # Step 7: Verify event memory readout and acknowledgement (Table 58/59)
+        print("[INFO] Verifying event memory readout via the Diagnosis channel...")
+        events = self.master.read_event_memory()
+        codes = [code for _qualifier, code in events]
+        self.assertIn(
             0x1801,
-            f"Expected 0x1801 popped from Index 2, got 0x{pop_code:04X}",
+            codes,
+            f"CRC error event (0x1801) should be in the event memory, got {codes}",
         )
-        print(f"[INFO] Successfully popped event 0x{pop_code:04X} via Index 2")
 
-        # Verify it's gone from 0x1C? (Actually 0x1C shows what's in queue, so it should be gone)
-        events_data_after = self.master.read_isdu(index=0x001C, subindex=0x00)
-        if events_data_after:
-            found_again = False
-            for i in range(0, len(events_data_after), 3):
-                if i + 2 < len(events_data_after):
-                    if (events_data_after[i + 1] << 8) | events_data_after[
-                        i + 2
-                    ] == 0x1801:
-                        found_again = True
+        # Acknowledge the readout; the Event flag must clear and the memory empty.
+        self.assertTrue(self.master.ack_events(), "Event acknowledgement should succeed")
+
+        reply = self.master.run_cycle()
+        if reply is not None and reply.valid:
             self.assertFalse(
-                found_again,
-                "Popped event should no longer be in Detailed Device Status",
+                reply.has_event(),
+                "Event flag should be clear after the StatusCode write",
             )
 
+        self.assertEqual(
+            self.master.read_event_memory(),
+            [],
+            "Event memory should be empty after acknowledgement",
+        )
+
         print(
-            "[PASS] Device recovered after CRC fallback, full functionality and event popping verified"
+            "[PASS] Device recovered after CRC fallback, full functionality and event memory verified"
         )
 
 
