@@ -68,26 +68,26 @@ static void test_t_cycle_violation(void** state)
     iolink_device_set_timing_enforcement(&dev.ctx, true);
 
     /* Send two back-to-back valid frames (Type 1_1) */
-    uint8_t frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_crc6(frame, 4);
+    uint8_t frame[4] = {0x80, IOLINK_MSEQ_TYPE_1, 0x00, 0x00};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 4));
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
     will_return(mock_phy_recv_byte, 0);
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 4);
+    expect_value(mock_phy_send, len, 3);
     will_return(mock_phy_send, 0);
     iolink_device_process(&dev.ctx);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
     will_return(mock_phy_recv_byte, 0);
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 4);
+    expect_value(mock_phy_send, len, 3);
     will_return(mock_phy_send, 0);
     iolink_device_process(&dev.ctx);
 
@@ -110,10 +110,10 @@ static void test_t_ren_violation(void** state)
 
     /* Send a valid frame, but mock PHY send will be too slow?
        Actually t_ren is checked against DLL processing time. */
-    uint8_t frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_crc6(frame, 4);
+    uint8_t frame[4] = {0x80, IOLINK_MSEQ_TYPE_1, 0x00, 0x00};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 4));
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
@@ -121,7 +121,7 @@ static void test_t_ren_violation(void** state)
 
     /* Mock a slow response */
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 4);
+    expect_value(mock_phy_send, len, 3);
     will_return(mock_phy_send, 0);
 
     /* We need to trick the time. Since we use real time, we just wait a bit in a mock?
@@ -148,7 +148,7 @@ static void test_t_pd_delay(void** state)
 
     /* Send a valid Type 0 frame before t_pd expires; expect no response */
     uint8_t mc = 0x00;
-    uint8_t ck = iolink_checksum_ck(mc, 0U);
+    uint8_t ck = test_frame_checksum(mc);
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, mc);
     will_return(mock_phy_recv_byte, 1);
@@ -171,26 +171,61 @@ static void test_t_pd_delay(void** state)
 
     /* Move to PREOPERATE state (AWAITING_COMM handles first byte) */
     uint8_t mc_comm = 0x00;
-    uint8_t ck_comm = iolink_checksum_ck(mc_comm, 0U);
+    uint8_t ck_comm = test_frame_checksum(mc_comm);
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, mc_comm);
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, ck_comm);
     will_return(mock_phy_recv_byte, 0);
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 2);
+    expect_value(mock_phy_send, len, 1); /* Type-0 write replies CKS only */
     will_return(mock_phy_send, 0);
     iolink_device_process(&dev.ctx);
 
     /* In PREOPERATE, send Transition Command (0x0F) - no response expected */
     uint8_t trans_mc = 0x0F;
-    uint8_t trans_ck = iolink_checksum_ck(trans_mc, 0U);
+    uint8_t trans_ck = test_frame_checksum(trans_mc);
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, trans_mc);
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, trans_ck);
     will_return(mock_phy_recv_byte, 0);
     iolink_device_process(&dev.ctx);
+}
+
+static void test_timing_constants(void** state)
+{
+    (void) state;
+    /* Table 10: T_WU pulse 75..85 us (typ. 80) and a single T_REN <= 500 us.
+       Table 42/47 T10: T_DSIO 60..300 ms, default 300. */
+    assert_int_equal(IOLINK_T_WU_US, 80U);
+    assert_int_equal(IOLINK_T_REN_US, 500U);
+    assert_int_equal(IOLINK_T_DSIO_MS, 300U);
+}
+
+static void test_t_ren_single_value_for_every_baudrate(void** state)
+{
+    (void) state;
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_0};
+
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, &config, NULL);
+
+    /* Table 10: T_REN is one device property, independent of the baudrate. */
+    const iolink_baudrate_t rates[] = {IOLINK_BAUDRATE_COM1, IOLINK_BAUDRATE_COM2,
+                                       IOLINK_BAUDRATE_COM3};
+    for (size_t i = 0U; i < (sizeof(rates) / sizeof(rates[0])); i++) {
+        assert_int_equal(iolink_dll_set_baudrate(&dev.ctx.dll, rates[i]), 0);
+        assert_int_equal(dev.ctx.dll.t_ren_limit_us, IOLINK_T_REN_US);
+    }
+
+    /* An explicit override still wins (kept public API). */
+    iolink_device_set_t_ren_limit_us(&dev.ctx, 1234U);
+    assert_int_equal(dev.ctx.dll.t_ren_limit_us, 1234U);
+    assert_int_equal(iolink_dll_set_baudrate(&dev.ctx.dll, IOLINK_BAUDRATE_COM3), 0);
+    assert_int_equal(dev.ctx.dll.t_ren_limit_us, 1234U);
 }
 
 static void test_t_byte_violation(void** state)
@@ -207,8 +242,8 @@ static void test_t_byte_violation(void** state)
 
     /* Mock a slow byte reception (t_byte violation) */
     /* Master sends 5 bytes for Type 1_1. We send 2 and then timeout. */
-    uint8_t frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_crc6(frame, 4);
+    uint8_t frame[4] = {0x80, IOLINK_MSEQ_TYPE_1, 0x00, 0x00};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 4));
 
     /* Byte 1 (Control) */
     will_return(mock_phy_recv_byte, 1);
@@ -236,9 +271,14 @@ static void test_t_byte_violation(void** state)
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_time_get_ms),       cmocka_unit_test(test_time_get_us),
-        cmocka_unit_test(test_t_cycle_violation), cmocka_unit_test(test_t_ren_violation),
-        cmocka_unit_test(test_t_pd_delay),        cmocka_unit_test(test_t_byte_violation),
+        cmocka_unit_test(test_time_get_ms),
+        cmocka_unit_test(test_time_get_us),
+        cmocka_unit_test(test_t_cycle_violation),
+        cmocka_unit_test(test_t_ren_violation),
+        cmocka_unit_test(test_t_pd_delay),
+        cmocka_unit_test(test_t_byte_violation),
+        cmocka_unit_test(test_timing_constants),
+        cmocka_unit_test(test_t_ren_single_value_for_every_baudrate),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

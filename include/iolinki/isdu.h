@@ -81,12 +81,17 @@ typedef struct
     size_t response_idx;                           /**< Bytes sent from response buffer */
     size_t response_len;                           /**< Total bytes in response buffer */
 
-    /* Segmentation and Flow Control */
-    isdu_state_t next_state;       /**< State to resume after sync/segmentation */
-    uint8_t segment_seq;           /**< Expected Sequence Number for next segment */
-    bool is_segmented;             /**< Flag for multi-frame transfers */
-    bool is_response_control_sent; /**< Flag for per-segment Control Byte status */
-    uint8_t error_code;            /**< IO-Link ISDU Error Code (0x80XX) */
+    /* Spec ISDU transport (C3, Table 52) */
+    uint8_t req_buf[IOLINK_ISDU_BUFFER_SIZE];  /**< Raw ISDU request octets (incl. CHKPDU) */
+    uint8_t resp_buf[IOLINK_ISDU_BUFFER_SIZE]; /**< Raw ISDU response octets (incl. CHKPDU) */
+    size_t req_idx;                            /**< Octets collected in req_buf */
+    size_t req_total;      /**< Expected total ISDU length from Length/ExtLength */
+    size_t resp_idx;       /**< Octets already emitted from resp_buf */
+    size_t resp_total;     /**< Total octets in resp_buf */
+    uint8_t last_flowctrl; /**< FlowCTRL of the previous ISDU message */
+    bool flowctrl_seen;    /**< A FlowCTRL has been received since START */
+    bool repeat_pending;   /**< Last FlowCTRL repeated: ignore the payload */
+    uint8_t error_code;    /**< IO-Link ISDU Error Code (0x80XX) */
 
     /* Pointers to external dependencies */
     void* event_ctx;                 /**< Diagnostic host backlink */
@@ -117,24 +122,48 @@ void iolink_isdu_init(iolink_isdu_ctx_t* ctx);
 void iolink_isdu_process(iolink_isdu_ctx_t* ctx);
 
 /**
- * @brief Collect a byte from an M-sequence (on-request data slot)
+ * @brief Feed one On-request Data message received on the ISDU channel (C3).
  *
- * This is called by the DLL for every OD byte received while in PREOPERATE/OPERATE.
+ * The M-sequence control octet carries FlowCTRL in its address bits
+ * (Table 52). START resets the request buffer; COUNT 1,2,..,0,1,.. follows;
+ * a repeated FlowCTRL repeats the previous message (its payload is ignored);
+ * any other value is an ISDUError (drop the request, return to Idle).
+ * The request is complete when the received octet count equals the Length
+ * (or ExtLength) declared in the I-Service octet; CHKPDU is verified then.
  *
  * @param ctx ISDU context
- * @param byte Incoming data byte
- * @return int 0 if still collecting, 1 if request completely parsed, negative on protocol error
+ * @param flowctrl FlowCTRL value (mc & 0x1F)
+ * @param od Incoming OD octets of this message
+ * @param od_len Number of OD octets
  */
-int iolink_isdu_collect_byte(iolink_isdu_ctx_t* ctx, uint8_t byte);
+void iolink_isdu_od_write(iolink_isdu_ctx_t* ctx, uint8_t flowctrl, const uint8_t* od,
+                          uint8_t od_len);
 
 /**
- * @brief Get the next byte to send in an ISDU response
+ * @brief Produce the OD octets of a device reply on the ISDU channel (C3).
  *
- * Used by the DLL to fetch data for the master response.
+ * On a START read while the application response is not ready the device
+ * answers a single Busy octet (0x01, Table A.14). Once the response is
+ * ready the framed ISDU octets follow across reads carrying COUNT. IDLE
+ * returns to Idle; ABORT discards the service.
  *
  * @param ctx ISDU context
- * @param byte [out] Pointer to store the response byte
- * @return int 1 if byte fetched, 0 if no response data is ready
+ * @param flowctrl FlowCTRL value (mc & 0x1F)
+ * @param od_out [out] Buffer of od_len octets
+ * @param od_len Number of OD octets to fill
+ */
+void iolink_isdu_od_read(iolink_isdu_ctx_t* ctx, uint8_t flowctrl, uint8_t* od_out, uint8_t od_len);
+
+/**
+ * @brief Get the next octet of the application-level ISDU response payload.
+ *
+ * The wire framing (I-Service/Length/CHKPDU) is applied by the transport; this
+ * accessor exposes only the payload so callers and tests can inspect the
+ * handler result. Negative responses yield {0x80, AdditionalCode}.
+ *
+ * @param ctx ISDU context
+ * @param byte [out] Pointer to store the response octet
+ * @return int 1 if an octet was produced, 0 when the response is exhausted
  */
 int iolink_isdu_get_response_byte(iolink_isdu_ctx_t* ctx, uint8_t* byte);
 

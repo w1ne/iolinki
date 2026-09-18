@@ -27,7 +27,8 @@ int iolink_frame_encode_type0(uint8_t mc, uint8_t* out, size_t out_size)
     }
 
     out[0] = mc;
-    out[1] = iolink_checksum_ck(mc, 0U);
+    out[1] = 0x00U; /* CKT bits 0-5 zeroed before the A.1.6 checksum */
+    out[1] = iolink_checksum6(out, 2U);
 
     return (int) IOLINK_M_SEQ_TYPE0_LEN;
 }
@@ -38,12 +39,13 @@ int iolink_frame_encode_type0_write(uint8_t mc, uint8_t od, uint8_t* out, size_t
         return -1;
     }
 
-    /* Type-0 write frame (MC + one OD data octet + CK). The trailing checksum is
-       the 6-bit M-sequence CRC over the preceding octets, matching how the
-       device DLL verifies any request longer than the 2-octet Type-0 read. */
+    /* Type-0 write frame (MC + CKT + one OD data octet). Figure A.5: the CKT
+       octet carries the A.1.6 checksum in bits 0-5 and the type bits in 6-7;
+       there is no trailing checksum octet. */
     out[0] = mc;
-    out[1] = od;
-    out[2] = iolink_crc6(out, 2U);
+    out[1] = IOLINK_MSEQ_TYPE_0;
+    out[2] = od;
+    out[1] = (uint8_t) (out[1] | iolink_checksum6(out, IOLINK_M_SEQ_MIN_LEN));
 
     return (int) IOLINK_M_SEQ_MIN_LEN;
 }
@@ -52,7 +54,7 @@ int iolink_frame_encode_type1_cycle(const uint8_t* pd_out, uint8_t pd_out_len, u
                                     uint8_t* out, size_t out_size)
 {
     size_t pos = 0U;
-    const size_t frame_len = (size_t) IOLINK_M_SEQ_HEADER_LEN + pd_out_len + od_len + 1U;
+    const size_t frame_len = (size_t) IOLINK_M_SEQ_HEADER_LEN + pd_out_len + od_len;
 
     if ((out == NULL) || ((pd_out == NULL) && (pd_out_len > 0U)) ||
         (pd_out_len > IOLINK_PD_OUT_MAX_SIZE) || (od_len == 0U) || (od_len > IOLINK_OD_MAX_SIZE) ||
@@ -61,7 +63,7 @@ int iolink_frame_encode_type1_cycle(const uint8_t* pd_out, uint8_t pd_out_len, u
     }
 
     out[pos++] = 0U;
-    out[pos++] = 0U;
+    out[pos++] = IOLINK_MSEQ_TYPE_1;
 
     if (pd_out_len > 0U) {
         memcpy(&out[pos], pd_out, pd_out_len);
@@ -70,9 +72,9 @@ int iolink_frame_encode_type1_cycle(const uint8_t* pd_out, uint8_t pd_out_len, u
 
     /* od_len is guaranteed non-zero by the guard above. */
     memset(&out[pos], 0, od_len);
-    pos += od_len;
 
-    out[pos] = iolink_crc6(out, (uint8_t) pos);
+    /* Figure A.2: the A.1.6 checksum goes into the CKT octet (byte 1). */
+    out[1] = (uint8_t) (out[1] | iolink_checksum6(out, frame_len));
 
     return (int) frame_len;
 }
@@ -81,7 +83,7 @@ int iolink_frame_decode_operate_response(const uint8_t* frame, size_t frame_len,
                                          uint8_t od_len, iolink_frame_operate_response_t* out)
 {
     size_t pos = 0U;
-    const size_t expected_len = 1U + pd_in_len + od_len + 1U;
+    const size_t expected_len = pd_in_len + od_len + 1U;
 
     if ((frame == NULL) || (out == NULL) || (pd_in_len > IOLINK_PD_IN_MAX_SIZE) || (od_len == 0U) ||
         (od_len > IOLINK_OD_MAX_SIZE) || (frame_len != expected_len)) {
@@ -90,10 +92,22 @@ int iolink_frame_decode_operate_response(const uint8_t* frame, size_t frame_len,
 
     memset(out, 0, sizeof(*out));
 
-    out->status = frame[pos++];
-    out->pd_valid = ((out->status & IOLINK_OD_STATUS_PD_VALID) != 0U);
-    out->event_pending = ((out->status & IOLINK_OD_STATUS_EVENT) != 0U);
-    out->checksum_ok = (iolink_crc6(frame, (uint8_t) (frame_len - 1U)) == frame[frame_len - 1U]);
+    /* A.1.5: the reply is [PD-in][OD] CKS with no leading status octet. The CKS
+       octet carries the Event flag in bit 7, the PD-invalid flag in bit 6 (so
+       PD is valid when bit 6 is clear) and the 6-bit checksum in bits 0-5. */
+    const uint8_t cks = frame[frame_len - 1U];
+    out->status = cks;
+    out->event_pending = ((cks & 0x80U) != 0U);
+    out->pd_valid = ((cks & 0x40U) == 0U);
+
+    /* Zero the checksum bits before re-computing (A.1.6); the flag bits stay. */
+    uint8_t msg[IOLINK_M_SEQ_HEADER_LEN + IOLINK_PD_IN_MAX_SIZE + IOLINK_OD_MAX_SIZE + 1U];
+    if (frame_len > sizeof(msg)) {
+        return -1;
+    }
+    (void) memcpy(msg, frame, frame_len);
+    msg[frame_len - 1U] = (uint8_t) (msg[frame_len - 1U] & 0xC0U);
+    out->checksum_ok = (iolink_checksum6(msg, frame_len) == (uint8_t) (cks & 0x3FU));
 
     if (pd_in_len > 0U) {
         memcpy(out->pd, &frame[pos], pd_in_len);

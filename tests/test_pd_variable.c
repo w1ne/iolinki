@@ -36,20 +36,21 @@ static void test_pd_variable_lengths(void** state)
     move_to_operate_ctx(&dev.ctx);
 
     /* Type 1_V: Req = MC, CKT, PD(8), OD(1), CK = 12 bytes. */
-    uint8_t frame[12];
-    memset(frame, 0, 12);
+    uint8_t frame[11];
+    memset(frame, 0, 11);
     frame[0] = 0x80;
-    frame[11] = iolink_crc6(frame, 11);
+    frame[1] = IOLINK_MSEQ_TYPE_1;
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 11));
 
-    for (int i = 0; i < 12; i++) {
+    for (int i = 0; i < 11; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
     will_return(mock_phy_recv_byte, 0);
 
-    /* Resp: Stat(1), PD(8), OD(1), CK(1) = 11 bytes. */
+    /* Resp: PD(8), OD(1), CKS(1) = 10 bytes (A.1.5). */
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 11);
+    expect_value(mock_phy_send, len, 10);
     will_return(mock_phy_send, 0);
 
     iolink_device_process(&dev.ctx);
@@ -72,19 +73,19 @@ static void test_pd_invalid_flag(void** state)
     move_to_operate_ctx(&dev.ctx);
 
     /* Type 1_1 with 1-byte PD: Req = MC, CKT, PD(1), OD(1), CK = 5 bytes.
-       Resp: Stat, PD(1), OD(1), CK = 4 bytes.
+       Resp: PD(1), OD(1), CKS = 3 bytes (A.1.5).
     */
-    uint8_t frame[] = {0x80, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_crc6(frame, 4);
+    uint8_t frame[] = {0x80, IOLINK_MSEQ_TYPE_1, 0x00, 0x00};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 4));
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
     will_return(mock_phy_recv_byte, 0);
 
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 4);
+    expect_value(mock_phy_send, len, 3);
     will_return(mock_phy_send, 0);
 
     iolink_device_process(&dev.ctx);

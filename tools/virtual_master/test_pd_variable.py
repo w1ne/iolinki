@@ -49,7 +49,7 @@ class TestVariablePD(unittest.TestCase):
 
             self.assertIsNotNone(resp)
             self.assertTrue(resp.valid)
-            self.assertEqual(resp.payload, b"\x11\x21\x31\x41")
+            self.assertEqual(resp.pd, b"\x11\x21\x31\x41")
             print("   ✅ PD 4-byte exchange successful")
 
         finally:
@@ -79,7 +79,7 @@ class TestVariablePD(unittest.TestCase):
             self.assertIsNotNone(resp)
             self.assertTrue(resp.valid)
             expected = bytes([(x + 1) & 0xFF for x in range(32)])
-            self.assertEqual(resp.payload, expected)
+            self.assertEqual(resp.pd, expected)
             print("   ✅ PD 32-byte exchange successful")
 
         finally:

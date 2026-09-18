@@ -39,26 +39,33 @@ def verify_task3():
         master.uart.send_bytes(b"\xff\xff\xff\xff")
         time.sleep(0.2)
 
-        # 2. Read Index 0x1C (Detailed Device Status)
-        print("Reading Index 0x001C (Detailed Device Status)...")
-        resp = master.read_isdu(index=0x001C, subindex=0x00)
+        # 2. Read Index 0x0025 (Detailed Device Status)
+        print("Reading Index 0x0025 (Detailed Device Status)...")
+        resp = master.read_isdu(index=0x0025, subindex=0x00)
         if resp:
-            print(f"✅ Index 0x1C Response: {resp.hex()}")
+            print(f"✅ Index 0x0025 Response: {resp.hex()}")
             for i in range(0, len(resp), 3):
                 if i + 2 < len(resp):
                     qualifier = resp[i]
                     code = (resp[i + 1] << 8) | resp[i + 2]
                     print(f"   Event: Qualifier=0x{qualifier:02X}, Code=0x{code:04X}")
         else:
-            print("❌ Index 0x1C Read failed or empty")
+            print("❌ Index 0x0025 Read failed or empty")
 
-        # 3. Read Index 0x001B (Device Status)
-        print("Reading Index 0x001B (Device Status)...")
-        resp = master.read_isdu(index=0x001B, subindex=0x00)
+        # 3. Read Index 0x0024 (Device Status)
+        print("Reading Index 0x0024 (Device Status)...")
+        resp = master.read_isdu(index=0x0024, subindex=0x00)
         if resp:
-            print(f"✅ Index 0x001B Response: {resp[0]} (0=OK, 3=Failure)")
+            print(f"✅ Index 0x0024 Response: {resp[0]} (0=OK, 3=Failure)")
         else:
-            print("❌ Index 0x001B Read failed")
+            print("❌ Index 0x0024 Read failed")
+
+        # 4. Read the Diagnosis-channel event memory (Table 58) and acknowledge
+        print("Reading the Diagnosis-channel event memory...")
+        events = master.read_event_memory()
+        for qualifier, code in events:
+            print(f"   Event: Qualifier=0x{qualifier:02X}, Code=0x{code:04X}")
+        master.ack_events()
 
     finally:
         process.terminate()

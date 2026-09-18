@@ -10,7 +10,13 @@ from enum import Enum
 import time
 from typing import Optional
 from .uart import VirtualUART
-from .protocol import MSequenceGenerator, DeviceResponse, ISDUControlByte
+from .protocol import (
+    MSequenceGenerator,
+    DeviceResponse,
+    FlowCtrl,
+    IOChannel,
+    MSequenceType,
+)
 
 """
 IO-Link Master state machine.
@@ -175,108 +181,180 @@ class VirtualMaster:
         self.uart.send_bytes(frame)
         print(f"[Master] Sent Type 0 frame (MC=0x{mc:02X}) with BAD CRC")
 
+    def _type_bits(self) -> int:
+        """CKT type bits for the configured M-sequence type (A.1.2)."""
+        if self.m_seq_type >= MSequenceType.TYPE_2_1:
+            return 0x80
+        if self.m_seq_type >= MSequenceType.TYPE_1_1:
+            return 0x40
+        return 0x00
+
+    def _isdu_od_exchange(
+        self, read: bool, flowctrl: int, od: bytes = b""
+    ) -> Optional[DeviceResponse]:
+        """Send one OD message on the ISDU channel and return the reply (C3)."""
+        rw = 0x80 if read else 0x00
+        mc = rw | IOChannel.ISDU | (flowctrl & FlowCtrl.MASK)
+
+        if self.m_seq_type == MSequenceType.TYPE_0:
+            frame = self.generator.generate_isdu_channel(rw, flowctrl, od)
+            self.uart.send_bytes(frame)
+            reply_len = (len(od) if od else self.od_len) + 1
+            if read:
+                reply_len = self.od_len + 1
+            else:
+                reply_len = 1
+            data = self.uart.recv_bytes(reply_len, timeout_ms=300)
+            if not data:
+                return None
+            return DeviceResponse(data, od_len=self.od_len, pd_in_len=0)
+
+        pd = bytes([0] * self.pd_out_len)
+        od0 = od[0] if len(od) > 0 else 0
+        od1 = od[1] if len(od) > 1 else 0
+        frame = self.generator.generate_type1(mc, self._type_bits(), pd, od0, od1)
+        self.uart.send_bytes(frame)
+        # A multi-type reply is always [PD-in][OD] CKS (A.1.5).
+        reply_len = self.pd_in_len + self.od_len + 1
+        data = self.uart.recv_bytes(reply_len, timeout_ms=300)
+        if not data:
+            return None
+        return DeviceResponse(
+            data, od_len=self.od_len if read else 0, pd_in_len=self.pd_in_len
+        )
+
+    def _isdu_send_request(self, request: bytes) -> bool:
+        """Send the ISDU request octets over consecutive ISDU-channel writes (C3)."""
+        width = self.od_len
+        chunks = [request[i : i + width] for i in range(0, len(request), width)]
+        for i, chunk in enumerate(chunks):
+            flowctrl = FlowCtrl.START if i == 0 else (i & FlowCtrl.COUNT_MASK)
+            resp = self._isdu_od_exchange(False, flowctrl, chunk)
+            if resp is None or not resp.valid:
+                print(f"[Master] ISDU request write failed at chunk {i}")
+                return False
+        return True
+
+    def _isdu_read_response(self) -> Optional[bytes]:
+        """Poll the framed ISDU response over ISDU-channel reads (C3, Table A.14)."""
+        octets = bytearray()
+        need = 0
+        flowctrl = FlowCtrl.START
+        busy_retries = 0
+
+        while need == 0 or len(octets) < need:
+            resp = self._isdu_od_exchange(True, flowctrl, b"")
+            if resp is None or not resp.valid:
+                busy_retries += 1
+                if busy_retries > 100:
+                    print("[Master] ISDU response read timeout")
+                    return None
+                time.sleep(0.001)
+                continue
+
+            chunk = resp.payload
+            if not octets and chunk and chunk[0] == 0x01:
+                busy_retries += 1
+                if busy_retries > 100:
+                    print("[Master] ISDU stayed Busy")
+                    return None
+                time.sleep(0.001)
+                continue
+
+            octets += chunk
+            if need == 0 and len(octets) >= 1:
+                nibble = octets[0] & 0x0F
+                if nibble == 1:
+                    if len(octets) >= 2:
+                        need = octets[1]
+                    else:
+                        continue
+                elif nibble == 0:
+                    need = 1
+                else:
+                    need = nibble
+            flowctrl = (flowctrl + 1) & FlowCtrl.COUNT_MASK
+
+        return bytes(octets[:need])
+
     def read_isdu(self, index: int, subindex: int = 0) -> Optional[bytes]:
-        """
-        Read ISDU parameter from Device (supports V1.1.5 Segmented).
-        """
+        """Read an ISDU parameter over the spec ISDU channel (C3)."""
         print(
             f"[Master] ISDU Read request: Index=0x{index:04X}, Subindex=0x{subindex:02X}"
         )
-
-        bytes_to_send = self.generator.generate_isdu_read_v11(
-            index, subindex, service_id=0xB0
-        )
-
-        def send_and_recv(byte_to_send: int):
-            if self.m_seq_type == 0:
-                frame = self.generator.generate_type0(byte_to_send)
-                self.uart.send_bytes(frame)
-                resp = self.uart.recv_bytes(2, timeout_ms=100)
-                return DeviceResponse(resp) if resp else None
-            else:
-                return self.run_cycle(od_req=byte_to_send)
-
-        for i, val in enumerate(bytes_to_send):
-            resp = send_and_recv(val)
-            if not resp or not resp.valid:
-                print(f"[Master] ISDU Read Req failed at byte {i}")
-                return None
-
-        data_bytes = bytearray()
-        ctrl = 0
-
-        max_retries = 50
-        for i in range(max_retries):
-            resp = send_and_recv(0x00)  # IDLE to clock out response
-            if not resp or not resp.valid:
-                continue
-            ctrl = resp.od if hasattr(resp, "od") else resp.payload[0]
-            if ctrl != 0:
-                print(f"[Master] Read Control Byte captured: 0x{ctrl:02X} at retry {i}")
-                break
-            time.sleep(0.001)
-
-        if ctrl == 0:
-            print("[Master] ISDU Response error: Timeout waiting for Control Byte")
+        request = self.generator.build_isdu_read_request(index, subindex)
+        if not self._isdu_send_request(request):
             return None
 
-        is_start = bool(ctrl & 0x80)
-        is_last = bool(ctrl & 0x40)
-
-        if not is_start:
-            print(f"[Master] ISDU Response error: Expected Start bit, got 0x{ctrl:02X}")
+        framed = self._isdu_read_response()
+        if framed is None or len(framed) < 2:
+            print("[Master] ISDU read: no framed response")
             return None
 
-        while True:
-            resp = send_and_recv(0x00)
-            if not resp or not resp.valid:
-                print(f"[Master] ISDU Read failed at data capture cycle: {resp}")
-                break
-
-            val = resp.od if hasattr(resp, "od") else resp.payload[0]
-            data_bytes.append(val)
+        service = framed[0] >> 4
+        if service == 0xC:
             print(
-                f"[Master] Captured ISDU data byte: 0x{val:02X} (Total: {len(data_bytes)})"
+                f"[Master] ISDU negative response: "
+                f"code=0x{framed[1]:02X} add=0x{framed[2]:02X}"
             )
+            return None
+        if service != 0xD:
+            print(f"[Master] ISDU unexpected response service 0x{service:X}")
+            return None
 
-            if is_last:
-                print(f"[Master] ISDU Read complete: {data_bytes.hex()}")
-                return bytes(data_bytes)
+        nibble = framed[0] & 0x0F
+        if nibble == 1:
+            total = framed[1]
+            data = framed[3:total]
+        else:
+            total = nibble
+            data = framed[1 : total - 1]
 
-            # Wait for NEXT Control Byte
-            resp = send_and_recv(0x00)
-            if not resp or not resp.valid:
-                print(f"[Master] ISDU Read failed at next control cycle: {resp}")
-                break
-            ctrl = resp.od if hasattr(resp, "od") else resp.payload[0]
-            is_start = bool(ctrl & 0x80)
-            is_last = bool(ctrl & 0x40)
-            print(
-                f"[Master] Captured next Control Byte: 0x{ctrl:02X} (is_last={is_last})"
-            )
+        print(f"[Master] ISDU Read complete: {data.hex()}")
+        return bytes(data)
 
-        print(f"[Master] ISDU Read collected {len(data_bytes)} bytes")
-        return bytes(data_bytes)
-
-    def request_event(self) -> Optional[int]:
-        """
-        Request event from Device.
-
-        Returns:
-            Event code or None if no event
-        """
-        frame = self.generator.generate_event_request()
+    def _diagnosis_read(self, addr: int, timeout_ms: int = 300) -> Optional[int]:
+        """Read one diagnosis-channel memory octet (Type-0 READ, Table 58)."""
+        frame = self.generator.generate_diagnosis_read(addr)
         self.uart.send_bytes(frame)
+        data = self.uart.recv_bytes(2, timeout_ms=timeout_ms)
+        if not data or len(data) < 2:
+            return None
+        return DeviceResponse(data, od_len=1, pd_in_len=0).od
 
-        response_data = self.uart.recv_bytes(
-            4, timeout_ms=100
-        )  # Event: 2 bytes code + status + CK
+    def read_event_memory(self) -> list[tuple[int, int]]:
+        """Read the Table 58 event memory over the diagnosis channel.
 
-        if response_data and len(response_data) >= 3:
-            event_code = (response_data[0] << 8) | response_data[1]
-            print(f"[Master] Event received: 0x{event_code:04X}")
-            return event_code
-        return None
+        Returns a list of (qualifier, code) tuples for every active slot in the
+        StatusCode (type 2, Figure A.22: bit 7 = details, bits 0-5 = active
+        slots). Bit n-1 set means slot n, whose qualifier/code live at
+        addresses 3n-2 / 3n-1 / 3n.
+        """
+        status = self._diagnosis_read(0x00)
+        if status is None:
+            return []
+
+        events: list[tuple[int, int]] = []
+        for slot in range(1, 7):
+            if not (status & (1 << (slot - 1))):
+                continue
+            qualifier = self._diagnosis_read(3 * slot - 2)
+            code_msb = self._diagnosis_read(3 * slot - 1)
+            code_lsb = self._diagnosis_read(3 * slot)
+            if qualifier is None or code_msb is None or code_lsb is None:
+                continue
+            events.append((qualifier, (code_msb << 8) | code_lsb))
+        return events
+
+    def ack_events(self) -> bool:
+        """Confirm the event readout: Type-0 WRITE of StatusCode (address 0).
+
+        Table 59 T8: the reply is the CKS octet only. Any OD value acknowledges.
+        """
+        frame = self.generator.generate_diagnosis_write(0x00, 0x00)
+        self.uart.send_bytes(frame)
+        data = self.uart.recv_bytes(1, timeout_ms=300)
+        return bool(data)
 
     def run_startup_sequence(self, send_wakeup: bool = True) -> bool:
         """
@@ -298,7 +376,9 @@ class VirtualMaster:
 
         if send_wakeup:
             self.send_wakeup()
-            time.sleep(0.5)  # Wait for Device to wake up (increased for CI)
+            # The first message must follow within T_DSIO (60..300 ms, Table 42)
+            # or the Device falls back to SIO before it can answer.
+            time.sleep(0.1)
         elif hasattr(self.uart, "flush"):
             # Established-COM link: discard boot noise / partial frames before
             # establishing comms (no wake-up byte delimits the start here).
@@ -324,6 +404,8 @@ class VirtualMaster:
         print("[Master] Sending DeviceOperate transition (MC=0x20, OD=0x99)")
         frame = self.generator.generate_device_operate()
         self.uart.send_bytes(frame)
+        # A Type-0 write is answered by the CKS only (Figure A.5); consume it.
+        self.uart.recv_bytes(1, timeout_ms=300)
         time.sleep(0.05)  # Give device time to switch
         self.state = MasterState.OPERATE
         return True
@@ -354,17 +436,21 @@ class VirtualMaster:
             if len(pd_out) != self.pd_out_len:
                 pd_out = pd_out[: self.pd_out_len].ljust(self.pd_out_len, b"\x00")
 
-            frame = self.generator.generate_type1(0x00, ckt, pd_out, od_req, od_req2)
+            frame = self.generator.generate_type1(
+                0x00, (ckt & 0x3F) | self._type_bits(), pd_out, od_req, od_req2
+            )
 
             self.uart.send_bytes(frame)
 
-            expected_len = 1 + self.pd_in_len + self.od_len + 1
+            expected_len = self.pd_in_len + self.od_len + 1
             response_data = self.uart.recv_bytes(expected_len, timeout_ms=1500)
 
             if response_data:
-                return DeviceResponse(response_data, od_len=self.od_len)
+                return DeviceResponse(
+                    response_data, od_len=self.od_len, pd_in_len=self.pd_in_len
+                )
             else:
-                return DeviceResponse(b"", od_len=self.od_len)
+                return DeviceResponse(b"", od_len=self.od_len, pd_in_len=self.pd_in_len)
 
     def run_cycle_bad_crc(
         self,
@@ -383,20 +469,24 @@ class VirtualMaster:
             pd_out = bytes([0] * self.pd_out_len)
 
         frame = bytearray(
-            self.generator.generate_type1(0x00, ckt, pd_out, od_req, od_req2)
+            self.generator.generate_type1(
+                0x00, (ckt & 0x3F) | self._type_bits(), pd_out, od_req, od_req2
+            )
         )
 
-        frame[-1] ^= 0xFF  # Flip all bits
+        frame[1] ^= 0x3F  # Corrupt the A.1.6 checksum in the CKT octet
 
         self.uart.send_bytes(frame)
 
-        expected_len = 1 + self.pd_in_len + self.od_len + 1
+        expected_len = self.pd_in_len + self.od_len + 1
         response_data = self.uart.recv_bytes(expected_len, timeout_ms=100)
 
         if response_data:
-            return DeviceResponse(response_data, od_len=self.od_len)
+            return DeviceResponse(
+                response_data, od_len=self.od_len, pd_in_len=self.pd_in_len
+            )
         else:
-            return DeviceResponse(b"", od_len=self.od_len)
+            return DeviceResponse(b"", od_len=self.od_len, pd_in_len=self.pd_in_len)
 
     def inject_sio_fallback(self, count: int = 3) -> None:
         """
@@ -415,80 +505,31 @@ class VirtualMaster:
         print("[Master] SIO Fallback injection complete. Device should be in SIO mode.")
 
     def write_isdu(self, index: int, subindex: int, data: bytes) -> bool:
-        """
-        Write ISDU parameter to Device (supports V1.1.5 Segmented).
-        """
+        """Write an ISDU parameter over the spec ISDU channel (C3)."""
         print(
             f"[Master] ISDU Write request: Index=0x{index:04X}, Subindex=0x{subindex:02X}, Data={data.hex()}"
         )
-
-        data_len = len(data)
-        if data_len > 15:
-            service_id = 0x3F  # I-Service WRITE nibble 0x03 (Table A.12), extended length
-            request_data = [
-                service_id,
-                data_len,
-                (index >> 8) & 0xFF,
-                index & 0xFF,
-                subindex,
-            ] + list(data)
-        else:
-            request_data = [
-                0x30 | (data_len & 0x0F),  # I-Service WRITE nibble 0x03, embedded length
-                (index >> 8) & 0xFF,
-                index & 0xFF,
-                subindex,
-            ] + list(data)
-
-        interleaved = []
-        for i, val in enumerate(request_data):
-            is_start = i == 0
-            is_last = i == len(request_data) - 1
-            interleaved.append(ISDUControlByte.generate(is_start, is_last, i % 64))
-            interleaved.append(val)
-
-        def send_and_recv(byte_to_send: int):
-            if self.m_seq_type == 0:
-                frame = self.generator.generate_type0(byte_to_send)
-                self.uart.send_bytes(frame)
-                resp = self.uart.recv_bytes(2, timeout_ms=100)
-                return DeviceResponse(resp) if resp else None
-            else:
-                return self.run_cycle(od_req=byte_to_send)
-
-        for j, val in enumerate(interleaved):
-            resp = send_and_recv(val)
-            if not resp or not resp.valid:
-                print(
-                    f"[Master] ISDU Write Req failed at interleaved byte {j}: 0x{val:02X}"
-                )
-                return False
-
-        max_retries = 50
-        ctrl = 0
-        for i in range(max_retries):
-            resp = send_and_recv(0x00)
-            if not resp or not resp.valid:
-                print(f"[Master] ISDU Write Poll failed at retry {i}")
-                continue
-            ctrl = resp.od if hasattr(resp, "od") else resp.payload[0]
-            if ctrl != 0:
-                print(f"[Master] ISDU Write captured ctrl: 0x{ctrl:02X} at retry {i}")
-                break
-            time.sleep(0.001)
-
-        if ctrl == 0:
-            print(
-                "[Master] ISDU Write failed: Timeout waiting for Response Control Byte"
-            )
+        request = self.generator.build_isdu_write_request(index, subindex, data)
+        if not self._isdu_send_request(request):
             return False
 
-        if ctrl & 0x40 and not (
-            ctrl & 0x80
-        ):  # This logic is a bit simple, but usually bit 6 is error if bit 7 is 0?
-            pass
+        framed = self._isdu_read_response()
+        if framed is None or len(framed) < 2:
+            print("[Master] ISDU write: no framed response")
+            return False
 
-        print(f"[Master] ISDU Write response control: 0x{ctrl:02X}")
+        service = framed[0] >> 4
+        if service == 0x4:
+            print(
+                f"[Master] ISDU write negative response: "
+                f"code=0x{framed[1]:02X} add=0x{framed[2]:02X}"
+            )
+            return False
+        if service != 0x5:
+            print(f"[Master] ISDU write unexpected response service 0x{service:X}")
+            return False
+
+        print("[Master] ISDU write confirmed")
         return True
 
     def close(self) -> None:

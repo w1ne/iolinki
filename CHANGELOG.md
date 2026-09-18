@@ -5,6 +5,36 @@ All notable changes to the `iolinki` project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **BREAKING wire change: spec-conformant IO-Link V1.1.5 M-sequences.** The
+  device stack now speaks the wire defined by the IO-Link Interface &
+  System specification V1.1.5:
+  - **C1 Checksum (A.1.6)**: the message checksum is the XOR of every octet
+    seeded with `0x52`, compressed 8->6 bits by (A.1). The old CRC-6
+    (poly `0x1D`, seed `0x15`) and the trailing checksum octet are gone.
+  - **Reply layout (A.1.5)**: replies are `[PD-in][OD] CKS` with no leading
+    status octet and no PD toggle bit; the Event flag is CKS bit 7 and the
+    PD-invalid flag is CKS bit 6. A Type-0 read replies `OD CKS`; a Type-0
+    write replies `CKS` only.
+  - **C2 Channel dispatch**: OD is dispatched by the MC communication channel
+    (process / page / diagnosis / ISDU); MasterCommands are page-channel writes
+    to address 0.
+  - **C3 ISDU transport**: requests and responses are carried by OD messages on
+    the ISDU channel with FlowCTRL in the MC address bits and CHKPDU (A.5.6);
+    the invented interleaved START/LAST/SEQ control bytes are removed.
+  - **C4 Diagnosis channel**: the event memory is exposed per Table 58 and the
+    Event flag is acknowledged by writing StatusCode at address 0.
+  - **C5 Indices**: standard indices corrected (`0x0024` DeviceStatus,
+    `0x0025` DetailedDeviceStatus, `0x0020` ErrorCount, vendor objects at
+    `0x0040+`), 3-octet DeviceID and Table A.10 M-sequence capability codes.
+  - **C6 Timing**: a single device `T_REN` of 500 us (Table 10), `T_WU` pulse
+    (80 us), `T_DSIO` (300 ms) fallback to SIO, and `T_FBD` (3 MasterCycleTimes,
+    max 500 ms) for the FALLBACK MasterCommand.
+- The Python virtual master and the 49-test conformance suite were updated to
+  the same wire contract.
+
 ## [1.2.0] - 2026-07-02
 ### Added
 - **Per-release SBOMs**: every tagged release now ships CycloneDX 1.6 and SPDX 2.3

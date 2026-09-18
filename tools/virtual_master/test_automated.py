@@ -91,14 +91,13 @@ def test_automated():
             return 1
 
         print()
-        print("[TEST 3] CRC Validation")
-        from virtual_master.crc import calculate_checksum_type0
+        print("[TEST 3] Message Checksum Validation")
+        from virtual_master.crc import checksum6
 
-        wakeup_ck = calculate_checksum_type0(0x95, 0x00)
-        if wakeup_ck == 0x1D:
-            print(f"✅ CRC calculation correct (0x{wakeup_ck:02X})")
+        if checksum6(bytes([0x00, 0x00])) == 0x2D:
+            print("✅ Message checksum correct (A.1.6 vector 0x2D)")
         else:
-            print(f"❌ CRC calculation wrong (expected 0x1D, got 0x{wakeup_ck:02X})")
+            print("❌ Message checksum wrong (expected 0x2D)")
             return 1
 
         print()

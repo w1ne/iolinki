@@ -14,8 +14,8 @@
 - **Variable PD Lengths**: Type 1_V / 2_V via `set_pd_length()` and PD len config (runtime negotiation pending)
 - **Variable OD Length**: 1-byte (Type 1) and 2-byte (Type 2)
 - **Wake-up / Idle**: Type 0 wake-up and idle sequences
-- **Event Request**: Master-side event request (MC: 0xA2) - requires device support
-- **CRC6 Calculation**: Polynomial 0x1D, seed 0x15 (matches iolinki)
+- **Event Memory**: Diagnosis-channel event memory read/ack (Table 58/59)
+- **Message Checksum**: IO-Link A.1.6 (XOR seed 0x52, 8->6 bit compression; matches iolinki)
 - **Checksum Verification**: Type 1/2 response validation
 
 #### Master State Machine
@@ -28,7 +28,8 @@
 - `send_idle()`: Send idle frame, receive Device response
 - `read_isdu()`: ISDU Read (V1.1.5 segmentation, Type 0/1/2)
 - `write_isdu()`: ISDU Write (V1.1.5 segmentation, Type 0/1/2)
-- `request_event()`: Request event from Device
+- `read_event_memory()`: Read the diagnosis event memory (Table 58)
+- `ack_events()`: Confirm the event readout (Table 59 T8)
 - `run_startup_sequence()`: Automated startup
 - `run_cycle()`: Single communication cycle (PD + OD)
 
@@ -39,12 +40,10 @@
 - 16-bit index / subindex error injection helpers
 
 #### Process Data
-- PD consistency (toggle bit)
-- PD validity flags
+- PD status from the CKS octet (Event bit 7, PD-invalid bit 6)
 
 #### Events
-- Event acknowledgment (CKT flow control)
-- Event qualifier parsing
+- Diagnosis-channel event memory readout and acknowledgement (Table 58/59)
 
 #### Data Storage
 - DS Upload/Download commands
@@ -84,8 +83,9 @@ if response.valid:
 # Read ISDU (basic Type 0)
 data = master.read_isdu(index=0x10)  # Vendor Name
 
-# Request event
-event_code = master.request_event()
+# Read the diagnosis event memory and acknowledge it
+events = master.read_event_memory()
+master.ack_events()
 
 # Run startup sequence
 if master.run_startup_sequence():
@@ -109,7 +109,7 @@ gen = MSequenceGenerator()
 wakeup = gen.generate_wakeup()      # [MC, CK]
 idle = gen.generate_idle()          # [MC, CK]
 isdu_read = gen.generate_isdu_read(0x10)  # ISDU read
-event_req = gen.generate_event_request()  # Event request
+diag_read = gen.generate_diagnosis_read(0x00)   # Diagnosis read (event memory)
 ```
 
 ### DeviceResponse Class
@@ -134,13 +134,10 @@ if response.valid:
 ### CRC Functions
 
 ```python
-from virtual_master.crc import calculate_crc6, calculate_checksum_type0
+from virtual_master.crc import checksum6
 
-# Calculate CRC for arbitrary data
-crc = calculate_crc6(b'\xAB\xCD\xEF')
-
-# Calculate Type 0 checksum
-ck = calculate_checksum_type0(mc=0x95, ckt=0x00)
+# A.1.6 checksum over octets with the checksum field zeroed
+ck = checksum6(b'\x95\x00')
 ```
 
 ## Test Coverage

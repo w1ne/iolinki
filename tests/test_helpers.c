@@ -144,7 +144,7 @@ void move_to_operate_ctx(iolink_device_ctx_t* ctx)
 
     /* PREOPERATE -> ESTAB_COM (on MC=0x0F + Correct CK) */
     uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;
-    uint8_t ck = iolink_checksum_ck(mc, 0U);
+    uint8_t ck = test_frame_checksum(mc);
 
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, mc);
@@ -164,7 +164,7 @@ void move_to_operate_ctx(iolink_device_ctx_t* ctx)
 
     if (type == IOLINK_M_SEQ_TYPE_0) {
         uint8_t idle_mc = 0x00;
-        uint8_t idle_ck = iolink_checksum_ck(idle_mc, 0U);
+        uint8_t idle_ck = test_frame_checksum(idle_mc);
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, idle_mc);
         will_return(mock_phy_recv_byte, 1);
@@ -172,7 +172,7 @@ void move_to_operate_ctx(iolink_device_ctx_t* ctx)
         will_return(mock_phy_recv_byte, 0);
 
         expect_any(mock_phy_send, data);
-        expect_value(mock_phy_send, len, 2);
+        expect_value(mock_phy_send, len, 1); /* Type-0 write replies CKS only */
         will_return(mock_phy_send, 0);
         iolink_device_process(ctx);
         return;
@@ -180,10 +180,15 @@ void move_to_operate_ctx(iolink_device_ctx_t* ctx)
 
     uint8_t frame[64];
     memset(frame, 0, sizeof(frame));
-    uint8_t frame_len = (uint8_t) (IOLINK_M_SEQ_HEADER_LEN + pd_out_len + od_len + 1U);
+    /* Figure A.2: master message is MC, CKT, data... with the A.1.6 checksum in
+       the CKT octet (byte 1); there is no trailing checksum octet. */
+    uint8_t frame_len = (uint8_t) (IOLINK_M_SEQ_HEADER_LEN + pd_out_len + od_len);
     frame[0] = 0x80;
-    frame[1] = 0x00;
-    frame[frame_len - 1U] = iolink_crc6(frame, (uint8_t) (frame_len - 1U));
+    frame[1] = ((type == IOLINK_M_SEQ_TYPE_2_1) || (type == IOLINK_M_SEQ_TYPE_2_2) ||
+                (type == IOLINK_M_SEQ_TYPE_2_V))
+                   ? IOLINK_MSEQ_TYPE_2
+                   : IOLINK_MSEQ_TYPE_1;
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, frame_len));
 
     for (uint8_t i = 0U; i < frame_len; i++) {
         will_return(mock_phy_recv_byte, 1);
@@ -191,7 +196,7 @@ void move_to_operate_ctx(iolink_device_ctx_t* ctx)
     }
     will_return(mock_phy_recv_byte, 0);
 
-    uint8_t resp_len = (uint8_t) (1U + pd_in_len + od_len + 1U);
+    uint8_t resp_len = (uint8_t) (pd_in_len + od_len + 1U);
     expect_any(mock_phy_send, data);
     expect_value(mock_phy_send, len, resp_len);
     will_return(mock_phy_send, 0);
@@ -260,122 +265,93 @@ void iolink_nvm_mock_cleanup(void)
 
 /* ISDU V1.1.5 Interleaved Format Helpers */
 
+static uint8_t helper_chkpdu(const uint8_t* octets, size_t len)
+{
+    uint8_t c = 0U;
+    for (size_t i = 0U; i < len; i++) {
+        c ^= octets[i];
+    }
+    return c;
+}
+
+/** @brief Feed one complete ISDU request over the spec transport (C3). */
+static void helper_send_isdu(iolink_isdu_ctx_t* ctx, uint8_t* buf, size_t total)
+{
+    buf[total - 1U] = 0x00U;
+    buf[total - 1U] = helper_chkpdu(buf, total);
+    iolink_isdu_od_write(ctx, IOLINK_FLOWCTRL_START, buf, (uint8_t) total);
+}
+
 int isdu_send_read_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subindex)
 {
-    int ret;
+    uint8_t buf[8];
+    size_t n = 0U;
 
-    /* Control: Start, Seq=0 (Not Last) */
-    ret = iolink_isdu_collect_byte(ctx, 0x80);
-    if (ret != 0) return ret;
+    if (index > 0xFFU) {
+        /* 16-bit Index and 8-bit Subindex (I-Service 0xB, Length 0x5). */
+        buf[n++] = 0xB5U;
+        buf[n++] = (uint8_t) (index >> 8);
+        buf[n++] = (uint8_t) (index & 0xFFU);
+        buf[n++] = subindex;
+    }
+    else if (subindex != 0U) {
+        /* 8-bit Index and 8-bit Subindex (I-Service 0xA, Length 0x4). */
+        buf[n++] = 0xA4U;
+        buf[n++] = (uint8_t) index;
+        buf[n++] = subindex;
+    }
+    else {
+        /* 8-bit Index (I-Service 0x9, Length 0x3). */
+        buf[n++] = 0x93U;
+        buf[n++] = (uint8_t) index;
+    }
 
-    /* Data: Read service (0xB0 = I-Service READ nibble 0x0B per Table A.12, Length=0) */
-    ret = iolink_isdu_collect_byte(ctx, 0xB0);
-    if (ret != 0) return ret;
-
-    /* Control: Seq=1 */
-    ret = iolink_isdu_collect_byte(ctx, 0x01);
-    if (ret != 0) return ret;
-
-    /* Data: Index high byte */
-    ret = iolink_isdu_collect_byte(ctx, (uint8_t) (index >> 8));
-    if (ret != 0) return ret;
-
-    /* Control: Seq=2 */
-    ret = iolink_isdu_collect_byte(ctx, 0x02);
-    if (ret != 0) return ret;
-
-    /* Data: Index low byte */
-    ret = iolink_isdu_collect_byte(ctx, (uint8_t) (index & 0xFF));
-    if (ret != 0) return ret;
-
-    /* Control: Last, Seq=3 */
-    ret = iolink_isdu_collect_byte(ctx, 0x43);
-    if (ret != 0) return ret;
-
-    /* Data: Subindex (last byte) */
-    ret = iolink_isdu_collect_byte(ctx, subindex);
-    return ret;
+    helper_send_isdu(ctx, buf, n + 1U);
+    return 1;
 }
 
 int isdu_send_write_request(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subindex,
                             const uint8_t* data, uint8_t data_len)
 {
-    int ret;
-    uint8_t seq = 0;
+    uint8_t buf[IOLINK_ISDU_BUFFER_SIZE];
+    size_t n = 0U;
 
-    /* Control: Start, Seq=0 */
-    uint8_t ctrl = 0x80; /* Start bit */
-    /* Note: For Write, we always have Index/Subindex following, so first byte is never Last */
-    ret = iolink_isdu_collect_byte(ctx, ctrl);
-    if (ret != 0) return ret;
-    seq++;
-
-    /* Data: Write service */
-    uint8_t service_byte;
-    if (data_len <= 15) {
-        service_byte =
-            0x30 | data_len; /* I-Service WRITE nibble 0x03 (Table A.12), embedded length */
+    /* Octet count without the ExtLength octet. */
+    size_t base_total;
+    if (index > 0xFFU) {
+        base_total = (size_t) data_len + 1U /* I-Service */ + 2U /* index */ + 1U /* sub */ + 1U;
+    }
+    else if (subindex != 0U) {
+        base_total = (size_t) data_len + 1U + 1U /* index */ + 1U /* sub */ + 1U;
     }
     else {
-        service_byte = 0x3F; /* I-Service WRITE nibble 0x03, extended length */
-    }
-    ret = iolink_isdu_collect_byte(ctx, service_byte);
-    if (ret != 0) return ret;
-
-    /* If extended length, send it */
-    if (data_len > 15) {
-        /* Control */
-        ret = iolink_isdu_collect_byte(ctx, seq & 0x3F);
-        if (ret != 0) return ret;
-        seq++;
-
-        /* Data: Extended length */
-        ret = iolink_isdu_collect_byte(ctx, data_len);
-        if (ret != 0) return ret;
+        base_total = (size_t) data_len + 1U + 1U /* index */ + 1U;
     }
 
-    /* Control */
-    ret = iolink_isdu_collect_byte(ctx, seq & 0x3F);
-    if (ret != 0) return ret;
-    seq++;
-
-    /* Data: Index high */
-    ret = iolink_isdu_collect_byte(ctx, (uint8_t) (index >> 8));
-    if (ret != 0) return ret;
-
-    /* Control */
-    ret = iolink_isdu_collect_byte(ctx, seq & 0x3F);
-    if (ret != 0) return ret;
-    seq++;
-
-    /* Data: Index low */
-    ret = iolink_isdu_collect_byte(ctx, (uint8_t) (index & 0xFF));
-    if (ret != 0) return ret;
-
-    /* Control */
-    ret = iolink_isdu_collect_byte(ctx, seq & 0x3F);
-    if (ret != 0) return ret;
-    seq++;
-
-    /* Data: Subindex */
-    ret = iolink_isdu_collect_byte(ctx, subindex);
-    if (ret != 0) return ret;
-
-    /* Send data bytes */
-    for (uint8_t i = 0; i < data_len; i++) {
-        /* Control */
-        uint8_t c = seq & 0x3F;
-        if (i == data_len - 1) c |= 0x40; /* Last bit */
-        ret = iolink_isdu_collect_byte(ctx, c);
-        if (ret != 0) return ret;
-        seq = (seq + 1) & 0x3F;
-
-        /* Data */
-        ret = iolink_isdu_collect_byte(ctx, data[i]);
-        if (ret != 0) return ret;
+    const bool ext = (base_total > 15U);
+    const size_t total = ext ? (base_total + 1U) : base_total;
+    const uint8_t base = (index > 0xFFU) ? 0x30U : ((subindex != 0U) ? 0x20U : 0x10U);
+    buf[n++] = (uint8_t) (base | (ext ? 0x01U : (uint8_t) total));
+    if (ext) {
+        buf[n++] = (uint8_t) total;
+    }
+    if (index > 0xFFU) {
+        buf[n++] = (uint8_t) (index >> 8);
+        buf[n++] = (uint8_t) (index & 0xFFU);
+        buf[n++] = subindex;
+    }
+    else {
+        buf[n++] = (uint8_t) index;
+        if (subindex != 0U) {
+            buf[n++] = subindex;
+        }
+    }
+    for (uint8_t i = 0U; i < data_len; i++) {
+        buf[n++] = data[i];
     }
 
-    return ret;
+    helper_send_isdu(ctx, buf, total);
+    return 1;
 }
 
 int isdu_collect_response(iolink_isdu_ctx_t* ctx, uint8_t* buffer, size_t buffer_size)
@@ -385,20 +361,7 @@ int isdu_collect_response(iolink_isdu_ctx_t* ctx, uint8_t* buffer, size_t buffer
 
     if (ctx == NULL || ctx->state != ISDU_STATE_RESPONSE_READY) return -1;
 
-    /* Collect alternating Control and Data bytes */
-    while (idx < buffer_size && ctx->state == ISDU_STATE_RESPONSE_READY) {
-        /* Get control byte */
-        if (iolink_isdu_get_response_byte(ctx, &byte) <= 0) {
-            break;
-        }
-
-        /* Get data byte */
-        if (iolink_isdu_get_response_byte(ctx, &byte) <= 0) {
-            /* If this was a 0-length response, we might get 0 here after its only control byte.
-             * But for data-carrying responses, this should return the data byte. */
-            break;
-        }
-
+    while (idx < buffer_size && iolink_isdu_get_response_byte(ctx, &byte) > 0) {
         buffer[idx++] = byte;
     }
 

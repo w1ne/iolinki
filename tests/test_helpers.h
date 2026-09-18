@@ -26,6 +26,14 @@
 extern uint8_t g_tx_buf[1024];
 extern uint8_t g_rx_buf[1024];
 
+/* Build the checksum for a 2-octet message [octet, checksum-with-low-bits-zero].
+ * Used by tests to construct master frames and device replies (A.1.6). */
+static inline uint8_t test_frame_checksum(uint8_t octet)
+{
+    uint8_t frame[2] = {octet, 0x00U};
+    return iolink_checksum6(frame, 2U);
+}
+
 /* Mock implementations (exported for CMocka symbols) */
 int mock_phy_init(void* user);
 void mock_phy_set_mode(void* user, iolink_phy_mode_t mode);

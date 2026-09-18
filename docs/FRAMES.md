@@ -14,20 +14,34 @@ The stack supports multiple M-Sequence types defined in the IO-Link V1.1.5 speci
 | **Type 2_1** | Fixed PD + 2-byte OD | Yes | 2 bytes | No | Supported |
 | **Type 2_2** | Fixed PD + 2-byte OD + ISDU | Yes | 2 bytes | Yes | Supported |
 
-### 1.1 Type 0 (On-request Data Only)
-Used primarily during the `PREOPERATE` state for identification and parameterization.
-- **Master -> Device**: `[MC] [CK]` (2 bytes)
-- **Device -> Master**: `[OD] [CK]` (2 bytes)
-- *Note: `MC` (Master Command) and `CK` (Checksum) are 8-bit fields.*
+### 1.1 Message checksum (A.1.6)
 
-### 1.2 Type 1_x (PD + Interleaved ISDU)
-Enables concurrent exchange of Process Data and ISDU bytes.
-- **Master -> Device**: `[MC] [CKT] [PD_Out...] [OD] [CK]`
-- **Device -> Master**: `[Status] [PD_In...] [OD] [CK]`
-- **Status Byte**:
-  - Bit 7: EventFlag (1=Pending Event)
-  - Bit 5: PDValid (1=Valid)
-  - Bits 6,4-0: Reserved
+The checksum is an XOR of every message octet seeded with `0x52`, compressed
+from 8 to 6 bits by the equations in (A.1). It lives in the **CKT** octet of a
+master message and in the **CKS** octet of a device reply; those octets' bits
+0-5 are zero before the checksum is computed. There is no trailing checksum
+octet.
+
+### 1.2 Type 0 (On-request Data Only)
+Used during STARTUP and PREOPERATE for identification and parameterization, and
+in OPERATE for On-request Data access.
+- **Master -> Device (read)**: `[MC] [CKT]` (2 bytes)
+- **Master -> Device (write)**: `[MC] [CKT] [OD]`
+- **Device -> Master (read reply)**: `[OD] [CKS]`
+- **Device -> Master (write reply)**: `[CKS]` (1 byte)
+
+A Type-0 request on the page, diagnosis or ISDU communication channel carries
+one OD octet on a write. FlowCTRL for ISDU lives in `MC & 0x1F`.
+
+### 1.3 Type 1_x / 2_x (PD + OD)
+
+- **Master -> Device**: `[MC] [CKT] [PD_Out...] [OD...]`
+- **Device -> Master**: `[PD_In...] [OD...] [CKS]`
+
+The CKT carries the M-sequence type in bits 6-7 (`01` for Type 1_x, `10` for
+Type 2_x) plus the 6-bit checksum. There is **no leading status octet and no
+toggle bit**: the Event flag is CKS bit 7 and the PD-valid flag is CKS bit 6
+(1 = invalid), per A.1.5.
 
 ## 2. Simulation Frames (Virtual Master)
 
@@ -36,7 +50,7 @@ The Python Virtual Master (`tools/virtual_master`) uses a dedicated framing mech
 ### 2.1 PTY Framing
 To ensure synchronization and robust parsing in software simulation, the Master-Device communication follows strict timing and boundary rules:
 
-- **Startup Trigger**: Simulated by a dummy byte (`0x00`) to wake the Device stack.
+- **Startup Trigger**: Simulated by a wake-up marker byte (`0x55`) that the virtual PHY's `detect_wakeup` scans for; the first M-sequence must follow within T_DSIO (300 ms).
 - **Cycle Time**: Defaults to 10ms, configurable via `VirtualMaster`.
 - **Sync Loss Recovery**: The Device stack automatically resets to `STARTUP` if no bytes are received for >1000ms.
 

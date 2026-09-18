@@ -97,9 +97,9 @@ class TestStateMachineConformance(unittest.TestCase):
         self.assertIsNotNone(resp, "Should receive Process Data in OPERATE")
         self.assertTrue(resp.valid, "PD response should be valid")
         self.assertEqual(
-            len(resp.payload), 2, "PD length should match negotiated value"
+            len(resp.pd), 2, "PD length should match negotiated value"
         )
-        print(f"[PASS] Process Data received: {resp.payload.hex()}")
+        print(f"[PASS] Process Data received: {resp.pd.hex()}")
 
     def test_03_operate_state_persistence(self):
         """
@@ -224,7 +224,7 @@ class TestStateMachineConformance(unittest.TestCase):
         self.assertTrue(resp.valid, "PD should be valid after ISDU")
 
         print(
-            f"[PASS] ISDU and PD coexist: Vendor={vendor_name.decode('ascii', errors='ignore')}, PD={resp.payload.hex()}"
+            f"[PASS] ISDU and PD coexist: Vendor={vendor_name.decode('ascii', errors='ignore')}, PD={resp.pd.hex()}"
         )
 
     def test_07_estab_com_to_operate_transition(self):

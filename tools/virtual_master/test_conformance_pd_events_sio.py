@@ -77,30 +77,22 @@ def test_pd_toggle_bit():
         master.go_to_operate()
         time.sleep(0.1)
 
-        # Run multiple cycles and check toggle bit (Bit 6 = 0x40)
-        previous_toggle = None
-
+        # The reply is [PD-in][OD] CKS with no status octet and no toggle bit
+        # (A.1.5): PD validity lives in CKS bit 6 (1 = invalid).
         for i in range(5):
             response = master.run_cycle(pd_out=bytes([0xAA, 0xBB]))
             if not response or not response.valid:
                 print(f"❌ FAILED: Cycle {i + 1} returned invalid response")
                 return False
 
-            status = response.status
-            toggle_bit = (status & 0x40) != 0
+            if not response.pd_valid:
+                print(f"❌ FAILED: Cycle {i + 1} reported PD invalid")
+                return False
 
-            print(f"Cycle {i + 1}: Status=0x{status:02X}, Toggle={toggle_bit}")
-
-            # After first cycle, verify toggle alternates
-            if previous_toggle is not None:
-                if toggle_bit == previous_toggle:
-                    print(f"❌ FAILED: Toggle bit did not flip (stuck at {toggle_bit})")
-                    return False
-
-            previous_toggle = toggle_bit
+            print(f"Cycle {i + 1}: PD={response.pd.hex()}, CKS=0x{response.checksum:02X}")
             time.sleep(0.01)
 
-        print("✅ PASSED: PD Toggle bit alternates correctly")
+        print("✅ PASSED: PD exchange valid across cycles")
         return True
 
     finally:
@@ -126,23 +118,23 @@ def test_standard_event_codes():
 
         print("✅ Startup successful")
 
-        # Try to read Device Status (Index 0x001B)
+        # Try to read Device Status (Index 0x0024, Table B.8)
         try:
-            device_status = master.read_isdu(index=0x001B)
+            device_status = master.read_isdu(index=0x0024)
             if device_status:
-                print(f"✅ Device Status (0x001B): 0x{device_status[0]:02X}")
+                print(f"✅ Device Status (0x0024): 0x{device_status[0]:02X}")
             else:
                 print("❌ Failed to read Device Status")
         except Exception as e:
             print(f"⚠️  Could not read Device Status: {e}")
 
-        # Try to read Detailed Device Status (Index 0x001C) - event code
+        # Try to read DetailedDeviceStatus (Index 0x0025, Table B.8) - event code
         try:
-            detailed_status = master.read_isdu(index=0x001C)
+            detailed_status = master.read_isdu(index=0x0025)
             if detailed_status and len(detailed_status) >= 2:
                 event_code = (detailed_status[0] << 8) | detailed_status[1]
                 print(
-                    f"✅ Detailed Device Status (0x001C): Event Code = 0x{event_code:04X}"
+                    f"✅ Detailed Device Status (0x0025): Event Code = 0x{event_code:04X}"
                 )
 
                 # Verify it's a valid event code range
@@ -154,7 +146,7 @@ def test_standard_event_codes():
                             f"⚠️  Event code 0x{event_code:04X} is outside standard range"
                         )
             else:
-                print("⚠️  Detailed Device Status (0x001C) is empty")
+                print("⚠️  Detailed Device Status (0x0025) is empty")
         except Exception as e:
             print(f"⚠️  Could not read Detailed Device Status: {e}")
 
