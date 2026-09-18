@@ -75,7 +75,7 @@ static void test_isdu_device_status_read(void** state)
     ctx.event_ctx = &events;
 
     /* 1. Initially status should be OK (0) */
-    assert_int_equal(isdu_send_read_request(&ctx, 0x001B, 0x00), 1);
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DEVICE_STATUS, 0x00), 1);
     iolink_isdu_process(&ctx);
 
     uint8_t status_buf[1];
@@ -87,7 +87,7 @@ static void test_isdu_device_status_read(void** state)
 
     iolink_isdu_init(&ctx);
     ctx.event_ctx = &events;
-    assert_int_equal(isdu_send_read_request(&ctx, 0x001B, 0x00), 1);
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DEVICE_STATUS, 0x00), 1);
     iolink_isdu_process(&ctx);
 
     assert_int_equal(isdu_collect_response(&ctx, status_buf, sizeof(status_buf)), 1);
@@ -107,8 +107,8 @@ static void test_isdu_detailed_device_status_read(void** state)
 
     iolink_event_trigger(&events, 0x1801, IOLINK_EVENT_TYPE_ERROR);
 
-    /* Read Detailed Status (Index 0x1C) */
-    assert_int_equal(isdu_send_read_request(&ctx, 0x001C, 0x00), 1);
+    /* Read Detailed Status (Index 0x0025, Table B.8) */
+    assert_int_equal(isdu_send_read_request(&ctx, 0x0025, 0x00), 1);
     iolink_isdu_process(&ctx);
 
     uint8_t detailed_buf[3];
@@ -136,7 +136,7 @@ static void test_isdu_error_stats_read(void** state)
     iolink_isdu_init(&ctx);
     ctx.dll_ctx = &dll_ctx;
 
-    /* Read Error Statistics (Index 0x0025) */
+    /* Read Error Statistics (vendor object at Index 0x0040) */
     assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_ERROR_STATS, 0x00), 1);
     iolink_isdu_process(&ctx);
 
@@ -411,8 +411,8 @@ static void test_isdu_pdin_descriptor_read(void** state)
     assert_int_equal(iolink_dll_set_pd_length(&dll, 3, 0), 0);
     ctx.dll_ctx = &dll;
 
-    /* Read PD Input Descriptor (Index 0x1D) */
-    assert_int_equal(isdu_send_read_request(&ctx, 0x001D, 0x00), 1);
+    /* Read Process Data Input descriptor (Index 0x0028) */
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_PROCESS_DATA_INPUT, 0x00), 1);
 
     iolink_isdu_process(&ctx);
 
@@ -424,7 +424,8 @@ static void test_isdu_pdin_descriptor_read(void** state)
     /* Test write protection */
     iolink_isdu_init(&ctx);
     uint8_t cmd_data[] = {0x05};
-    assert_int_equal(isdu_send_write_request(&ctx, 0x001D, 0x00, cmd_data, 1), 1);
+    assert_int_equal(
+        isdu_send_write_request(&ctx, IOLINK_IDX_PROCESS_DATA_INPUT, 0x00, cmd_data, 1), 1);
 
     iolink_isdu_process(&ctx);
 
@@ -557,6 +558,90 @@ static void test_isdu_direct_parameters_page2(void** state)
     assert_int_equal(one_rb[0], 0x5A);
 }
 
+static void test_isdu_device_id_three_octets(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_t info;
+    (void) memset(&info, 0, sizeof(info));
+    info.vendor_name = "v";
+    info.vendor_text = "v";
+    info.product_name = "p";
+    info.product_id = "i";
+    info.product_text = "t";
+    info.serial_number = "s";
+    info.hardware_revision = "h";
+    info.firmware_revision = "f";
+    info.device_id = 0x010203U;
+    iolink_device_info_init(&info);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DEVICE_ID, 0x00), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t data[4];
+    int len = isdu_collect_response(&ctx, data, sizeof(data));
+    assert_int_equal(len, 3);
+    assert_int_equal(data[0], 0x01);
+    assert_int_equal(data[1], 0x02);
+    assert_int_equal(data[2], 0x03);
+}
+
+static void test_isdu_reserved_indices_negative(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+
+    /* 0x001C..0x001F are not used (C5); a read is a negative response. */
+    assert_int_equal(isdu_send_read_request(&ctx, 0x001CU, 0x00), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t byte;
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+}
+
+static uint8_t page1_octet3(uint8_t m_seq_type, uint8_t pd_in, uint8_t pd_out)
+{
+    iolink_isdu_ctx_t ctx;
+    iolink_dll_ctx_t dll;
+    (void) memset(&dll, 0, sizeof(dll));
+    dll.m_seq_type = m_seq_type;
+    assert_int_equal(iolink_dll_set_pd_length(&dll, pd_in, pd_out), 0);
+    iolink_isdu_init(&ctx);
+    ctx.dll_ctx = &dll;
+    return iolink_isdu_direct_param_page1_octet(&ctx, 0x03U);
+}
+
+static void test_isdu_mseq_capability_codes(void** state)
+{
+    (void) state;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+
+    /* Table A.10 / plan Task 6. */
+    assert_int_equal(page1_octet3(IOLINK_M_SEQ_TYPE_2_1, 1, 0), 0x01U); /* OD1, code 0 */
+    assert_int_equal(page1_octet3(IOLINK_M_SEQ_TYPE_1_2, 0, 0), 0x03U); /* OD2, code 1 */
+    assert_int_equal(page1_octet3(IOLINK_M_SEQ_TYPE_1_V, 0, 0), 0x0DU); /* OD8, code 6 */
+    /* PREOPERATE bits 4-5 = 0 for TYPE_0. */
+    assert_int_equal(page1_octet3(IOLINK_M_SEQ_TYPE_0, 0, 0) & 0x30U, 0x00U);
+}
+
+static void test_isdu_spec_index_constants(void** state)
+{
+    (void) state;
+    assert_int_equal(IOLINK_IDX_DETAILED_DEVICE_STATUS, 0x0025U);
+    assert_int_equal(IOLINK_IDX_DEVICE_STATUS, 0x0024U);
+    assert_int_equal(IOLINK_IDX_ERROR_COUNT, 0x0020U);
+    assert_int_equal(IOLINK_IDX_ERROR_STATS, 0x0040U);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -565,6 +650,12 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_isdu_detailed_device_status_read, test_setup,
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_error_stats_read, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_device_id_three_octets, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_reserved_indices_negative, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_mseq_capability_codes, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_spec_index_constants, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_device_reset, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_application_reset, test_setup,
                                         test_teardown),

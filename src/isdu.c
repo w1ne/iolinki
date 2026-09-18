@@ -459,11 +459,11 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
             return;
 
         case IOLINK_IDX_DEVICE_ID:
-            ctx->response_buf[0] = (uint8_t) (info->device_id >> 24);
-            ctx->response_buf[1] = (uint8_t) (info->device_id >> 16);
-            ctx->response_buf[2] = (uint8_t) (info->device_id >> 8);
-            ctx->response_buf[3] = (uint8_t) (info->device_id & 0xFF);
-            ctx->response_len = 4U;
+            /* Table B.8/7.3.5: DeviceID is 3 octets (MSO first). */
+            ctx->response_buf[0] = (uint8_t) ((info->device_id >> 16) & 0xFFU);
+            ctx->response_buf[1] = (uint8_t) ((info->device_id >> 8) & 0xFFU);
+            ctx->response_buf[2] = (uint8_t) (info->device_id & 0xFFU);
+            ctx->response_len = 3U;
             ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
             return;
@@ -567,7 +567,7 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
             }
             break;
 
-        case IOLINK_IDX_PDIN_DESCRIPTOR:
+        case IOLINK_IDX_PROCESS_DATA_INPUT:
             /* Read-only: Returns PD Input descriptor (1 byte: PD length) */
             if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
                 ctx->response_buf[0] = 0x80U;
@@ -600,23 +600,8 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
             ctx->state = ISDU_STATE_RESPONSE_READY;
             return;
 
-            /* IOLINK_IDX_DETAILED_DEVICE_STATUS (0x1C) is handled earlier in
+            /* IOLINK_IDX_DETAILED_DEVICE_STATUS (0x0025) is handled earlier in
                handle_standard_commands() via handle_detailed_device_status(). */
-
-        case IOLINK_IDX_REVISION_ID:
-            ctx->response_buf[0] = (uint8_t) (info->revision_id >> 8);
-            ctx->response_buf[1] = (uint8_t) (info->revision_id & 0xFF);
-            ctx->response_len = 2U;
-            ctx->response_idx = 0U;
-            ctx->state = ISDU_STATE_RESPONSE_READY;
-            return;
-
-        case IOLINK_IDX_MIN_CYCLE_TIME:
-            ctx->response_buf[0] = info->min_cycle_time;
-            ctx->response_len = 1U;
-            ctx->response_idx = 0U;
-            ctx->state = ISDU_STATE_RESPONSE_READY;
-            return;
 
         default:
             ctx->response_buf[0] = 0x80U; /* Error: Service not available */
@@ -901,23 +886,29 @@ static uint8_t direct_param_encode_pd(uint8_t octets)
 /**
  * @brief Build the M-sequenceCapability byte (Direct Parameter addr 0x03, Figure B.3).
  *
- * bit0 = ISDU supported, bits1-3 = OPERATE M-sequence code, bits4-5 = PREOPERATE.
+ * bit0 = ISDU supported, bits1-3 = OPERATE M-sequence code (Table A.10),
+ * bits4-5 = PREOPERATE M-sequence code (Table A.8; TYPE_0 = 0 here).
  */
 static uint8_t direct_param_mseq_capability(uint8_t m_seq_type)
 {
     uint8_t cap = 0x01U; /* ISDU supported */
     uint8_t operate_code;
     switch (m_seq_type) {
-        case IOLINK_M_SEQ_TYPE_1_1:
         case IOLINK_M_SEQ_TYPE_1_2:
-            operate_code = 1U;
+            operate_code = 1U; /* 2 OD octets, no PD */
             break;
         case IOLINK_M_SEQ_TYPE_1_V:
-        case IOLINK_M_SEQ_TYPE_2_V:
-            operate_code = 5U;
+            operate_code = 6U; /* 8 OD octets, no PD */
             break;
+        case IOLINK_M_SEQ_TYPE_2_V:
+            operate_code = 5U; /* OD 2, variable PD */
+            break;
+        case IOLINK_M_SEQ_TYPE_1_1:
+        case IOLINK_M_SEQ_TYPE_2_1:
+        case IOLINK_M_SEQ_TYPE_2_2:
+        case IOLINK_M_SEQ_TYPE_0:
         default:
-            operate_code = 0U; /* TYPE_0 / TYPE_2_1 / TYPE_2_2 */
+            operate_code = 0U; /* Type 0 / Type 2_x with 1 OD octet */
             break;
     }
     cap |= (uint8_t) ((operate_code & 0x07U) << 1);

@@ -112,12 +112,11 @@
 #define IOLINK_IDX_APPLICATION_TAG 0x0018U        /**< Application tag index. */
 #define IOLINK_IDX_FUNCTION_TAG 0x0019U           /**< Function tag index. */
 #define IOLINK_IDX_LOCATION_TAG 0x001AU           /**< Location tag index. */
-#define IOLINK_IDX_DEVICE_STATUS 0x001BU          /**< Device status index. */
-#define IOLINK_IDX_DETAILED_DEVICE_STATUS 0x001CU /**< Detailed device status index. */
-#define IOLINK_IDX_PDIN_DESCRIPTOR 0x001DU        /**< Process Data In descriptor index. */
-#define IOLINK_IDX_REVISION_ID 0x001EU            /**< Revision ID index. */
-#define IOLINK_IDX_MIN_CYCLE_TIME 0x0024U         /**< Minimum cycle time index. */
-#define IOLINK_IDX_ERROR_STATS 0x0025U            /**< Vendor-specific error statistics. */
+#define IOLINK_IDX_ERROR_COUNT 0x0020U            /**< ErrorCount index (2 octets). */
+#define IOLINK_IDX_DEVICE_STATUS 0x0024U          /**< DeviceStatus index (1 octet). */
+#define IOLINK_IDX_DETAILED_DEVICE_STATUS 0x0025U /**< DetailedDeviceStatus index (Table B.8). */
+#define IOLINK_IDX_PROCESS_DATA_INPUT 0x0028U     /**< ProcessDataInput descriptor index. */
+#define IOLINK_IDX_ERROR_STATS 0x0040U /**< Vendor-specific error statistics (0x0040+). */
 /** @} */
 
 /**
