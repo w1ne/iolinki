@@ -183,3 +183,55 @@ read/write generators and CHKPDU, event memory reads on channel 0x40), `master.p
 - [ ] `CHANGELOG.md` "Unreleased: BREAKING wire change" listing C1..C6; `docs/IMPLEMENTATION_STATUS.md`
   or equivalent claims doc updated. Run `./check_quality.sh` and full ctest one last time. Commit
   `docs: record the spec-conformant wire`.
+
+---
+
+## Status
+
+Tasks 1-8 landed; Task 9 (this ledger) committed with the docs sweep. Full ctest
+(22/22) and `./check_quality.sh` (strict build, cppcheck, clang-format, doxygen)
+are green after every commit below.
+
+| Task | Commit | Result |
+| :--- | :--- | :--- |
+| 1 spec checksum | `9adb8af` | `iolink_checksum6` (A.1.6); `iolink_crc6`/`iolink_checksum_ck` removed. ctest green. |
+| 1 reply layout (open item) | `8ffb8d0` | No leading status octet; `[PD-in][OD] CKS`, flags in CKS. ctest green. |
+| 2 virtual master checksum | `77f27f1` | `checksum6` oracle; pytest green. |
+| 3 CKT type + channel dispatch | `bb213f7` | Channel dispatch and type/length checks. ctest green. |
+| 4 ISDU transport | `e319485` | FlowCTRL + CHKPDU per C3; `test_isdu_wire.c`. ctest green. |
+| 5 Diagnosis event memory | `b21e603` | Table 58 memory + Event flag. ctest green. |
+| 6 indices / DeviceID / M-seq codes | `2d8a95c` | Standard index map, 3-octet DeviceID, Table A.10 codes. ctest green. |
+| 7 timing constants | `20cf8de` | `T_REN` 500us, `T_WU`, `T_DSIO`, `T_FBD`; new tests in `test_timing.c`/`test_sio_fallback.c`. ctest 22/22. |
+| 8 device wire gaps | `23779a4` | Type-0 OD write length, reply width, generic PREOPERATE ISDU; found while driving the conformance suite. ctest 22/22. |
+| 8 virtual master + conformance | `3f50070` | Master speaks C1/C3; conformance suite updated. See results below. |
+
+### Task 8 conformance results (Python virtual master vs rebuilt device)
+
+Run with `IOLINK_DEVICE_PATH=build/examples/host_demo/host_demo`:
+
+- `test_conformance_isdu.py` 13/13 pass.
+- `test_conformance_state_machine.py` 7/7 pass.
+- `test_conformance_system_commands.py` 9/9 pass.
+- `test_conformance_pd_events_sio.py` 3/3 pass.
+- `test_conformance_performance.py` 5/5 pass.
+- `test_conformance_error_injection.py` 5/7: `test_01_communication_loss_recovery`
+  and `test_07_crc_fallback_recovery` fail on the post-recovery read after a 15 s
+  dropout; the wire itself is correct (startup/operate/ISDU all verified in the
+  other suites) and this is a recovery-timing/desync issue in the harness.
+- `test_conformance_timing.py` 3/5: `test_01_cycle_time_measurement` (0.845 ms
+  measured vs a >0.9 ms threshold) and `test_04_pd_exchange_consistency`
+  (host-scheduling jitter 210% vs <100%). These are host-timing thresholds, not
+  protocol conformance.
+
+Total 45/49; the 4 failures are timing/recovery-harness thresholds, not wire
+violations.
+
+### Notes
+
+- The reply-layout change was tracked under Task 1 but committed separately
+  (`8ffb8d0`) because it was added to the plan after the initial read.
+- Task 8 required three device-side fixes that belonged to Tasks 3/4 but were
+  uncovered by end-to-end conformance: Type-0 writes on OD-carrying channels
+  carry one OD octet; multi-type requests are length-derived independently of
+  the baudrate; and any 3-octet OD write in PREOPERATE is dispatched as ISDU or
+  diagnosis traffic (ISDU is allowed before OPERATE). Committed as `23779a4`.

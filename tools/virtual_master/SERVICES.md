@@ -15,7 +15,7 @@
 - **Variable OD Length**: 1-byte (Type 1) and 2-byte (Type 2)
 - **Wake-up / Idle**: Type 0 wake-up and idle sequences
 - **Event Request**: Master-side event request (MC: 0xA2) - requires device support
-- **CRC6 Calculation**: Polynomial 0x1D, seed 0x15 (matches iolinki)
+- **Message Checksum**: IO-Link A.1.6 (XOR seed 0x52, 8->6 bit compression; matches iolinki)
 - **Checksum Verification**: Type 1/2 response validation
 
 #### Master State Machine
@@ -39,8 +39,7 @@
 - 16-bit index / subindex error injection helpers
 
 #### Process Data
-- PD consistency (toggle bit)
-- PD validity flags
+- PD status from the CKS octet (Event bit 7, PD-invalid bit 6)
 
 #### Events
 - Event acknowledgment (CKT flow control)
@@ -134,13 +133,10 @@ if response.valid:
 ### CRC Functions
 
 ```python
-from virtual_master.crc import calculate_crc6, calculate_checksum_type0
+from virtual_master.crc import checksum6
 
-# Calculate CRC for arbitrary data
-crc = calculate_crc6(b'\xAB\xCD\xEF')
-
-# Calculate Type 0 checksum
-ck = calculate_checksum_type0(mc=0x95, ckt=0x00)
+# A.1.6 checksum over octets with the checksum field zeroed
+ck = checksum6(b'\x95\x00')
 ```
 
 ## Test Coverage
