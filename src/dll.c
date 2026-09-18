@@ -659,7 +659,9 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                                          (type0_channel == IOLINK_MC_CHANNEL_DIAGNOSIS) ||
                                          (type0_channel == IOLINK_MC_CHANNEL_ISDU));
             if (type0_od_write) {
-                ctx->req_len = (uint8_t) (IOLINK_M_SEQ_HEADER_LEN + ctx->od_len);
+                /* Figure A.5: a Type-0 write carries exactly ONE OD octet
+                   whatever OD width the OPERATE M-sequence uses. */
+                ctx->req_len = (uint8_t) (IOLINK_M_SEQ_HEADER_LEN + 1U);
             }
             else {
                 /* STARTUP/PREOPERATE expect Type 0; ESTAB_COM and OPERATE use
