@@ -319,7 +319,7 @@ static void test_isdu_wire_abort(void** state)
     assert_int_equal(octet, 0x00U);
 }
 
-/* ExtLength read of a 64-octet object: D1 44 <64 data> <CHKPDU>. */
+/* ExtLength read of a 63-octet string: D1 42 <63 data> <CHKPDU> (Figure A.19 ex. 3: n = data + 3). */
 static void test_isdu_wire_extlength_read(void** state)
 {
     (void) state;
@@ -349,12 +349,12 @@ static void test_isdu_wire_extlength_read(void** state)
 
     uint8_t resp[128];
     size_t n = wire_read_response(&ctx, resp, sizeof(resp));
-    /* Response total = I-Service + Length + ExtLength + 63 data + CHKPDU = 67. */
-    assert_int_equal(n, 67U);
+    /* Response total = I-Service/Length octet + ExtLength + 63 data + CHKPDU = 66 (0x42). */
+    assert_int_equal(n, 66U);
     assert_int_equal(resp[0], 0xD1U);
-    assert_int_equal(resp[1], 67U);
+    assert_int_equal(resp[1], 0x42U);
     assert_memory_equal(&resp[2], big, 63U);
-    assert_int_equal(resp[66], chkpdu(resp, 66U));
+    assert_int_equal(resp[65], chkpdu(resp, 65U));
 }
 
 int main(void)

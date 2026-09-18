@@ -262,7 +262,8 @@ static void isdu_frame_response(iolink_isdu_ctx_t* ctx)
             }
         }
         else {
-            const size_t total = data_len + 4U; /* I-Service + Length + ExtLength + data + CHKPDU */
+            /* A.5.3 / Figure A.19: I-Service+Length octet, ExtLength, data, CHKPDU = data + 3. */
+            const size_t total = data_len + 3U;
             ctx->resp_buf[pos++] = 0xD1U;
             ctx->resp_buf[pos++] = (uint8_t) total;
             if (data_len > 0U) {
