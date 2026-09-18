@@ -170,6 +170,7 @@ static void dll_handle_page_channel_read(iolink_dll_ctx_t* ctx, uint8_t mc)
     if (ctx->phy->send != NULL) {
         ctx->phy->send(ctx->phy->user, resp, 2);
     }
+    ctx->last_response_us = iolink_time_get_us();
 }
 
 /** @brief Process a 2-octet Type-0 request through ISDU and send the OD response. */
@@ -184,11 +185,19 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
 
     uint8_t resp[2];
     resp[0] = od_resp;
-    resp[1] = 0x00U;
-    resp[1] = iolink_checksum6(resp, 2U);
+    uint8_t ck_flags = 0x00U;
+    if (iolink_events_pending(&ctx->events)) {
+        ck_flags |= 0x80U;
+    }
+    if (!ctx->pd_valid) {
+        ck_flags |= 0x40U;
+    }
+    resp[1] = ck_flags;
+    resp[1] = (uint8_t) (resp[1] | iolink_checksum6(resp, 2U));
     if (ctx->phy->send != NULL) {
         ctx->phy->send(ctx->phy->user, resp, 2);
     }
+    ctx->last_response_us = iolink_time_get_us();
 }
 
 /** @brief Process a Type-1/Type-2 OPERATE frame (PD+OD) and build the response, enforcing t_REN. */
@@ -213,14 +222,11 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
         }
     }
 
+    /* A.1.5 reply layout: [PD-in octets][OD octets] CKS, with no leading status
+       octet. CKS carries the Event flag (bit 7), the PD-validity flag (bit 6,
+       1 = invalid) and the 6-bit message checksum (bits 0-5). */
     uint8_t resp[IOLINK_PD_IN_MAX_SIZE + 5];
-    uint8_t status = 0x00;
-    if (iolink_events_pending(&ctx->events)) status |= IOLINK_OD_STATUS_EVENT;
-    if (ctx->pd_in_toggle) status |= IOLINK_OD_STATUS_PD_TOGGLE;
-    if (ctx->pd_valid) status |= IOLINK_OD_STATUS_PD_VALID;
-
-    resp[0] = status;
-    uint16_t pos = 1U;
+    uint16_t pos = 0U;
     if (ctx->pd_in_len_current > 0U) {
         memcpy(&resp[pos], ctx->pd_in, ctx->pd_in_len_current);
         pos += ctx->pd_in_len_current;
@@ -228,7 +234,15 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
     memcpy(&resp[pos], od_out, ctx->od_len);
     pos += ctx->od_len;
 
-    resp[pos] = iolink_checksum6(resp, pos);
+    uint8_t cks = 0x00U;
+    if (iolink_events_pending(&ctx->events)) {
+        cks |= 0x80U;
+    }
+    if (!ctx->pd_valid) {
+        cks |= 0x40U;
+    }
+    resp[pos] = cks;
+    resp[pos] = (uint8_t) (resp[pos] | iolink_checksum6(resp, pos + 1U));
     pos++;
 
     if (ctx->phy->send != NULL) {

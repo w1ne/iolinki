@@ -49,9 +49,9 @@ static void test_m_seq_type_1_1(void** state)
     }
     will_return(mock_phy_recv_byte, 0);
 
-    /* Resp = Stat, PD(2), OD(1), CK = 5 bytes */
+    /* Resp = PD(2), OD(1), CKS = 4 bytes (A.1.5, no status octet) */
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 5);
+    expect_value(mock_phy_send, len, 4);
     will_return(mock_phy_send, 0);
 
     iolink_device_process(&dev.ctx);

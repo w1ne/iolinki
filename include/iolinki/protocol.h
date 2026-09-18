@@ -41,7 +41,28 @@
 #define IOLINK_MC_COMM_CHANNEL_MASK 0x60U /**< Communication channel field mask in the MC byte. */
 #define IOLINK_MC_ADDR_MASK 0x1FU         /**< Address field mask in the MC byte. */
 
+/** @brief Communication channel values (A.1.2, Table A.1). */
+#define IOLINK_MC_CHANNEL_PROCESS 0x00U   /**< Process data channel. */
+#define IOLINK_MC_CHANNEL_PAGE 0x20U      /**< Direct Parameter page channel. */
+#define IOLINK_MC_CHANNEL_DIAGNOSIS 0x40U /**< Diagnosis (event memory) channel. */
+#define IOLINK_MC_CHANNEL_ISDU 0x60U      /**< ISDU channel (FlowCTRL in the address bits). */
+
 #define IOLINK_MC_TRANSITION_COMMAND 0x0FU /**< Address used for the transition command. */
+
+/** @brief M-sequence type bits in CKT/CKS (A.1.3, Table A.3). */
+#define IOLINK_MSEQ_TYPE_MASK 0xC0U     /**< Type field mask in the CKT/CKS octet. */
+#define IOLINK_MSEQ_TYPE_0 0x00U        /**< Type 0. */
+#define IOLINK_MSEQ_TYPE_1 0x40U        /**< Type 1. */
+#define IOLINK_MSEQ_TYPE_2 0x80U        /**< Type 2. */
+#define IOLINK_MSEQ_TYPE_RESERVED 0xC0U /**< Reserved type. */
+#define IOLINK_MSEQ_CHECKSUM_MASK 0x3FU /**< Checksum field mask in the CKT/CKS octet. */
+
+/** @brief ISDU FlowCTRL values carried in the ISDU channel address bits (7.3.6.2, Table 52). */
+#define IOLINK_FLOWCTRL_START 0x10U      /**< Start of an ISDU I-Service. */
+#define IOLINK_FLOWCTRL_IDLE 0x11U       /**< No request for ISDU transmission. */
+#define IOLINK_FLOWCTRL_IDLE2 0x12U      /**< Reserved / no request. */
+#define IOLINK_FLOWCTRL_ABORT 0x1FU      /**< Abort entire service. */
+#define IOLINK_FLOWCTRL_COUNT_MASK 0x0FU /**< COUNT M-sequence counter mask. */
 
 /** @brief MasterCommand value written to Direct Parameter page address 0x00 (Table B.2). */
 #define IOLINK_CMD_DEVICE_OPERATE 0x99U
@@ -180,18 +201,7 @@
 /** @} */
 
 /**
- * @defgroup iolinki_protocol_od_status OD Status Byte Bit Definitions (First byte of OD)
- * @ingroup iolinki_protocol
- * @{
- */
-#define IOLINK_OD_STATUS_EVENT 0x80U       /**< Bit 7: Event present. */
-#define IOLINK_OD_STATUS_PD_TOGGLE 0x40U   /**< Bit 6: PD Toggle (consistency). */
-#define IOLINK_OD_STATUS_PD_VALID 0x20U    /**< Bit 5: PD_In valid. */
-#define IOLINK_OD_STATUS_DEVICE_MASK 0x1FU /**< Bits 4-0: Device status flags. */
-/** @} */
-
-/**
- * @defgroup iolinki_protocol_device_status Device Status Flags (lower 5 bits of OD status)
+ * @defgroup iolinki_protocol_device_status Device Status Flags
  * @ingroup iolinki_protocol
  * @{
  */

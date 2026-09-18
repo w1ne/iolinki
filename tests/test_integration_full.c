@@ -118,7 +118,7 @@ static void test_full_stack_timing_enforcement(void** state)
     }
     will_return(mock_phy_recv_byte, 0);
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 4);
+    expect_value(mock_phy_send, len, 3);
     will_return(mock_phy_send, 0);
     iolink_device_process(&dev.ctx);
 
@@ -128,7 +128,7 @@ static void test_full_stack_timing_enforcement(void** state)
     }
     will_return(mock_phy_recv_byte, 0);
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 4);
+    expect_value(mock_phy_send, len, 3);
     will_return(mock_phy_send, 0);
     iolink_device_process(&dev.ctx);
 

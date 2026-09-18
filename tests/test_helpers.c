@@ -191,7 +191,7 @@ void move_to_operate_ctx(iolink_device_ctx_t* ctx)
     }
     will_return(mock_phy_recv_byte, 0);
 
-    uint8_t resp_len = (uint8_t) (1U + pd_in_len + od_len + 1U);
+    uint8_t resp_len = (uint8_t) (pd_in_len + od_len + 1U);
     expect_any(mock_phy_send, data);
     expect_value(mock_phy_send, len, resp_len);
     will_return(mock_phy_send, 0);

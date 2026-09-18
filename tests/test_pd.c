@@ -51,9 +51,9 @@ static void test_pd_input_output(void** state)
     }
     will_return(mock_phy_recv_byte, 0);
 
-    /* Response: Status(1), PD_IN(2), OD(2), CK(1) = 6 bytes for Type 2_x */
+    /* Response: PD_IN(2), OD(2), CKS(1) = 5 bytes for Type 2_x (A.1.5) */
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 6);
+    expect_value(mock_phy_send, len, 5);
     will_return(mock_phy_send, 0);
 
     iolink_device_process(&dev.ctx);

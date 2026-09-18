@@ -174,7 +174,6 @@ int iolink_device_pd_input_update(iolink_device_ctx_t* ctx, const uint8_t* data,
     ctx->dll.pd_in_len = (uint8_t) len;
     ctx->dll.pd_in_len_current = (uint8_t) len;
     ctx->dll.pd_valid = valid;
-    ctx->dll.pd_in_toggle = !ctx->dll.pd_in_toggle;
 
     if ((ctx->config != NULL) && (ctx->config->unlock != NULL)) {
         ctx->config->unlock(ctx->config->user);

@@ -69,7 +69,6 @@ typedef struct
     uint8_t pd_out_len;         /**< Output Process Data length */
     uint8_t od_len;             /**< On-request Data length (1 or 2 bytes) */
     bool pd_valid;              /**< Current PD_In validity status */
-    bool pd_in_toggle;          /**< Toggle bit for PD_In consistency */
     uint32_t min_cycle_time_us; /**< Minimum cycle time in microseconds */
     bool enforce_timing;        /**< Enable timing checks (t_ren / t_cycle) */
     uint32_t t_ren_limit_us;    /**< Current t_ren limit in microseconds */

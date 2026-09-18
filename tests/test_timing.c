@@ -77,7 +77,7 @@ static void test_t_cycle_violation(void** state)
     }
     will_return(mock_phy_recv_byte, 0);
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 4);
+    expect_value(mock_phy_send, len, 3);
     will_return(mock_phy_send, 0);
     iolink_device_process(&dev.ctx);
 
@@ -87,7 +87,7 @@ static void test_t_cycle_violation(void** state)
     }
     will_return(mock_phy_recv_byte, 0);
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 4);
+    expect_value(mock_phy_send, len, 3);
     will_return(mock_phy_send, 0);
     iolink_device_process(&dev.ctx);
 
@@ -121,7 +121,7 @@ static void test_t_ren_violation(void** state)
 
     /* Mock a slow response */
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 4);
+    expect_value(mock_phy_send, len, 3);
     will_return(mock_phy_send, 0);
 
     /* We need to trick the time. Since we use real time, we just wait a bit in a mock?
