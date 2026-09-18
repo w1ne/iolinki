@@ -256,12 +256,14 @@ static bool dll_dispatch_od(iolink_dll_ctx_t* ctx, uint8_t mc, const uint8_t* od
     }
 
     if (channel == IOLINK_MC_CHANNEL_ISDU) {
-        /* Task 4 replaces this with the spec ISDU transport. Until then a read
-           answers No Service (0x00) and a write is accepted silently. */
+        /* C3/Table 52: FlowCTRL lives in the MC address bits. A write carries
+           request octets; a read fetches the framed response (or Busy). */
+        const uint8_t flowctrl = (uint8_t) (mc & IOLINK_MC_ADDR_MASK);
         if ((mc & IOLINK_MC_RW_MASK) != 0U) {
-            for (uint8_t i = 0U; i < od_len; i++) {
-                od_out[i] = 0x00U;
-            }
+            iolink_isdu_od_read(&ctx->isdu, flowctrl, od_out, od_len);
+        }
+        else {
+            iolink_isdu_od_write(&ctx->isdu, flowctrl, od_in, od_len);
         }
         return true;
     }
@@ -276,12 +278,7 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
 {
     (void) cks;
     uint8_t od_resp = 0U;
-    if (!dll_dispatch_od(ctx, mc, &cks, 1U, &od_resp)) {
-        iolink_isdu_collect_byte(&ctx->isdu, mc);
-        if (iolink_isdu_get_response_byte(&ctx->isdu, &od_resp) == 0) {
-            od_resp = 0U;
-        }
-    }
+    (void) dll_dispatch_od(ctx, mc, &cks, 1U, &od_resp);
 
     uint8_t resp[2];
     uint8_t ck_flags = 0x00U;
@@ -331,10 +328,7 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
 
     if (!dll_dispatch_od(ctx, ctx->frame_buf[0], od_in, ctx->od_len, od_out)) {
         for (uint16_t i = 0; i < ctx->od_len; i++) {
-            iolink_isdu_collect_byte(&ctx->isdu, od_in[i]);
-            if (iolink_isdu_get_response_byte(&ctx->isdu, &od_out[i]) == 0) {
-                od_out[i] = 0U;
-            }
+            od_out[i] = 0U;
         }
     }
 

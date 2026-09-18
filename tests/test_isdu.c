@@ -319,13 +319,11 @@ static void test_system_cmd_invalid(void** state)
 
     iolink_isdu_process(&ctx);
 
-    /* Verify error response */
+    /* Verify error response: negative payload {0x80, AdditionalCode}. */
     uint8_t byte;
-    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Control */
-    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Error flag */
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
     assert_int_equal(byte, 0x80);
-    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Control */
-    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Error code */
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
     assert_int_equal(byte, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
 }
 
@@ -420,8 +418,7 @@ static void test_isdu_pdin_descriptor_read(void** state)
 
     /* Verify response reports the configured PD-in length */
     uint8_t byte;
-    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Control */
-    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Data: PD length */
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
     assert_int_equal(byte, 3);
 
     /* Test write protection */
@@ -431,12 +428,10 @@ static void test_isdu_pdin_descriptor_read(void** state)
 
     iolink_isdu_process(&ctx);
 
-    /* Verify write-protected error */
-    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Control */
-    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Error flag */
+    /* Verify write-protected error: {0x80, AdditionalCode}. */
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
     assert_int_equal(byte, 0x80);
-    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Control */
-    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1); /* Error code */
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
     assert_int_equal(byte, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
 }
 
@@ -518,10 +513,8 @@ static void test_isdu_direct_parameters_page1(void** state)
     uint8_t w = 0x55;
     assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_1, 0x01, &w, 1), 1);
     iolink_isdu_process(&ctx);
-    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &w), 1); /* Control */
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &w), 1);
     assert_int_equal(w, 0x80);
-    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &w), 1); /* Control */
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &w), 1);
     assert_int_equal(w, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
 }
