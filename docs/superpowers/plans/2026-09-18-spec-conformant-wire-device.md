@@ -235,3 +235,26 @@ violations.
   carry one OD octet; multi-type requests are length-derived independently of
   the baudrate; and any 3-octet OD write in PREOPERATE is dispatched as ISDU or
   diagnosis traffic (ISDU is allowed before OPERATE). Committed as `23779a4`.
+
+### Review follow-up
+
+Review findings on the device slice, fixed one commit each:
+
+| Finding | Commit | Result |
+| :--- | :--- | :--- |
+| 1 SystemCommand read | `ba50264` | A READ of index 0x0002 is answered `0x80 0x23` (IDX_NOT_ACCESSIBLE, Table C.1); the index-2 event-pop path is gone. New `test_isdu_system_command_read_only_write`. |
+| 2 event memory master | `6d41bfa` | `MC_EVENT_REQ`/`request_event` removed; `read_event_memory`/`ack_events` per Table 58/59. `generate_type0_write` no longer ORs the MC channel bits into CKT. Byte-exact pytest in `tests/test_event_memory.py`. |
+| 3 suites + callers | `bbf7778` | `test_07` reads 0x0024 DeviceStatus and exercises the diagnosis event memory read/ack; `test_integration.py` and the examples use `read_event_memory`; no 0x001C/0x001B/`request_event` left under `tools/`. |
+| 4 quality | `0e4fe4c` | clang-format clean on the reviewer's long comment/assert lines. |
+| 5 docs | this commit | `docs/CONFORMANCE.md` now names 0x0024 as Device Status (Table B.13). |
+
+Verification after the fixes:
+
+- `cmake -S . -B build && cmake --build build -j4 && ctest --test-dir build`:
+  22/22 pass.
+- `cd tools/virtual_master && python3 -m pytest tests -q`: 14 passed.
+- Conformance suite (`IOLINK_DEVICE_PATH=build/examples/host_demo/host_demo`):
+  48 passed, 1 failed. The only failure is
+  `test_conformance_timing.py::test_04_pd_exchange_consistency` (host
+  scheduling jitter), which also fails on the unmodified baseline.
+- `./check_quality.sh`: strict build, cppcheck, clang-format and doxygen clean.

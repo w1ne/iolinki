@@ -70,7 +70,7 @@ iolinki includes a comprehensive conformance test suite that validates complianc
 | `test_09_application_tag_0x0018_read_write` | 0x0018 | Application Tag | Read/Write |
 | `test_10_device_access_locks_0x000C` | 0x000C | Device Access Locks | Read |
 | `test_11_profile_characteristic_0x000D` | 0x000D | Profile Characteristic | Read |
-| `test_12_min_cycle_time_0x0024` | 0x0024 | Min Cycle Time | Read |
+| `test_12_device_status_0x0024` | 0x0024 | Device Status (Table B.13) | Read |
 | `test_13_invalid_index_error_handling` | 0xFFFF | (Invalid) | Error handling |
 
 **Coverage**: All 12 mandatory ISDU indices, read/write operations, persistence (0x0018), error handling for invalid indices.
@@ -171,7 +171,7 @@ python3 tools/virtual_master/test_conformance_performance.py
 | 0x0018 | Application Tag | ✅ Tested (R/W + Persistence) |
 | 0x000C | Device Access Locks | ✅ Tested |
 | 0x000D | Profile Characteristic | ✅ Tested |
-| 0x0024 | Min Cycle Time | ✅ Tested |
+| 0x0024 | Device Status | ✅ Tested |
 
 ### IO-Link V1.1.5 Specification Cross-Reference
 
@@ -188,7 +188,7 @@ The following table maps our conformance tests to specific sections of the **IO-
 | ISDU Indices 0x0010-0x0018 | 8.2.1 | Mandatory device identification parameters | `test_01` through `test_09` (ISDU suite) |
 | Device Access Locks | 8.2.1.30 | Index 0x000C must be readable | `test_10_device_access_locks_0x000C` |
 | Profile Characteristic | 8.2.1.36 | Index 0x000D must indicate device profile | `test_11_profile_characteristic_0x000D` |
-| Min Cycle Time | 8.2.1 | Index 0x0024 must be readable | `test_12_min_cycle_time_0x0024` |
+| Device Status | 8.2.1 | Index 0x0024 must be readable | `test_12_device_status_0x0024` |
 | ISDU Segmentation | 8.1.2 | Support for multi-frame ISDU transfers | `test_05_boundary_condition_max_isdu_size` |
 | Timing Requirements | 6.2.2, Table 12 | Cycle time and response delay limits | All timing tests |
 
