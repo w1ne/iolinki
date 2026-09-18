@@ -100,9 +100,9 @@ static void test_dll_preoperate_to_operate(void** state)
     assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_ESTAB_COM);
 
     /* ESTAB_COM -> OPERATE on first valid frame */
-    uint8_t frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_checksum6(frame, 4);
-    for (int i = 0; i < 5; i++) {
+    uint8_t frame[4] = {0x80, IOLINK_MSEQ_TYPE_1, 0x00, 0x00};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 4));
+    for (int i = 0; i < 4; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
@@ -143,9 +143,9 @@ static void test_dll_fallback_on_crc_errors(void** state)
     iolink_device_process(&dev.ctx);
 
     /* ESTAB_COM -> OPERATE */
-    uint8_t ok_frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
-    ok_frame[4] = iolink_checksum6(ok_frame, 4);
-    for (int i = 0; i < 5; i++) {
+    uint8_t ok_frame[4] = {0x80, IOLINK_MSEQ_TYPE_1, 0x00, 0x00};
+    ok_frame[1] = (uint8_t) (ok_frame[1] | iolink_checksum6(ok_frame, 4));
+    for (int i = 0; i < 4; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, ok_frame[i]);
     }
@@ -192,10 +192,10 @@ static void test_dll_reject_transition_in_operate(void** state)
     /* Master sends 0x0F (Transition) while in OPERATE
      * Type 1_1 frame for pd_out_len=1 is 5 bytes: MC, CKT, PD, OD, CK */
     uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;
-    uint8_t frame[5] = {mc, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_checksum6(frame, 4);
+    uint8_t frame[4] = {mc, IOLINK_MSEQ_TYPE_1, 0x00, 0x00};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 4));
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
@@ -210,33 +210,139 @@ static void test_dll_reject_transition_in_operate(void** state)
     assert_int_not_equal(stats.framing_errors, 0);
 }
 
-static void test_dll_reject_invalid_mc_channel(void** state)
+/* Bring a Type-0 device to OPERATE: wake, PREOPERATE, transition command,
+   then a valid Type-0 idle frame. */
+static void move_type0_to_operate(iolink_device_ctx_t* ctx)
+{
+    iolink_phy_mock_set_wakeup(1);
+    iolink_device_process(ctx);
+    usleep(200);
+
+    uint8_t mc = IOLINK_MC_TRANSITION_COMMAND;
+    uint8_t ck = test_frame_checksum(mc);
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, mc);
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, ck);
+    will_return(mock_phy_recv_byte, 0);
+    iolink_device_process(ctx);
+
+    uint8_t idle = 0x00;
+    uint8_t idle_ck = test_frame_checksum(idle);
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, idle);
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, idle_ck);
+    will_return(mock_phy_recv_byte, 0);
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 2);
+    will_return(mock_phy_send, 0);
+    iolink_device_process(ctx);
+}
+
+/* C5/Table 47 T11: a CKT type that does not match the configured M-sequence
+   type in OPERATE is an illegal M-sequence and returns the device to STARTUP. */
+static void test_dll_illegal_mseq_type(void** state)
 {
     (void) state;
-    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1};
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_0, .pd_in_len = 0, .pd_out_len = 0};
     setup_mock_phy();
     will_return(mock_phy_init, 0);
     iolink_test_device_t dev;
     iolink_test_device_init(&dev, &config, NULL);
 
-    move_to_operate_ctx(&dev.ctx);
+    move_type0_to_operate(&dev.ctx);
+    assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_OPERATE);
 
-    /* MC with reserved channel bits (e.g., 0x20 | 0x80) */
-    uint8_t mc = 0xA0;
-    uint8_t frame[5] = {mc, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_checksum6(frame, 4);
+    /* Type-0 device receives a Type-1 CKT. */
+    uint8_t frame[2] = {0x00, IOLINK_MSEQ_TYPE_1};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 2));
+    for (int i = 0; i < 2; i++) {
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, frame[i]);
+    }
+    will_return(mock_phy_recv_byte, 0);
+    iolink_device_process(&dev.ctx);
 
-    for (int i = 0; i < 5; i++) {
+    assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_STARTUP);
+    iolink_dll_stats_t stats;
+    iolink_device_get_dll_stats(&dev.ctx, &stats);
+    assert_int_not_equal(stats.framing_errors, 0);
+}
+
+/* C2/7.3.5.3: a read on the ISDU channel with FlowCTRL IDLE is no request for
+   transmission; the device answers No Service (0x00) and it is not an error. */
+static void test_dll_isdu_channel_idle(void** state)
+{
+    (void) state;
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_0, .pd_in_len = 0, .pd_out_len = 0};
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, &config, NULL);
+
+    move_type0_to_operate(&dev.ctx);
+    assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_OPERATE);
+
+    iolink_dll_stats_t before;
+    iolink_device_get_dll_stats(&dev.ctx, &before);
+
+    /* MC = READ | ISDU channel | FlowCTRL IDLE (0x11). */
+    uint8_t mc = (uint8_t) (IOLINK_MC_RW_MASK | IOLINK_MC_CHANNEL_ISDU | IOLINK_FLOWCTRL_IDLE);
+    uint8_t frame[2] = {mc, 0x00};
+    frame[1] = iolink_checksum6(frame, 1);
+    for (int i = 0; i < 2; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
     will_return(mock_phy_recv_byte, 0);
 
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 2);
+    will_return(mock_phy_send, 0);
     iolink_device_process(&dev.ctx);
 
-    iolink_dll_stats_t stats;
-    iolink_device_get_dll_stats(&dev.ctx, &stats);
-    assert_int_not_equal(stats.framing_errors, 0);
+    iolink_dll_stats_t after;
+    iolink_device_get_dll_stats(&dev.ctx, &after);
+    assert_int_equal(after.framing_errors, before.framing_errors);
+    assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_OPERATE);
+}
+
+/* C2/C4: a read on the diagnosis channel address 0 is served (StatusCode;
+   the Task 5 event memory returns 0 until then) and is not an error. */
+static void test_dll_diagnosis_channel(void** state)
+{
+    (void) state;
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_0, .pd_in_len = 0, .pd_out_len = 0};
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, &config, NULL);
+
+    move_type0_to_operate(&dev.ctx);
+
+    iolink_dll_stats_t before;
+    iolink_device_get_dll_stats(&dev.ctx, &before);
+
+    /* MC = READ | diagnosis channel | address 0. */
+    uint8_t mc = (uint8_t) (IOLINK_MC_RW_MASK | IOLINK_MC_CHANNEL_DIAGNOSIS);
+    uint8_t frame[2] = {mc, 0x00};
+    frame[1] = iolink_checksum6(frame, 1);
+    for (int i = 0; i < 2; i++) {
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, frame[i]);
+    }
+    will_return(mock_phy_recv_byte, 0);
+
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 2);
+    will_return(mock_phy_send, 0);
+    iolink_device_process(&dev.ctx);
+
+    iolink_dll_stats_t after;
+    iolink_device_get_dll_stats(&dev.ctx, &after);
+    assert_int_equal(after.framing_errors, before.framing_errors);
+    assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_OPERATE);
 }
 
 int main(void)
@@ -247,8 +353,9 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_dll_fallback_on_crc_errors, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_reject_transition_in_operate, test_setup,
                                         test_teardown),
-        cmocka_unit_test_setup_teardown(test_dll_reject_invalid_mc_channel, test_setup,
-                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_dll_illegal_mseq_type, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_dll_isdu_channel_idle, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_dll_diagnosis_channel, test_setup, test_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

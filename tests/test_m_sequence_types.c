@@ -39,11 +39,12 @@ static void test_m_seq_type_1_1(void** state)
     uint8_t input_pd[2] = {0xAA, 0xBB};
     iolink_device_pd_input_update(&dev.ctx, input_pd, 2, true);
 
-    /* Type 1_1 with 2-byte PD: Req = MC, CKT, PD(2), OD(1), CK = 6 bytes */
-    uint8_t frame[] = {0x80, 0x00, 0x11, 0x22, 0x00, 0x00};
-    frame[5] = iolink_checksum6(frame, 5);
+    /* Type 1_1 with 2-byte PD: Req = MC, CKT, PD(2), OD(1), CK = 6 bytes.
+       The CKT carries the Type-1 bits (A.1.3). */
+    uint8_t frame[] = {0x80, IOLINK_MSEQ_TYPE_1, 0x11, 0x22, 0x00};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 5));
 
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 5; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }

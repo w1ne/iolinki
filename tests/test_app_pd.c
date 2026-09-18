@@ -53,13 +53,13 @@ static void test_reply_layout_no_status_octet(void** state)
     assert_int_equal(iolink_test_device_init(&dev, &config, NULL), 0);
     move_to_operate_ctx(&dev.ctx);
 
-    uint8_t frame[7] = {0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    frame[6] = iolink_checksum6(frame, 6);
+    uint8_t frame[6] = {0x80, IOLINK_MSEQ_TYPE_2, 0x00, 0x00, 0x00, 0x00};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 6));
 
     uint8_t input[2] = {0x11, 0x22};
     iolink_device_pd_input_update(&dev.ctx, input, 2, true);
 
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 6; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
@@ -83,13 +83,13 @@ static void test_reply_flags_pd_invalid(void** state)
     assert_int_equal(iolink_test_device_init(&dev, &config, NULL), 0);
     move_to_operate_ctx(&dev.ctx);
 
-    uint8_t frame[7] = {0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    frame[6] = iolink_checksum6(frame, 6);
+    uint8_t frame[6] = {0x80, IOLINK_MSEQ_TYPE_2, 0x00, 0x00, 0x00, 0x00};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 6));
 
     /* Mark the input Process Data as invalid; CKS bit 6 must be set. */
     iolink_device_pd_input_update(&dev.ctx, (const uint8_t*) "\x11\x22", 2, false);
 
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 6; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }

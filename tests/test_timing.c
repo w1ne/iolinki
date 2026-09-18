@@ -68,10 +68,10 @@ static void test_t_cycle_violation(void** state)
     iolink_device_set_timing_enforcement(&dev.ctx, true);
 
     /* Send two back-to-back valid frames (Type 1_1) */
-    uint8_t frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_checksum6(frame, 4);
+    uint8_t frame[4] = {0x80, IOLINK_MSEQ_TYPE_1, 0x00, 0x00};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 4));
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
@@ -81,7 +81,7 @@ static void test_t_cycle_violation(void** state)
     will_return(mock_phy_send, 0);
     iolink_device_process(&dev.ctx);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
@@ -110,10 +110,10 @@ static void test_t_ren_violation(void** state)
 
     /* Send a valid frame, but mock PHY send will be too slow?
        Actually t_ren is checked against DLL processing time. */
-    uint8_t frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_checksum6(frame, 4);
+    uint8_t frame[4] = {0x80, IOLINK_MSEQ_TYPE_1, 0x00, 0x00};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 4));
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
@@ -207,8 +207,8 @@ static void test_t_byte_violation(void** state)
 
     /* Mock a slow byte reception (t_byte violation) */
     /* Master sends 5 bytes for Type 1_1. We send 2 and then timeout. */
-    uint8_t frame[5] = {0x80, 0x00, 0x00, 0x00, 0x00};
-    frame[4] = iolink_checksum6(frame, 4);
+    uint8_t frame[4] = {0x80, IOLINK_MSEQ_TYPE_1, 0x00, 0x00};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 4));
 
     /* Byte 1 (Control) */
     will_return(mock_phy_recv_byte, 1);

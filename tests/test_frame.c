@@ -42,10 +42,11 @@ static void test_encode_type0_transition(void** state)
 static void test_encode_type1_empty_cycle(void** state)
 {
     (void) state;
-    uint8_t frame[4] = {0U};
+    uint8_t frame[3] = {0U};
 
-    assert_int_equal(iolink_frame_encode_type1_cycle(NULL, 0U, 1U, frame, sizeof(frame)), 4);
-    assert_memory_equal(frame, ((const uint8_t[]){0x00U, 0x00U, 0x00U, 0x2DU}), sizeof(frame));
+    /* MC, CKT(type1 | ck6), OD. Figure A.2/A.6: no trailing checksum. */
+    assert_int_equal(iolink_frame_encode_type1_cycle(NULL, 0U, 1U, frame, sizeof(frame)), 3);
+    assert_memory_equal(frame, ((const uint8_t[]){0x00U, 0x75U, 0x00U}), sizeof(frame));
 }
 
 static void test_encode_type0_rejects_undersized_buffer(void** state)
@@ -77,7 +78,7 @@ static void test_encode_type1_rejects_oversized_od_len(void** state)
 static void test_encode_type1_allows_max_od_len(void** state)
 {
     (void) state;
-    uint8_t frame[IOLINK_M_SEQ_HEADER_LEN + IOLINK_OD_MAX_SIZE + 1U] = {0U};
+    uint8_t frame[IOLINK_M_SEQ_HEADER_LEN + IOLINK_OD_MAX_SIZE] = {0U};
 
     assert_int_equal(
         iolink_frame_encode_type1_cycle(NULL, 0U, IOLINK_OD_MAX_SIZE, frame, sizeof(frame)),

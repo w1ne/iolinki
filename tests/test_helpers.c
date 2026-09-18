@@ -180,10 +180,15 @@ void move_to_operate_ctx(iolink_device_ctx_t* ctx)
 
     uint8_t frame[64];
     memset(frame, 0, sizeof(frame));
-    uint8_t frame_len = (uint8_t) (IOLINK_M_SEQ_HEADER_LEN + pd_out_len + od_len + 1U);
+    /* Figure A.2: master message is MC, CKT, data... with the A.1.6 checksum in
+       the CKT octet (byte 1); there is no trailing checksum octet. */
+    uint8_t frame_len = (uint8_t) (IOLINK_M_SEQ_HEADER_LEN + pd_out_len + od_len);
     frame[0] = 0x80;
-    frame[1] = 0x00;
-    frame[frame_len - 1U] = iolink_checksum6(frame, (uint8_t) (frame_len - 1U));
+    frame[1] = ((type == IOLINK_M_SEQ_TYPE_2_1) || (type == IOLINK_M_SEQ_TYPE_2_2) ||
+                (type == IOLINK_M_SEQ_TYPE_2_V))
+                   ? IOLINK_MSEQ_TYPE_2
+                   : IOLINK_MSEQ_TYPE_1;
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, frame_len));
 
     for (uint8_t i = 0U; i < frame_len; i++) {
         will_return(mock_phy_recv_byte, 1);

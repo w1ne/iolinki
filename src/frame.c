@@ -39,11 +39,13 @@ int iolink_frame_encode_type0_write(uint8_t mc, uint8_t od, uint8_t* out, size_t
         return -1;
     }
 
-    /* Type-0 write frame (MC + one OD data octet + CK). The trailing checksum is
-       the A.1.6 message checksum over the preceding octets. */
+    /* Type-0 write frame (MC + CKT + one OD data octet). Figure A.5: the CKT
+       octet carries the A.1.6 checksum in bits 0-5 and the type bits in 6-7;
+       there is no trailing checksum octet. */
     out[0] = mc;
-    out[1] = od;
-    out[2] = iolink_checksum6(out, 2U);
+    out[1] = IOLINK_MSEQ_TYPE_0;
+    out[2] = od;
+    out[1] = (uint8_t) (out[1] | iolink_checksum6(out, IOLINK_M_SEQ_MIN_LEN));
 
     return (int) IOLINK_M_SEQ_MIN_LEN;
 }
@@ -52,7 +54,7 @@ int iolink_frame_encode_type1_cycle(const uint8_t* pd_out, uint8_t pd_out_len, u
                                     uint8_t* out, size_t out_size)
 {
     size_t pos = 0U;
-    const size_t frame_len = (size_t) IOLINK_M_SEQ_HEADER_LEN + pd_out_len + od_len + 1U;
+    const size_t frame_len = (size_t) IOLINK_M_SEQ_HEADER_LEN + pd_out_len + od_len;
 
     if ((out == NULL) || ((pd_out == NULL) && (pd_out_len > 0U)) ||
         (pd_out_len > IOLINK_PD_OUT_MAX_SIZE) || (od_len == 0U) || (od_len > IOLINK_OD_MAX_SIZE) ||
@@ -61,7 +63,7 @@ int iolink_frame_encode_type1_cycle(const uint8_t* pd_out, uint8_t pd_out_len, u
     }
 
     out[pos++] = 0U;
-    out[pos++] = 0U;
+    out[pos++] = IOLINK_MSEQ_TYPE_1;
 
     if (pd_out_len > 0U) {
         memcpy(&out[pos], pd_out, pd_out_len);
@@ -70,9 +72,9 @@ int iolink_frame_encode_type1_cycle(const uint8_t* pd_out, uint8_t pd_out_len, u
 
     /* od_len is guaranteed non-zero by the guard above. */
     memset(&out[pos], 0, od_len);
-    pos += od_len;
 
-    out[pos] = iolink_checksum6(out, pos);
+    /* Figure A.2: the A.1.6 checksum goes into the CKT octet (byte 1). */
+    out[1] = (uint8_t) (out[1] | iolink_checksum6(out, frame_len));
 
     return (int) frame_len;
 }

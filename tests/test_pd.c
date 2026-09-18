@@ -41,11 +41,12 @@ static void test_pd_input_output(void** state)
     uint8_t input[2] = {0x11, 0x22};
     iolink_device_pd_input_update(&dev.ctx, input, 2, true);
 
-    /* 2. Simulate Master Frame (Type 2_2: MC, CKT, PD_OUT(2), OD(2), CK) -> 7 bytes */
-    uint8_t frame[7] = {0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    frame[6] = iolink_checksum6(frame, 6);
+    /* 2. Simulate Master Frame (Type 2_2: MC, CKT, PD_OUT(2), OD(2), CK) -> 7 bytes.
+       The CKT carries the Type-2 bits (A.1.3). */
+    uint8_t frame[6] = {0x80, IOLINK_MSEQ_TYPE_2, 0x00, 0x00, 0x00, 0x00};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 6));
 
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 6; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
