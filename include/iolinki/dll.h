@@ -88,15 +88,17 @@ typedef struct
     iolink_baudrate_t baudrate; /**< Negotiated baudrate (COM1-COM3) */
 
     /* Unified Frame Assembly */
-    uint8_t frame_buf[48];        /**< Raw frame assembly buffer */
-    uint8_t frame_index;          /**< Current byte index in assembly */
-    uint8_t req_len;              /**< Expected length of current frame type */
-    uint64_t last_frame_us;       /**< Microsecond timestamp of last frame start */
-    uint64_t last_byte_us;        /**< Microsecond timestamp of last received byte */
-    uint64_t last_cycle_start_us; /**< Microsecond timestamp of last cycle start */
-    uint32_t t_byte_limit_us;     /**< Inter-byte timeout limit in microseconds */
-    uint64_t wakeup_deadline_us;  /**< Earliest time to accept frames after wake-up */
-    uint64_t t_pd_deadline_us;    /**< Earliest time to accept frames after power-on */
+    uint8_t frame_buf[48];         /**< Raw frame assembly buffer */
+    uint8_t frame_index;           /**< Current byte index in assembly */
+    uint8_t req_len;               /**< Expected length of current frame type */
+    uint64_t last_frame_us;        /**< Microsecond timestamp of last frame start */
+    uint64_t last_byte_us;         /**< Microsecond timestamp of last received byte */
+    uint64_t last_cycle_start_us;  /**< Microsecond timestamp of last cycle start */
+    uint32_t t_byte_limit_us;      /**< Inter-byte timeout limit in microseconds */
+    uint64_t wakeup_deadline_us;   /**< Earliest time to accept frames after wake-up */
+    uint64_t t_pd_deadline_us;     /**< Earliest time to accept frames after power-on */
+    uint64_t dsio_deadline_ms;     /**< Deadline to fall back to SIO without a valid message */
+    uint64_t fallback_deadline_ms; /**< Deadline to complete a FALLBACK MasterCommand */
 
     /* Process Data Buffers */
     uint8_t pd_in[IOLINK_PD_IN_MAX_SIZE];   /**< Input PD buffer (Device -> Master) */

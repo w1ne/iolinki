@@ -65,7 +65,8 @@
 #define IOLINK_FLOWCTRL_COUNT_MASK 0x0FU /**< COUNT M-sequence counter mask. */
 
 /** @brief MasterCommand value written to Direct Parameter page address 0x00 (Table B.2). */
-#define IOLINK_CMD_DEVICE_OPERATE 0x99U
+#define IOLINK_CMD_FALLBACK 0x5AU       /**< Transition to SIO (T_FBD, Table 43). */
+#define IOLINK_CMD_DEVICE_OPERATE 0x99U /**< Switch to OPERATE. */
 /** @} */
 
 /**

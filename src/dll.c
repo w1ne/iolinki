@@ -90,7 +90,7 @@ static uint8_t dll_expected_req_len(const iolink_dll_ctx_t* ctx, uint8_t type_bi
     return (uint8_t) (IOLINK_M_SEQ_HEADER_LEN + ctx->pd_out_len_current + ctx->od_len);
 }
 
-/** @brief Return the response-time (t_REN) limit in us for the active baudrate/override. */
+/** @brief Return the response-time (t_REN) limit in us (C6/Table 10: 500 us). */
 static uint32_t dll_get_t_ren_limit_us(const iolink_dll_ctx_t* ctx)
 {
     if (ctx == NULL) {
@@ -99,17 +99,8 @@ static uint32_t dll_get_t_ren_limit_us(const iolink_dll_ctx_t* ctx)
     if (ctx->t_ren_override) {
         return ctx->t_ren_limit_us;
     }
-
-    switch (ctx->baudrate) {
-        case IOLINK_BAUDRATE_COM1:
-            return IOLINK_T_REN_COM1_US;
-        case IOLINK_BAUDRATE_COM2:
-            return IOLINK_T_REN_COM2_US;
-        case IOLINK_BAUDRATE_COM3:
-            return IOLINK_T_REN_COM3_US;
-        default:
-            return IOLINK_T_REN_COM2_US;
-    }
+    /* Table 10: a single T_REN value at most 500 us, independent of baudrate. */
+    return IOLINK_T_REN_US;
 }
 
 /** @brief Return the inter-byte timeout (16 bit-times) in us for the active baudrate. */
@@ -185,6 +176,42 @@ static void dll_enter_fallback(iolink_dll_ctx_t* ctx)
         iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
         dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
     }
+}
+
+/** @brief True for a page-channel Type-0 WRITE of MasterCommand FALLBACK (Table B.2). */
+static bool dll_is_fallback_command(const iolink_dll_ctx_t* ctx)
+{
+    uint8_t mc = ctx->frame_buf[0];
+    return ((mc & IOLINK_MC_RW_MASK) == 0U) &&
+           ((mc & IOLINK_MC_COMM_CHANNEL_MASK) == IOLINK_MC_CHANNEL_PAGE) &&
+           ((mc & IOLINK_MC_ADDR_MASK) == 0x00U) && (ctx->frame_buf[2] == IOLINK_CMD_FALLBACK);
+}
+
+/**
+ * @brief Handle a FALLBACK MasterCommand (0x5A, Table B.2) from the master.
+ *
+ * The device shall switch to SIO after 3 MasterCycleTimes and within at most
+ * 500 ms (T_FBD, Table 43). The deadline is armed here and enforced in
+ * iolink_dll_process(); the reply is a Type-0 write CKS-only response. */
+static void dll_handle_fallback_command(iolink_dll_ctx_t* ctx)
+{
+    uint32_t t_fbd_ms = 500U;
+    if (ctx->min_cycle_time_us > 0U) {
+        t_fbd_ms = (3U * ctx->min_cycle_time_us) / 1000U;
+        if (t_fbd_ms > 500U) {
+            t_fbd_ms = 500U;
+        }
+    }
+    ctx->fallback_deadline_ms = iolink_time_get_ms() + t_fbd_ms;
+    dll_set_state(ctx, IOLINK_DLL_STATE_FALLBACK);
+
+    uint8_t resp[1];
+    resp[0] = 0x00U;
+    resp[0] = iolink_checksum6(resp, 1U);
+    if (ctx->phy->send != NULL) {
+        ctx->phy->send(ctx->phy->user, resp, 1);
+    }
+    ctx->last_response_us = iolink_time_get_us();
 }
 
 /** @brief Handle a PREOPERATE master command: advance to ESTAB_COM on the transition command. */
@@ -488,6 +515,38 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
         ctx->frame_index = 0U;
     }
 
+    /* Table 47 T10: a wake-up without a valid message within T_DSIO returns the
+       device to SIO. Only applies while still waiting for the first message. */
+    if ((ctx->phy_mode != IOLINK_PHY_MODE_SIO) && (ctx->dsio_deadline_ms != 0U) &&
+        ((ctx->state == IOLINK_DLL_STATE_AWAITING_COMM) ||
+         (ctx->state == IOLINK_DLL_STATE_STARTUP))) {
+        if (now_ms > ctx->dsio_deadline_ms) {
+            ctx->dsio_deadline_ms = 0U;
+            ctx->wakeup_seen = false;
+            ctx->timeout_errors++;
+            iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
+            iolink_dll_set_sio_mode(ctx);
+            dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
+            ctx->frame_index = 0U;
+        }
+    }
+
+    /* Table 47 T8/T9 + Table 43: after a FALLBACK MasterCommand the device
+       switches to SIO after T_FBD (3 MasterCycleTimes, at most 500 ms) at the
+       latest. The reply was already sent when the command was handled. */
+    if ((ctx->fallback_deadline_ms != 0U) &&
+        ((ctx->state == IOLINK_DLL_STATE_FALLBACK) || (ctx->state == IOLINK_DLL_STATE_OPERATE) ||
+         (ctx->state == IOLINK_DLL_STATE_ESTAB_COM) ||
+         (ctx->state == IOLINK_DLL_STATE_PREOPERATE))) {
+        if (now_ms >= ctx->fallback_deadline_ms) {
+            ctx->fallback_deadline_ms = 0U;
+            iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
+            iolink_dll_set_sio_mode(ctx);
+            dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
+            ctx->frame_index = 0U;
+        }
+    }
+
     if (dll_t_pd_active(ctx)) {
         if (dll_drain_rx(ctx)) {
             ctx->timing_errors++;
@@ -502,7 +561,10 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             if (ctx->phy->detect_wakeup(ctx->phy->user) > 0) {
                 ctx->wakeup_seen = true;
                 dll_set_state(ctx, IOLINK_DLL_STATE_AWAITING_COMM);
-                ctx->wakeup_deadline_us = iolink_time_get_us() + IOLINK_T_DWU_US;
+                ctx->wakeup_deadline_us = iolink_time_get_us() + IOLINK_T_WU_US;
+                /* Table 47 T10: without a valid message the device returns to
+                   SIO within T_DSIO (60..300 ms, default 300 ms). */
+                ctx->dsio_deadline_ms = iolink_time_get_ms() + IOLINK_T_DSIO_MS;
                 iolink_dll_set_sdci_mode(ctx);
                 /* A wake-up starts a fresh communication-establishment window.
                    Reset the inactivity timer so a re-wake after a prior exchange
@@ -557,13 +619,16 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             ctx->frame_index = 1U;
             ctx->last_frame_us = now_us;
 
-            /* DeviceOperate MC = WRITE (RW=0) to Direct Parameter address 0x00 on
-               the page channel = 0x20. It is the only 3-octet Type-0 request the
-               device expects in PREOPERATE (MC + OD + CK); every other PREOPERATE
-               Type-0 frame is a 2-octet ISDU exchange. */
-            bool is_preop_device_operate =
-                (ctx->state == IOLINK_DLL_STATE_PREOPERATE) && (byte == 0x20U);
-            if (is_preop_device_operate) {
+            /* A MasterCommand is a WRITE (RW=0) to Direct Parameter address 0x00
+               on the page channel = 0x20 (Table B.2). It is a 3-octet Type-0
+               request (MC + OD + CK) in PREOPERATE (DeviceOperate), ESTAB_COM
+               and OPERATE (FALLBACK, Table 47 T8/T9); every other Type-0 frame
+               is a 2-octet ISDU exchange. */
+            bool is_page_command =
+                ((byte & IOLINK_MC_COMM_CHANNEL_MASK) == IOLINK_MC_CHANNEL_PAGE) &&
+                ((byte & IOLINK_MC_RW_MASK) == 0U) && ((byte & IOLINK_MC_ADDR_MASK) == 0U) &&
+                (dll_expected_type_bits(ctx) == IOLINK_MSEQ_TYPE_0);
+            if (is_page_command) {
                 ctx->req_len = 3U;
             }
             else if (ctx->baudrate == IOLINK_BAUDRATE_COM1) {
@@ -578,12 +643,6 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                                       (byte == IOLINK_MC_TRANSITION_COMMAND);
                 if (!transition_cmd && (type_bits != IOLINK_MSEQ_TYPE_0)) {
                     ctx->req_len = dll_expected_req_len(ctx, type_bits);
-                }
-                else if ((ctx->state == IOLINK_DLL_STATE_PREOPERATE) &&
-                         ((byte & IOLINK_MC_COMM_CHANNEL_MASK) == IOLINK_MC_CHANNEL_PAGE) &&
-                         ((byte & IOLINK_MC_RW_MASK) == 0U) &&
-                         ((byte & IOLINK_MC_ADDR_MASK) == 0U)) {
-                    ctx->req_len = 3U;
                 }
                 else {
                     ctx->req_len = 2U;
@@ -641,6 +700,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                                         (ctx->state == IOLINK_DLL_STATE_STARTUP);
                 if (was_establishing) {
                     dll_set_state(ctx, IOLINK_DLL_STATE_PREOPERATE);
+                    ctx->dsio_deadline_ms = 0U; /* valid message cancels T_DSIO */
                 }
 
                 if (ctx->state == IOLINK_DLL_STATE_PREOPERATE) {
@@ -662,6 +722,10 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                         else {
                             dll_handle_operate_type0(ctx, mc, ctx->frame_buf[1]);
                         }
+                    }
+                    else if ((ctx->req_len == 3U) && dll_is_fallback_command(ctx)) {
+                        /* Table B.2/43: FALLBACK MasterCommand 0x5A. */
+                        dll_handle_fallback_command(ctx);
                     }
                     else if ((ctx->req_len == 3U) && ((mc & IOLINK_MC_RW_MASK) == 0U) &&
                              ((mc & IOLINK_MC_COMM_CHANNEL_MASK) == 0x20U) &&
@@ -708,7 +772,11 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                 else if (ctx->state == IOLINK_DLL_STATE_OPERATE) {
                     /* Transitions are forbidden; every communication channel is
                        valid in OPERATE (page/diagnosis/ISDU/process). */
-                    if (ctx->frame_buf[0] == IOLINK_MC_TRANSITION_COMMAND) {
+                    if ((ctx->req_len == 3U) && (dll_is_fallback_command(ctx))) {
+                        /* Table B.2/43, Table 47 T9: OPERATE -> SIO after T_FBD. */
+                        dll_handle_fallback_command(ctx);
+                    }
+                    else if (ctx->frame_buf[0] == IOLINK_MC_TRANSITION_COMMAND) {
                         ctx->framing_errors++;
                         dll_enter_fallback(ctx);
                     }

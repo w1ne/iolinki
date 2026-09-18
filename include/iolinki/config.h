@@ -85,27 +85,32 @@
 #endif
 
 /**
- * @brief Wake-up delay (t_dwu) in microseconds.
- * Default: 80us (spec-defined for wake-up pulse handling).
+ * @brief Wake-up pulse duration (T_WU) in microseconds.
+ *
+ * Spec Table 10: the wake-up request is a current pulse; this stack models the
+ * pulse width used by the PHY as 80 us. (T_DWU is a separate 30..50 ms
+ * retry delay and is not modelled by the device.)
  */
-#ifndef IOLINK_T_DWU_US
-#define IOLINK_T_DWU_US 80U
+#ifndef IOLINK_T_WU_US
+#define IOLINK_T_WU_US 80U
 #endif
 
 /**
- * @brief Response time limits (t_ren) in microseconds.
- * Defaults are conservative and should be tuned per device/PHY.
+ * @brief Response time limit (T_REN) in microseconds.
+ *
+ * Spec Table 10: a single value of at most 500 us, independent of the baudrate.
  */
-#ifndef IOLINK_T_REN_COM1_US
-#define IOLINK_T_REN_COM1_US 5000U
+#ifndef IOLINK_T_REN_US
+#define IOLINK_T_REN_US 500U
 #endif
 
-#ifndef IOLINK_T_REN_COM2_US
-#define IOLINK_T_REN_COM2_US 1200U
-#endif
-
-#ifndef IOLINK_T_REN_COM3_US
-#define IOLINK_T_REN_COM3_US 230U
+/**
+ * @brief Fallback to SIO after a failed wake-up without a valid message (T_DSIO).
+ *
+ * Spec Table 47 T10: 60..300 ms, default 300 ms.
+ */
+#ifndef IOLINK_T_DSIO_MS
+#define IOLINK_T_DSIO_MS 300U
 #endif
 
 /* -------------------------------------------------------------------------
