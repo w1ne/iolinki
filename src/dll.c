@@ -470,13 +470,9 @@ void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy)
     ctx->enforce_timing = (IOLINK_TIMING_ENFORCE_DEFAULT != 0U);
     ctx->sio_fallback_threshold = 3U;
 
-    if ((ctx->m_seq_type == IOLINK_M_SEQ_TYPE_2_1) || ctx->m_seq_type == IOLINK_M_SEQ_TYPE_2_2 ||
-        ctx->m_seq_type == IOLINK_M_SEQ_TYPE_2_V) {
-        ctx->od_len = 2U;
-    }
-    else {
-        ctx->od_len = 1U;
-    }
+    /* Table A.10: TYPE_2_1/TYPE_2_2 carry one On-request Data octet; TYPE_2_V is
+       the two-octet variant (OPERATE M-sequence code 5). */
+    ctx->od_len = (ctx->m_seq_type == IOLINK_M_SEQ_TYPE_2_V) ? 2U : 1U;
 
     ctx->pd_in_len_current = ctx->pd_in_len;
     ctx->pd_out_len_current = ctx->pd_out_len;

@@ -157,10 +157,8 @@ void move_to_operate_ctx(iolink_device_ctx_t* ctx)
     iolink_m_seq_type_t type = iolink_device_get_m_seq_type(ctx);
     uint8_t pd_out_len = iolink_device_get_pd_out_len(ctx);
     uint8_t pd_in_len = iolink_device_get_pd_in_len(ctx);
-    uint8_t od_len = ((type == IOLINK_M_SEQ_TYPE_2_1) || (type == IOLINK_M_SEQ_TYPE_2_2) ||
-                      (type == IOLINK_M_SEQ_TYPE_2_V))
-                         ? 2U
-                         : 1U;
+    /* Table A.10: only TYPE_2_V carries two OD octets (OPERATE code 5). */
+    uint8_t od_len = (type == IOLINK_M_SEQ_TYPE_2_V) ? 2U : 1U;
 
     if (type == IOLINK_M_SEQ_TYPE_0) {
         uint8_t idle_mc = 0x00;

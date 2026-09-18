@@ -137,8 +137,8 @@ def test_type_1_2_connection():
 
 
 def test_type_2_2_connection():
-    """Test connection with Type 2_2 (PD + ISDU, 2-byte OD)"""
-    print("\n=== Test 3: Type 2_2 Connection (PD + ISDU, 2-byte OD) ===")
+    """Test connection with Type 2_2 (PD + ISDU, 1-byte OD)"""
+    print("\n=== Test 3: Type 2_2 Connection (PD + ISDU, 1-byte OD) ===")
 
     master = VirtualMaster(m_seq_type=MSequenceType.TYPE_2_2, pd_in_len=1, pd_out_len=1)
     device_tty = master.get_device_tty()
