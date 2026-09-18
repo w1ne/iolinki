@@ -607,6 +607,35 @@ static void test_isdu_reserved_indices_negative(void** state)
     assert_int_equal(byte, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
 }
 
+static void test_isdu_system_command_read_only_write(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+
+    /* SystemCommand (0x0002) is write-only (Table B.8): a read is answered
+       with IDX_NOT_ACCESSIBLE 0x80 0x23 (Table C.1). */
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t byte;
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_NOT_ACCESSIBLE);
+
+    /* A write to 0x0002 still executes the command. */
+    iolink_isdu_init(&ctx);
+    uint8_t cmd_data[] = {IOLINK_CMD_DEVICE_RESET};
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, cmd_data, 1), 1);
+    iolink_isdu_process(&ctx);
+    assert_true(ctx.reset_pending);
+    uint8_t resp_buf[1];
+    assert_int_equal(isdu_collect_response(&ctx, resp_buf, sizeof(resp_buf)), 0);
+}
+
 static uint8_t page1_octet3(uint8_t m_seq_type, uint8_t pd_in, uint8_t pd_out)
 {
     iolink_isdu_ctx_t ctx;
@@ -656,6 +685,8 @@ int main(void)
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_mseq_capability_codes, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_spec_index_constants, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_system_command_read_only_write, test_setup,
+                                        test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_device_reset, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_application_reset, test_setup,
                                         test_teardown),

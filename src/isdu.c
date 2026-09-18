@@ -1078,22 +1078,12 @@ static void handle_standard_commands(iolink_isdu_ctx_t* ctx)
             }
         }
         else {
-            /* Read of Index 2 - returns the oldest pending event code (2 bytes) */
-            iolink_event_t ev;
-            iolink_events_ctx_t* event_ctx = (iolink_events_ctx_t*) ctx->event_ctx;
-            if (event_ctx != NULL && iolink_events_pop(event_ctx, &ev)) {
-                ctx->response_buf[0] = (uint8_t) (ev.code >> 8);
-                ctx->response_buf[1] = (uint8_t) (ev.code & 0xFF);
-                ctx->response_len = 2U;
-            }
-            else {
-                /* No events pending: return 0x0000 or error?
-                 * Spec says if no events, return error or empty.
-                 * We'll return 0x0000 (no event). */
-                ctx->response_buf[0] = 0x00U;
-                ctx->response_buf[1] = 0x00U;
-                ctx->response_len = 2U;
-            }
+            /* SystemCommand (Table B.8) is write-only; a read is answered with
+               IDX_NOT_ACCESSIBLE (Table C.1). Events are read through the
+               Diagnosis-channel event memory (Table 58). */
+            ctx->response_buf[0] = 0x80U;
+            ctx->response_buf[1] = IOLINK_ISDU_ERROR_NOT_ACCESSIBLE;
+            ctx->response_len = 2U;
             ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
         }

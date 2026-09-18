@@ -166,6 +166,7 @@
 #define IOLINK_ISDU_ERROR_NONE 0x00U               /**< No error. */
 #define IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL 0x11U  /**< Requested service not available. */
 #define IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL 0x12U /**< Requested subindex not available. */
+#define IOLINK_ISDU_ERROR_NOT_ACCESSIBLE 0x23U     /**< Object access denied (Table C.1). */
 #define IOLINK_ISDU_ERROR_BUSY 0x30U               /**< Device busy. */
 #define IOLINK_ISDU_ERROR_WRITE_PROTECTED 0x33U    /**< Parameter is write-protected. */
 #define IOLINK_ISDU_ERROR_PARAM_INCONSISTENT 0x40U /**< Parameter set inconsistent. */
