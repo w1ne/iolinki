@@ -37,6 +37,7 @@ class TestISDUConformance(unittest.TestCase):
         )
         time.sleep(0.5)
         self.master.run_startup_sequence()
+        self.master.go_to_operate()
 
     def tearDown(self):
         if hasattr(self, "process") and self.process:

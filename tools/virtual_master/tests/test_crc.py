@@ -62,24 +62,31 @@ def test_verify_checksum():
 
 
 def test_type0_response_checksum_decode():
-    """Decode Type 0 response checksum and recover status."""
-    status = 0x04
+    """Decode a Type-0 read reply [OD][CKS] and verify the A.1.6 checksum."""
     od = 0x11
-    ck = calculate_checksum_type0(status, od)
-    resp = DeviceResponse(bytes([od, ck]))
+    ck = checksum6(bytes([od, 0x00]))
+    resp = DeviceResponse(bytes([od, ck]), od_len=1)
     assert resp.checksum_ok is True
-    assert resp.status == status
+    assert resp.od == od
+    assert resp.has_event() is False
+    assert resp.pd_valid is True
+
+
+def test_type0_response_cks_flags():
+    """The Event and PD-invalid flags live in the CKS octet (A.1.5)."""
+    od = 0x11
+    ck = 0x80 | checksum6(bytes([od, 0x00]))
+    assert DeviceResponse(bytes([od, ck]), od_len=1).has_event() is True
+    ck = 0x40 | checksum6(bytes([od, 0x00]))
+    assert DeviceResponse(bytes([od, ck]), od_len=1).pd_valid is False
 
 
 def test_type0_response_checksum_invalid():
-    """Tampered checksum should not decode to original status."""
-    status = 0x04
+    """A tampered checksum must be reported invalid."""
     od = 0x11
-    ck = (calculate_checksum_type0(status, od) + 1) & 0x3F
-    resp = DeviceResponse(bytes([od, ck]))
-    # Recovery is ambiguous for a tampered checksum; it must not report the
-    # originally sent status.
-    assert resp.status != status
+    ck = (checksum6(bytes([od, 0x00])) + 1) & 0x3F
+    resp = DeviceResponse(bytes([od, ck]), od_len=1)
+    assert resp.checksum_ok is False
 
 
 if __name__ == "__main__":
