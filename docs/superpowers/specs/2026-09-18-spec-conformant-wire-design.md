@@ -65,8 +65,13 @@ the address bits. Reads of unimplemented addresses return 0; writes are ignored 
 ### C3. ISDU transport (7.3.6, A.5, Table 52)
 
 ISDU octet stream: `I-Service<<4 | Length, [ExtLength], Index[, Index], [Subindex], Data..., CHKPDU`.
-Length counts every octet of the ISDU including I-Service/Length and CHKPDU (A.5.3); 2..15 direct,
-`Length=1 + ExtLength` for 17..238 total. CHKPDU = XOR of all ISDU octets with CHKPDU as 0 (A.5.6).
+Length counts every octet of the ISDU (A.5.3): the I-Service/Length octet (ONE octet), the index
+octet(s), the subindex if present, the data, and CHKPDU. Examples (Figure A.19/A.20): read response with
+2 data octets = `0xD4` (1 + 2 + 1); write request 8-bit index + subindex + 2 data = `0x26`
+(1 + 1 + 1 + 2 + 1); read request 16-bit index + subindex = `0xB5` (1 + 2 + 1 + 1). When the total
+exceeds 15, Length = 1 and the next octet ExtLength carries the total, which then also counts the
+ExtLength octet itself: response with N data octets = N + 3 (I-Service/Length, ExtLength, CHKPDU);
+16-bit write with N data octets = N + 6. ExtLength range 17..238. CHKPDU = XOR of all ISDU octets with CHKPDU as 0 (A.5.6).
 I-Service nibbles per Table A.12 (master: write 0x1/0x2/0x3, read 0x9/0xA/0xB by index format per
 Table A.15; device: write resp 0x5(+)/0x4(-), read resp 0xD(+)/0xC(-); 0x0 No Service / Busy).
 Negative responses carry ErrorType (ErrorCode, AdditionalCode) per Annex C.
