@@ -61,6 +61,11 @@ result into the checksum octet. `iolink_crc6` and `iolink_checksum_ck` are remov
 - [ ] Write `tests/test_crc.c` with the vectors above (master frames and device replies) asserting
   `iolink_checksum6`; run, expect link failure.
 - [ ] Implement `iolink_checksum6` per C1. Run test: pass.
+- [ ] Remove the invented leading status octet from every reply (`src/dll.c` `dll_handle_operate_type1_2`
+  `resp[0] = status` and the TYPE_0/TYPE_2 equivalents): a reply is `[PD-in][OD] CKS` with
+  `CKS = (events_pending<<7) | (!pd_valid<<6) | ck6` (spec A.1.5, Figure A.3). Drop
+  `IOLINK_OD_STATUS_*` and the PD toggle bit. Reply test vectors: TYPE_0 OD `0x10` → `10 39`;
+  TYPE_2 PD `0xA5`, no OD, valid, no event → `A5 22`; same with an event pending → `A5 8A`.
 - [ ] Update `src/frame.c` (`iolink_frame_encode_type0*`, type1/2 encoders, `iolink_frame_decode_response`)
   and `src/dll.c` (request verification at lines ~456-459 must zero CKT bits 0-5 before verifying, and reply
   emission at ~143/160/202) to use the helper. Fix every test in `tests/` that hard-codes old CK values by

@@ -31,6 +31,10 @@ proves self-consistency only. No third-party master or device can talk to either
    master wake retries back-to-back; master response timeout defaults to `min_cycle_time` (0 → instant
    timeout); master latches ERROR after 2 retries (7.2.2.1: restart from wake-up); master discards the
    MinCycleTime probe octet under NO_CHECK.
+8. Reply layout: the device prefixes every reply with an invented status octet (`src/dll.c:186-194`,
+   bits EVENT/PD_TOGGLE/PD_VALID) and the native LabWired model decodes it (`iolink_master.rs`
+   `decode_operate`, `status & 0x20`). Spec A.1.5: a reply is `[PD/OD octets], CKS` with the Event flag
+   in CKS bit 7 and PD status in CKS bit 6 (1 = invalid). There is no status octet and no toggle bit.
 
 ## Wire contract (normative for all three repos)
 
@@ -40,6 +44,8 @@ proves self-consistency only. No third-party master or device can talk to either
 ck8 = 0x52; for each octet o of the message: ck8 ^= o    // CKT/CKS included with bits 0-5 = 0
 ck6 = (b7^b5^b3^b1)<<5 | (b6^b4^b2^b0)<<4 | (b7^b6)<<3 | (b5^b4)<<2 | (b3^b2)<<1 | (b1^b0)
 ```
+**Reply layout (A.1.5):** `[PD-in octets][OD octets] CKS` where `CKS = event<<7 | pd_invalid<<6 | ck6`.
+No leading status octet, no toggle bit; a TYPE_0 reply is one OD octet plus CKS (2 octets).
 Master message: `MC, CKT(type<<6 | ck6), [OD/PD...]` — the checksum covers MC, CKT with bits 0-5
 zeroed, and every data octet. Device reply: `[data...], CKS(event<<7 | pdinvalid<<6 | ck6)` — covers
 every data octet and CKS with bits 0-5 zeroed (event and PD-status bits are included).
