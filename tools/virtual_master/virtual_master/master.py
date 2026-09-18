@@ -313,25 +313,48 @@ class VirtualMaster:
         print(f"[Master] ISDU Read complete: {data.hex()}")
         return bytes(data)
 
-    def request_event(self) -> Optional[int]:
-        """
-        Request event from Device.
-
-        Returns:
-            Event code or None if no event
-        """
-        frame = self.generator.generate_event_request()
+    def _diagnosis_read(self, addr: int, timeout_ms: int = 300) -> Optional[int]:
+        """Read one diagnosis-channel memory octet (Type-0 READ, Table 58)."""
+        frame = self.generator.generate_diagnosis_read(addr)
         self.uart.send_bytes(frame)
+        data = self.uart.recv_bytes(2, timeout_ms=timeout_ms)
+        if not data or len(data) < 2:
+            return None
+        return DeviceResponse(data, od_len=1, pd_in_len=0).od
 
-        response_data = self.uart.recv_bytes(
-            4, timeout_ms=100
-        )  # Event: 2 bytes code + status + CK
+    def read_event_memory(self) -> list[tuple[int, int]]:
+        """Read the Table 58 event memory over the diagnosis channel.
 
-        if response_data and len(response_data) >= 3:
-            event_code = (response_data[0] << 8) | response_data[1]
-            print(f"[Master] Event received: 0x{event_code:04X}")
-            return event_code
-        return None
+        Returns a list of (qualifier, code) tuples for every active slot in the
+        StatusCode (type 2, Figure A.22: bit 7 = details, bits 0-5 = active
+        slots). Bit n-1 set means slot n, whose qualifier/code live at
+        addresses 3n-2 / 3n-1 / 3n.
+        """
+        status = self._diagnosis_read(0x00)
+        if status is None:
+            return []
+
+        events: list[tuple[int, int]] = []
+        for slot in range(1, 7):
+            if not (status & (1 << (slot - 1))):
+                continue
+            qualifier = self._diagnosis_read(3 * slot - 2)
+            code_msb = self._diagnosis_read(3 * slot - 1)
+            code_lsb = self._diagnosis_read(3 * slot)
+            if qualifier is None or code_msb is None or code_lsb is None:
+                continue
+            events.append((qualifier, (code_msb << 8) | code_lsb))
+        return events
+
+    def ack_events(self) -> bool:
+        """Confirm the event readout: Type-0 WRITE of StatusCode (address 0).
+
+        Table 59 T8: the reply is the CKS octet only. Any OD value acknowledges.
+        """
+        frame = self.generator.generate_diagnosis_write(0x00, 0x00)
+        self.uart.send_bytes(frame)
+        data = self.uart.recv_bytes(1, timeout_ms=300)
+        return bool(data)
 
     def run_startup_sequence(self, send_wakeup: bool = True) -> bool:
         """

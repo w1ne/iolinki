@@ -45,8 +45,6 @@ class MasterCommand:
     MC_ISDU_READ = 0xA0
     MC_ISDU_WRITE = 0xA1
 
-    MC_EVENT_REQ = 0xA2
-
     # Spec-conformant startup probe (transition T1): Type-0 READ (RW=1, 0x80)
     # on the page communication channel (0x20) of Direct Parameter address
     # 0x02 = MinCycleTime. 0x80 | 0x20 | 0x02 = 0xA2.
@@ -148,7 +146,7 @@ class MSequenceGenerator:
         The A.1.6 checksum lives in the CKT octet (bits 0-5); per A.1.5 the
         message ends with the OD octet. Mirrors the device request parser.
         """
-        ckt = (mc & M_SEQUENCE_TYPE_MASK) | checksum6(bytes([mc, 0x00, od]))
+        ckt = checksum6(bytes([mc, 0x00, od]))
         return bytes([mc, ckt, od])
 
     def build_isdu_read_request(self, index: int, subindex: int = 0) -> bytes:
@@ -219,9 +217,22 @@ class MSequenceGenerator:
         ckt_value = type_bits | checksum6(body)
         return bytes([mc, ckt_value]) + body[2:]
 
-    def generate_event_request(self) -> bytes:
-        """Generate event request sequence."""
-        return self.generate_type0(MasterCommand.MC_EVENT_REQ)
+    def generate_diagnosis_read(self, addr: int) -> bytes:
+        """Generate a Type-0 READ on the diagnosis channel (7.3.8, Table 58).
+
+        MC = RW(0x80) | DIAGNOSIS(0x40) | address; the reply is [OD, CKS].
+        """
+        mc = 0x80 | IOChannel.DIAGNOSIS | (addr & 0x1F)
+        return self.generate_type0(mc)
+
+    def generate_diagnosis_write(self, addr: int, od: int) -> bytes:
+        """Generate a Type-0 WRITE on the diagnosis channel (Table 58/59).
+
+        MC = RW(0) | DIAGNOSIS(0x40) | address, one OD octet; the reply is the
+        CKS octet only (Table 59 T8).
+        """
+        mc = IOChannel.DIAGNOSIS | (addr & 0x1F)
+        return self.generate_type0_write(mc, od)
 
 
 class DeviceResponse:
