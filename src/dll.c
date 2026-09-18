@@ -343,6 +343,27 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
     ctx->last_response_us = iolink_time_get_us();
 }
 
+/** @brief Process a 3-octet Type-0 OD WRITE (MC, CKT, OD) and reply with the CKS only (Figure A.5). */
+static void dll_handle_type0_od_write(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t od_in)
+{
+    uint8_t od_resp = 0U;
+    (void) dll_dispatch_od(ctx, mc, &od_in, 1U, &od_resp);
+
+    uint8_t resp[1];
+    resp[0] = 0x00U;
+    if (iolink_events_flag(&ctx->events)) {
+        resp[0] |= 0x80U;
+    }
+    if (!ctx->pd_valid) {
+        resp[0] |= 0x40U;
+    }
+    resp[0] = (uint8_t) (resp[0] | iolink_checksum6(resp, 1U));
+    if (ctx->phy->send != NULL) {
+        ctx->phy->send(ctx->phy->user, resp, 1);
+    }
+    ctx->last_response_us = iolink_time_get_us();
+}
+
 /** @brief Process a Type-1/Type-2 OPERATE frame (PD+OD) and build the response, enforcing t_REN. */
 static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
 {
@@ -762,8 +783,10 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                     else if (ctx->req_len == 3U) {
                         /* Any other 3-octet Type-0 OD write in PREOPERATE is
                            ISDU or diagnosis traffic (7.3.6 allows ISDU before
-                           OPERATE); dispatch it through the OD channel handler. */
-                        dll_handle_operate_type1_2(ctx);
+                           OPERATE). It is a TYPE_0 frame: one OD octet at
+                           offset 2 and a CKS-only reply (Figure A.5), never the
+                           configured OPERATE PD widths. */
+                        dll_handle_type0_od_write(ctx, ctx->frame_buf[0], ctx->frame_buf[2]);
                     }
                 }
                 else if (ctx->state == IOLINK_DLL_STATE_ESTAB_COM) {
