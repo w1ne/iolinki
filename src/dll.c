@@ -367,14 +367,22 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
     /* A.1.5 reply layout: [PD-in octets][OD octets] CKS, with no leading status
        octet. CKS carries the Event flag (bit 7), the PD-validity flag (bit 6,
        1 = invalid) and the 6-bit message checksum (bits 0-5). */
+    /* A Type-0 WRITE is answered by the CKS only; a Type-0 READ by OD + CKS
+       (A.1.5, Figure A.5). Multi-type replies always carry the OD octets. */
+    const bool type0_write = (dll_expected_type_bits(ctx) == IOLINK_MSEQ_TYPE_0) &&
+                             ((ctx->frame_buf[0] & IOLINK_MC_RW_MASK) == 0U);
+    const uint8_t od_reply_len = type0_write ? 0U : ctx->od_len;
+
     uint8_t resp[IOLINK_PD_IN_MAX_SIZE + 5];
     uint16_t pos = 0U;
     if (ctx->pd_in_len_current > 0U) {
         memcpy(&resp[pos], ctx->pd_in, ctx->pd_in_len_current);
         pos += ctx->pd_in_len_current;
     }
-    memcpy(&resp[pos], od_out, ctx->od_len);
-    pos += ctx->od_len;
+    if (od_reply_len > 0U) {
+        memcpy(&resp[pos], od_out, od_reply_len);
+        pos += od_reply_len;
+    }
 
     uint8_t cks = 0x00U;
     if (iolink_events_flag(&ctx->events)) {
@@ -619,25 +627,24 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             ctx->frame_index = 1U;
             ctx->last_frame_us = now_us;
 
-            /* A MasterCommand is a WRITE (RW=0) to Direct Parameter address 0x00
-               on the page channel = 0x20 (Table B.2). It is a 3-octet Type-0
-               request (MC + OD + CK) in PREOPERATE (DeviceOperate), ESTAB_COM
-               and OPERATE (FALLBACK, Table 47 T8/T9); every other Type-0 frame
-               is a 2-octet ISDU exchange. */
-            bool is_page_command =
-                ((byte & IOLINK_MC_COMM_CHANNEL_MASK) == IOLINK_MC_CHANNEL_PAGE) &&
-                ((byte & IOLINK_MC_RW_MASK) == 0U) && ((byte & IOLINK_MC_ADDR_MASK) == 0U) &&
-                (dll_expected_type_bits(ctx) == IOLINK_MSEQ_TYPE_0);
-            if (is_page_command) {
-                ctx->req_len = 3U;
-            }
-            else if (ctx->baudrate == IOLINK_BAUDRATE_COM1) {
-                ctx->req_len = 2U;
+            /* A Type-0 WRITE on an OD-carrying channel (page, diagnosis, ISDU)
+               carries one OD octet after the CKT: MC + CKT + OD. This covers
+               DeviceOperate/FALLBACK MasterCommands and every ISDU/event write.
+               Type-0 reads carry no OD input; their reply is OD + CKS (A.1.5). */
+            const uint8_t type0_channel = (uint8_t) (byte & IOLINK_MC_COMM_CHANNEL_MASK);
+            const bool type0_od_write = (dll_expected_type_bits(ctx) == IOLINK_MSEQ_TYPE_0) &&
+                                        ((byte & IOLINK_MC_RW_MASK) == 0U) &&
+                                        ((type0_channel == IOLINK_MC_CHANNEL_PAGE) ||
+                                         (type0_channel == IOLINK_MC_CHANNEL_DIAGNOSIS) ||
+                                         (type0_channel == IOLINK_MC_CHANNEL_ISDU));
+            if (type0_od_write) {
+                ctx->req_len = (uint8_t) (IOLINK_M_SEQ_HEADER_LEN + ctx->od_len);
             }
             else {
                 /* STARTUP/PREOPERATE expect Type 0; ESTAB_COM and OPERATE use
                    the configured type (C5/Table 47). The transition command is
-                   the sole Type-0 exchange once a multi type is configured. */
+                   the sole Type-0 exchange once a multi type is configured.
+                   The M-sequence length is independent of the baudrate. */
                 uint8_t type_bits = dll_expected_type_bits(ctx);
                 bool transition_cmd = (ctx->state == IOLINK_DLL_STATE_ESTAB_COM) &&
                                       (byte == IOLINK_MC_TRANSITION_COMMAND);
@@ -751,6 +758,12 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                             ctx->phy->send(ctx->phy->user, resp, 1);
                         }
                         ctx->last_response_us = iolink_time_get_us();
+                    }
+                    else if (ctx->req_len == 3U) {
+                        /* Any other 3-octet Type-0 OD write in PREOPERATE is
+                           ISDU or diagnosis traffic (7.3.6 allows ISDU before
+                           OPERATE); dispatch it through the OD channel handler. */
+                        dll_handle_operate_type1_2(ctx);
                     }
                 }
                 else if (ctx->state == IOLINK_DLL_STATE_ESTAB_COM) {
