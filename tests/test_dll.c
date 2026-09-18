@@ -439,6 +439,52 @@ static void test_dll_preoperate_type0_od_write_ignores_operate_widths(void** sta
     iolink_device_process(&dev.ctx);
     assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_PREOPERATE);
 }
+
+/* Regression: with a 2-octet-OD M-sequence configured (TYPE_2_2), the Type-0
+   DeviceOperate write is still a 3-octet frame (Figure A.5) and must be
+   answered with the CKS; a 4-octet expectation left the frame incomplete and
+   the device silent, so a real master never saw the ack. */
+static void test_dll_type0_write_is_three_octets_with_two_octet_od(void** state)
+{
+    (void) state;
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_2_2, .pd_in_len = 2, .pd_out_len = 2};
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, &config, NULL);
+    iolink_device_set_timing_enforcement(&dev.ctx, true);
+
+    iolink_phy_mock_set_wakeup(1);
+    iolink_device_process(&dev.ctx);
+    usleep(200);
+
+    uint8_t probe[2] = {0xA2U, 0x00U};
+    probe[1] = (uint8_t) (probe[1] | iolink_checksum6(probe, 2U));
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, probe[0]);
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, probe[1]);
+    will_return(mock_phy_recv_byte, 0);
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 2);
+    will_return(mock_phy_send, 0);
+    iolink_device_process(&dev.ctx);
+    assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_PREOPERATE);
+
+    /* DeviceOperate: MC 0x20, CKT, OD 0x99 -> CKS-only reply, ESTAB_COM. */
+    uint8_t op[3] = {0x20U, 0x00U, IOLINK_CMD_DEVICE_OPERATE};
+    op[1] = (uint8_t) (op[1] | iolink_checksum6(op, 3U));
+    for (size_t i = 0U; i < 3U; i++) {
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, op[i]);
+    }
+    will_return(mock_phy_recv_byte, 0);
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 1);
+    will_return(mock_phy_send, 0);
+    iolink_device_process(&dev.ctx);
+    assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_ESTAB_COM);
+}
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -452,6 +498,8 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_dll_diagnosis_channel, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_event_flag_in_cks, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_preoperate_type0_od_write_ignores_operate_widths,
+                                        test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_dll_type0_write_is_three_octets_with_two_octet_od,
                                         test_setup, test_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
