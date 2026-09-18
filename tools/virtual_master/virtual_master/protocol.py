@@ -10,7 +10,7 @@ from enum import IntEnum
 from .crc import (
     calculate_checksum_type0,
     calculate_checksum_type1,
-    calculate_crc6,
+    checksum6,
     verify_checksum,
 )
 
@@ -136,7 +136,7 @@ class MSequenceGenerator:
 
         Mirrors iolink_frame_encode_type0_write() in the device DLL.
         """
-        return bytes([mc, od, calculate_crc6(bytes([mc, od]))])
+        return bytes([mc, od, checksum6(bytes([mc, od]))])
 
     def generate_isdu_read(self, index: int, subindex: int = 0) -> list[bytes]:
         """
