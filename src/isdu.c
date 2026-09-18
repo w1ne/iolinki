@@ -669,7 +669,7 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
                     }
                     else if (ret == -2) {
                         ctx->response_buf[1] =
-                            IOLINK_ISDU_ERROR_WRITE_PROTECTED; /* 0x33 Access Denied/Locked */
+                            IOLINK_ISDU_ERROR_WRITE_PROTECTED; /* 0x23 IDX_NOT_ACCESSIBLE (Table C.1) */
                     }
                     else {
                         ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
