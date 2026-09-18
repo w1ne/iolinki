@@ -25,16 +25,16 @@ class MSequenceType(IntEnum):
     TYPE_1_1 = 1  # PD only, 1-byte OD
     TYPE_1_2 = 2  # PD + ISDU, 1-byte OD
     TYPE_1_V = 3  # Variable PD, 1-byte OD
-    TYPE_2_1 = 4  # PD only, 2-byte OD
-    TYPE_2_2 = 5  # PD + ISDU, 2-byte OD
-    TYPE_2_V = 6  # Variable PD, 2-byte OD
+    TYPE_2_1 = 4  # PD only, 1-byte OD (Table A.10)
+    TYPE_2_2 = 5  # PD + ISDU, 1-byte OD
+    TYPE_2_V = 6  # Variable PD, 2-byte OD (OPERATE code 5)
 
     @staticmethod
     def get_od_len(m_type: int) -> int:
-        """Get OD length for M-sequence type."""
-        if m_type >= 4:  # Type 2_x
+        """Get OD length for M-sequence type (Table A.10)."""
+        if m_type == MSequenceType.TYPE_2_V:
             return 2
-        return 1  # Type 0, 1_x
+        return 1  # Type 0, 1_x, 2_1, 2_2
 
 
 class MasterCommand:
@@ -197,14 +197,15 @@ class MSequenceGenerator:
         self, mc: int, ckt: int, pd: bytes, od: int, od2: int = 0x00
     ) -> bytes:
         """
-        Generate Type 1/2 M-sequence: MC + CKT + PD + OD(1 or 2 bytes) + CK
+        Generate Type 1/2 M-sequence: MC + CKT + PD + OD(1 or 2 bytes), with the
+        A.1.6 checksum in the CKT octet.
 
         Args:
             mc: Master Command byte
             ckt: Command/Key/Type byte
             pd: Process Data bytes
             od: On-request Data byte (first byte)
-            od2: Second OD byte (for Type 2 only)
+            od2: Second OD byte (only for TYPE_2_V)
 
         Returns:
             Frame bytes

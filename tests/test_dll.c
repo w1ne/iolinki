@@ -440,14 +440,14 @@ static void test_dll_preoperate_type0_od_write_ignores_operate_widths(void** sta
     assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_PREOPERATE);
 }
 
-/* Regression: with a 2-octet-OD M-sequence configured (TYPE_2_2), the Type-0
-   DeviceOperate write is still a 3-octet frame (Figure A.5) and must be
-   answered with the CKS; a 4-octet expectation left the frame incomplete and
-   the device silent, so a real master never saw the ack. */
+/* Regression: with a 2-octet-OD M-sequence configured (TYPE_2_V, OPERATE code
+   5), the Type-0 DeviceOperate write is still a 3-octet frame (Figure A.5) and
+   must be answered with the CKS; a 4-octet expectation left the frame incomplete
+   and the device silent, so a real master never saw the ack. */
 static void test_dll_type0_write_is_three_octets_with_two_octet_od(void** state)
 {
     (void) state;
-    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_2_2, .pd_in_len = 2, .pd_out_len = 2};
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_2_V, .pd_in_len = 2, .pd_out_len = 2};
     setup_mock_phy();
     will_return(mock_phy_init, 0);
     iolink_test_device_t dev;

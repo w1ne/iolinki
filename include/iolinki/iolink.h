@@ -34,8 +34,8 @@ typedef enum
     IOLINK_M_SEQ_TYPE_1_1 = 1U, /**< M-Sequence Type 1_1: PD (fixed) + OD (1 byte) */
     IOLINK_M_SEQ_TYPE_1_2 = 2U, /**< M-Sequence Type 1_2: PD (fixed) + OD (1 byte) + ISDU */
     IOLINK_M_SEQ_TYPE_1_V = 3U, /**< M-Sequence Type 1_V: PD (variable) + OD (1 byte) */
-    IOLINK_M_SEQ_TYPE_2_1 = 4U, /**< M-Sequence Type 2_1: PD (fixed) + OD (2 bytes) */
-    IOLINK_M_SEQ_TYPE_2_2 = 5U, /**< M-Sequence Type 2_2: PD (fixed) + OD (2 bytes) + ISDU */
+    IOLINK_M_SEQ_TYPE_2_1 = 4U, /**< M-Sequence Type 2_1: PD (fixed) + OD (1 byte) */
+    IOLINK_M_SEQ_TYPE_2_2 = 5U, /**< M-Sequence Type 2_2: PD (fixed) + OD (1 byte) + ISDU */
     IOLINK_M_SEQ_TYPE_2_V = 6U, /**< M-Sequence Type 2_V: PD (variable) + OD (2 bytes) + ISDU */
 } iolink_m_seq_type_t;
 

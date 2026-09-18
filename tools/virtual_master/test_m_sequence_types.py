@@ -84,8 +84,8 @@ def test_type_1_2():
 
 
 def test_type_2_1():
-    """Test Type 2_1: PD only, 2-byte OD"""
-    print("\n=== Testing M-Sequence Type 2_1 (PD only, 2-byte OD) ===")
+    """Test Type 2_1: PD only, 1-byte OD"""
+    print("\n=== Testing M-Sequence Type 2_1 (PD only, 1-byte OD) ===")
 
     master = VirtualMaster(m_seq_type=MSequenceType.TYPE_2_1, pd_in_len=1, pd_out_len=1)
 
@@ -121,8 +121,8 @@ def test_type_2_1():
 
 
 def test_type_2_2():
-    """Test Type 2_2: PD + ISDU, 2-byte OD"""
-    print("\n=== Testing M-Sequence Type 2_2 (PD + ISDU, 2-byte OD) ===")
+    """Test Type 2_2: PD + ISDU, 1-byte OD"""
+    print("\n=== Testing M-Sequence Type 2_2 (PD + ISDU, 1-byte OD) ===")
 
     master = VirtualMaster(m_seq_type=MSequenceType.TYPE_2_2, pd_in_len=2, pd_out_len=2)
 
