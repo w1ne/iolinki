@@ -18,12 +18,61 @@
 #include "iolinki/events.h"
 #include "iolinki/platform.h"
 #include "iolinki/utils.h"
+#include <string.h>
 
 void iolink_events_init(iolink_events_ctx_t* ctx)
 {
     if (!iolink_ctx_zero(ctx, sizeof(iolink_events_ctx_t))) {
         return;
     }
+}
+
+/** @brief EventQualifier for an event type (A.6.4, Figure A.24). */
+static uint8_t event_qualifier(iolink_event_type_t type)
+{
+    uint8_t q = 0xC0U; /* MODE = event appears */
+    switch (type) {
+        case IOLINK_EVENT_TYPE_NOTIFICATION:
+            q |= (0x01U << 4);
+            break;
+        case IOLINK_EVENT_TYPE_WARNING:
+            q |= (0x02U << 4);
+            break;
+        case IOLINK_EVENT_TYPE_ERROR:
+            q |= (0x03U << 4);
+            break;
+        default:
+            break;
+    }
+    q |= 0x02U; /* SOURCE = device, INSTANCE = DL */
+    return q;
+}
+
+/** @brief Rebuild the Table 58 event memory from the oldest queued events.
+ *
+ * Up to six slots are populated; the StatusCode carries a bit per active slot.
+ * The caller holds the critical section. */
+static void event_memory_rebuild(iolink_events_ctx_t* ctx)
+{
+    (void) memset(ctx->memory, 0, sizeof(ctx->memory));
+    uint8_t slots = ctx->count;
+    if (slots > 6U) {
+        slots = 6U;
+    }
+    for (uint8_t i = 0U; i < slots; i++) {
+        uint8_t idx = (uint8_t) ((ctx->head + i) % IOLINK_EVENT_QUEUE_SIZE);
+        const iolink_event_t* ev = &ctx->queue[idx];
+        ctx->memory[1U + i * 3U] = event_qualifier(ev->type);
+        ctx->memory[2U + i * 3U] = (uint8_t) (ev->code >> 8);
+        ctx->memory[3U + i * 3U] = (uint8_t) (ev->code & 0xFFU);
+    }
+    /* StatusCode type 2: Event Details = 1, bits 0-5 = one bit per active slot
+       (Figure A.22/A.23: bit 0 is Event 1, bit 1 is Event 2, ...). */
+    uint8_t active = 0U;
+    for (uint8_t i = 0U; i < slots; i++) {
+        active |= (uint8_t) (1U << i);
+    }
+    ctx->memory[0] = (uint8_t) (0x80U | active);
 }
 
 void iolink_event_trigger(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_type_t type)
@@ -45,6 +94,64 @@ void iolink_event_trigger(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_
     ctx->tail = (uint8_t) ((ctx->tail + 1U) % IOLINK_EVENT_QUEUE_SIZE);
     ctx->count++;
 
+    /* Table 60 T2/T3: write the memory, then set the Event flag. The memory is
+       frozen on the first master read so a readout is consistent; events queued
+       after that stay invisible until the StatusCode write confirmation. */
+    if (!ctx->frozen) {
+        event_memory_rebuild(ctx);
+    }
+    ctx->flag = true;
+
+    iolink_critical_exit();
+}
+
+bool iolink_events_flag(const iolink_events_ctx_t* ctx)
+{
+    return ((ctx != NULL) && ctx->flag);
+}
+
+uint8_t iolink_events_memory_read(iolink_events_ctx_t* ctx, uint8_t addr)
+{
+    if ((ctx == NULL) || (addr >= sizeof(ctx->memory))) {
+        return 0U;
+    }
+    iolink_critical_enter();
+    /* First readout freezes the memory until the StatusCode confirmation. */
+    if (!ctx->frozen && (ctx->count > 0U)) {
+        event_memory_rebuild(ctx);
+        ctx->frozen = true;
+    }
+    const uint8_t value = ctx->memory[addr];
+    iolink_critical_exit();
+    return value;
+}
+
+void iolink_events_memory_write(iolink_events_ctx_t* ctx, uint8_t addr, uint8_t value)
+{
+    (void) value;
+    if ((ctx == NULL) || (addr != 0U)) {
+        return;
+    }
+
+    iolink_critical_enter();
+    /* Table 60 T5: confirmation releases the memory and clears the flag; any
+       events queued while frozen become visible on the next readout. */
+    ctx->frozen = false;
+    ctx->flag = false;
+    uint8_t acked = ctx->count;
+    if (acked > 6U) {
+        acked = 6U;
+    }
+    ctx->head = (uint8_t) ((ctx->head + acked) % IOLINK_EVENT_QUEUE_SIZE);
+    ctx->count = (uint8_t) (ctx->count - acked);
+    if (ctx->count > 0U) {
+        event_memory_rebuild(ctx);
+        ctx->frozen = true;
+        ctx->flag = true;
+    }
+    else {
+        (void) memset(ctx->memory, 0, sizeof(ctx->memory));
+    }
     iolink_critical_exit();
 }
 

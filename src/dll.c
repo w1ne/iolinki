@@ -246,11 +246,16 @@ static bool dll_dispatch_od(iolink_dll_ctx_t* ctx, uint8_t mc, const uint8_t* od
 
     if (channel == IOLINK_MC_CHANNEL_DIAGNOSIS) {
         /* 7.3.8 Table 58: event memory is served by the diagnosis channel.
-           Implemented by Task 5; zero until then. */
+           A read returns the memory octet(s) at the address; a write to
+           address 0 confirms the event readout and clears the Event flag. */
+        const uint8_t addr = (uint8_t) (mc & IOLINK_MC_ADDR_MASK);
         if ((mc & IOLINK_MC_RW_MASK) != 0U) {
             for (uint8_t i = 0U; i < od_len; i++) {
-                od_out[i] = 0U;
+                od_out[i] = iolink_events_memory_read(&ctx->events, (uint8_t) (addr + i));
             }
+        }
+        else if (od_len > 0U) {
+            iolink_events_memory_write(&ctx->events, addr, od_in[0]);
         }
         return true;
     }
@@ -282,18 +287,18 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
 
     uint8_t resp[2];
     uint8_t ck_flags = 0x00U;
-    if (iolink_events_pending(&ctx->events)) {
+    if (iolink_events_flag(&ctx->events)) {
         ck_flags |= 0x80U;
     }
     if (!ctx->pd_valid) {
         ck_flags |= 0x40U;
     }
 
-    /* Figure A.5: a Type-0 page-channel WRITE is answered by the CKS only;
-       every Type-0 READ is answered by OD followed by the CKS. */
-    const bool page_write = ((mc & IOLINK_MC_RW_MASK) == 0U) &&
-                            ((mc & IOLINK_MC_COMM_CHANNEL_MASK) == IOLINK_MC_CHANNEL_PAGE);
-    if (page_write) {
+    /* Figure A.5: a Type-0 WRITE is answered by the CKS only, on every
+       communication channel; every Type-0 READ is answered by OD followed by
+       the CKS. */
+    const bool type0_write = ((mc & IOLINK_MC_RW_MASK) == 0U);
+    if (type0_write) {
         resp[0] = ck_flags;
         resp[0] = (uint8_t) (resp[0] | iolink_checksum6(resp, 1U));
         if (ctx->phy->send != NULL) {
@@ -345,7 +350,7 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
     pos += ctx->od_len;
 
     uint8_t cks = 0x00U;
-    if (iolink_events_pending(&ctx->events)) {
+    if (iolink_events_flag(&ctx->events)) {
         cks |= 0x80U;
     }
     if (!ctx->pd_valid) {
@@ -670,7 +675,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
 
                         uint8_t resp[1];
                         uint8_t cks = 0x00U;
-                        if (iolink_events_pending(&ctx->events)) {
+                        if (iolink_events_flag(&ctx->events)) {
                             cks |= 0x80U;
                         }
                         if (!ctx->pd_valid) {

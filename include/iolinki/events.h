@@ -106,7 +106,8 @@ typedef struct
 /**
  * @brief Events Engine Context
  *
- * Manages the internal FIFO queue of pending events to be read by the Master.
+ * Manages the internal FIFO queue of pending events and the Table 58 event
+ * memory exposed on the diagnosis communication channel.
  */
 typedef struct
 {
@@ -114,6 +115,11 @@ typedef struct
     uint8_t head;                                  /**< Queue head index */
     uint8_t tail;                                  /**< Queue tail index */
     uint8_t count;                                 /**< Number of events currently in queue */
+
+    /* Table 58 event memory: StatusCode(1) + 6 slots * (Qualifier, CodeMSB, CodeLSB). */
+    uint8_t memory[19]; /**< Event memory image (0x00-0x12) */
+    bool frozen;        /**< Memory frozen while the Event flag is set (Table 60) */
+    bool flag;          /**< Event flag (CKS bit 7) */
 } iolink_events_ctx_t;
 
 /**
@@ -144,6 +150,44 @@ void iolink_event_trigger(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_
  * @return true if one or more events are in the queue
  */
 bool iolink_events_pending(const iolink_events_ctx_t* ctx);
+
+/**
+ * @brief Read the Event flag sent in the CKS bit 7 (7.3.8.2).
+ *
+ * The flag is set when an event has been written to the event memory and is
+ * cleared by a master write to StatusCode (event memory address 0).
+ *
+ * @param ctx Event context
+ * @return true while the Event flag is set
+ */
+bool iolink_events_flag(const iolink_events_ctx_t* ctx);
+
+/**
+ * @brief Read one octet of the Table 58 event memory (diagnosis channel).
+ *
+ * Address 0 is the StatusCode type 2 (Figure A.22): bit 7 Event Details = 1 and
+ * bits 0-5 one bit per active slot 1..6. Slot n occupies addresses 3n-2
+ * (EventQualifier), 3n-1 (EventCode MSB) and 3n (EventCode LSB).
+ *
+ * @param ctx Event context
+ * @param addr Event memory address (0x00-0x12)
+ * @return uint8_t Memory octet, 0 for an out-of-range address
+ */
+uint8_t iolink_events_memory_read(iolink_events_ctx_t* ctx, uint8_t addr);
+
+/**
+ * @brief Write one octet of the Table 58 event memory (diagnosis channel).
+ *
+ * A write to address 0 (StatusCode) confirms the event readout: the Event flag
+ * is cleared and the memory is released/marked invalid and rebuilt from any
+ * events that remain queued (Table 60 T5). Writes to other addresses are
+ * ignored.
+ *
+ * @param ctx Event context
+ * @param addr Event memory address
+ * @param value Value written by the master (ignored, 7.3.8.2)
+ */
+void iolink_events_memory_write(iolink_events_ctx_t* ctx, uint8_t addr, uint8_t value);
 
 /**
  * @brief Pop the oldest event from the queue

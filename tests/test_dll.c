@@ -65,7 +65,7 @@ static void test_dll_wakeup_to_preoperate(void** state)
     will_return(mock_phy_recv_byte, 0);
 
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 2);
+    expect_value(mock_phy_send, len, 1); /* Type-0 write replies CKS only */
     will_return(mock_phy_send, 0);
 
     iolink_device_process(&dev.ctx);
@@ -235,7 +235,7 @@ static void move_type0_to_operate(iolink_device_ctx_t* ctx)
     will_return(mock_phy_recv_byte, idle_ck);
     will_return(mock_phy_recv_byte, 0);
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 2);
+    expect_value(mock_phy_send, len, 1); /* Type-0 write replies CKS only */
     will_return(mock_phy_send, 0);
     iolink_device_process(ctx);
 }
@@ -308,8 +308,8 @@ static void test_dll_isdu_channel_idle(void** state)
     assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_OPERATE);
 }
 
-/* C2/C4: a read on the diagnosis channel address 0 is served (StatusCode;
-   the Task 5 event memory returns 0 until then) and is not an error. */
+/* C2/C4: a read on the diagnosis channel address 0 is served (StatusCode) and
+   is not an error. */
 static void test_dll_diagnosis_channel(void** state)
 {
     (void) state;
@@ -345,6 +345,54 @@ static void test_dll_diagnosis_channel(void** state)
     assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_OPERATE);
 }
 
+/* C4/7.3.8.2: the reply CKS Event bit (bit 7) follows the event flag, and a
+   diagnosis read returns the Table 58 StatusCode. */
+static void test_dll_event_flag_in_cks(void** state)
+{
+    (void) state;
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_0, .pd_in_len = 0, .pd_out_len = 0};
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, &config, NULL);
+
+    move_type0_to_operate(&dev.ctx);
+
+    /* Trigger an error event: flag set, memory slot 1 populated. */
+    iolink_event_trigger(iolink_device_get_events_ctx(&dev.ctx), 0x1801U, IOLINK_EVENT_TYPE_ERROR);
+
+    /* MC = READ | diagnosis channel | address 0. Reply [StatusCode][CKS]. */
+    uint8_t mc = (uint8_t) (IOLINK_MC_RW_MASK | IOLINK_MC_CHANNEL_DIAGNOSIS);
+    uint8_t frame[2] = {mc, 0x00};
+    frame[1] = iolink_checksum6(frame, 1);
+    for (int i = 0; i < 2; i++) {
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, frame[i]);
+    }
+    will_return(mock_phy_recv_byte, 0);
+
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 2);
+    will_return(mock_phy_send, 0);
+    iolink_device_process(&dev.ctx);
+
+    /* Clean channel: flag stays set until the StatusCode write confirmation. */
+    uint8_t mc_write = (uint8_t) (IOLINK_MC_CHANNEL_DIAGNOSIS); /* WRITE, addr 0 */
+    uint8_t wframe[3] = {mc_write, 0x00, 0x00};
+    wframe[1] = iolink_checksum6(wframe, 2);
+    for (int i = 0; i < 3; i++) {
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, wframe[i]);
+    }
+    will_return(mock_phy_recv_byte, 0);
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 1); /* Type-0 write replies CKS only */
+    will_return(mock_phy_send, 0);
+    iolink_device_process(&dev.ctx);
+
+    assert_false(iolink_events_flag(iolink_device_get_events_ctx(&dev.ctx)));
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -356,6 +404,7 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_dll_illegal_mseq_type, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_isdu_channel_idle, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_diagnosis_channel, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_dll_event_flag_in_cks, test_setup, test_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

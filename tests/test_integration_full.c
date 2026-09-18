@@ -83,9 +83,9 @@ static void test_full_stack_lifecycle(void** state)
     will_return(mock_phy_recv_byte, idle_ck);
     will_return(mock_phy_recv_byte, 0);
 
-    /* Device sends response with Event bit set */
+    /* Device sends response with Event bit set (Type-0 write: CKS only) */
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 2);
+    expect_value(mock_phy_send, len, 1);
     will_return(mock_phy_send, 0);
     iolink_device_process(&dev.ctx);
 

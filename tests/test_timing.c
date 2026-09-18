@@ -178,7 +178,7 @@ static void test_t_pd_delay(void** state)
     will_return(mock_phy_recv_byte, ck_comm);
     will_return(mock_phy_recv_byte, 0);
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 2);
+    expect_value(mock_phy_send, len, 1); /* Type-0 write replies CKS only */
     will_return(mock_phy_send, 0);
     iolink_device_process(&dev.ctx);
 
