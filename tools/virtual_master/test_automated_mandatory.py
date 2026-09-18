@@ -73,8 +73,7 @@ def run_test():
             (0x0016, "Hardware Revision"),
             (0x0017, "Firmware Revision"),
             (0x0018, "Application Tag"),
-            (0x001E, "Revision ID"),
-            (0x0024, "Min Cycle Time"),
+            (0x0024, "Device Status"),
         ]
 
         results = {}
