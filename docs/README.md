@@ -2,6 +2,8 @@
 
 Comprehensive documentation for the iolinki IO-Link Device Stack.
 
+The companion master stack is [iolinki-master](https://github.com/w1ne/iolinki-master).
+
 ## Getting Started
 
 - **[README](../README.md)** - Project overview and quick start
