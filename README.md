@@ -2,6 +2,8 @@
 
 **Hardware-Agnostic IO-Link Protocol Stack for Zephyr RTOS and Bare-Metal Embedded Systems**
 
+The companion master stack is [iolinki-master](https://github.com/w1ne/iolinki-master).
+
 ## Overview
 
 `iolinki` is a professional-grade, open-source IO-Link Device Stack (compliant with Spec V1.1.5) designed with complete hardware independence and comprehensive test coverage. Built from the ground up using test-driven development, every component is testable without hardware.
