@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-25
+
 ### Changed
 - **BREAKING wire change: spec-conformant IO-Link V1.1.5 M-sequences.** The
   device stack now speaks the wire defined by the IO-Link Interface &
@@ -34,6 +36,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     max 500 ms) for the FALLBACK MasterCommand.
 - The Python virtual master and the 49-test conformance suite were updated to
   the same wire contract.
+
+### Fixed
+- **Table A.10 OD width**: TYPE_2_1 and TYPE_2_2 carry one On-request Data octet.
+  TYPE_2_V stays at two octets.
+- **Type-0 OD write**: a write is three octets in PREOPERATE and in OPERATE,
+  independent of the OPERATE OD width.
+- **ISDU errors**: a read of write-only SystemCommand (index 0x0002) returns
+  ErrorType `0x80 0x23` (IDX_NOT_ACCESSIBLE, Table C.1). Access denied uses the
+  same ErrorType.
+
+### Verified
+- CI on `develop` is green, including the virtual-master conformance suite.
+- This tag is not an official IO-Link conformance certificate. It has not been
+  run against a third-party master.
 
 ## [1.2.0] - 2026-07-02
 ### Added
@@ -404,6 +420,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Host Demo**: `examples/host_demo` showing stack execution without hardware.
 - **Documentation**: Initial README, ROADMAP, VISION, and RELEASE_STRATEGY.
 
+[Unreleased]: https://github.com/w1ne/iolinki/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/w1ne/iolinki/compare/v1.2.0...v2.0.0
+[1.2.0]: https://github.com/w1ne/iolinki/compare/v1.1.3...v1.2.0
 [0.11.0]: https://github.com/w1ne/iolinki/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/w1ne/iolinki/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/w1ne/iolinki/compare/v0.8.0...v0.9.0
