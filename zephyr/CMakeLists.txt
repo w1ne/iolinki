@@ -22,6 +22,7 @@ zephyr_library_sources(
     ../src/params.c
     ../src/device_info.c
     ../src/phy_generic.c
+    ../src/phy_tiol112.c
     ../src/platform.c
     ../src/platform/zephyr/time_utils.c
 )

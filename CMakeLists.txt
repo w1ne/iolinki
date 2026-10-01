@@ -19,6 +19,7 @@ include_directories(include)
 
 add_library(iolinki STATIC
     src/phy_generic.c
+    src/phy_tiol112.c
     src/phy_virtual.c
     src/crc.c
     src/frame.c
@@ -61,6 +62,10 @@ option(BUILD_TESTING "Build unit tests" ON)
 if(BUILD_TESTING)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if(IOLINK_PLATFORM STREQUAL "LINUX")
+    add_subdirectory(examples/reference_device)
 endif()
 
 # Documentation

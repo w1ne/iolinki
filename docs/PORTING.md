@@ -2,6 +2,13 @@
 
 ## Overview
 
+For the current context-based PHY API and a working transceiver control
+implementation, start with [TIOL112 integration](hardware/TIOL112.md) and
+[the reference device](../examples/reference_device/README.md). The older snippets
+below predate the current callback signatures and are conceptual illustrations;
+do not copy them unchanged. In particular, a millisecond-derived microsecond
+clock and a one-millisecond polling delay do not establish physical IO-Link timing.
+
 iolinki is designed to be portable across different platforms and RTOSes. This guide explains how to port the stack to your target platform.
 
 ## Platform Abstraction Layers
