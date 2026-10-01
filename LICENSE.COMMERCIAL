@@ -14,7 +14,9 @@ This document outlines the commercial licensing options for **iolinki**, a produ
 - Unlimited commercial deployments
 - 1 year of updates and bug fixes
 - Email support (48h response time)
-- Single developer seat
+- License holder: one named individual; one developer seat
+- Two onboarding hours: build/setup assistance, MCU/PHY wiring and callback review, and a written bring-up checklist
+- Larger ports quoted separately
 
 **Ideal for**: Independent developers, startups, small product lines
 
@@ -24,11 +26,15 @@ This document outlines the commercial licensing options for **iolinki**, a produ
 **Price**: €4,699 (One-time, Royalty-Free)
 
 **Includes**:
-- Everything in Single Developer License
-- Up to 5 developer seats
+- The same source code, documentation and reference release as Single Developer
+- Unlimited commercial deployments and 1 year of updates and bug fixes
+- License holder: the named legal company; up to 5 authorized developers
+- Seats may be reassigned when engineers change
+- Contractors working on the licensee company's projects count within those 5 authorized developers; subsidiary rights require a separate quote
 - Priority email support (24h response time)
 - Quarterly technical reviews
-- Custom integration assistance (up to 8 hours)
+- Up to 8 total scoped integration hours (replaces the Single onboarding allowance; not 2 + 8 hours)
+- Agree the board, compiler, PHY and validation tasks before scheduling; larger ports quoted separately
 
 **Ideal for**: Engineering teams, consultancies, mid-size manufacturers
 
@@ -48,6 +54,20 @@ This document outlines the commercial licensing options for **iolinki**, a produ
 **Ideal for**: OEMs, large manufacturers, multi-product deployments
 
 ---
+
+## Package and assistance scope
+
+Both tiers receive the same usable source, documentation and reference release.
+Reference build evidence and remaining validation limits are published separately;
+included assistance does not promise a completed port, supplied hardware, physical
+validation or conformity certification. Reproducible product bug corrections do
+not consume the custom porting assistance allowance.
+
+Single is held by the named individual, not by an employer or other legal entity.
+Employer-project use, transfer rights, upgrade credit, assistance booking windows
+and any additional renewal coverage must be agreed in the quote. Team is held by
+the named legal company; subsidiary and other separate-entity rights require a
+separate quote.
 
 ## When do I need this commercial license?
 

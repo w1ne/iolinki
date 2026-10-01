@@ -22,11 +22,13 @@ The companion master stack is [iolinki-master](https://github.com/w1ne/iolinki-m
 
 - **GPLv3 (free, open source)** — use, modify, and ship iolinki at no cost, provided your own work that includes it is also released under the GPLv3. Ideal for open-source projects, research, evaluation, and hobby use.
 - **Commercial license** — **required only if you ship a closed-source / proprietary product** and do not want the GPLv3 copyleft obligations. One-time, royalty-free:
-  - **Single Developer**: €1,399
-  - **Team (5 seats)**: €4,699
+  - **Single Developer**: €1,399 — one named individual; two onboarding hours for build/setup, MCU/PHY wiring and callback review, and a written bring-up checklist
+  - **Team (5 seats)**: €4,699 — named legal company; up to eight total scoped integration hours (not 2 + 8)
   - **Enterprise / site-wide**: custom
   - Includes 12 months of updates and tier-specific support. Team includes up to
-    8 hours of integration assistance; confirm hardware-porting scope in your quote.
+    8 total hours of integration assistance; agree board/compiler/PHY/validation scope before scheduling. Larger ports are quoted separately.
+  - Both tiers receive the same source, documentation and reference release. Reproducible product bug corrections do not consume custom porting hours.
+  - Team seats may be reassigned when engineers change. Contractors on licensee projects count within the five authorized developers; subsidiary rights need a separate quote. Single employer-project use and other additional rights must be agreed in the quote.
 
 **Shipping a closed-source product?** A commercial license removes the GPLv3 obligations — email **andrii@shylenko.com** for terms (fast, no-friction). See [LICENSE](LICENSE) and [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL).
 
