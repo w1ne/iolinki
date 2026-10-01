@@ -20,6 +20,7 @@ include_directories(include)
 add_library(iolinki STATIC
     src/phy_generic.c
     src/phy_tiol112.c
+    src/phy_l6362a.c
     src/phy_virtual.c
     src/crc.c
     src/frame.c

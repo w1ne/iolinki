@@ -1,0 +1,6 @@
+.pio/
+build/
+sdkconfig
+sdkconfig.old
+sdkconfig.esp32c3
+sdkconfig.esp32c3.old

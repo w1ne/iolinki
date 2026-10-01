@@ -7,6 +7,38 @@ on:
     branches: [ main, develop ]
 
 jobs:
+  esp32-example:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned PlatformIO Core
+        run: python -m pip install platformio==6.1.19
+      - name: Cache ESP-IDF and toolchain packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-pio-6.1.19-espressif32-6.10.0-idf-5.4.0
+      - name: Test UART stop-bit ordering, timeout latch and receive overflow
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror examples/esp32_l6362a/test_tx_guard.c examples/esp32_l6362a/main/tx_guard.c examples/esp32_l6362a/main/rx_guard.c -o /tmp/esp32-uart-test
+          /tmp/esp32-uart-test
+      - name: Build native ESP-IDF ESP32-C3 firmware
+        run: platformio run -d examples/esp32_l6362a -e esp32c3
+      - name: Archive ESP32-C3 firmware and memory map
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32c3-l6362a-espidf
+          if-no-files-found: error
+          include-hidden-files: true
+          path: |
+            examples/esp32_l6362a/.pio/build/esp32c3/firmware.elf
+            examples/esp32_l6362a/.pio/build/esp32c3/iolinki_esp32c3_l6362a.map
+            examples/esp32_l6362a/.pio/build/esp32c3/firmware.bin
+            examples/esp32_l6362a/.pio/build/esp32c3/bootloader.bin
+            examples/esp32_l6362a/.pio/build/esp32c3/partitions.bin
   stm32u5-example:
     runs-on: ubuntu-latest
     steps:
