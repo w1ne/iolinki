@@ -3,10 +3,14 @@
 The [website FAQ](https://iolinki.com/faq.html) covers commercial and evaluation
 questions. The authoritative published tier details are in
 [LICENSE.COMMERCIAL](../LICENSE.COMMERCIAL); the signed agreement determines a
-customer's rights. Single Developer covers one developer and unlimited commercial
-deployments. Team includes up to eight hours of integration assistance; confirm
-the exact hardware-porting scope in the quote. Perpetual use of the licensed
-version continues after the update period.
+customer's rights. Product Family (€1,399) and Integration (€4,699) cover one
+agreed product family, held by the named company or a sole trader acting for
+their business. Authorized employees and contractors working on that family,
+manufactured units and customers are unlimited. Product Family includes two
+onboarding hours; Integration includes eight total scoped engineering hours,
+priority email support and quarterly technical reviews during the included
+first year within those hours. Confirm the target and tasks in the quote.
+Perpetual use of the licensed version continues after the update period.
 
 ## What can I run today?
 
