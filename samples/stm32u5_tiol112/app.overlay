@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/ {
+ zephyr,user {
+  en-gpios = <&gpiob 0 GPIO_ACTIVE_HIGH>;
+  wake-gpios = <&gpiob 1 GPIO_ACTIVE_LOW>;
+  nfault-gpios = <&gpiob 2 GPIO_ACTIVE_LOW>;
+  tx-gpios = <&gpiod 5 GPIO_ACTIVE_HIGH>;
+ };
+};
+/* PB0 is reserved for EN, not the board's ADC4 channel. */
+&adc4 { status = "disabled"; };
+&usart2 { current-speed = <230400>; status = "okay"; };
+/* TIM2 is owned directly by adapter.c; leave Zephyr timer drivers disabled. */

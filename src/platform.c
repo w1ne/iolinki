@@ -36,6 +36,7 @@ WEAK void iolink_critical_exit(void)
     /* Default: Do nothing */
 }
 
+#ifndef IOLINK_HAVE_PLATFORM_NVM
 WEAK int iolink_nvm_read(uint32_t offset, uint8_t* data, size_t len)
 {
     (void) offset;
@@ -53,3 +54,4 @@ WEAK int iolink_nvm_write(uint32_t offset, const uint8_t* data, size_t len)
     /* Default: Not implemented */
     return -1;
 }
+#endif

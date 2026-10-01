@@ -7,6 +7,46 @@ on:
     branches: [ main, develop ]
 
 jobs:
+  stm32u5-example:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get pinned Zephyr
+        uses: actions/checkout@v4
+        with:
+          repository: zephyrproject-rtos/zephyr
+          ref: c66235fb7346bbe3dbedd1dd76ec5a37a8e8262b
+          path: vendor/zephyr
+      - name: Install target toolchain and west
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi device-tree-compiler ninja-build
+          python3 -m venv /tmp/west-env
+          /tmp/west-env/bin/pip install west
+          /tmp/west-env/bin/pip install -r vendor/zephyr/scripts/requirements.txt
+      - name: Fetch pinned modules
+        working-directory: vendor
+        run: |
+          /tmp/west-env/bin/west init -l zephyr
+          /tmp/west-env/bin/west update cmsis hal_stm32
+      - name: Test receive queue, wake latch and timer wrap
+        run: |
+          cc -std=c99 -Wall -Wextra -Werror samples/stm32u5_tiol112/tests/test_adapter.c -o /tmp/u5-adapter-test
+          /tmp/u5-adapter-test
+      - name: Build STM32U5 firmware
+        working-directory: vendor
+        env:
+          ZEPHYR_TOOLCHAIN_VARIANT: gnuarmemb
+          GNUARMEMB_TOOLCHAIN_PATH: /usr
+        run: /tmp/west-env/bin/west build -b nucleo_u575zi_q ../samples/stm32u5_tiol112 -d ../build-u5
+      - name: Archive U5 firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: stm32u5-tiol112-zephyr
+          path: |
+            build-u5/zephyr/zephyr.elf
+            build-u5/zephyr/zephyr.hex
+            build-u5/zephyr/zephyr.map
   stm32g0-example:
     runs-on: ubuntu-latest
     steps:
