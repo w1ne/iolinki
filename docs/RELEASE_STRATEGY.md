@@ -168,7 +168,7 @@ Each GitHub Release includes:
 
 ### Support Policy
 - **Included Support**: 12 months of updates and support are included in the commercial price.
-- **Integration Assistance**: Up to 8 hours of integration effort are included.
+- **Assistance**: Single Developer includes two scoped onboarding hours for build/setup, MCU/PHY wiring and callback review, and a written bring-up checklist. Team includes up to eight total scoped integration hours, replacing the Single allowance (not 2 + 8). Agree the board, compiler, PHY and validation tasks before scheduling. Larger ports are quoted separately; reproducible product bug corrections do not consume custom porting hours. See LICENSE.COMMERCIAL for holder and support terms.
 
 ### Provenance
 - **Signing**: Release artifacts are signed or accompanied by checksums.
