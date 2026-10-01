@@ -7,12 +7,12 @@ This document outlines the commercial licensing options for **iolinki**, an IO-L
 ## Scope for new quotes
 
 The product-family scope below applies to new quotes using version
-2026-10-01-business-family-v3. Rights already granted or separately agreed remain
+2026-10-02-indie-company-v4. Rights already granted or separately agreed remain
 governed by their accepted agreement; this scope does not reduce those rights.
 
 ## Commercial packages
 
-### Product Family
+### Indie
 **Price**: €1,399 (One-time, Royalty-Free)
 
 **Includes**:
@@ -20,23 +20,23 @@ governed by their accepted agreement; this scope does not reduce those rights.
 - One agreed, named product family; unlimited manufactured units and customers within that family
 - 1 year of updates and bug fixes
 - Email support (48-hour response target)
-- License holder: the named legal company or a sole trader acting for their own business
-- Unlimited authorized employees and contractors working on the licensed family
+- License holder: one named individual developing and distributing their own independent product family
+- Product distribution rights belong to that individual; an employer or separate company requires a Company license
 - Two onboarding hours: build/setup assistance, MCU/PHY wiring and callback review, and a written bring-up checklist
 - Larger ports quoted separately
 
-**Ideal for**: Businesses integrating one product family with onboarding assistance
+**Ideal for**: Independent developers and sole traders developing their own products
 
 ---
 
-### Integration
+### Company
 **Price**: €4,699 (One-time, Royalty-Free)
 
 **Includes**:
-- The same source code, documentation, reference release and license rights as Product Family
+- The same source code, documentation and reference release as Indie, with rights held by the company
 - One agreed, named product family; unlimited manufactured units and customers within that family
 - 1 year of updates and bug fixes
-- License holder: the named legal company or a sole trader acting for their own business
+- License holder: the named legal company
 - Unlimited authorized employees and contractors working on the licensed family
 - Priority email support (24-hour response target)
 - Quarterly technical reviews during the included first year, within the eight-hour allowance
@@ -44,7 +44,7 @@ governed by their accepted agreement; this scope does not reduce those rights.
 - Agreed deliverables within those hours: build/configuration review, MCU/PHY callback and wiring review, a written integration checklist and findings from the agreed build/test review
 - Agree the board, compiler, PHY and validation tasks before scheduling; larger ports quoted separately
 
-**Ideal for**: Businesses needing scoped engineering assistance for one product family
+**Ideal for**: Companies developing and distributing a product family
 
 ---
 
@@ -77,21 +77,27 @@ redistribution as explicitly agreed.
 
 ## Package and assistance scope
 
-Both packages receive the same source, documentation, reference release and
-software rights. Engineering hours cover the tasks and deliverables agreed in
-the quote. Agree the target board, compiler, PHY, tasks and booking window before
+Both packages receive the same source, documentation and reference release.
+Their license holders differ: Indie is issued to a named person; Company is
+issued to the named legal company. Engineering hours cover the tasks and
+deliverables agreed in the quote. Agree the target board, compiler, PHY, tasks and booking window before
 scheduling. Larger ports and additional validation work are quoted separately.
 Reproducible stack bug corrections do not consume custom engineering hours.
 Build and validation evidence is published with the references.
 
-Both packages are held by the named legal company or a sole trader acting for
-their own business, with a technical contact recorded in the quote. Authorized
-employees and contractors working on the licensed family may use and modify the
-source without developer-seat limits. Contractors receive access for that
-licensee's project; they do not receive independent reuse or redistribution
-rights. Subsidiaries and other separate legal entities require agreed additional
-scope. Transfer rights, upgrade credit and additional renewal coverage are
-recorded in the quote.
+Indie is issued to one named individual for independent development and
+distribution of their own agreed product family, including when acting as a sole
+trader. It does not grant product rights to an employer or a separate legal
+company. Company projects use a Company license held by that legal company;
+an employee's Indie license is not a substitute.
+
+Company is held by the named legal company, with a technical contact recorded
+in the quote. Authorized employees and contractors working on the licensed
+family may use and modify the source without developer-seat limits. Contractors
+receive access for that licensee's project; they do not receive independent reuse
+or redistribution rights. Subsidiaries and other separate legal entities require
+agreed additional scope. Transfer rights, upgrade credit and additional renewal
+coverage are recorded in the quote.
 
 ## When do I need this commercial license?
 

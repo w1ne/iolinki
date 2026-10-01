@@ -3,14 +3,18 @@
 The [website FAQ](https://iolinki.com/faq.html) covers commercial and evaluation
 questions. The authoritative published tier details are in
 [LICENSE.COMMERCIAL](../LICENSE.COMMERCIAL); the signed agreement determines a
-customer's rights. Product Family (€1,399) and Integration (€4,699) cover one
-agreed product family, held by the named company or a sole trader acting for
-their business. Authorized employees and contractors working on that family,
-manufactured units and customers are unlimited. Product Family includes two
-onboarding hours; Integration includes eight total scoped engineering hours,
-priority email support and quarterly technical reviews during the included
-first year within those hours. Confirm the target and tasks in the quote.
-Perpetual use of the licensed version continues after the update period.
+customer's rights. Indie (€1,399) is issued to a named individual for independent
+development and distribution of their own agreed product family, including when
+acting as a sole trader. Company (€4,699) is held by the named legal company and
+allows unlimited authorized employees and contractors working on its family.
+An employee's Indie license does not grant their employer product rights.
+Manufactured units and customers within the agreed family are unlimited and
+royalty-free under both licenses. Indie includes two onboarding hours and a
+48-hour email response target. Company includes eight total scoped engineering
+hours, a 24-hour priority response target and quarterly technical reviews during
+the included first year within those hours. Confirm target, tasks and deliverables
+in the quote. Perpetual use of the licensed version continues after the update
+period.
 
 ## What can I run today?
 

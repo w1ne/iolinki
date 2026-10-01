@@ -162,8 +162,8 @@ Each GitHub Release includes:
 - **License Delivery**: License file and terms are delivered with the SDK bundle.
 - **Lead Time**: Typical fulfillment within 2 business days.
 - **Pricing** (see `LICENSE.COMMERCIAL`):
-  - **Product Family**: €1,399 (one-time, royalty-free; one agreed product family)
-  - **Integration**: €4,699 (one-time, royalty-free; the same software rights and one agreed product family, with scoped engineering assistance)
+  - **Indie**: €1,399 (one-time, royalty-free; named individual, own independent product family)
+  - **Company**: €4,699 (one-time, royalty-free; named legal company, one agreed product family, with scoped engineering assistance)
   - **Enterprise**: Custom pricing
 
 New quotes allow unlimited manufactured units and customers, including variants,
@@ -172,14 +172,16 @@ Unrelated lines need a separate license. MCU/PHY changes within that range retai
 the license; porting and validation are separately quoted. Enterprise scope for
 multiple families, subsidiaries or broader SDK redistribution is quoted. Already
 granted or separately agreed rights retain their accepted scope.
-Both packages are held by the named legal company or a sole trader acting for
-their own business. Authorized employees and contractors working on the family
-may use the source without developer-seat limits. Separate legal entities and
-independent contractor reuse require agreed additional scope.
+Indie is issued to a named individual developing and distributing their own
+independent product family, including as a sole trader. It does not grant an
+employer or separate company product rights. Company is held by the named legal
+company and allows unlimited authorized employees and contractors working on the
+family. Separate legal entities and independent contractor reuse require agreed
+additional scope.
 
 ### Support Policy
 - **Included Support**: 12 months of updates and support are included in the commercial price.
-- **Assistance**: Product Family includes two onboarding hours for build/setup, MCU/PHY wiring and callback review, and a written bring-up checklist, with a 48-hour email response target. Integration includes eight total scoped engineering hours, a 24-hour priority response target and quarterly technical reviews during the first year within that allowance. Deliverables within the hours include build/configuration review, MCU/PHY callback and wiring review, a written checklist and findings from the agreed build/test review. Agree board/compiler/PHY/tasks and the booking window before scheduling. Larger ports are quoted separately; reproducible stack bug corrections do not consume custom engineering hours. See LICENSE.COMMERCIAL for holder and support terms.
+- **Assistance**: Indie includes two onboarding hours for build/setup, MCU/PHY wiring and callback review, and a written bring-up checklist, with a 48-hour email response target. Company includes eight total scoped engineering hours, a 24-hour priority response target and quarterly technical reviews during the first year within that allowance. Deliverables within the hours include build/configuration review, MCU/PHY callback and wiring review, a written checklist and findings from the agreed build/test review. Agree board/compiler/PHY/tasks and the booking window before scheduling. Larger ports are quoted separately; reproducible stack bug corrections do not consume custom engineering hours. See LICENSE.COMMERCIAL for holder and support terms.
 
 ### Provenance
 - **Signing**: Release artifacts are signed or accompanied by checksums.
