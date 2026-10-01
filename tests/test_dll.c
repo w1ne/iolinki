@@ -521,8 +521,8 @@ static void test_dll_receive_error_discards_partial_frame(void** state)
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test_setup_teardown(test_dll_receive_error_discards_partial_frame,
-                                       test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_dll_receive_error_discards_partial_frame, test_setup,
+                                        test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_wakeup_to_preoperate, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_preoperate_to_operate, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_fallback_on_crc_errors, test_setup, test_teardown),

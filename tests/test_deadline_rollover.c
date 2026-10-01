@@ -4,16 +4,33 @@
 #include "iolinki/time_utils.h"
 static uint64_t now;
 static int wake_pending;
-uint32_t iolink_time_get_ms(void) { return (uint32_t)(now / 1000U); }
-uint64_t iolink_time_get_us(void) { return now; }
-static int wake(void* user) { (void)user; int result = wake_pending; wake_pending = 0; return result; }
-static int receive(void* user, uint8_t* byte) { (void)user; (void)byte; return 0; }
+uint32_t iolink_time_get_ms(void)
+{
+    return (uint32_t) (now / 1000U);
+}
+uint64_t iolink_time_get_us(void)
+{
+    return now;
+}
+static int wake(void* user)
+{
+    (void) user;
+    int result = wake_pending;
+    wake_pending = 0;
+    return result;
+}
+static int receive(void* user, uint8_t* byte)
+{
+    (void) user;
+    (void) byte;
+    return 0;
+}
 int main(void)
 {
     const iolink_phy_api_t phy = {.detect_wakeup = wake, .recv_byte = receive};
     iolink_dll_ctx_t ctx;
     iolink_dll_init(&ctx, &phy);
-    now = ((uint64_t)UINT32_MAX - 100U) * 1000U;
+    now = ((uint64_t) UINT32_MAX - 100U) * 1000U;
     wake_pending = 1;
     iolink_dll_process(&ctx);
     assert(ctx.state == IOLINK_DLL_STATE_AWAITING_COMM);

@@ -3,7 +3,8 @@
 #define STM32_RX_QUEUE_H
 #include <stdint.h>
 #define RX_QUEUE_SIZE 128U
-typedef struct {
+typedef struct
+{
     uint8_t bytes[RX_QUEUE_SIZE];
     volatile uint16_t head, tail;
     volatile uint32_t overflows, errors;

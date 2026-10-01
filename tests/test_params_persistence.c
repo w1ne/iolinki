@@ -7,13 +7,23 @@
 #include <stdio.h>
 #include <string.h>
 static int write_result, writes;
-int iolink_nvm_read(uint32_t offset, uint8_t* data, size_t len) {
-    (void)offset; (void)data; (void)len; return -1;
+int iolink_nvm_read(uint32_t offset, uint8_t* data, size_t len)
+{
+    (void) offset;
+    (void) data;
+    (void) len;
+    return -1;
 }
-int iolink_nvm_write(uint32_t offset, const uint8_t* data, size_t len) {
-    (void)offset; (void)data; (void)len; ++writes; return write_result;
+int iolink_nvm_write(uint32_t offset, const uint8_t* data, size_t len)
+{
+    (void) offset;
+    (void) data;
+    (void) len;
+    ++writes;
+    return write_result;
 }
-int main(void) {
+int main(void)
+{
     iolink_device_info_ctx_t info;
     iolink_params_ctx_t params;
     iolink_device_info_ctx_init(&info, NULL);
@@ -52,14 +62,14 @@ int main(void) {
         write_result = -1;
         int prior_writes = writes;
         for (unsigned i = 0; i < 4; ++i) {
-            iolink_isdu_od_write(&isdu, i == 0 ? IOLINK_FLOWCTRL_START : (uint8_t)i,
-                                &requests[tag][i], 1);
+            iolink_isdu_od_write(&isdu, i == 0 ? IOLINK_FLOWCTRL_START : (uint8_t) i,
+                                 &requests[tag][i], 1);
         }
         iolink_isdu_process(&isdu);
         uint8_t response[4];
         for (unsigned i = 0; i < sizeof(response); ++i) {
-            iolink_isdu_od_read(&isdu, i == 0 ? IOLINK_FLOWCTRL_START : (uint8_t)i,
-                               &response[i], 1);
+            iolink_isdu_od_read(&isdu, i == 0 ? IOLINK_FLOWCTRL_START : (uint8_t) i, &response[i],
+                                1);
         }
         assert(writes == prior_writes + 1);
         assert(memcmp(response, expected, sizeof(expected)) == 0);
