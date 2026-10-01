@@ -162,9 +162,16 @@ Each GitHub Release includes:
 - **License Delivery**: License file and terms are delivered with the SDK bundle.
 - **Lead Time**: Typical fulfillment within 2 business days.
 - **Pricing** (see `LICENSE.COMMERCIAL`):
-  - **Single Developer**: €1,399 (one-time, royalty-free)
-  - **Team (5 seats)**: €4,699 (one-time, royalty-free)
+  - **Single Developer**: €1,399 (one-time, royalty-free; named individual, one developer, one agreed product family)
+  - **Team (5 seats)**: €4,699 (one-time, royalty-free; named company, up to five developers, one agreed product family)
   - **Enterprise**: Custom pricing
+
+New quotes allow unlimited manufactured units and customers, including variants,
+successors and hardware revisions within the agreed named commercial range.
+Unrelated lines need a separate license. MCU/PHY changes within that range retain
+the license; porting and validation are separately quoted. Enterprise scope for
+multiple families, subsidiaries or broader SDK redistribution is quoted. Already
+granted or separately agreed rights retain their accepted scope.
 
 ### Support Policy
 - **Included Support**: 12 months of updates and support are included in the commercial price.
