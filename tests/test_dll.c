@@ -485,9 +485,44 @@ static void test_dll_type0_write_is_three_octets_with_two_octet_od(void** state)
     iolink_device_process(&dev.ctx);
     assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_ESTAB_COM);
 }
+static void test_dll_receive_error_discards_partial_frame(void** state)
+{
+    (void) state;
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, NULL, NULL);
+    iolink_device_set_timing_enforcement(&dev.ctx, false);
+    iolink_phy_mock_set_wakeup(1);
+    iolink_device_process(&dev.ctx);
+
+    will_return(mock_phy_recv_byte, 1);
+    will_return(mock_phy_recv_byte, 0xA2U);
+    will_return(mock_phy_recv_byte, -1);
+    iolink_device_process(&dev.ctx);
+    assert_int_equal(dev.ctx.dll.frame_index, 0);
+    assert_int_equal(dev.ctx.dll.framing_errors, 1);
+
+    uint8_t frame[2] = {0xA2U, 0};
+    frame[1] = iolink_checksum6(frame, sizeof(frame));
+    for (size_t i = 0; i < sizeof(frame); ++i) {
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, frame[i]);
+    }
+    will_return(mock_phy_recv_byte, 0);
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 2);
+    will_return(mock_phy_send, 0);
+    iolink_device_process(&dev.ctx);
+    assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_PREOPERATE);
+    assert_int_equal(dev.ctx.dll.frame_index, 0);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
+        cmocka_unit_test_setup_teardown(test_dll_receive_error_discards_partial_frame,
+                                       test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_wakeup_to_preoperate, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_preoperate_to_operate, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_fallback_on_crc_errors, test_setup, test_teardown),

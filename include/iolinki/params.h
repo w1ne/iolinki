@@ -66,6 +66,7 @@ int iolink_params_ctx_get(const iolink_params_ctx_t* ctx, uint16_t index, uint8_
  * @param data      Pointer to the new data to write.
  * @param len       Length of the new data in bytes.
  * @param persist   If true, synchronously commit the change to NVM.
+ * A failed NVM commit returns failure without changing the context/readback.
  * @return 0 on success, or negative IO-Link ErrorCode.
  */
 int iolink_params_ctx_set(iolink_params_ctx_t* ctx, uint16_t index, uint8_t subindex,
@@ -73,6 +74,7 @@ int iolink_params_ctx_set(iolink_params_ctx_t* ctx, uint16_t index, uint8_t subi
 
 /**
  * @brief Reset all parameters in a context to factory defaults.
+ * Resets RAM and attempts NVM; this legacy void API cannot report storage failure.
  * @param ctx Parameter manager context.
  */
 void iolink_params_ctx_factory_reset(iolink_params_ctx_t* ctx);
@@ -111,7 +113,8 @@ int iolink_params_set(uint16_t index, uint8_t subindex, const uint8_t* data, siz
 /**
  * @brief Reset all parameters to factory defaults
  *
- * Clears NVM and resets all writable parameters to their default values.
+ * Resets writable parameters in RAM and attempts to persist the reset.
+ * This legacy void API cannot report unavailable or failed storage.
  */
 void iolink_params_factory_reset(void);
 

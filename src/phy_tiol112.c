@@ -96,11 +96,10 @@ static void set_cq(void* user, uint8_t state)
     }
 }
 
-static bool fault(void* user)
+int iolink_phy_tiol112_fault(const iolink_tiol112_ctx_t* d)
 {
-    iolink_tiol112_ctx_t* d = user;
-    if (!d->initialized) return true;
-    return !d->io.read_nfault(d->io.user);
+    if ((d == NULL) || !d->initialized || (d->io.read_nfault == NULL)) return -1;
+    return d->io.read_nfault(d->io.user) ? 0 : 1;
 }
 
 int iolink_phy_tiol112_init(iolink_tiol112_ctx_t* d, const iolink_tiol112_io_t* io)
@@ -120,7 +119,6 @@ int iolink_phy_tiol112_init(iolink_tiol112_ctx_t* d, const iolink_tiol112_io_t* 
     d->phy.recv_byte = receive_data;
     d->phy.detect_wakeup = detect_wakeup;
     d->phy.set_cq_line = set_cq;
-    if (io->read_nfault != NULL) d->phy.is_short_circuit = fault;
     return 0;
 }
 

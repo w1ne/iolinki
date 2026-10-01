@@ -7,6 +7,42 @@ on:
     branches: [ main, develop ]
 
 jobs:
+  stm32g0-example:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get pinned ST device headers and startup
+        uses: actions/checkout@v4
+        with:
+          repository: STMicroelectronics/cmsis-device-g0
+          ref: f576c24e123edf3332988ecd49512c0f35f85186
+          path: vendor/cmsis-device-g0
+      - name: Get pinned CMSIS core
+        uses: actions/checkout@v4
+        with:
+          repository: ARM-software/CMSIS_5
+          ref: 61e36449f53c25ef7825c40f7dd93685736f457f
+          path: vendor/CMSIS_5
+      - name: Install Arm GCC
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi
+      - name: Test receive queue
+        run: |
+          cc -std=c99 -Wall -Wextra -Werror -Iexamples/stm32g0_tiol112 examples/stm32g0_tiol112/rx_queue.c examples/stm32g0_tiol112/tests/test_rx_queue.c -o /tmp/rx-queue-test
+          /tmp/rx-queue-test
+      - name: Build complete STM32G0 firmware
+        env:
+          STM32_CMSIS_ROOT: ${{ github.workspace }}/vendor/cmsis-device-g0
+          CMSIS_CORE_ROOT: ${{ github.workspace }}/vendor/CMSIS_5/CMSIS/Core
+        run: bash examples/stm32g0_tiol112/build.sh
+      - name: Archive firmware and memory map
+        uses: actions/upload-artifact@v4
+        with:
+          name: stm32g0-tiol112-gcc
+          path: |
+            examples/stm32g0_tiol112/build/reference-device.elf
+            examples/stm32g0_tiol112/build/reference-device.hex
+            examples/stm32g0_tiol112/build/reference-device.map
+
   # Required gate: code quality, unit tests, and virtual-master conformance.
   # Lightweight (no multi-GB Zephyr image), so it is fast and reliable.
   docker-validation:

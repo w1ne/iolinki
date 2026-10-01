@@ -39,4 +39,7 @@ typedef struct
 /* Copies IO callbacks; driver and io.user must outlive the device. */
 int iolink_phy_tiol112_init(iolink_tiol112_ctx_t* driver, const iolink_tiol112_io_t* io);
 const iolink_phy_api_t* iolink_phy_tiol112_get(iolink_tiol112_ctx_t* driver);
+/* Aggregate NFAULT: undervoltage, temperature or short circuit. No cause inferred.
+ * Returns 1 when asserted, 0 clear, -1 if uninitialized or pin unavailable. */
+int iolink_phy_tiol112_fault(const iolink_tiol112_ctx_t* driver);
 #endif

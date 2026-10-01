@@ -511,6 +511,14 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
                     ctx->state = ISDU_STATE_RESPONSE_READY;
                     return;
                 }
+                /* Persistent storage rejected the service: terminate with a
+                 * negative response instead of leaving the master polling Busy. */
+                ctx->response_buf[0] = 0x80U;
+                ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+                ctx->response_len = 2U;
+                ctx->response_idx = 0U;
+                ctx->state = ISDU_STATE_RESPONSE_READY;
+                return;
             }
             else {
                 int res = isdu_params_get(ctx, IOLINK_IDX_APPLICATION_TAG, 0U, ctx->response_buf,
@@ -533,6 +541,14 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
                     ctx->state = ISDU_STATE_RESPONSE_READY;
                     return;
                 }
+                /* Persistent storage rejected the service: terminate with a
+                 * negative response instead of leaving the master polling Busy. */
+                ctx->response_buf[0] = 0x80U;
+                ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+                ctx->response_len = 2U;
+                ctx->response_idx = 0U;
+                ctx->state = ISDU_STATE_RESPONSE_READY;
+                return;
             }
             else {
                 int res = isdu_params_get(ctx, IOLINK_IDX_FUNCTION_TAG, 0U, ctx->response_buf,
@@ -555,6 +571,14 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
                     ctx->state = ISDU_STATE_RESPONSE_READY;
                     return;
                 }
+                /* Persistent storage rejected the service: terminate with a
+                 * negative response instead of leaving the master polling Busy. */
+                ctx->response_buf[0] = 0x80U;
+                ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+                ctx->response_len = 2U;
+                ctx->response_idx = 0U;
+                ctx->state = ISDU_STATE_RESPONSE_READY;
+                return;
             }
             else {
                 int res = isdu_params_get(ctx, IOLINK_IDX_LOCATION_TAG, 0U, ctx->response_buf,

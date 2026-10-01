@@ -1,7 +1,9 @@
 # TIOL112 integration
 
-**Status:** Portable C driver implemented and host tested. No STM32G0/U5 board
-adapter, IAR project, or physical-master validation is included in this release.
+**Status:** Portable C driver implemented and host tested. The
+[STM32G0B1RE adapter](../../examples/stm32g0_tiol112/README.md) has a complete GCC
+build and a native IAR source project. IAR execution, LabWired twin verification
+including analog IO-Link effects, and physical-master validation are pending.
 
 The [driver](../../src/phy_tiol112.c) implements the current context-based
 `iolink_phy_api_t`. The [MCU callback contract](../../include/iolinki/phy_tiol112.h)
@@ -54,9 +56,11 @@ requires timely release into receive after the indication. Measure the full
 interrupt-to-main-loop-to-EN path with a scope before declaring it validated.
 
 The driver supports `set_cq_line()` in SIO and receive/transmit switching in SDCI.
-It exposes NFAULT only when the callback is supplied; it does not fabricate supply
-voltage readings. Initialization and UART configuration failures must leave the
-line released.
+`iolink_phy_tiol112_fault()` exposes aggregate NFAULT when its callback is supplied,
+returning 1 asserted, 0 clear or -1 unavailable/uninitialized. NFAULT can indicate
+undervoltage, temperature or short-circuit conditions; the driver does not label
+it as a specific short circuit or fabricate supply-voltage readings.
+Initialization and UART configuration failures must leave the line released.
 
 Consult the [exact TIOL112 variant datasheet](https://www.ti.com/product/TIOL112)
 for logic voltage, external supply versus integrated LDO, pull-ups and load

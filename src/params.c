@@ -74,7 +74,7 @@ static int read_tag(const char* tag, uint8_t* buffer, size_t max_len)
 }
 
 /** @brief Serialize the valid tags into the NVM record and write it to storage. */
-static void params_ctx_write_nvm(const iolink_params_ctx_t* ctx)
+static int params_ctx_write_nvm(const iolink_params_ctx_t* ctx)
 {
     iolink_params_nvm_t nvm;
 
@@ -89,7 +89,7 @@ static void params_ctx_write_nvm(const iolink_params_ctx_t* ctx)
     if (ctx->location_tag_valid) {
         (void) memcpy(nvm.location_tag, ctx->location_tag, sizeof(nvm.location_tag));
     }
-    (void) iolink_nvm_write(0U, (uint8_t*) &nvm, sizeof(nvm));
+    return iolink_nvm_write(0U, (const uint8_t*) &nvm, sizeof(nvm));
 }
 
 void iolink_params_ctx_init(iolink_params_ctx_t* ctx, iolink_device_info_ctx_t* device_info)
@@ -162,38 +162,35 @@ int iolink_params_ctx_set(iolink_params_ctx_t* ctx, uint16_t index, uint8_t subi
     if ((ctx == NULL) || !iolink_buf_is_valid(data, len)) {
         return -1;
     }
+    iolink_params_ctx_t candidate = *ctx;
     if ((index == IOLINK_IDX_APPLICATION_TAG) && (subindex == 0U)) {
-        if (len >= sizeof(ctx->application_tag)) {
+        if (len >= sizeof(candidate.application_tag)) {
             return -1;
         }
-        copy_tag(ctx->application_tag, &ctx->application_tag_valid, data, len);
-        if (ctx->device_info != NULL) {
-            if (iolink_device_info_ctx_set_application_tag(
-                    ctx->device_info, ctx->application_tag,
-                    (uint8_t) strlen(ctx->application_tag)) != 0) {
-                return -1;
-            }
-        }
-        if (persist) {
-            params_ctx_write_nvm(ctx);
-        }
-        return 0;
+        copy_tag(candidate.application_tag, &candidate.application_tag_valid, data, len);
     }
-    if ((index == IOLINK_IDX_FUNCTION_TAG) && (subindex == 0U)) {
-        copy_tag(ctx->function_tag, &ctx->function_tag_valid, data, len);
-        if (persist) {
-            params_ctx_write_nvm(ctx);
-        }
-        return 0;
+    else if ((index == IOLINK_IDX_FUNCTION_TAG) && (subindex == 0U)) {
+        copy_tag(candidate.function_tag, &candidate.function_tag_valid, data, len);
     }
-    if ((index == IOLINK_IDX_LOCATION_TAG) && (subindex == 0U)) {
-        copy_tag(ctx->location_tag, &ctx->location_tag_valid, data, len);
-        if (persist) {
-            params_ctx_write_nvm(ctx);
-        }
-        return 0;
+    else if ((index == IOLINK_IDX_LOCATION_TAG) && (subindex == 0U)) {
+        copy_tag(candidate.location_tag, &candidate.location_tag_valid, data, len);
     }
-    return -1;
+    else {
+        return -1;
+    }
+    /* A rejected persistent write must not appear accepted in RAM/readback. */
+    if (persist && params_ctx_write_nvm(&candidate) != 0) {
+        return -1;
+    }
+    if ((index == IOLINK_IDX_APPLICATION_TAG) && candidate.device_info != NULL) {
+        if (iolink_device_info_ctx_set_application_tag(
+                candidate.device_info, candidate.application_tag,
+                (uint8_t) strlen(candidate.application_tag)) != 0) {
+            return -1;
+        }
+    }
+    *ctx = candidate;
+    return 0;
 }
 
 void iolink_params_ctx_factory_reset(iolink_params_ctx_t* ctx)
@@ -212,7 +209,9 @@ void iolink_params_ctx_factory_reset(iolink_params_ctx_t* ctx)
     if (ctx->device_info != NULL) {
         (void) iolink_device_info_ctx_set_application_tag(ctx->device_info, "", 0U);
     }
-    params_ctx_write_nvm(ctx);
+    /* Legacy void API: reset RAM even if unsupported/failed storage cannot
+     * retain the reset. Integrators cannot infer persistence from this call. */
+    (void) params_ctx_write_nvm(ctx);
 }
 
 /** @brief Lazily initialize and return the process-wide legacy parameter context. */

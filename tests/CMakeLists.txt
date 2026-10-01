@@ -1,4 +1,11 @@
 find_package(PkgConfig QUIET)
+add_executable(test_params_persistence test_params_persistence.c)
+target_link_libraries(test_params_persistence iolinki)
+add_test(NAME test_params_persistence COMMAND test_params_persistence)
+add_executable(test_deadline_rollover test_deadline_rollover.c)
+target_link_libraries(test_deadline_rollover iolinki)
+add_test(NAME test_deadline_rollover COMMAND test_deadline_rollover)
+
 if(PkgConfig_FOUND)
     pkg_check_modules(CMOCKA QUIET cmocka)
 endif()

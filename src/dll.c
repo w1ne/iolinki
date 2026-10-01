@@ -202,7 +202,7 @@ static void dll_handle_fallback_command(iolink_dll_ctx_t* ctx)
             t_fbd_ms = 500U;
         }
     }
-    ctx->fallback_deadline_ms = iolink_time_get_ms() + t_fbd_ms;
+    ctx->fallback_deadline_ms = iolink_time_get_us() / 1000U + t_fbd_ms;
     dll_set_state(ctx, IOLINK_DLL_STATE_FALLBACK);
 
     uint8_t resp[1];
@@ -529,6 +529,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     dll_poll_diagnostics(ctx);
 
     uint32_t now_ms = iolink_time_get_ms();
+    uint64_t now_ms64 = iolink_time_get_us() / 1000U;
     if ((ctx->last_activity_ms != 0U) && (now_ms - ctx->last_activity_ms > 1000U)) {
         ctx->last_activity_ms = 0U; /* Prevent repeated resets */
         ctx->timeout_errors++;      /* Link went idle past the inactivity window */
@@ -545,7 +546,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     if ((ctx->phy_mode != IOLINK_PHY_MODE_SIO) && (ctx->dsio_deadline_ms != 0U) &&
         ((ctx->state == IOLINK_DLL_STATE_AWAITING_COMM) ||
          (ctx->state == IOLINK_DLL_STATE_STARTUP))) {
-        if (now_ms > ctx->dsio_deadline_ms) {
+        if (now_ms64 > ctx->dsio_deadline_ms) {
             ctx->dsio_deadline_ms = 0U;
             ctx->wakeup_seen = false;
             ctx->timeout_errors++;
@@ -563,7 +564,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
         ((ctx->state == IOLINK_DLL_STATE_FALLBACK) || (ctx->state == IOLINK_DLL_STATE_OPERATE) ||
          (ctx->state == IOLINK_DLL_STATE_ESTAB_COM) ||
          (ctx->state == IOLINK_DLL_STATE_PREOPERATE))) {
-        if (now_ms >= ctx->fallback_deadline_ms) {
+        if (now_ms64 >= ctx->fallback_deadline_ms) {
             ctx->fallback_deadline_ms = 0U;
             iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
             iolink_dll_set_sio_mode(ctx);
@@ -589,7 +590,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                 ctx->wakeup_deadline_us = iolink_time_get_us() + IOLINK_T_WU_US;
                 /* Table 47 T10: without a valid message the device returns to
                    SIO within T_DSIO (60..300 ms, default 300 ms). */
-                ctx->dsio_deadline_ms = iolink_time_get_ms() + IOLINK_T_DSIO_MS;
+                ctx->dsio_deadline_ms = iolink_time_get_us() / 1000U + IOLINK_T_DSIO_MS;
                 iolink_dll_set_sdci_mode(ctx);
                 /* A wake-up starts a fresh communication-establishment window.
                    Reset the inactivity timer so a re-wake after a prior exchange
@@ -622,7 +623,17 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     }
 
     uint8_t byte;
-    while ((ctx->phy->recv_byte != NULL) && (ctx->phy->recv_byte(ctx->phy->user, &byte) > 0)) {
+    while (ctx->phy->recv_byte != NULL) {
+        int received = ctx->phy->recv_byte(ctx->phy->user, &byte);
+        if (received <= 0) {
+            if (received < 0) {
+                /* A transport loss invalidates any already consumed prefix. */
+                ctx->frame_index = 0U;
+                ctx->last_byte_us = 0U;
+                ctx->framing_errors++;
+            }
+            break;
+        }
         uint64_t now_us = iolink_time_get_us();
         ctx->last_activity_ms = iolink_time_get_ms();
         if ((ctx->frame_index > 0U) && (ctx->enforce_timing) && (ctx->t_byte_limit_us > 0U)) {
