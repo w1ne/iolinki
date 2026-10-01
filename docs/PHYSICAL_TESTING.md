@@ -1,4 +1,8 @@
-# Physical IO-Link Testing on Nucleo Boards
+# UART Development Testing on Nucleo Boards
+
+This guide tests a logic-level UART transport. It does not validate a 24 V IO-Link
+line, a transceiver, or interoperability with a commercial IO-Link master. For the
+new portable transceiver implementation, see [TIOL112 integration](hardware/TIOL112.md).
 
 This guide explains how to set up and run the IO-Link stack on two Nucleo L476RG boards using a UART-based physical layer simulation.
 
@@ -162,12 +166,17 @@ Connect the Nucleo board to your PC via USB. This creates a virtual serial port 
 3.  The script will attempt to wake up the Device and start the communication cycle.
 
 
-## Process Data Exchange (Cyclic Communication)
+## Direct-Parameter Requests and Local Process-Data Logging
 
-The `zephyr_app` is configured to demonstrate cyclic Process Data (PD) exchange:
+This procedure shows UART request/response activity and local application updates:
 
 1.  **Device (Board A)**: Increments a simulated sensor value every 2 seconds and updates the IO-Link stack.
 2.  **Master (Board B)**: Sends a valid IO-Link Type 0 frame (Read Direct Parameter, Index 0) every 2 seconds to trigger a response.
+
+Type 0 carries no cyclic process-data payload. A local counter-update log does
+not prove the master received that counter. Use the runnable Type 2_V
+[reference-device simulation](../examples/reference_device/README.md) for asserted
+cyclic data exchange, and a validated transceiver/master setup for physical proof.
 
 ### Verification Steps
 
@@ -177,7 +186,9 @@ python3 examples/zephyr_app/scripts/monitor_nucleos.py --duration 60
 ```
 
 **Expected Output:**
-You will see the Device reporting PD updates and the Master receiving data. Note that VCOM instability may cause some logs to appear as raw hex or fragmented text.
+The Device may report local PD updates and the Master may receive parameter
+responses. Inspect the actual frames separately from console logs. VCOM instability
+may cause some logs to appear as raw hex or fragmented text.
 
 ```text
 [DEVICE] Device PD Update: 0x01
@@ -186,6 +197,6 @@ You will see the Device reporting PD updates and the Master receiving data. Note
 [DEVICE] Device PD Update: 0x02
 ```
 
-> **Important Note on Stability:** You may observe frequent "Connection lost" messages or fragmented logs from the ST-Link Virtual COM ports. This is often caused by ground loops or USB power fluctuations when two development boards are connected via both USB and the IO-Link UART wires. 
-> - **Solution**: Power one board via an external battery or use an isolated USB hub if you need perfectly stable logging. The IO-Link communication itself (UART on pins D8/D2) is robust even if the USB console drops.
-
+If console connections drop or logs fragment, check serial-port selection, baud,
+power and grounding. Do not infer protocol robustness or the electrical cause
+from console output alone; record UART frames and power measurements.

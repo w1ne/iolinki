@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+mainmenu "STM32U5 TIOL112 source example"
+# Declare even when this repo is not discovered as a west module. If it is,
+# its Kconfig merges this symbol; prj.conf still explicitly disables it.
+config IOLINKI
+ bool "Build legacy iolinki Zephyr module"
+ default n
+source "Kconfig.zephyr"

@@ -25,11 +25,18 @@ The companion master stack is [iolinki-master](https://github.com/w1ne/iolinki-m
   - **Single Developer**: €1,399
   - **Team (5 seats)**: €4,699
   - **Enterprise / site-wide**: custom
-  - Includes 12 months of updates + support and up to 8 hours of integration assistance.
+  - Includes 12 months of updates and tier-specific support. Team includes up to
+    8 hours of integration assistance; confirm hardware-porting scope in your quote.
 
 **Shipping a closed-source product?** A commercial license removes the GPLv3 obligations — email **andrii@shylenko.com** for terms (fast, no-friction). See [LICENSE](LICENSE) and [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL).
 
 ## Quick Start
+
+For a runnable counter/button/LED software example, see
+[examples/reference_device](examples/reference_device/README.md). For practical
+evaluation questions and integration status, see [docs/FAQ.md](docs/FAQ.md) and
+[the portable TIOL112 driver](docs/hardware/TIOL112.md). Physical board ports and
+commercial-master validation are separate from the host simulation.
 
 ### Installation
 

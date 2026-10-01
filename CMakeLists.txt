@@ -19,6 +19,8 @@ include_directories(include)
 
 add_library(iolinki STATIC
     src/phy_generic.c
+    src/phy_tiol112.c
+    src/phy_l6362a.c
     src/phy_virtual.c
     src/crc.c
     src/frame.c
@@ -30,20 +32,20 @@ add_library(iolinki STATIC
     src/data_storage.c
     src/device_info.c
     src/device.c
-    src/platform_stubs.c
 )
 
 # Platform Selection
 set(IOLINK_PLATFORM "LINUX" CACHE STRING "Target platform: LINUX, BAREMETAL (Zephyr builds use module.yml)")
 
 if(IOLINK_PLATFORM STREQUAL "LINUX")
+    target_compile_definitions(iolinki PRIVATE IOLINK_HAVE_PLATFORM_NVM=1)
     target_sources(iolinki PRIVATE
         src/platform/linux/time_utils.c
         src/platform/linux/nvm_mock.c
     )
     message(STATUS "Building for Linux host")
 elseif(IOLINK_PLATFORM STREQUAL "BAREMETAL")
-    target_sources(iolinki PRIVATE src/platform/baremetal/time_utils.c)
+    target_sources(iolinki PRIVATE src/platform/baremetal/time_utils.c src/platform_stubs.c)
     message(STATUS "Building for Bare Metal (Stub)")
 endif()
 # Note: Zephyr builds don't use this CMakeLists.txt directly for sources if integrated via module.yml
@@ -61,6 +63,10 @@ option(BUILD_TESTING "Build unit tests" ON)
 if(BUILD_TESTING)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if(IOLINK_PLATFORM STREQUAL "LINUX")
+    add_subdirectory(examples/reference_device)
 endif()
 
 # Documentation

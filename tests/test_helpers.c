@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include "iolinki/crc.h"
 #include "iolinki/protocol.h"
+#include "iolinki/platform.h"
 
 /* Test buffers */
 uint8_t g_tx_buf[1024];
@@ -31,6 +32,25 @@ uint8_t g_rx_buf[1024];
 static int g_mock_wakeup = 0;
 static uint8_t g_mock_cq_state = 0U;
 static uint32_t g_mock_send_delay_us = 0U;
+/* Strong deterministic test storage. The library's weak unsupported defaults
+ * can otherwise satisfy archive references before the Linux backend is loaded. */
+static uint8_t g_nvm_mock[4096];
+int iolink_nvm_read(uint32_t offset, uint8_t* data, size_t len)
+{
+    if (offset > sizeof(g_nvm_mock) || len > sizeof(g_nvm_mock) - offset ||
+        (len != 0U && data == NULL))
+        return -1;
+    if (len != 0U) memcpy(data, g_nvm_mock + offset, len);
+    return 0;
+}
+int iolink_nvm_write(uint32_t offset, const uint8_t* data, size_t len)
+{
+    if (offset > sizeof(g_nvm_mock) || len > sizeof(g_nvm_mock) - offset ||
+        (len != 0U && data == NULL))
+        return -1;
+    if (len != 0U) memcpy(g_nvm_mock + offset, data, len);
+    return 0;
+}
 
 int mock_phy_init(void* user)
 {
@@ -258,6 +278,7 @@ uint8_t* iolink_ds_mock_get_buf(void)
 
 void iolink_nvm_mock_cleanup(void)
 {
+    memset(g_nvm_mock, 0, sizeof(g_nvm_mock));
     remove("iolink_nvm.bin");
 }
 

@@ -18,6 +18,7 @@
 #include "iolinki/platform.h"
 #include "iolinki/utils.h"
 #include <stdio.h>
+#include <errno.h>
 #include <string.h>
 
 #define NVM_FILE "iolink_nvm.bin"
@@ -48,8 +49,15 @@ int iolink_nvm_write(uint32_t offset, const uint8_t* data, size_t len)
     if (!iolink_buf_is_valid(data, len)) {
         return -1;
     }
-    /* Use a+b to avoid truncating and create file if missing */
-    FILE* f = fopen(NVM_FILE, "a+b");
+    /* Append mode ignores fseek for writes. Preserve existing bytes in r+b;
+     * create only when the file is absent, never on other open failures. */
+    FILE* f = fopen(NVM_FILE, "r+b");
+    if (f == NULL) {
+        if (errno != ENOENT) {
+            return -1;
+        }
+        f = fopen(NVM_FILE, "w+b");
+    }
     if (f == NULL) {
         return -1;
     }
@@ -60,7 +68,6 @@ int iolink_nvm_write(uint32_t offset, const uint8_t* data, size_t len)
     }
 
     size_t written = fwrite(data, 1, len, f);
-    (void) fclose(f);
-
-    return (written == len) ? 0 : -1;
+    int closed = fclose(f);
+    return ((written == len) && (closed == 0)) ? 0 : -1;
 }
