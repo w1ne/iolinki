@@ -31,6 +31,13 @@ zephyr_library_sources(
 zephyr_library_sources_ifdef(CONFIG_IOLINK_PHY_VIRTUAL ../src/phy_virtual.c)
 zephyr_library_sources_ifdef(CONFIG_IOLINK_PHY_UART    ../src/platform/zephyr/phy_uart.c)
 
+# native_sim needs an actual host persistence backend. Hardware ports retain
+# the unsupported weak hooks unless an application supplies flash storage.
+if(CONFIG_ARCH_POSIX)
+    zephyr_library_sources(../src/platform/linux/nvm_mock.c)
+    zephyr_compile_definitions(IOLINK_HAVE_PLATFORM_NVM=1)
+endif()
+
 # Map Kconfig tunables onto the core's #ifndef-guarded config.h macros. These
 # are applied globally so the values are consistent across the library and any
 # application translation units that include <iolinki/config.h>.

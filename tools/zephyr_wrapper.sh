@@ -7,7 +7,7 @@ export IOLINK_PORT="$1"
 # The demo app seems to use defaults (Type 1, PD 2).
 
 # Path to actual exe (absolute path in Docker)
-EXE="/workdir/build_zephyr/zephyr/zephyr.exe"
+EXE="${IOLINK_ZEPHYR_EXE:-/workdir/build_zephyr/zephyr/zephyr.exe}"
 
 if [ ! -f "$EXE" ]; then
     echo "Error: Zephyr executable not found at $EXE"
