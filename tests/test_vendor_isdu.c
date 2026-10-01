@@ -32,8 +32,55 @@ static uint8_t too_long(void* user, uint16_t index, uint8_t subindex, bool write
     return 0;
 }
 
+static uint8_t count_only(void* user, uint16_t index, uint8_t subindex, bool write,
+                          const uint8_t* input, size_t length, uint8_t* output, size_t* capacity)
+{
+    (void) index;
+    (void) subindex;
+    (void) write;
+    (void) input;
+    (void) length;
+    (void) output;
+    (*(unsigned*) user)++;
+    *capacity = 0;
+    return 0;
+}
+
+static void truncated_requests_never_execute(void)
+{
+    const uint8_t requests[][4] = {
+        {0x34, 0x01, 0x35, 0x00}, /* 16-bit write with missing subindex. */
+        {0xB4, 0x01, 0xB5, 0x00}, /* 16-bit read with missing subindex. */
+        {0x33, 0x01, 0x32, 0x00}, /* 16-bit write missing low index/subindex. */
+        {0xB3, 0x01, 0xB2, 0x00},
+        {0x23, 0x01, 0x22, 0x00}, /* 8-bit write missing subindex. */
+        {0xA3, 0x01, 0xA2, 0x00},
+        {0x12, 0x12, 0x00, 0x00}, /* 8-bit write missing index. */
+        {0x92, 0x92, 0x00, 0x00},
+        {0x32, 0x32, 0x00, 0x00}, /* 16-bit write missing both index bytes. */
+        {0xB2, 0xB2, 0x00, 0x00},
+    };
+    for (size_t vector = 0; vector < sizeof(requests) / sizeof(requests[0]); vector++) {
+        iolink_isdu_ctx_t ctx;
+        unsigned calls = 0;
+        iolink_isdu_init(&ctx);
+        ctx.vendor_service = count_only;
+        ctx.vendor_user = &calls;
+        size_t length = requests[vector][0] & 0x0FU;
+        for (size_t i = 0; i < length; i++) {
+            iolink_isdu_od_write(&ctx, i == 0 ? IOLINK_FLOWCTRL_START : (uint8_t) i,
+                                 requests[vector] + i, 1);
+        }
+        iolink_isdu_process(&ctx);
+        assert(calls == 0);
+        assert(ctx.response_len == 2 && ctx.response_buf[0] == 0x80);
+        assert(!ctx.vendor_positive);
+    }
+}
+
 int main(void)
 {
+    truncated_requests_never_execute();
     iolink_isdu_ctx_t ctx;
     unsigned calls = 0;
     iolink_isdu_init(&ctx);

@@ -157,6 +157,7 @@ static void isdu_execute_request(iolink_isdu_ctx_t* ctx, size_t total)
     const uint8_t* buf = ctx->req_buf;
     const uint8_t service = (uint8_t) (buf[0] >> 4);
     size_t pos = 1U;
+    const size_t payload_end = total - 1U; /* CHKPDU cannot supply an index/subindex. */
 
     ctx->buffer_idx = 0U;
     ctx->header.subindex = 0U;
@@ -186,7 +187,7 @@ static void isdu_execute_request(iolink_isdu_ctx_t* ctx, size_t total)
     const bool has_sub = (service == 2U) || (service == 3U) || (service == 10U) || (service == 11U);
 
     if (two_index) {
-        if ((pos + 1U) >= total) {
+        if ((pos + 1U) >= payload_end) {
             ctx->response_buf[0] = 0x80U;
             ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
             ctx->response_len = 2U;
@@ -198,7 +199,7 @@ static void isdu_execute_request(iolink_isdu_ctx_t* ctx, size_t total)
         ctx->header.index |= buf[pos++];
     }
     else {
-        if (pos >= total) {
+        if (pos >= payload_end) {
             ctx->response_buf[0] = 0x80U;
             ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
             ctx->response_len = 2U;
@@ -209,7 +210,7 @@ static void isdu_execute_request(iolink_isdu_ctx_t* ctx, size_t total)
     }
 
     if (has_sub) {
-        if (pos >= total) {
+        if (pos >= payload_end) {
             ctx->response_buf[0] = 0x80U;
             ctx->response_buf[1] = IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL;
             ctx->response_len = 2U;
