@@ -52,7 +52,10 @@ int iolink_nvm_write(uint32_t offset, const uint8_t* data, size_t len)
     /* Append mode ignores fseek for writes. Preserve existing bytes in r+b;
      * create only when the file is absent, never on other open failures. */
     FILE* f = fopen(NVM_FILE, "r+b");
-    if ((f == NULL) && (errno == ENOENT)) {
+    if (f == NULL) {
+        if (errno != ENOENT) {
+            return -1;
+        }
         f = fopen(NVM_FILE, "w+b");
     }
     if (f == NULL) {
