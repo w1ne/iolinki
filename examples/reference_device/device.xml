@@ -14,13 +14,13 @@
     </ISO15745Reference>
   </ProfileHeader>
   <ProfileBody>
-    <DeviceIdentity vendorId="1234" deviceId="5678" vendorName="iolinki-project">
+    <DeviceIdentity vendorId="1234" deviceId="5678" vendorName="iolinki example">
       <VendorText textId="T_VendorText" />
       <VendorUrl textId="T_VendorUrl" />
       <DeviceName textId="T_DeviceName" />
       <DeviceFamily textId="T_DeviceFamily" />
       <DeviceVariantCollection>
-        <DeviceVariant productId="iolinki-example-5678">
+        <DeviceVariant productId="reference-device">
           <Name textId="T_ProductName" />
           <Description textId="T_Description" />
         </DeviceVariant>
@@ -30,24 +30,30 @@
       <Features blockParameter="false" dataStorage="false" />
       <VariableCollection>
         <StdVariableRef id="V_DirectParameters_1" />
-        <StdVariableRef id="V_ProductID" defaultValue="iolinki-example-5678" />
-        <Variable id="V_VendorName" index="16" accessRights="ro">
-          <Datatype xsi:type="StringT" fixedLength="16" encoding="UTF-8" />
-          <Name textId="T_V_VendorName" />
-        </Variable>
-        <Variable id="V_MockParam" index="64" accessRights="rw">
-          <Datatype xsi:type="UIntegerT" bitLength="8" />
-          <Name textId="T_V_MockParam" />
-        </Variable>
+        <StdVariableRef id="V_ProductID" defaultValue="reference-device" />
       </VariableCollection>
       <ProcessDataCollection>
-        <ProcessData id="PD_Simple">
-          <ProcessDataIn id="PD_IN" bitLength="16">
-            <Datatype xsi:type="OctetStringT" fixedLength="2" />
+        <ProcessData id="PD_Example">
+          <ProcessDataIn id="PD_IN" bitLength="24">
+            <Datatype xsi:type="RecordT" bitLength="24">
+              <RecordItem subindex="1" bitOffset="8">
+                <SimpleDatatype xsi:type="UIntegerT" bitLength="16" />
+                <Name textId="T_PD_IN_1" />
+              </RecordItem>
+              <RecordItem subindex="2" bitOffset="0">
+                <SimpleDatatype xsi:type="UIntegerT" bitLength="8" />
+                <Name textId="T_PD_IN_2" />
+              </RecordItem>
+            </Datatype>
             <Name textId="T_PD_IN" />
           </ProcessDataIn>
-          <ProcessDataOut id="PD_OUT" bitLength="16">
-            <Datatype xsi:type="OctetStringT" fixedLength="2" />
+          <ProcessDataOut id="PD_OUT" bitLength="8">
+            <Datatype xsi:type="RecordT" bitLength="8">
+              <RecordItem subindex="1" bitOffset="0">
+                <SimpleDatatype xsi:type="BooleanT" />
+                <Name textId="T_PD_OUT_1" />
+              </RecordItem>
+            </Datatype>
             <Name textId="T_PD_OUT" />
           </ProcessDataOut>
         </ProcessData>
@@ -60,8 +66,7 @@
           </Menu>
           <Menu id="M_Parameter">
             <Name textId="T_Menu_Parameter" />
-            <VariableRef variableId="V_VendorName" />
-            <VariableRef variableId="V_MockParam" />
+            <VariableRef variableId="V_DirectParameters_1" />
           </Menu>
         </MenuCollection>
         <ObserverRoleMenuSet>
@@ -81,9 +86,9 @@
   </ProfileBody>
   <CommNetworkProfile xsi:type="IOLinkCommNetworkProfileT" iolinkRevision="V1.1">
     <TransportLayers>
-      <PhysicalLayer bitrate="COM2" minCycleTime="1000" sioSupported="false" mSequenceCapability="0">
+      <PhysicalLayer bitrate="COM2" minCycleTime="1000" sioSupported="false" mSequenceCapability="11">
         <Connection xsi:type="M12-4ConnectionT">
-          <ProductRef productId="iolinki-example-5678" />
+          <ProductRef productId="reference-device" />
           <Wire1 function="L+" />
           <Wire2 function="NC" />
           <Wire3 function="L-" />
@@ -95,21 +100,22 @@
   </CommNetworkProfile>
   <ExternalTextCollection>
     <PrimaryLanguage xml:lang="en">
-      <Text id="T_VendorText" value="iolinki-project" />
+      <Text id="T_VendorText" value="iolinki example" />
       <Text id="T_VendorUrl" value="https://iolinki.com" />
-      <Text id="T_DeviceName" value="Simple device" />
+      <Text id="T_DeviceName" value="Counter button LED" />
       <Text id="T_DeviceFamily" value="iolinki reference examples" />
-      <Text id="T_ProductName" value="Simple device" />
+      <Text id="T_ProductName" value="Counter button LED" />
       <Text id="T_Description" value="Example application; replace illustrative IDs with assigned production identifiers." />
-      <Text id="T_V_VendorName" value="Vendor Name" />
-      <Text id="T_V_MockParam" value="Mock Parameter" />
+      <Text id="T_PD_IN_1" value="Counter" />
+      <Text id="T_PD_IN_2" value="Button" />
       <Text id="T_PD_IN" value="Process data in" />
+      <Text id="T_PD_OUT_1" value="LED" />
       <Text id="T_PD_OUT" value="Process data out" />
       <Text id="T_Menu_Identification" value="Identification" />
       <Text id="T_Menu_Parameter" value="Parameter" />
     </PrimaryLanguage>
   </ExternalTextCollection>
-  <Stamp crc="2557755023">
+  <Stamp crc="2253426827">
     <Checker name="iolinki-iodd-cli" version="V1.0" />
   </Stamp>
 </IODevice>

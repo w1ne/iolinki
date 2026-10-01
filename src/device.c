@@ -103,6 +103,8 @@ int iolink_device_init(iolink_device_ctx_t* ctx, const iolink_device_config_t* c
     iolink_dll_init(&ctx->dll, &config->phy);
     ctx->dll.isdu.direct_param_page2 = ctx->direct_param_page2;
     ctx->dll.isdu.params_ctx = &ctx->params;
+    ctx->dll.isdu.vendor_service = config->vendor_service;
+    ctx->dll.isdu.vendor_user = config->user;
     ctx->dll.state_cb = device_state_cb;
     ctx->dll.state_cb_user = ctx;
     if (config->ds_storage != NULL) {

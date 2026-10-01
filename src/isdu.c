@@ -101,6 +101,7 @@ static void handle_standard_commands(iolink_isdu_ctx_t* ctx);
 /** @brief Reset the ISDU request transport to Idle. */
 static void isdu_transport_reset(iolink_isdu_ctx_t* ctx)
 {
+    ctx->vendor_positive = false;
     ctx->state = ISDU_STATE_IDLE;
     ctx->req_idx = 0U;
     ctx->req_total = 0U;
@@ -152,6 +153,7 @@ static size_t isdu_declared_total(const uint8_t* buf, size_t have)
  */
 static void isdu_execute_request(iolink_isdu_ctx_t* ctx, size_t total)
 {
+    ctx->vendor_positive = false;
     const uint8_t* buf = ctx->req_buf;
     const uint8_t service = (uint8_t) (buf[0] >> 4);
     size_t pos = 1U;
@@ -239,7 +241,8 @@ static void isdu_execute_request(iolink_isdu_ctx_t* ctx, size_t total)
 /** @brief Frame the handler result into ctx->resp_buf (positive or negative, A.5/C.1). */
 static void isdu_frame_response(iolink_isdu_ctx_t* ctx)
 {
-    const bool negative = ((ctx->response_len == 2U) && (ctx->response_buf[0] == 0x80U));
+    const bool negative =
+        !ctx->vendor_positive && ((ctx->response_len == 2U) && (ctx->response_buf[0] == 0x80U));
     const bool write = (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE);
     size_t pos = 0U;
 
@@ -1087,7 +1090,34 @@ static void handle_data_storage(iolink_isdu_ctx_t* ctx)
 /** @brief Dispatch an executed ISDU request to the handler for its index. */
 static void handle_standard_commands(iolink_isdu_ctx_t* ctx)
 {
-    if (ctx->header.index == IOLINK_IDX_SYSTEM_COMMAND) {
+    ctx->vendor_positive = false;
+    if ((ctx->header.index >= 0x0100U) && (ctx->vendor_service != NULL)) {
+#if IOLINK_ISDU_BUFFER_SIZE > 238U
+        size_t length = 235U;
+#else
+        size_t length = sizeof(ctx->resp_buf) - 3U;
+#endif
+        const size_t capacity = length;
+        uint8_t error =
+            ctx->vendor_service(ctx->vendor_user, ctx->header.index, ctx->header.subindex,
+                                ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE, ctx->buffer,
+                                ctx->buffer_idx, ctx->response_buf, &length);
+        if (length > capacity) {
+            error = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+        }
+        if (error != 0U) {
+            ctx->response_buf[0] = 0x80U;
+            ctx->response_buf[1] = error;
+            length = 2U;
+        }
+        else {
+            ctx->vendor_positive = true;
+        }
+        ctx->response_len = length;
+        ctx->response_idx = 0U;
+        ctx->state = ISDU_STATE_RESPONSE_READY;
+    }
+    else if (ctx->header.index == IOLINK_IDX_SYSTEM_COMMAND) {
         if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
             /* Mandatory System Commands */
             if (ctx->buffer_idx > 0U) {

@@ -1,0 +1,87 @@
+{
+  "vendorId": 1234,
+  "vendorName": "iolinki example",
+  "deviceId": 5679,
+  "productName": "Switching sensor",
+  "status": "Generated; semantic, CRC and official IODD 1.1 XSD validation; not official IODD Checker approval",
+  "output": "examples/switching_sensor/device.xml",
+  "variables": [
+    {
+      "id": "V_SP1",
+      "index": 256,
+      "name": "Switch-on threshold x100",
+      "bitLength": 16,
+      "datatype": "UIntegerT",
+      "description": "Switch-on threshold, 0.01 units; must be >= hysteresis. Volatile.",
+      "lowerValue": 0,
+      "upperValue": 65535,
+      "defaultValue": 5000
+    },
+    {
+      "id": "V_Hysteresis",
+      "index": 257,
+      "name": "Hysteresis x100",
+      "bitLength": 16,
+      "datatype": "UIntegerT",
+      "description": "Hysteresis, 0.01 units; must be <= threshold. Volatile.",
+      "lowerValue": 0,
+      "upperValue": 65535,
+      "defaultValue": 200
+    },
+    {
+      "id": "V_Inversion",
+      "index": 258,
+      "name": "Invert switching output",
+      "bitLength": 8,
+      "datatype": "UIntegerT",
+      "description": "0 normal, 1 inverted. Volatile.",
+      "lowerValue": 0,
+      "upperValue": 1,
+      "defaultValue": 0
+    },
+    {
+      "id": "V_Teach",
+      "index": 259,
+      "name": "Teach current value: write 1",
+      "bitLength": 8,
+      "accessRights": "wo",
+      "datatype": "UIntegerT",
+      "description": "Write 1 to teach the current valid measurement. Subindex 0 only.",
+      "lowerValue": 1,
+      "upperValue": 1
+    }
+  ],
+  "processData": [
+    {
+      "id": "PD_Example",
+      "in": {
+        "id": "PD_IN",
+        "bitLength": 24,
+        "fields": [
+          {
+            "name": "Measurement x100",
+            "bitOffset": 8,
+            "bitLength": 16
+          },
+          {
+            "name": "Valid",
+            "bitOffset": 1,
+            "bitLength": 1
+          },
+          {
+            "name": "Switching output",
+            "bitOffset": 0,
+            "bitLength": 1
+          }
+        ]
+      }
+    }
+  ],
+  "productId": "switching-sensor",
+  "physical": {
+    "bitrate": "COM2",
+    "minCycleTime": 1000,
+    "sioSupported": false,
+    "mSequenceCapability": 11
+  }
+}

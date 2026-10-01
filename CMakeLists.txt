@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
-# Version 2.0.0
-project(iolinki VERSION 2.0.0 LANGUAGES C)
+# Version 2.1.0
+project(iolinki VERSION 2.1.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
@@ -67,6 +67,7 @@ endif()
 
 if(IOLINK_PLATFORM STREQUAL "LINUX")
     add_subdirectory(examples/reference_device)
+    add_subdirectory(examples/switching_sensor)
 endif()
 
 # Documentation
@@ -94,4 +95,10 @@ if(Python3_FOUND)
         COMMENT "Generating IODD XML for simple_device"
         VERBATIM
     )
+endif()
+
+if(BUILD_TESTING AND Python3_FOUND)
+    add_test(NAME release_test_stats COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/test_release_test_stats.py)
+    add_test(NAME iar_project_paths COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/test_check_iar_project.py)
+    add_test(NAME iodd_cli COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/test_iodd_cli.py)
 endif()

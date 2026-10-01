@@ -1,0 +1,154 @@
+<?xml version='1.0' encoding='utf-8'?>
+<IODevice xmlns="http://www.io-link.com/IODD/2010/10" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.io-link.com/IODD/2010/10 IODD1.1.xsd">
+  <DocumentInfo copyright="iolinki-project" releaseDate="2026-10-02" version="V1.0" />
+  <ProfileHeader>
+    <ProfileIdentification>IO Device Profile</ProfileIdentification>
+    <ProfileRevision>1.1</ProfileRevision>
+    <ProfileName>Device Profile for IO Devices</ProfileName>
+    <ProfileSource>IO-Link Consortium</ProfileSource>
+    <ProfileClassID>Device</ProfileClassID>
+    <ISO15745Reference>
+      <ISO15745Part>1</ISO15745Part>
+      <ISO15745Edition>1</ISO15745Edition>
+      <ProfileTechnology>IODD</ProfileTechnology>
+    </ISO15745Reference>
+  </ProfileHeader>
+  <ProfileBody>
+    <DeviceIdentity vendorId="1234" deviceId="5679" vendorName="iolinki example">
+      <VendorText textId="T_VendorText" />
+      <VendorUrl textId="T_VendorUrl" />
+      <DeviceName textId="T_DeviceName" />
+      <DeviceFamily textId="T_DeviceFamily" />
+      <DeviceVariantCollection>
+        <DeviceVariant productId="switching-sensor">
+          <Name textId="T_ProductName" />
+          <Description textId="T_Description" />
+        </DeviceVariant>
+      </DeviceVariantCollection>
+    </DeviceIdentity>
+    <DeviceFunction>
+      <Features blockParameter="false" dataStorage="false" />
+      <VariableCollection>
+        <StdVariableRef id="V_DirectParameters_1" />
+        <StdVariableRef id="V_ProductID" defaultValue="switching-sensor" />
+        <Variable id="V_SP1" index="256" accessRights="rw" defaultValue="5000">
+          <Datatype xsi:type="UIntegerT" bitLength="16">
+            <ValueRange lowerValue="0" upperValue="65535" />
+          </Datatype>
+          <Name textId="T_V_SP1" />
+          <Description textId="TD_V_SP1" />
+        </Variable>
+        <Variable id="V_Hysteresis" index="257" accessRights="rw" defaultValue="200">
+          <Datatype xsi:type="UIntegerT" bitLength="16">
+            <ValueRange lowerValue="0" upperValue="65535" />
+          </Datatype>
+          <Name textId="T_V_Hysteresis" />
+          <Description textId="TD_V_Hysteresis" />
+        </Variable>
+        <Variable id="V_Inversion" index="258" accessRights="rw" defaultValue="0">
+          <Datatype xsi:type="UIntegerT" bitLength="8">
+            <ValueRange lowerValue="0" upperValue="1" />
+          </Datatype>
+          <Name textId="T_V_Inversion" />
+          <Description textId="TD_V_Inversion" />
+        </Variable>
+        <Variable id="V_Teach" index="259" accessRights="wo">
+          <Datatype xsi:type="UIntegerT" bitLength="8">
+            <ValueRange lowerValue="1" upperValue="1" />
+          </Datatype>
+          <Name textId="T_V_Teach" />
+          <Description textId="TD_V_Teach" />
+        </Variable>
+      </VariableCollection>
+      <ProcessDataCollection>
+        <ProcessData id="PD_Example">
+          <ProcessDataIn id="PD_IN" bitLength="24">
+            <Datatype xsi:type="RecordT" bitLength="24">
+              <RecordItem subindex="1" bitOffset="8">
+                <SimpleDatatype xsi:type="UIntegerT" bitLength="16" />
+                <Name textId="T_PD_IN_1" />
+              </RecordItem>
+              <RecordItem subindex="2" bitOffset="1">
+                <SimpleDatatype xsi:type="BooleanT" />
+                <Name textId="T_PD_IN_2" />
+              </RecordItem>
+              <RecordItem subindex="3" bitOffset="0">
+                <SimpleDatatype xsi:type="BooleanT" />
+                <Name textId="T_PD_IN_3" />
+              </RecordItem>
+            </Datatype>
+            <Name textId="T_PD_IN" />
+          </ProcessDataIn>
+        </ProcessData>
+      </ProcessDataCollection>
+      <UserInterface>
+        <MenuCollection>
+          <Menu id="M_Identification">
+            <Name textId="T_Menu_Identification" />
+            <VariableRef variableId="V_DirectParameters_1" />
+          </Menu>
+          <Menu id="M_Parameter">
+            <Name textId="T_Menu_Parameter" />
+            <VariableRef variableId="V_SP1" />
+            <VariableRef variableId="V_Hysteresis" />
+            <VariableRef variableId="V_Inversion" />
+            <VariableRef variableId="V_Teach" />
+          </Menu>
+        </MenuCollection>
+        <ObserverRoleMenuSet>
+          <IdentificationMenu menuId="M_Identification" />
+          <ParameterMenu menuId="M_Parameter" />
+        </ObserverRoleMenuSet>
+        <MaintenanceRoleMenuSet>
+          <IdentificationMenu menuId="M_Identification" />
+          <ParameterMenu menuId="M_Parameter" />
+        </MaintenanceRoleMenuSet>
+        <SpecialistRoleMenuSet>
+          <IdentificationMenu menuId="M_Identification" />
+          <ParameterMenu menuId="M_Parameter" />
+        </SpecialistRoleMenuSet>
+      </UserInterface>
+    </DeviceFunction>
+  </ProfileBody>
+  <CommNetworkProfile xsi:type="IOLinkCommNetworkProfileT" iolinkRevision="V1.1">
+    <TransportLayers>
+      <PhysicalLayer bitrate="COM2" minCycleTime="1000" sioSupported="false" mSequenceCapability="11">
+        <Connection xsi:type="M12-4ConnectionT">
+          <ProductRef productId="switching-sensor" />
+          <Wire1 function="L+" />
+          <Wire2 function="NC" />
+          <Wire3 function="L-" />
+          <Wire4 function="C/Q" />
+        </Connection>
+      </PhysicalLayer>
+    </TransportLayers>
+    <Test />
+  </CommNetworkProfile>
+  <ExternalTextCollection>
+    <PrimaryLanguage xml:lang="en">
+      <Text id="T_VendorText" value="iolinki example" />
+      <Text id="T_VendorUrl" value="https://iolinki.com" />
+      <Text id="T_DeviceName" value="Switching sensor" />
+      <Text id="T_DeviceFamily" value="iolinki reference examples" />
+      <Text id="T_ProductName" value="Switching sensor" />
+      <Text id="T_Description" value="Example application; replace illustrative IDs with assigned production identifiers." />
+      <Text id="T_V_SP1" value="Switch-on threshold x100" />
+      <Text id="TD_V_SP1" value="Switch-on threshold, 0.01 units; must be &gt;= hysteresis. Volatile." />
+      <Text id="T_V_Hysteresis" value="Hysteresis x100" />
+      <Text id="TD_V_Hysteresis" value="Hysteresis, 0.01 units; must be &lt;= threshold. Volatile." />
+      <Text id="T_V_Inversion" value="Invert switching output" />
+      <Text id="TD_V_Inversion" value="0 normal, 1 inverted. Volatile." />
+      <Text id="T_V_Teach" value="Teach current value: write 1" />
+      <Text id="TD_V_Teach" value="Write 1 to teach the current valid measurement. Subindex 0 only." />
+      <Text id="T_PD_IN_1" value="Measurement x100" />
+      <Text id="T_PD_IN_2" value="Valid" />
+      <Text id="T_PD_IN_3" value="Switching output" />
+      <Text id="T_PD_IN" value="Process data in" />
+      <Text id="T_Menu_Identification" value="Identification" />
+      <Text id="T_Menu_Parameter" value="Parameter" />
+    </PrimaryLanguage>
+  </ExternalTextCollection>
+  <Stamp crc="1909611125">
+    <Checker name="iolinki-iodd-cli" version="V1.0" />
+  </Stamp>
+</IODevice>

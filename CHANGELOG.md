@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0-rc.1] - 2026-10-02
+
+### Added
+- Bare-metal STM32G0B1RE/TIOL112 GCC and native IAR project files, native
+  ESP-IDF ESP32-C3/L6362A and Zephyr Nucleo-U575ZI-Q/TIOL112 references.
+- Counter/button/LED and switching-sensor examples with matching schema/CLI-validated IODD
+  maps. The sensor demonstrates threshold/hysteresis/inversion, wire ISDU teach
+  and readback, PD publication and a vendor notification.
+- Optional per-device vendor ISDU service for indices >= 0x0100, with bounded
+  responses and independent application state. Mandatory indices stay reserved.
+- Reproducible LabWired actual-firmware startup/interrupt recipes and exact pins.
+
+### Changed
+- New commercial quotes distinguish Indie person-held and Company company-held
+  product-family rights; accepted earlier agreements retain their terms.
+- Release gating requires passing, non-skipped JUnit tests. Source, exact-tag
+  firmware, test evidence and SBOM assets are checksummed; RC tags are prereleases.
+
+### Validation scope
+- Native IAR project compilation, embedded flash persistence, complete analog
+  transceiver Twins and physical-master validation are separate pending work.
+- IODD maps pass schema/CLI checks; official IODD Checker approval is separate. The switching
+  example does not claim standardized Smart Sensor Profile conformance.
+
 ## [2.0.0] - 2026-09-25
 
 ### Changed

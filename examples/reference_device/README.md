@@ -41,9 +41,11 @@ response framing/checksums, alternates LED output and checks the returned counte
 It disables physical timing enforcement for the host simulation. This does not
 justify disabling timing enforcement on hardware.
 
-No certified IODD is provided for this new example yet. The existing
-`tools/iodd_gen.py` produces draft XML; importing XML successfully is not a
-substitute for running the applicable IODD Checker.
+`device.json` and generated `device.xml` match the three-byte input/one-byte
+output map and experimental identity. The example descriptions pass the official XSD and CLI integrity/consistency
+checks. See `tools/IODD_GEN.md` for generate/inspect/validate/pack. Your product
+identity and the applicable official IODD Checker remain part of product
+integration; schema validation does not supply official Checker approval.
 
 See [the TIOL112 integration guide](../../docs/hardware/TIOL112.md) for the reusable
 transceiver driver and the remaining MCU work.

@@ -1,0 +1,48 @@
+{
+  "vendorId": 1234,
+  "vendorName": "iolinki example",
+  "deviceId": 5678,
+  "productName": "Counter button LED",
+  "status": "Generated; semantic, CRC and official IODD 1.1 XSD validation; not official IODD Checker approval",
+  "output": "examples/reference_device/device.xml",
+  "variables": [],
+  "processData": [
+    {
+      "id": "PD_Example",
+      "in": {
+        "id": "PD_IN",
+        "bitLength": 24,
+        "fields": [
+          {
+            "name": "Counter",
+            "bitOffset": 8,
+            "bitLength": 16
+          },
+          {
+            "name": "Button",
+            "bitOffset": 0,
+            "bitLength": 8
+          }
+        ]
+      },
+      "out": {
+        "id": "PD_OUT",
+        "bitLength": 8,
+        "fields": [
+          {
+            "name": "LED",
+            "bitOffset": 0,
+            "bitLength": 1
+          }
+        ]
+      }
+    }
+  ],
+  "productId": "reference-device",
+  "physical": {
+    "bitrate": "COM2",
+    "minCycleTime": 1000,
+    "sioSupported": false,
+    "mSequenceCapability": 11
+  }
+}

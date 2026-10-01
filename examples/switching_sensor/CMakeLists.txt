@@ -1,0 +1,8 @@
+add_library(switching_sensor_app STATIC switching_sensor.c)
+target_include_directories(switching_sensor_app PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(switching_sensor_app PUBLIC iolinki)
+add_executable(switching_sensor_demo host_main.c)
+target_link_libraries(switching_sensor_demo switching_sensor_app)
+if(BUILD_TESTING)
+    add_test(NAME switching_sensor_demo COMMAND switching_sensor_demo)
+endif()

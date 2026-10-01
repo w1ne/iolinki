@@ -1,0 +1,20 @@
+name: IODD CLI validation
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+permissions:
+  contents: read
+jobs:
+  iodd-cli:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install XML schema validator
+        run: sudo apt-get update && sudo apt-get install -y libxml2-utils unzip
+      - name: Verify generated descriptions, official XSD and CLI failure cases
+        run: bash tools/verify_iodd_official.sh "$RUNNER_TEMP/iolinki-iodd-schema"

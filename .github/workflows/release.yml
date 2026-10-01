@@ -4,12 +4,15 @@ on:
   push:
     tags:
       - 'v*'
+  pull_request:
+    branches: [develop, main]
 
 permissions:
   contents: write
 
 jobs:
   create-release:
+    needs: [esp32-example, stm32g0-example, stm32u5-example, labwired-g0, labwired-c3]
     runs-on: ubuntu-latest
 
     steps:
@@ -18,16 +21,35 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/checkout@v4
+        with:
+          repository: STMicroelectronics/cmsis-device-g0
+          ref: f576c24e123edf3332988ecd49512c0f35f85186
+          path: .vendor/g0
+      - uses: actions/checkout@v4
+        with:
+          repository: ARM-software/CMSIS_5
+          ref: 61e36449f53c25ef7825c40f7dd93685736f457f
+          path: .vendor/cmsis
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Set up build environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libcmocka-dev lcov python3
+          sudo apt-get install -y cmake build-essential libcmocka-dev lcov python3 libxml2-utils unzip
 
       - name: Extract version info
         id: version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          TAG=${GITHUB_REF#refs/tags/}
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            [[ "$GITHUB_REF" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || exit 1
+            VERSION=${GITHUB_REF#refs/tags/v}
+            TAG=${GITHUB_REF#refs/tags/}
+          else
+            VERSION=2.1.0-rc.1
+            TAG=verification-only
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
@@ -45,24 +67,14 @@ jobs:
           cmake --build build
 
       - name: Run Tests
-        id: tests
+        shell: bash
         run: |
-          cd build
-          # distinct output file for parsing
-          ctest --output-on-failure | tee test_output.log
-
-          # Simple parsing for summary stats
-          PASSED=$(grep -oE '[0-9]+% tests passed' test_output.log | grep -oE '[0-9]+' || echo "0")
-          TOTAL=$(grep -oE '[0-9]+ tests failed out of [0-9]+' test_output.log | awk '{print $6}' || echo "0")
-          if [ "$TOTAL" = "0" ]; then
-             # If 100% passed, grep matches "X tests passed, 0 tests failed out of Y"
-             TOTAL=$(grep -oE 'out of [0-9]+' test_output.log | awk '{print $3}' | head -n1 || echo "0")
-          fi
-
-          # Calculate Passed count
-          COUNT_PASSED=$(echo "$TOTAL * $PASSED / 100" | bc)
-
-          echo "{\"total\": $TOTAL, \"passed\": $COUNT_PASSED}" > ../test_stats.json
+          set -euo pipefail
+          ctest --test-dir build --output-on-failure --output-junit "$PWD/test-results.xml" | tee test_output.log
+          python3 tools/release_test_stats.py test-results.xml test_stats.json
+          bash tools/verify_iodd_official.sh "$RUNNER_TEMP/iolinki-iodd-schema" 2>&1 | tee iodd-cli-test.log
+          python3 tools/test_check_iar_project.py
+          python3 tools/check_iar_project.py examples/stm32g0_tiol112/iar/reference-device.ewp --device-root .vendor/g0 --core-root .vendor/cmsis/CMSIS/Core
 
       - name: Generate Coverage Report
         run: |
@@ -84,6 +96,8 @@ jobs:
             "test_stats.json" \
             "coverage_percent.txt" > release_notes.md
 
+          python3 tools/release_asset_notes.py "${{ steps.version.outputs.version }}" >> release_notes.md
+
           # Cat to console for debugging
           cat release_notes.md
 
@@ -101,19 +115,56 @@ jobs:
             --format spdx \
             --output "iolinki-${{ steps.version.outputs.version }}.spdx.json"
 
+      - name: Collect exact-tag firmware
+        uses: actions/download-artifact@v4
+        with:
+          path: firmware-artifacts
+      - name: Package source, examples, firmware and test evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          git archive --format=zip HEAD -o "dist/iolinki-${{ steps.version.outputs.version }}-source.zip"
+          tar -czf "dist/iolinki-${{ steps.version.outputs.version }}-firmware.tar.gz" -C firmware-artifacts .
+          git archive --format=zip HEAD CMakeLists.txt LICENSE LICENSE.COMMERCIAL src include examples samples tests tools docs -o "dist/iolinki-${{ steps.version.outputs.version }}-examples.zip"
+          git archive --format=zip HEAD validation/labwired -o "dist/iolinki-${{ steps.version.outputs.version }}-labwired-recipes.zip"
+          tar -czf "dist/iolinki-${{ steps.version.outputs.version }}-host-demos.tar.gz" -C build examples/reference_device/reference_device_demo examples/switching_sensor/switching_sensor_demo examples/simple_device/simple_device tests/test_init
+          python3 tools/iodd_cli.py pack examples/reference_device/device.xml -o "dist/iolinki-${{ steps.version.outputs.version }}-counter-IODD.zip"
+          python3 tools/iodd_cli.py pack examples/switching_sensor/device.xml -o "dist/iolinki-${{ steps.version.outputs.version }}-switching-sensor-IODD.zip"
+          python3 tools/package_iar.py "dist/iolinki-${{ steps.version.outputs.version }}-stm32g0-tiol112-IAR-project.zip" --device-root .vendor/g0 --core-root .vendor/cmsis/CMSIS/Core
+          printf '%s\n' 'G0_ENGINE=4ff8cbaaa87418ace5e85be45c220b371f8c5b6f' 'C3_ENGINE=d528c78e660530e76164cd99003a1d03e3b861ac' > dist/LABWIRED_COMMITS
+          cp test-results.xml test_output.log test_stats.json coverage_summary.txt iodd-cli-test.log dist/
+          cp iolinki-*.json dist/
+          git rev-parse HEAD > dist/SOURCE_COMMIT
+          cc --version > dist/host-compiler.txt
+          (cd dist && sha256sum * > SHA256SUMS)
+      - name: Archive candidate package
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-candidate-package
+          path: dist/*
+          if-no-files-found: error
+      - name: Archive test evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-host-test-evidence
+          path: |
+            test-results.xml
+            test_output.log
+            test_stats.json
+            coverage_summary.txt
+
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: iolinki ${{ steps.version.outputs.version }}
           body_path: release_notes.md
           draft: false
-          prerelease: false
-          files: |
-            build/examples/simple_device/simple_device
-            build/tests/test_init
-            iolinki-${{ steps.version.outputs.version }}.cdx.json
-            iolinki-${{ steps.version.outputs.version }}.spdx.json
+          prerelease: ${{ contains(steps.version.outputs.tag, '-') }}
+          files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -124,6 +175,7 @@ jobs:
   # open a back-merge PR instead of pushing.
   back-merge-develop:
     needs: create-release
+    if: ${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -147,3 +199,209 @@ jobs:
               --body "Automated post-release back-merge. If required checks did not start (GITHUB_TOKEN-created PRs do not trigger workflows), close and reopen this PR." \
               || echo "back-merge PR already exists"
           fi
+
+  esp32-example:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install pinned PlatformIO Core
+      run: python -m pip install platformio==6.1.19
+    - name: Cache ESP-IDF and toolchain packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.platformio
+        key: ${{ runner.os }}-pio-6.1.19-espressif32-6.10.0-idf-5.4.0
+    - name: Test UART stop-bit ordering, timeout latch and receive overflow
+      run: 'cc -std=c11 -Wall -Wextra -Werror examples/esp32_l6362a/test_tx_guard.c
+        examples/esp32_l6362a/main/tx_guard.c examples/esp32_l6362a/main/rx_guard.c
+        -o /tmp/esp32-uart-test
+
+        /tmp/esp32-uart-test
+
+        '
+    - name: Build native ESP-IDF ESP32-C3 firmware
+      run: platformio run -d examples/esp32_l6362a -e esp32c3
+    - name: Archive ESP32-C3 firmware and memory map
+      uses: actions/upload-artifact@v4
+      with:
+        name: esp32c3-l6362a-espidf
+        if-no-files-found: error
+        include-hidden-files: true
+        path: 'examples/esp32_l6362a/.pio/build/esp32c3/firmware.elf
+
+          examples/esp32_l6362a/.pio/build/esp32c3/iolinki_esp32c3_l6362a.map
+
+          examples/esp32_l6362a/.pio/build/esp32c3/firmware.bin
+
+          examples/esp32_l6362a/.pio/build/esp32c3/bootloader.bin
+
+          examples/esp32_l6362a/.pio/build/esp32c3/partitions.bin
+
+          '
+
+  stm32g0-example:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Get pinned ST device headers and startup
+      uses: actions/checkout@v4
+      with:
+        repository: STMicroelectronics/cmsis-device-g0
+        ref: f576c24e123edf3332988ecd49512c0f35f85186
+        path: vendor/cmsis-device-g0
+    - name: Get pinned CMSIS core
+      uses: actions/checkout@v4
+      with:
+        repository: ARM-software/CMSIS_5
+        ref: 61e36449f53c25ef7825c40f7dd93685736f457f
+        path: vendor/CMSIS_5
+    - name: Install Arm GCC
+      run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi
+    - name: Test receive queue
+      run: 'cc -std=c99 -Wall -Wextra -Werror -Iexamples/stm32g0_tiol112 examples/stm32g0_tiol112/rx_queue.c
+        examples/stm32g0_tiol112/tests/test_rx_queue.c -o /tmp/rx-queue-test
+
+        /tmp/rx-queue-test
+
+        '
+    - name: Build complete STM32G0 firmware
+      env:
+        STM32_CMSIS_ROOT: ${{ github.workspace }}/vendor/cmsis-device-g0
+        CMSIS_CORE_ROOT: ${{ github.workspace }}/vendor/CMSIS_5/CMSIS/Core
+      run: bash examples/stm32g0_tiol112/build.sh
+    - name: Archive firmware and memory map
+      uses: actions/upload-artifact@v4
+      with:
+        name: stm32g0-tiol112-gcc
+        path: 'examples/stm32g0_tiol112/build/reference-device.elf
+
+          examples/stm32g0_tiol112/build/reference-device.hex
+
+          examples/stm32g0_tiol112/build/reference-device.map
+
+          '
+
+  stm32u5-example:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Get pinned Zephyr
+      uses: actions/checkout@v4
+      with:
+        repository: zephyrproject-rtos/zephyr
+        ref: c66235fb7346bbe3dbedd1dd76ec5a37a8e8262b
+        path: vendor/zephyr
+    - name: Install target toolchain and west
+      run: 'sudo apt-get update
+
+        sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi device-tree-compiler
+        ninja-build
+
+        python3 -m venv /tmp/west-env
+
+        /tmp/west-env/bin/pip install west
+
+        /tmp/west-env/bin/pip install -r vendor/zephyr/scripts/requirements.txt
+
+        '
+    - name: Fetch pinned modules
+      working-directory: vendor
+      run: '/tmp/west-env/bin/west init -l zephyr
+
+        /tmp/west-env/bin/west update cmsis hal_stm32
+
+        '
+    - name: Test receive queue, wake latch and timer wrap
+      run: 'cc -std=c99 -Wall -Wextra -Werror samples/stm32u5_tiol112/tests/test_adapter.c
+        -o /tmp/u5-adapter-test
+
+        /tmp/u5-adapter-test
+
+        '
+    - name: Build STM32U5 firmware
+      working-directory: vendor
+      env:
+        ZEPHYR_TOOLCHAIN_VARIANT: gnuarmemb
+        GNUARMEMB_TOOLCHAIN_PATH: /usr
+      run: /tmp/west-env/bin/west build -b nucleo_u575zi_q ../samples/stm32u5_tiol112
+        -d ../build-u5
+    - name: Archive U5 firmware
+      uses: actions/upload-artifact@v4
+      with:
+        name: stm32u5-tiol112-zephyr
+        path: 'build-u5/zephyr/zephyr.elf
+
+          build-u5/zephyr/zephyr.hex
+
+          build-u5/zephyr/zephyr.map
+
+          '
+
+  labwired-g0:
+    needs: stm32g0-example
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: w1ne/labwired-core
+          ref: 4ff8cbaaa87418ace5e85be45c220b371f8c5b6f
+          path: .labwired
+      - uses: actions/download-artifact@v4
+        with:
+          name: stm32g0-tiol112-gcc
+          path: .firmware
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .labwired
+      - name: Execute release firmware in both LabWired modes
+        shell: bash
+        env:
+          LABWIRED_ROOT: ${{ github.workspace }}/.labwired
+          IOLINKI_FIRMWARE: ${{ github.workspace }}/.firmware/reference-device.elf
+        run: |
+          set -euo pipefail
+          bash validation/labwired/run.sh g0 2>&1 | tee labwired-g0.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: labwired-g0-evidence
+          path: labwired-g0.log
+          if-no-files-found: error
+
+  labwired-c3:
+    needs: esp32-example
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: w1ne/labwired-core
+          ref: d528c78e660530e76164cd99003a1d03e3b861ac
+          path: .labwired
+      - uses: actions/download-artifact@v4
+        with:
+          name: esp32c3-l6362a-espidf
+          path: .firmware
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .labwired
+      - name: Execute release firmware in both LabWired modes
+        shell: bash
+        env:
+          LABWIRED_ROOT: ${{ github.workspace }}/.labwired
+          IOLINKI_FIRMWARE: ${{ github.workspace }}/.firmware/firmware.elf
+        run: |
+          set -euo pipefail
+          bash validation/labwired/run.sh c3 2>&1 | tee labwired-c3.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: labwired-c3-evidence
+          path: labwired-c3.log
+          if-no-files-found: error
