@@ -129,8 +129,7 @@ jobs:
           git archive --format=zip HEAD CMakeLists.txt LICENSE LICENSE.COMMERCIAL src include examples samples tests tools docs -o "dist/iolinki-${{ steps.version.outputs.version }}-examples.zip"
           git archive --format=zip HEAD validation/labwired -o "dist/iolinki-${{ steps.version.outputs.version }}-labwired-recipes.zip"
           tar -czf "dist/iolinki-${{ steps.version.outputs.version }}-host-demos.tar.gz" -C build examples/reference_device/reference_device_demo examples/switching_sensor/switching_sensor_demo examples/simple_device/simple_device tests/test_init
-          python3 tools/iodd_cli.py pack examples/reference_device/device.xml -o "dist/iolinki-${{ steps.version.outputs.version }}-counter-IODD.zip"
-          python3 tools/iodd_cli.py pack examples/switching_sensor/device.xml -o "dist/iolinki-${{ steps.version.outputs.version }}-switching-sensor-IODD.zip"
+          python3 tools/package_release_iodds.py dist "${{ steps.version.outputs.version }}"
           python3 tools/package_iar.py "dist/iolinki-${{ steps.version.outputs.version }}-stm32g0-tiol112-IAR-project.zip" --device-root .vendor/g0 --core-root .vendor/cmsis/CMSIS/Core
           printf '%s\n' 'G0_ENGINE=4ff8cbaaa87418ace5e85be45c220b371f8c5b6f' 'C3_ENGINE=d528c78e660530e76164cd99003a1d03e3b861ac' > dist/LABWIRED_COMMITS
           cp test-results.xml test_output.log test_stats.json coverage_summary.txt iodd-cli-test.log dist/

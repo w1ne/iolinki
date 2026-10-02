@@ -56,3 +56,8 @@ is made by this application. The stack's Linux tag backend demonstrates actual
 file-backed persistence in `test_linux_nvm`; parameter rejection/retention tests
 exercise failures in `test_params_persistence`. Embedded flash retention needs
 a durable board backend and power-cycle tests before enabled write acknowledgments.
+
+The released description also passes genuine IODD Checker 1.1.4 business-rule
+validation. That older Checker result is separate from current Checker validation,
+product certification and physical-master testing. Release ZIPs use canonical IODD
+filenames; identity and application process/parameter mappings remain unchanged.

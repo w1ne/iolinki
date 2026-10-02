@@ -30,6 +30,9 @@
       <Features blockParameter="false" dataStorage="false" />
       <VariableCollection>
         <StdVariableRef id="V_DirectParameters_1" />
+        <StdVariableRef id="V_DirectParameters_2" />
+        <StdVariableRef id="V_ProductName" />
+        <StdVariableRef id="V_ApplicationSpecificTag" />
         <StdVariableRef id="V_ProductID" defaultValue="reference-device" />
       </VariableCollection>
       <ProcessDataCollection>
@@ -63,6 +66,7 @@
           <Menu id="M_Identification">
             <Name textId="T_Menu_Identification" />
             <VariableRef variableId="V_DirectParameters_1" />
+            <VariableRef variableId="V_ApplicationSpecificTag" />
           </Menu>
           <Menu id="M_Parameter">
             <Name textId="T_Menu_Parameter" />
@@ -96,7 +100,11 @@
         </Connection>
       </PhysicalLayer>
     </TransportLayers>
-    <Test />
+    <Test>
+      <Config1 index="24" testValue="0x49" />
+      <Config2 index="256" testValue="0x00" />
+      <Config3 index="24" testValue="0x49,0x49,0x49,0x49,0x49,0x49,0x49,0x49,0x49,0x49,0x49,0x49,0x49" />
+    </Test>
   </CommNetworkProfile>
   <ExternalTextCollection>
     <PrimaryLanguage xml:lang="en">
@@ -115,7 +123,7 @@
       <Text id="T_Menu_Parameter" value="Parameter" />
     </PrimaryLanguage>
   </ExternalTextCollection>
-  <Stamp crc="2253426827">
+  <Stamp crc="3391894349">
     <Checker name="iolinki-iodd-cli" version="V1.0" />
   </Stamp>
 </IODevice>

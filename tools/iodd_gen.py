@@ -43,8 +43,9 @@ def validate_config(config):
     integer(config.get('deviceId'), 'deviceId', 1, 16777215)
     if not config.get('vendorName') or not config.get('productName', 'Example device'):
         raise ValueError('vendorName and productName must be nonempty')
-    ids = {'V_DirectParameters_1', 'V_ProductID', 'M_Identification', 'M_Parameter'}
-    indexes = set()
+    ids = {'V_DirectParameters_1', 'V_DirectParameters_2', 'V_ProductName', 'V_ApplicationSpecificTag', 'V_ProductID', 'M_Identification', 'M_Parameter'}
+    # ProductName, ProductID and ApplicationSpecificTag are declared below.
+    indexes = {18, 19, 24}
     def unique_id(value):
         if not isinstance(value, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.-]*', value) or value in ids:
             raise ValueError(f'Invalid or duplicate id: {value}')
@@ -105,6 +106,18 @@ def validate_config(config):
         raise ValueError('Invalid bitrate')
     integer(physical.get('minCycleTime', 1000), 'minCycleTime', 1, 132800)
     integer(physical.get('mSequenceCapability', 0), 'mSequenceCapability', 0, 255)
+    tests = config.get('testConfig', {})
+    if not isinstance(tests, dict) or set(tests) - {'Config1', 'Config2', 'Config3'}:
+        raise ValueError('Invalid testConfig')
+    for name, test in tests.items():
+        if not isinstance(test, dict) or set(test) != {'index', 'testValue'}:
+            raise ValueError('Test configuration requires index and testValue')
+        integer(test['index'], name + ' index', 0 if name != 'Config2' else 256, 255 if name != 'Config2' else 65535)
+        if not isinstance(test['testValue'], str) or not re.fullmatch(r'0x[0-9A-Fa-f]{2}(?:,0x[0-9A-Fa-f]{2}){0,231}', test['testValue']):
+            raise ValueError('testValue requires bounded comma-separated octets')
+        count = len(test['testValue'].split(','))
+        if (name == 'Config1' and count > 12) or (name == 'Config3' and count <= 12):
+            raise ValueError('Config1 requires <=12 octets; Config3 requires >12 octets')
 
 
 def generate_bytes(config):
@@ -137,6 +150,8 @@ def generate_bytes(config):
     variables = element(function, 'VariableCollection')
     # DirectParameters_1 is the mandatory communication-parameter block.
     element(variables, 'StdVariableRef', {'id': 'V_DirectParameters_1'})
+    for id_ in ('V_DirectParameters_2', 'V_ProductName', 'V_ApplicationSpecificTag'):
+        element(variables, 'StdVariableRef', {'id': id_})
     element(variables, 'StdVariableRef', {'id': 'V_ProductID', 'defaultValue': product_id})
     for variable in config.get('variables', []):
         attrs = {key: str(variable[key]) for key in ('id', 'index')}
@@ -155,7 +170,13 @@ def generate_bytes(config):
             dtattrs['bitLength'] = str(bits)
         datatype = element(node, 'Datatype', dtattrs)
         if 'lowerValue' in variable or 'upperValue' in variable:
-            element(datatype, 'ValueRange', {'lowerValue': str(variable.get('lowerValue', 0)), 'upperValue': str(variable.get('upperValue', (1 << bits) - 1))})
+            lower = variable.get('lowerValue', 0)
+            upper = variable.get('upperValue', (1 << bits) - 1)
+            if lower == upper:
+                single = element(datatype, 'SingleValue', {'value': str(lower)})
+                textref(single, 'Name', 'T_' + variable['id'], variable['name'])
+            else:
+                element(datatype, 'ValueRange', {'lowerValue': str(lower), 'upperValue': str(upper)})
         textref(node, 'Name', 'T_' + variable['id'], variable['name'])
         if variable.get('description'):
             textref(node, 'Description', 'TD_' + variable['id'], variable['description'])
@@ -183,7 +204,7 @@ def generate_bytes(config):
     for role in ('Identification', 'Parameter'):
         menu = element(menus, 'Menu', {'id': 'M_' + role})
         textref(menu, 'Name', 'T_Menu_' + role, role)
-        refs = ['V_DirectParameters_1'] if role == 'Identification' or not config.get('variables') else [v['id'] for v in config['variables']]
+        refs = ['V_DirectParameters_1', 'V_ApplicationSpecificTag'] if role == 'Identification' else ['V_DirectParameters_1'] if not config.get('variables') else [v['id'] for v in config['variables']]
         for id_ in refs:
             element(menu, 'VariableRef', {'variableId': id_})
     for role in ('Observer', 'Maintenance', 'Specialist'):
@@ -197,7 +218,10 @@ def generate_bytes(config):
     element(connection, 'ProductRef', {'productId': product_id})
     for wire, function_name in [(1, 'L+'), (2, 'NC'), (3, 'L-'), (4, 'C/Q')]:
         element(connection, 'Wire' + str(wire), {'function': function_name})
-    element(comm, 'Test')
+    test = element(comm, 'Test')
+    for name in ('Config1', 'Config2', 'Config3'):
+        if name in config.get('testConfig', {}):
+            element(test, name, {k: str(v) for k, v in config['testConfig'][name].items()})
     language = element(element(root, 'ExternalTextCollection'), 'PrimaryLanguage', {'{http://www.w3.org/XML/1998/namespace}lang': 'en'})
     for id_, value in texts.items():
         element(language, 'Text', {'id': id_, 'value': value})
