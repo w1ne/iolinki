@@ -3,7 +3,7 @@
   "vendorName": "iolinki example",
   "deviceId": 5679,
   "productName": "Switching sensor",
-  "status": "Generated; semantic, CRC and official IODD 1.1 XSD validation; not official IODD Checker approval",
+  "status": "Generated; semantic, CRC and official IODD 1.1 XSD validation; genuine IODD Checker 1.1.4 business-rule validation; product certification and current Checker validation remain separate",
   "output": "examples/switching_sensor/device.xml",
   "variables": [
     {
@@ -83,5 +83,19 @@
     "minCycleTime": 1000,
     "sioSupported": false,
     "mSequenceCapability": 11
+  },
+  "testConfig": {
+    "Config1": {
+      "index": 24,
+      "testValue": "0x49"
+    },
+    "Config2": {
+      "index": 256,
+      "testValue": "0x13,0x88"
+    },
+    "Config3": {
+      "index": 24,
+      "testValue": "0x49,0x49,0x49,0x49,0x49,0x49,0x49,0x49,0x49,0x49,0x49,0x49,0x49"
+    }
   }
 }

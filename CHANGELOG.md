@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unsupported SystemCommand values now return FunctionNotAvailable (`0x8035`)
   as required by IO-Link Interface & System Specification V1.1.5, section C.2.14.
   Unknown ISDU indices continue to return IndexNotAvailable (`0x8011`).
+- Released counter and switching-sensor IODDs now include required standard
+  variable references and ISDU test configurations; the teach singleton uses
+  SingleValue. Release ZIPs use canonical IODD filenames. Regenerated examples
+  pass current official XSD validation and genuine IODD Checker 1.1.4 business rules.
 
 ## [2.1.0] - 2026-10-02
 
