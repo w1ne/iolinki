@@ -272,6 +272,47 @@ static void test_isdu_wire_chkpdu_corrupt(void** state)
     assert_int_equal(resp[3], chkpdu(resp, 3U));
 }
 
+/* Table C.1 / C.2.14: an unsupported SystemCommand is FUNC_NOTAVAIL. */
+static void test_isdu_wire_unsupported_system_command(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    wire_device_info_init();
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+
+    const uint8_t req[] = {0x14U, 0x02U, 0xFFU, 0xE9U};
+    const uint8_t expected[] = {0x44U, 0x80U, 0x35U, 0xF1U};
+    wire_write_request(&ctx, req, sizeof(req));
+
+    uint8_t resp[4];
+    assert_int_equal(wire_read_response(&ctx, resp, sizeof(resp)), sizeof(expected));
+    assert_memory_equal(resp, expected, sizeof(expected));
+}
+
+/* Table C.1 / C.2.3: absent 16-bit indices still return IDX_NOTAVAIL. */
+static void test_isdu_wire_unknown_index(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    wire_device_info_init();
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+
+    const uint8_t read_req[] = {0xB5U, 0x01U, 0x00U, 0x00U, 0xB4U};
+    const uint8_t read_expected[] = {0xC4U, 0x80U, 0x11U, 0x55U};
+    wire_write_request(&ctx, read_req, sizeof(read_req));
+    uint8_t resp[4];
+    assert_int_equal(wire_read_response(&ctx, resp, sizeof(resp)), sizeof(read_expected));
+    assert_memory_equal(resp, read_expected, sizeof(read_expected));
+
+    const uint8_t write_req[] = {0x36U, 0x01U, 0x00U, 0x00U, 0x00U, 0x37U};
+    const uint8_t write_expected[] = {0x44U, 0x80U, 0x11U, 0xD5U};
+    wire_write_request(&ctx, write_req, sizeof(write_req));
+    assert_int_equal(wire_read_response(&ctx, resp, sizeof(resp)), sizeof(write_expected));
+    assert_memory_equal(resp, write_expected, sizeof(write_expected));
+}
+
 /* A START read while the application has not answered yields Busy (0x01). */
 static void test_isdu_wire_busy_polling(void** state)
 {
@@ -367,6 +408,9 @@ int main(void)
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_wire_flowctrl_error, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_wire_chkpdu_corrupt, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_wire_unsupported_system_command, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_wire_unknown_index, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_wire_busy_polling, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_wire_abort, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_wire_extlength_read, test_setup, test_teardown),

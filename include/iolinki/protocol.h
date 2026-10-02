@@ -167,8 +167,10 @@
 #define IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL 0x11U  /**< Requested service not available. */
 #define IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL 0x12U /**< Requested subindex not available. */
 #define IOLINK_ISDU_ERROR_NOT_ACCESSIBLE 0x23U     /**< Object access denied (Table C.1). */
-#define IOLINK_ISDU_ERROR_BUSY 0x30U               /**< Device busy. */
-#define IOLINK_ISDU_ERROR_WRITE_PROTECTED 0x23U    /**< Access denied, Table C.1. */
+#define IOLINK_ISDU_ERROR_FUNCTION_NOT_AVAIL \
+    0x35U                                       /**< Command function not available (Table C.1). */
+#define IOLINK_ISDU_ERROR_BUSY 0x30U            /**< Device busy. */
+#define IOLINK_ISDU_ERROR_WRITE_PROTECTED 0x23U /**< Access denied, Table C.1. */
 #define IOLINK_ISDU_ERROR_PARAM_INCONSISTENT 0x40U /**< Parameter set inconsistent. */
 #define IOLINK_ISDU_ERROR_SEGMENTATION 0x81U       /**< Segmentation error. */
 /** @} */
