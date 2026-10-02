@@ -324,7 +324,7 @@ static void test_system_cmd_invalid(void** state)
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
     assert_int_equal(byte, 0x80);
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
-    assert_int_equal(byte, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+    assert_int_equal(byte, 0x35U); /* FUNC_NOTAVAIL (Table C.1 / C.2.14). */
 }
 
 static void test_isdu_function_tag_read_write(void** state)

@@ -109,6 +109,68 @@ class IoddCLI(unittest.TestCase):
             if name == 'switching_sensor':
                 self.assertEqual([v['defaultValue'] for v in info['variables']], ['5000','200','0',None])
 
+    def test_invalid_test_configs_rejected_before_output(self):
+        for test in [{'Config2': {'index': 24, 'testValue': '0x49'}},
+                     {'Config1': {'index': 24, 'testValue': ','.join(['0x49'] * 13)}},
+                     {'Config3': {'index': 24, 'testValue': '0x49'}},
+                     {'Config1': {'index': 24, 'testValue': 'arbitrary'}}]:
+            cfg = copy.deepcopy(self.config)
+            cfg['testConfig'] = test
+            path = Path(self.tmp.name) / 'invalid-tests.json'
+            path.write_text(json.dumps(cfg))
+            self.run_cli('generate', path, '-o', self.xml, success=False)
+            self.assertFalse(self.xml.exists())
+
+    def test_custom_variables_cannot_collide_with_declared_standard_indices(self):
+        for index in (18, 19, 24):
+            cfg = copy.deepcopy(self.config)
+            cfg['variables'][0]['index'] = index
+            path = Path(self.tmp.name) / 'standard-collision.json'
+            path.write_text(json.dumps(cfg))
+            self.run_cli('generate', path, '-o', self.xml, success=False)
+            self.assertFalse(self.xml.exists())
+
+    def test_generated_business_rule_requirements(self):
+        for name, value in [('reference_device', '0x00'), ('switching_sensor', '0x13,0x88')]:
+            self.run_cli('generate', ROOT / f'examples/{name}/device.json', '-o', self.xml)
+            tree = ET.parse(self.xml)
+            refs = {n.get('id') for n in tree.findall('.//i:StdVariableRef', NS)}
+            self.assertTrue({'V_DirectParameters_2', 'V_ProductName', 'V_ApplicationSpecificTag'} <= refs)
+            self.assertEqual(tree.find('.//i:Config1', NS).attrib, {'index': '24', 'testValue': '0x49'})
+            self.assertEqual(tree.find('.//i:Config2', NS).attrib, {'index': '256', 'testValue': value})
+            self.assertEqual(len(tree.find('.//i:Config3', NS).get('testValue').split(',')), 13)
+            if name == 'switching_sensor':
+                dt = tree.find('.//i:Variable[@id="V_Teach"]/i:Datatype', NS)
+                self.assertIsNone(dt.find('i:ValueRange', NS))
+                self.assertEqual(dt.find('i:SingleValue', NS).get('value'), '1')
+
+    def test_release_packages_use_canonical_names_and_exact_sources(self):
+        subprocess.run([sys.executable, str(ROOT / 'tools/package_release_iodds.py'), self.tmp.name, '2.1.1'], check=True)
+        for example, name in [('reference_device', 'counter'), ('switching_sensor', 'switching-sensor')]:
+            with zipfile.ZipFile(Path(self.tmp.name) / f'iolinki-2.1.1-{name}-IODD.zip') as archive:
+                filename = f'iolinki-{name}-20261002-IODD1.1.xml'
+                self.assertEqual(set(archive.namelist()), {filename, 'manifest.json'})
+                self.assertEqual(archive.read(filename), (ROOT / 'examples' / example / 'device.xml').read_bytes())
+                if os.environ.get('IODD_CHECKER'):
+                    staged = Path(self.tmp.name) / filename
+                    staged.write_bytes(archive.read(filename))
+                    result = subprocess.run([os.environ['IODD_CHECKER'], str(staged)], capture_output=True, text=True, timeout=45)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    @unittest.skipUnless(os.environ.get('IODD_CHECKER'), 'set IODD_CHECKER to an operator-owned genuine Checker wrapper')
+    def test_genuine_checker_accepts_examples_and_rejects_missing_ref(self):
+        checker = os.environ['IODD_CHECKER']
+        for example in ('reference_device', 'switching_sensor'):
+            filename = Path(self.tmp.name) / f'iolinki-{example}-20261002-IODD1.1.xml'
+            self.run_cli('generate', ROOT / f'examples/{example}/device.json', '-o', filename)
+            positive = subprocess.run([checker, str(filename)], capture_output=True, text=True, timeout=45)
+            self.assertEqual(positive.returncode, 0, positive.stdout + positive.stderr)
+            filename.write_bytes(filename.read_bytes().replace(b'        <StdVariableRef id="V_ProductName" />\n', b''))
+            subprocess.run(['node', str(ROOT / 'tools/iodd_stamp.mjs'), 'write', str(filename)], check=True, capture_output=True)
+            negative = subprocess.run([checker, str(filename)], capture_output=True, text=True, timeout=45)
+            self.assertNotEqual(negative.returncode, 0)
+            self.assertIn('V_ProductName is missing', negative.stdout + negative.stderr)
+
     def test_shipped_xml_matches_configuration(self):
         for name in ('reference_device', 'switching_sensor', 'simple_device'):
             base = ROOT / 'examples' / name

@@ -746,9 +746,9 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
             break;
 
         default:
-            /* Unknown command */
+            /* Unsupported command value: FUNC_NOTAVAIL (Table C.1 / C.2.14). */
             ctx->response_buf[0] = 0x80U;
-            ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+            ctx->response_buf[1] = IOLINK_ISDU_ERROR_FUNCTION_NOT_AVAIL;
             ctx->response_len = 2U;
             ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;

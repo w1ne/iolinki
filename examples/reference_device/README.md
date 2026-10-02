@@ -49,3 +49,8 @@ integration; schema validation does not supply official Checker approval.
 
 See [the TIOL112 integration guide](../../docs/hardware/TIOL112.md) for the reusable
 transceiver driver and the remaining MCU work.
+
+The released description also passes genuine IODD Checker 1.1.4 business-rule
+validation. That older Checker result is separate from current Checker validation,
+product certification and physical-master testing. Release ZIPs use canonical IODD
+filenames; identity and application process/parameter mappings remain unchanged.

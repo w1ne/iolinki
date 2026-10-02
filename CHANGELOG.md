@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.1.0-rc.1] - 2026-10-02
+## [2.1.1] - 2026-10-02
+
+### Fixed
+- Unsupported SystemCommand values now return FunctionNotAvailable (`0x8035`)
+  as required by IO-Link Interface & System Specification V1.1.5, section C.2.14.
+  Unknown ISDU indices continue to return IndexNotAvailable (`0x8011`).
+- Released counter and switching-sensor IODDs now include required standard
+  variable references and ISDU test configurations; the teach singleton uses
+  SingleValue. Release ZIPs use canonical IODD filenames. Regenerated examples
+  pass current official XSD validation and genuine IODD Checker 1.1.4 business rules.
+
+## [2.1.0] - 2026-10-02
 
 ### Added
 - Bare-metal STM32G0B1RE/TIOL112 GCC and native IAR project files, native
@@ -444,7 +455,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Host Demo**: `examples/host_demo` showing stack execution without hardware.
 - **Documentation**: Initial README, ROADMAP, VISION, and RELEASE_STRATEGY.
 
-[Unreleased]: https://github.com/w1ne/iolinki/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/w1ne/iolinki/compare/v2.1.1...HEAD
+[2.1.1]: https://github.com/w1ne/iolinki/compare/v2.1.0...v2.1.1
+[2.1.0]: https://github.com/w1ne/iolinki/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/w1ne/iolinki/compare/v1.2.0...v2.0.0
 [1.2.0]: https://github.com/w1ne/iolinki/compare/v1.1.3...v1.2.0
 [0.11.0]: https://github.com/w1ne/iolinki/compare/v0.10.0...v0.11.0

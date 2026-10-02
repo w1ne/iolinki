@@ -124,3 +124,24 @@ as `tools/vendor/ioddforge/crc.mjs` with license and provenance. The stamp names
 our tool `iolinki-iodd-cli`, not the official IODD Checker. CRC/schema validation
 is not official IODD Checker approval or IO-Link device conformance testing.
 Run the applicable official checker and product conformance tests before shipping.
+
+## Example business-rule validation
+
+The counter and switching-sensor descriptions also pass the genuine IO-Link
+IODD Checker 1.1.4, in addition to the official October 2025 IODD 1.1 schema.
+This older Checker result is separate from current Checker validation, device
+certification and physical master testing. Checker binaries are not redistributed.
+An operator-owned Checker wrapper can enable positive and negative regression tests:
+
+```sh
+IODD_CHECKER=/path/to/iodd-checker IODD_SCHEMA=/path/to/IODD1.1.xsd python3 tools/test_iodd_cli.py
+python3 tools/package_release_iodds.py /tmp/release-iodds 2.1.1
+```
+
+JSON `testConfig` explicitly declares Config1/Config2/Config3 index and comma-separated
+hexadecimal `testValue` octets. Both applications use writable ApplicationSpecificTag
+(index 24) for Config1 (one byte) and Config3 (13 bytes). The sensor Config2 writes
+threshold index 256 with 5000 (`0x13,0x88`); the counter deliberately tests unsupported
+index 256 and requires IndexNotAvailable (`0x8011`). Adapt these to actual device
+support; they are not arbitrary test indices. The legacy simple-device illustration
+has no authored ISDU test configuration and does not claim genuine Checker approval.
