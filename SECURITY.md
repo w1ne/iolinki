@@ -16,9 +16,9 @@ under the EU Cyber Resilience Act.
 | Older releases | Under a commercial support agreement only |
 
 Security fixes are delivered as tagged releases with a changelog entry and, for
-confirmed vulnerabilities, a GitHub security advisory. Commercial licensees can
-contractually fix a support period per release (default five years) — see the
-commercial security-update terms.
+confirmed vulnerabilities, a GitHub security advisory. Fixes for the latest
+tagged release and for `develop` are part of the public project. A contract to
+patch an older release is paid work. It does not limit the GPLv3 grant.
 
 ## Reporting a Vulnerability
 

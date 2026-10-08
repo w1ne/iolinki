@@ -1,5 +1,9 @@
 # Platform Porting Guide
 
+## What a port includes
+
+A port is an `iolink_phy_api_t` plus the application that owns the stack context. The host demo and the Zephyr samples for `nucleo_l476rg` and `nucleo_f103rb` are the builds this repository exercises. An IAR EWARM build for STM32G0B1RE plus TI TIOL112 is not verified here. Firmware update and secure boot stay in the device.
+
 ## Overview
 
 For the current context-based PHY API and a working transceiver control
@@ -24,63 +28,34 @@ The PHY layer provides hardware abstraction for UART communication.
 
 **Location**: `include/iolinki/phy.h`
 
-**Interface**:
-```c
-typedef struct {
-    int (*init)(void);
-    void (*set_mode)(iolink_phy_mode_t mode);
-    void (*set_baudrate)(iolink_baudrate_t baudrate);
-    int (*send)(const uint8_t *data, size_t len);
-    int (*recv_byte)(uint8_t *byte);
-} iolink_phy_api_t;
-```
+**Interface**: copy `iolink_phy_api_t` from `include/iolinki/phy.h`. Every callback takes `void* user` first. `send` returns the number of bytes sent, or negative on error. `recv_byte` returns 1 when a byte was read, 0 when none is waiting, or negative on error. `detect_wakeup`, `set_cq_line`, `get_voltage_mv`, and `is_short_circuit` are optional and may be NULL. `init`, `set_mode`, and `set_baudrate` are required.
 
 **Implementation Steps**:
 
 1. Create `src/platform/<your_platform>/phy_<your_platform>.c`
-2. Implement all PHY functions
+2. Implement all required PHY functions
 3. Export PHY API structure
 
-**Example** (STM32 HAL):
+**Example** (STM32 HAL). `init`, `set_mode`, and `set_baudrate` are still required and must take `void* user` first. Do not invent transceiver register addresses.
+
 ```c
-#include "iolinki/phy.h"
-#include "stm32f4xx_hal.h"
-
-static UART_HandleTypeDef huart;
-
-static int stm32_phy_init(void) {
-    huart.Instance = USART1;
-    huart.Init.BaudRate = 4800;
-    huart.Init.WordLength = UART_WORDLENGTH_8B;
-    huart.Init.StopBits = UART_STOPBITS_1;
-    huart.Init.Parity = UART_PARITY_NONE;
-    huart.Init.Mode = UART_MODE_TX_RX;
-
-    return (HAL_UART_Init(&huart) == HAL_OK) ? 0 : -1;
+static int stm32_send(void* user, const uint8_t* data, size_t len)
+{
+    UART_HandleTypeDef* uart = user;
+    if (HAL_UART_Transmit(uart, (uint8_t*)data, (uint16_t)len, 10) != HAL_OK) {
+        return -1;
+    }
+    return (int)len;
 }
 
-static void stm32_phy_set_baudrate(iolink_baudrate_t baudrate) {
-    huart.Init.BaudRate = baudrate;
-    HAL_UART_Init(&huart);
+static int stm32_recv_byte(void* user, uint8_t* byte)
+{
+    UART_HandleTypeDef* uart = user;
+    if (HAL_UART_Receive(uart, byte, 1, 0) != HAL_OK) {
+        return 0;
+    }
+    return 1;
 }
-
-static int stm32_phy_send(const uint8_t *data, size_t len) {
-    HAL_StatusTypeDef status = HAL_UART_Transmit(&huart, (uint8_t*)data, len, 100);
-    return (status == HAL_OK) ? 0 : -1;
-}
-
-static int stm32_phy_recv_byte(uint8_t *byte) {
-    HAL_StatusTypeDef status = HAL_UART_Receive(&huart, byte, 1, 0);
-    return (status == HAL_OK) ? 1 : 0;
-}
-
-const iolink_phy_api_t g_phy_stm32 = {
-    .init = stm32_phy_init,
-    .set_mode = NULL,  // Optional
-    .set_baudrate = stm32_phy_set_baudrate,
-    .send = stm32_phy_send,
-    .recv_byte = stm32_phy_recv_byte
-};
 ```
 
 ### 2. Time Utilities (Required)

@@ -23,7 +23,7 @@ Key dates: the CRA's vulnerability-reporting obligations apply from
 | STRIDE threat model aligned to IO-Link guideline 10.512 | [`docs/security/THREAT_MODEL.md`](THREAT_MODEL.md) | free, public |
 | Coordinated disclosure + advisory process | [`SECURITY.md`](../../SECURITY.md) | free, public |
 | CRA compliance statement mapping the stack to Regulation (EU) 2024/2847 Annex I, issued per stack release for your product context | commercial license package | commercial |
-| Contractually agreed security updates over a defined support period (default five years) | commercial license package | commercial |
+| Security updates for a commercially licensed release, for the period named in that contract. The GPLv3 grant has no such period. | commercial license package | commercial |
 
 The public artifacts let you verify our engineering rigor before you talk to us.
 The commercial artifacts are the contract-grade documents your CRA technical file
