@@ -71,70 +71,22 @@ Process IO-Link stack logic. Must be called periodically (e.g., every 1ms).
 
 ### PHY API Structure
 
-```c
-typedef struct {
-    int (*init)(void);
-    void (*set_mode)(iolink_phy_mode_t mode);
-    void (*set_baudrate)(iolink_baudrate_t baudrate);
-    int (*send)(const uint8_t *data, size_t len);
-    int (*recv_byte)(uint8_t *byte);
-} iolink_phy_api_t;
-```
+Copy `iolink_phy_api_t` from `include/iolinki/phy.h`. Every callback takes `void* user` first. `init`, `set_mode`, and `set_baudrate` are required. `send` returns the number of bytes sent, or a negative error. `recv_byte` returns 1 when a byte was read, 0 when none is waiting, or a negative error. `detect_wakeup`, `set_cq_line`, `get_voltage_mv`, and `is_short_circuit` may be NULL.
 
-### PHY Modes
+`IOLINK_BAUDRATE_COM1`, `COM2`, and `COM3` are 0, 1, and 2. They select 4.8, 38.4, and 230.4 kbit/s. They are not the baud number itself.
 
 ```c
-typedef enum {
-    IOLINK_PHY_MODE_INACTIVE,
-    IOLINK_PHY_MODE_SIO,
-    IOLINK_PHY_MODE_SDCI
-} iolink_phy_mode_t;
-```
+static int my_phy_send(void* user, const uint8_t* data, size_t len) {
+    (void)user;
+    (void)data;
+    return (int)len;
+}
 
-### Baudrates
-
-```c
-typedef enum {
-    IOLINK_BAUDRATE_COM1 = 4800,
-    IOLINK_BAUDRATE_COM2 = 38400,
-    IOLINK_BAUDRATE_COM3 = 230400
-} iolink_baudrate_t;
-```
-
-### Implementing a PHY
-
-```c
-static int my_phy_init(void) {
-    // Initialize UART hardware
+static int my_phy_recv_byte(void* user, uint8_t* byte) {
+    (void)user;
+    (void)byte;
     return 0;
 }
-
-static void my_phy_set_mode(iolink_phy_mode_t mode) {
-    // Configure pin mode
-}
-
-static void my_phy_set_baudrate(iolink_baudrate_t baudrate) {
-    // Configure UART baudrate
-}
-
-static int my_phy_send(const uint8_t *data, size_t len) {
-    // Transmit bytes
-    return 0;
-}
-
-static int my_phy_recv_byte(uint8_t *byte) {
-    // Receive one byte (non-blocking)
-    // Return 1 if byte received, 0 if no data
-    return 0;
-}
-
-const iolink_phy_api_t g_my_phy = {
-    .init = my_phy_init,
-    .set_mode = my_phy_set_mode,
-    .set_baudrate = my_phy_set_baudrate,
-    .send = my_phy_send,
-    .recv_byte = my_phy_recv_byte
-};
 ```
 
 ## Application Layer API

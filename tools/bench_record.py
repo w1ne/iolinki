@@ -12,8 +12,18 @@ RESULTS = ("pass", "fail")
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _VENDOR = re.compile(r"^[0-9a-f]{4}$")
 _DEVICE = re.compile(r"^[0-9a-f]{8}$")
-_GATEWAY = re.compile(r"^iolinki-gw/1 [0-9]+ [0-9a-f]{4} [0-9a-f]{8} ([0-9a-f]+|-)$")
+_GATEWAY = re.compile(r"^iolinki-gw/1 [0-9]+ ([0-9a-f]{4}) ([0-9a-f]{8}) ([0-9a-f]+|-)$")
 _LEGACY = ("0x0f", "bare 0x00", "0x00 probe")
+
+
+def _normalize_gateway(line):
+    if not isinstance(line, str):
+        return None
+    if line.endswith("\n"):
+        line = line[:-1]
+    if line.endswith("\r"):
+        line = line[:-1]
+    return line
 
 
 def build_record(fields):
@@ -39,15 +49,20 @@ def build_record(fields):
     lowered = notes.lower()
     if result == "pass" and any(token in lowered for token in _LEGACY):
         raise ValueError("a pass cannot describe the legacy startup")
-    gateway_line = fields.get("gateway_line")
+    gateway_line = _normalize_gateway(fields.get("gateway_line"))
     master_log = fields.get("master_log")
-    if result == "pass" and role == "commercial-sensor-on-our-master":
-        if gateway_line is None or _GATEWAY.fullmatch(gateway_line) is None:
-            raise ValueError("a sensor pass requires a gateway line")
+    gateway_match = None if gateway_line is None else _GATEWAY.fullmatch(gateway_line)
+    if gateway_line is not None and gateway_match is None:
+        raise ValueError("gateway line is not iolinki-gw/1")
+    if gateway_match is not None and (
+        gateway_match.group(1) != vendor_id or gateway_match.group(2) != device_id
+    ):
+        raise ValueError("gateway line identity does not match vendor_id and device_id")
+    if result == "pass" and role == "commercial-sensor-on-our-master" and gateway_match is None:
+        raise ValueError("a sensor pass requires a gateway line")
     if result == "pass" and role == "device-on-commercial-master":
-        has_line = gateway_line is not None and _GATEWAY.fullmatch(gateway_line) is not None
         has_log = isinstance(master_log, str) and len(master_log) >= 10
-        if not has_line and not has_log:
+        if gateway_match is None and not has_log:
             raise ValueError("a device pass requires a gateway line or a master log")
     doc = {
         "schema": SCHEMA,

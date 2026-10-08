@@ -37,6 +37,14 @@ class TestBuildRecord(unittest.TestCase):
         self.assertEqual(doc["schema"], "iolinki.bench.v1")
         self.assertEqual(doc["gateway_line"], "iolinki-gw/1 0 0123 00045678 aabb")
 
+    def test_sensor_pass_accepts_the_c_line_newline_and_strips_it(self):
+        doc = build_record(sensor_pass(gateway_line="iolinki-gw/1 0 0123 00045678 aabb\n"))
+        self.assertEqual(doc["gateway_line"], "iolinki-gw/1 0 0123 00045678 aabb")
+
+    def test_sensor_pass_rejects_a_line_for_a_different_device(self):
+        with self.assertRaises(ValueError):
+            build_record(sensor_pass(gateway_line="iolinki-gw/1 0 abcd 00045678 aabb"))
+
     def test_sensor_pass_without_gateway_line_is_rejected(self):
         fields = sensor_pass()
         del fields["gateway_line"]
