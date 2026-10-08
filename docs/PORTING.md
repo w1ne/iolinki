@@ -2,7 +2,7 @@
 
 ## What a port includes
 
-A port is an `iolink_phy_api_t` plus the application that owns the stack context. The host demo and the Zephyr samples for `nucleo_l476rg` and `nucleo_f103rb` are the builds this repository exercises. An IAR EWARM build for STM32G0B1RE plus TI TIOL112 is not verified here. The renewal artefact is the directory written by `tools/evidence_bundle.py`: stack SBOM, conformance log hash, and the 12-month update window. That directory does not mark the device CRA-compliant. Firmware update and secure boot stay in the device.
+A port is an `iolink_phy_api_t` plus the application that owns the stack context. The host demo and the Zephyr samples for `nucleo_l476rg` and `nucleo_f103rb` are the builds this repository exercises. An IAR EWARM build for STM32G0B1RE plus TI TIOL112 is not verified here. Firmware update and secure boot stay in the device.
 
 ## Overview
 

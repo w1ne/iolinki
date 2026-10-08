@@ -20,7 +20,7 @@ The companion master stack is [iolinki-master](https://github.com/w1ne/iolinki-m
 
 **Dual-licensed: GPLv3 or Commercial.** Pick the one that matches your product.
 
-- **GPLv3 (free, open source)** — use, modify, and ship iolinki at no cost, provided your own work that includes it is also released under the GPLv3. Ideal for open-source projects, research, evaluation, and hobby use.
+- **GPLv3 (free, open source)** — use, modify, and ship iolinki at no cost, including in production, provided your own work that includes it is also released under the GPLv3.
 - **Commercial license** — **required only if you ship a closed-source / proprietary product** and do not want the GPLv3 copyleft obligations. One-time, royalty-free:
   - **Indie**: €1,399 — issued to a named individual for their own independent product family; two onboarding hours for build/setup, MCU/PHY wiring and callback review, and a written bring-up checklist; 48-hour email response target
   - **Company**: €4,699 — held by the named legal company for one agreed product family, with the same source; eight total scoped engineering hours, 24-hour priority email response target and quarterly technical reviews during the first year within those hours

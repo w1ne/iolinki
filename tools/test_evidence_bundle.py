@@ -14,7 +14,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from evidence_bundle import (  # noqa: E402
     CRA_SENTENCE,
     GAPS,
-    SUPPORT_STATEMENT_12,
     build_evidence,
 )
 
@@ -23,12 +22,10 @@ FW = "ab" * 32
 
 
 class TestBuildEvidence(unittest.TestCase):
-    def test_twelve_month_bundle_uses_the_fixed_statement(self):
+    def test_bundle_records_stack_evidence_without_a_support_period(self):
         doc = build_evidence(
             version="1.2.0",
             firmware_sha256=FW,
-            support_months=12,
-            support_statement=None,
             conformance_command="ctest --test-dir build",
             conformance_exit_code=0,
             log_sha256="cd" * 32,
@@ -36,32 +33,18 @@ class TestBuildEvidence(unittest.TestCase):
         self.assertEqual(doc["schema"], "iolinki.evidence.v1")
         self.assertEqual(doc["stack_version"], "1.2.0")
         self.assertEqual(doc["firmware_sha256"], FW)
-        self.assertEqual(doc["support_months"], 12)
-        self.assertEqual(doc["support_statement"], SUPPORT_STATEMENT_12)
+        self.assertNotIn("support_months", doc)
+        self.assertNotIn("support_statement", doc)
         self.assertEqual(doc["cra"], CRA_SENTENCE)
         self.assertEqual(doc["gaps"], list(GAPS))
         self.assertEqual(doc["conformance"]["exit_code"], 0)
         self.assertEqual(doc["conformance"]["log_sha256"], "cd" * 32)
-
-    def test_other_support_months_require_an_explicit_statement(self):
-        with self.assertRaises(ValueError):
-            build_evidence(
-                version="1.2.0",
-                firmware_sha256=FW,
-                support_months=60,
-                support_statement=None,
-                conformance_command="ctest",
-                conformance_exit_code=0,
-                log_sha256="cd" * 32,
-            )
 
     def test_bad_firmware_hash_is_rejected(self):
         with self.assertRaises(ValueError):
             build_evidence(
                 version="1.2.0",
                 firmware_sha256="ABCD",
-                support_months=12,
-                support_statement=None,
                 conformance_command="ctest",
                 conformance_exit_code=0,
                 log_sha256="cd" * 32,

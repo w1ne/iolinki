@@ -16,11 +16,9 @@ under the EU Cyber Resilience Act.
 | Older releases | Under a commercial support agreement only |
 
 Security fixes are delivered as tagged releases with a changelog entry and, for
-confirmed vulnerabilities, a GitHub security advisory. The published license
-includes updates for 12 months from delivery, with optional renewal. A longer
-security-support term is a separate schedule and is not part of the published
-fee. `tools/evidence_bundle.py` records that 12-month window for one firmware
-hash. The bundle is stack evidence. It is not an EU declaration of conformity.
+confirmed vulnerabilities, a GitHub security advisory. Fixes for the latest
+tagged release and for `develop` are part of the public project. A contract to
+patch an older release is paid work. It does not limit the GPLv3 grant.
 
 ## Reporting a Vulnerability
 

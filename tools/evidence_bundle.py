@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Write an iolinki evidence bundle for one customer firmware hash.
 
-The bundle records the stack SBOM, a caller-supplied conformance log, and the
-published 12-month update window. It does not execute the conformance command
-and it does not mark a device CRA-compliant.
+The bundle records the stack SBOM and a caller-supplied conformance log.
+It does not execute the conformance command, it does not set a support
+period, and it does not mark a device CRA-compliant.
 """
 
 import argparse
@@ -18,11 +18,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from generate_sbom import build_cyclonedx, build_spdx  # noqa: E402
 
 SCHEMA = "iolinki.evidence.v1"
-SUPPORT_STATEMENT_12 = (
-    "Updates for this stack release are included for 12 months from delivery. "
-    "Renewal is optional. This bundle is stack evidence. It is not an EU "
-    "declaration of conformity."
-)
 CRA_SENTENCE = (
     "The device manufacturer remains responsible for Annex I, the EU "
     "declaration of conformity, firmware update, and secure boot."
@@ -38,8 +33,6 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 def build_evidence(
     version,
     firmware_sha256,
-    support_months,
-    support_statement,
     conformance_command,
     conformance_exit_code,
     log_sha256,
@@ -50,23 +43,13 @@ def build_evidence(
         raise ValueError("firmware_sha256 must be 64 lowercase hex characters")
     if not isinstance(log_sha256, str) or _SHA256.fullmatch(log_sha256) is None:
         raise ValueError("log_sha256 must be 64 lowercase hex characters")
-    if not isinstance(support_months, int) or support_months < 1:
-        raise ValueError("support_months must be a positive integer")
     if conformance_command == "":
         raise ValueError("conformance_command is required")
-    if support_months == 12:
-        statement = SUPPORT_STATEMENT_12
-    elif support_statement is None or len(support_statement) < 20:
-        raise ValueError("support_statement is required when support_months is not 12")
-    else:
-        statement = support_statement
     return {
         "schema": SCHEMA,
         "stack_name": "iolinki",
         "stack_version": version,
         "firmware_sha256": firmware_sha256,
-        "support_months": support_months,
-        "support_statement": statement,
         "conformance": {
             "command": conformance_command,
             "exit_code": conformance_exit_code,
@@ -108,8 +91,6 @@ def main(argv):
     parser = argparse.ArgumentParser(description="Write an iolinki evidence bundle")
     parser.add_argument("--version", required=True)
     parser.add_argument("--firmware-sha256", required=True)
-    parser.add_argument("--support-months", type=int, default=12)
-    parser.add_argument("--support-statement", default=None)
     parser.add_argument("--conformance-command", required=True)
     parser.add_argument("--conformance-exit-code", required=True, type=int)
     parser.add_argument("--conformance-log", required=True)
@@ -122,8 +103,6 @@ def main(argv):
         evidence = build_evidence(
             version=args.version,
             firmware_sha256=args.firmware_sha256,
-            support_months=args.support_months,
-            support_statement=args.support_statement,
             conformance_command=args.conformance_command,
             conformance_exit_code=args.conformance_exit_code,
             log_sha256=_sha256_file(args.conformance_log),
