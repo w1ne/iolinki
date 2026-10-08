@@ -200,8 +200,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Test SBOM generator
-        run: python3 tools/test_generate_sbom.py
+      - name: Test SBOM generator and evidence bundle
+        run: |
+          python3 tools/test_generate_sbom.py
+          python3 tools/test_evidence_bundle.py
+          python3 tools/test_bench_record.py
 
   # Branch protection on develop requires the REAL jobs directly:
   # docker-validation, zephyr-validation, sbom-tools. Do not reintroduce
