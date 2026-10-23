@@ -158,8 +158,8 @@ static void test_dll_fallback_on_crc_errors(void** state)
 
     /* Inject CRC errors to trigger fallback */
     for (int r = 0; r < 3; r++) {
-        uint8_t bad_frame[5] = {0x80, 0x00, 0x00, 0x00, 0xFF};
-        for (int i = 0; i < 5; i++) {
+        uint8_t bad_frame[4] = {0x80, (uint8_t) (IOLINK_MSEQ_TYPE_1 | 0x3FU), 0x00, 0x00};
+        for (int i = 0; i < 4; i++) {
             will_return(mock_phy_recv_byte, 1);
             will_return(mock_phy_recv_byte, bad_frame[i]);
         }

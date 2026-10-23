@@ -177,8 +177,8 @@ void move_to_operate_ctx(iolink_device_ctx_t* ctx)
     iolink_m_seq_type_t type = iolink_device_get_m_seq_type(ctx);
     uint8_t pd_out_len = iolink_device_get_pd_out_len(ctx);
     uint8_t pd_in_len = iolink_device_get_pd_in_len(ctx);
-    /* Table A.10: only TYPE_2_V carries two OD octets (OPERATE code 5). */
-    uint8_t od_len = (type == IOLINK_M_SEQ_TYPE_2_V) ? 2U : 1U;
+    /* Table A.10 OD width; TYPE_1_1 keeps its legacy interleaved layout. */
+    uint8_t od_len = iolink_mseq_od_len((uint8_t) type);
 
     if (type == IOLINK_M_SEQ_TYPE_0) {
         uint8_t idle_mc = 0x00;
@@ -200,7 +200,9 @@ void move_to_operate_ctx(iolink_device_ctx_t* ctx)
     memset(frame, 0, sizeof(frame));
     /* Figure A.2: master message is MC, CKT, data... with the A.1.6 checksum in
        the CKT octet (byte 1); there is no trailing checksum octet. */
-    uint8_t frame_len = (uint8_t) (IOLINK_M_SEQ_HEADER_LEN + pd_out_len + od_len);
+    const uint8_t frame_len = (type == IOLINK_M_SEQ_TYPE_1_1)
+                                  ? (uint8_t) (IOLINK_M_SEQ_HEADER_LEN + pd_out_len + od_len)
+                                  : (uint8_t) (IOLINK_M_SEQ_HEADER_LEN + pd_out_len);
     frame[0] = 0x80;
     frame[1] = ((type == IOLINK_M_SEQ_TYPE_2_1) || (type == IOLINK_M_SEQ_TYPE_2_2) ||
                 (type == IOLINK_M_SEQ_TYPE_2_V))
