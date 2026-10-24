@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A.6.4 event lifecycle.** Error and Warning events now follow the
+  appears/disappears pair (Figure A.24): the same EventCode may not appear again
+  before its disappearance has been reported, a disappearance is not issued
+  less than 50 ms after the appearance, and the same EventCode/EventQualifier is
+  not reported more than once per second. A re-trigger inside that second is
+  deferred by `iolink_events_process()` rather than dropped. Notifications stay
+  single shot. New public API: `iolink_event_clear()`,
+  `iolink_events_process()`, `iolink_events_reset()`,
+  `iolink_events_get_dropped_count()` and `iolink_event_classify()`;
+  `iolink_event_t` gained a `mode` field.
+- `IOLINK_EVENT_MIN_APPEAR_MS` (50 ms), `IOLINK_EVENT_MIN_REPEAT_MS` (1 s) and
+  `IOLINK_EVENT_PENDING_MAX` (8) configuration macros.
+- Events lost because the queue or the `IOLINK_EVENT_PENDING_MAX` lifecycle
+  table is full are counted by `iolink_events_get_dropped_count()`, so the loss
+  is observable instead of silent.
+
 ### Changed
 - **ISDU conformance with Table B.8/B.9 (breaking change).** SystemCommand
   codes now follow Table B.9 (`ParamUploadStart/End` 0x01/0x02,
@@ -46,6 +63,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   factory settings (0x82) and Back-to-box (0x83) clear ErrorCount and the event
   memory behind DeviceStatus (0x0024) / DetailedDeviceStatus (0x0025), while
   Application reset (0x81) leaves them untouched.
+- **Event memory freeze point (Table 60 T3).** The Table 58 diagnosis memory is
+  now frozen when the Event flag is raised instead of on the first readout, so
+  every readout returns one consistent snapshot. A StatusCode write
+  acknowledges exactly the queue entries that were presented (tracked by
+  internal insertion ids), not the first N entries of the current queue, so an
+  event that becomes more severe while the memory is frozen is never
+  acknowledged unseen.
+- `iolink_dll_process()` now services `iolink_events_process()`, so a normal
+  application no longer has to call it to get disappearances. Applications that
+  drive the event engine without `iolink_dll_process()` must call it
+  periodically (documented in `include/iolinki/events.h`).
+- Index `0x0024` (DeviceStatus) is mapped per Table B.13 (0 OK, 1
+  Maintenance-Required, 2 Out-of-Specification, 3 Functional-Check, 4 Failure)
+  with the correct dominance order. Index `0x0025` (DetailedDeviceStatus) is
+  built from the active appears set; subindex 0 returns the whole list, while
+  element access through subindex 1..n is a device extension (B.2.22 describes
+  subindex 0 only).
+- Queued events and the lifecycle state are discarded on the transition to
+  STARTUP (10.10.2: the queue is discarded when communication is interrupted or
+  cancelled).
 
 ### Fixed
 - **Streaming M-sequence request framing (wire change).** Read requests now
@@ -61,6 +98,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `iolinki-master` frames its ISDU and diagnosis read requests without OD and
   uses the same per-type OD widths, so the device/master pair remains
   interoperable.
+
+### Removed
+- The non-standard `IOLINK_EVENT_APP_TEMP_*` and `IOLINK_EVENT_HW_*` macros.
+  Use the standardized `IOLINK_EVENTCODE_*` values (Annex D, Table D.1) instead;
+  `IOLINK_EVENTCODE_TEMPERATURE_OVERRUN`/`_UNDERRUN`, `_HARDWARE_FAULT`,
+  `_NVM_LOSS`, `_COMPONENT_MALFUNCTION` and `_PARAMETER_ERROR` cover the same
+  conditions with the spec-defined EventCodes.
 
 ## [2.2.0] - 2026-10-17
 

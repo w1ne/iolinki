@@ -39,6 +39,11 @@ static void dll_set_state(iolink_dll_ctx_t* ctx, iolink_dll_state_t new_state)
 {
     if (ctx->state != new_state) {
         ctx->state = new_state;
+        if (new_state == IOLINK_DLL_STATE_STARTUP) {
+            /* A.6.4: queued events are discarded when communication is
+               interrupted or cancelled. */
+            iolink_events_reset(&ctx->events);
+        }
         if (ctx->state_cb != NULL) {
             ctx->state_cb(ctx->state_cb_user, new_state);
         }
@@ -583,6 +588,11 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     if ((ctx == NULL) || (ctx->phy == NULL)) {
         return;
     }
+
+    /* A.6.4/10.10.2: service the deferred appears/disappears transitions. The
+       Event Dispatcher owns this flow, so applications do not have to remember
+       to call iolink_events_process() themselves. */
+    iolink_events_process(&ctx->events);
 
     /* Process acyclic ISDU state machine */
     iolink_isdu_process(&ctx->isdu);

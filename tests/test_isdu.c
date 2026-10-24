@@ -91,7 +91,7 @@ static void test_isdu_device_status_read(void** state)
     iolink_isdu_process(&ctx);
 
     assert_int_equal(isdu_collect_response(&ctx, status_buf, sizeof(status_buf)), 1);
-    assert_int_equal(status_buf[0], 3); /* Failure */
+    assert_int_equal(status_buf[0], 4); /* Failure (Table B.13) */
 }
 
 static void test_isdu_detailed_device_status_read(void** state)
