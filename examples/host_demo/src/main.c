@@ -48,19 +48,16 @@ int main(int argc, char* argv[])
         }
     }
 
-    if ((config.m_seq_type == IOLINK_M_SEQ_TYPE_2_2) ||
-        (config.m_seq_type == IOLINK_M_SEQ_TYPE_2_V)) {
-        const int len = (argc >= 4) ? atoi(argv[3]) : 2;
-        if (config.m_seq_type == IOLINK_M_SEQ_TYPE_2_2) {
-            config.pd_in_len = (uint8_t) len;
-            config.pd_out_len = 0U;
-            printf("Config: PD-in Len %d bytes\n", len);
-        }
-        else {
-            config.pd_in_len = (uint8_t) len;
-            config.pd_out_len = (uint8_t) len;
-            printf("Config: PD Len %d bytes\n", len);
-        }
+    if (argc >= 4) {
+        int len = atoi(argv[3]);
+        config.pd_in_len = (uint8_t) len;
+        config.pd_out_len = (uint8_t) len;
+        printf("Config: PD Len %d bytes\n", len);
+    }
+    else if (config.m_seq_type != IOLINK_M_SEQ_TYPE_0) {
+        config.pd_in_len = 2;
+        config.pd_out_len = 2;
+        printf("Config: PD Len 2 bytes (default)\n");
     }
 
     printf("\n");

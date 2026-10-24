@@ -32,9 +32,13 @@ class MSequenceType(IntEnum):
     @staticmethod
     def get_od_len(m_type: int) -> int:
         """Get OD length for M-sequence type (Table A.10)."""
+        if m_type == MSequenceType.TYPE_1_2:
+            return 2
+        if m_type == MSequenceType.TYPE_1_V:
+            return 8
         if m_type == MSequenceType.TYPE_2_V:
             return 2
-        return 1  # Type 0, 1_x, 2_1, 2_2
+        return 1  # Type 0, 1_1, 2_1, 2_2
 
 
 class MasterCommand:
@@ -194,27 +198,36 @@ class MSequenceGenerator:
         return bytes(frame)
 
     def generate_type1(
-        self, mc: int, ckt: int, pd: bytes, od: int, od2: int = 0x00
+        self, mc: int, ckt: int, pd: bytes, od: object = 0, od2: int = 0x00
     ) -> bytes:
         """
-        Generate Type 1/2 M-sequence: MC + CKT + PD + OD(1 or 2 bytes), with the
-        A.1.6 checksum in the CKT octet.
+        Generate a Type 1/2 M-sequence: MC + CKT + PD-out [+ OD], with the A.1.6
+        checksum in the CKT octet. A read request carries no OD (Annex A); a
+        write appends the configured OD width.
 
         Args:
-            mc: Master Command byte
+            mc: Master Command byte (bit 7 set = READ)
             ckt: Command/Key/Type byte
             pd: Process Data bytes
-            od: On-request Data byte (first byte)
-            od2: Second OD byte (only for TYPE_2_V)
+            od: OD bytes, or the first OD octet when an int
+            od2: Second OD octet (only used when od is an int and the OD width
+                is at least two)
 
         Returns:
             Frame bytes
         """
         type_bits = ckt & M_SEQUENCE_TYPE_MASK
-        if self.od_len == 2:
-            body = bytes([mc, type_bits]) + pd + bytes([od, od2])
-        else:
-            body = bytes([mc, type_bits]) + pd + bytes([od])
+        read = (mc & 0x80) != 0
+        body = bytes([mc, type_bits]) + pd
+        if not read:
+            if isinstance(od, (bytes, bytearray)):
+                od_bytes = bytes(od)
+            else:
+                od_bytes = bytes([int(od) & 0xFF])
+                if self.od_len >= 2:
+                    od_bytes += bytes([od2 & 0xFF])
+            od_bytes = (od_bytes + bytes(self.od_len))[: self.od_len]
+            body += od_bytes
         ckt_value = type_bits | checksum6(body)
         return bytes([mc, ckt_value]) + body[2:]
 

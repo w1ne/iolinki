@@ -210,9 +210,9 @@ class VirtualMaster:
             return DeviceResponse(data, od_len=self.od_len, pd_in_len=0)
 
         pd = bytes([0] * self.pd_out_len)
-        od0 = od[0] if len(od) > 0 else 0
-        od1 = od[1] if len(od) > 1 else 0
-        frame = self.generator.generate_type1(mc, self._type_bits(), pd, od0, od1)
+        frame = self.generator.generate_type1(
+            mc, self._type_bits(), pd, od if not read else b""
+        )
         self.uart.send_bytes(frame)
         # Figures A.9/A.10/A.13/A.14: a multi-type READ reply is
         # [OD][PD-in] CKS; a WRITE reply is [PD-in] CKS with no OD.
