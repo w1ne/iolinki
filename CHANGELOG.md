@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Streaming M-sequence request framing (wire change).** Read requests now
+  carry no On-request Data octets: a typed read is `MC + CKT + PD-out`, while a
+  write is `MC + CKT + PD-out + OD`. Type 0 write requests on the page,
+  diagnosis and ISDU channels remain 3 octets. This fixes the default streaming
+  transport never completing a conformant read request, and Type-0 page
+  writes/MasterCommands (including Fallback) in OPERATE. The reply layout is
+  unchanged.
+- OD width now follows Table A.10: TYPE_1_2 uses 2 OD octets, TYPE_1_V uses 8,
+  TYPE_2_V uses 2, and the remaining types use 1. `IOLINK_OD_MAX_SIZE` was
+  raised to 8.
+- `iolinki-master` frames its ISDU and diagnosis read requests without OD and
+  uses the same per-type OD widths, so the device/master pair remains
+  interoperable.
+
 ## [2.2.0] - 2026-10-17
 
 ### Changed

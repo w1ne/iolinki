@@ -67,7 +67,7 @@ typedef struct
     uint8_t m_seq_type;         /**< Supported M-sequence type */
     uint8_t pd_in_len;          /**< Input Process Data length */
     uint8_t pd_out_len;         /**< Output Process Data length */
-    uint8_t od_len;             /**< On-request Data length (1 or 2 bytes) */
+    uint8_t od_len;             /**< On-request Data length (1, 2 or 8 octets) */
     bool pd_valid;              /**< Current PD_In validity status */
     uint32_t min_cycle_time_us; /**< Minimum cycle time in microseconds */
     bool enforce_timing;        /**< Enable timing checks (t_ren / t_cycle) */

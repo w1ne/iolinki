@@ -30,14 +30,36 @@
  */
 typedef enum
 {
-    IOLINK_M_SEQ_TYPE_0 = 0U,   /**< M-Sequence Type 0: On-request data (ISDU) only */
-    IOLINK_M_SEQ_TYPE_1_1 = 1U, /**< M-Sequence Type 1_1: PD (fixed) + OD (1 byte) */
-    IOLINK_M_SEQ_TYPE_1_2 = 2U, /**< M-Sequence Type 1_2: PD (fixed) + OD (1 byte) + ISDU */
-    IOLINK_M_SEQ_TYPE_1_V = 3U, /**< M-Sequence Type 1_V: PD (variable) + OD (1 byte) */
-    IOLINK_M_SEQ_TYPE_2_1 = 4U, /**< M-Sequence Type 2_1: PD (fixed) + OD (1 byte) */
-    IOLINK_M_SEQ_TYPE_2_2 = 5U, /**< M-Sequence Type 2_2: PD (fixed) + OD (1 byte) + ISDU */
-    IOLINK_M_SEQ_TYPE_2_V = 6U, /**< M-Sequence Type 2_V: PD (variable) + OD (2 bytes) + ISDU */
+    IOLINK_M_SEQ_TYPE_0 = 0U,   /**< M-Sequence Type 0: On-request data (ISDU) only. */
+    IOLINK_M_SEQ_TYPE_1_1 = 1U, /**< Legacy Type 1_1 (interleaved). */
+    IOLINK_M_SEQ_TYPE_1_2 = 2U, /**< Type 1_2: 2 OD octets, no process data (A.7). */
+    IOLINK_M_SEQ_TYPE_1_V = 3U, /**< Type 1_V: 8 OD octets, no process data (A.8). */
+    IOLINK_M_SEQ_TYPE_2_1 = 4U, /**< Type 2_1: 1 PD-in octet + 1 OD octet (A.9). */
+    IOLINK_M_SEQ_TYPE_2_2 = 5U, /**< Type 2_2: 2 PD-in octets + 1 OD octet (A.10). */
+    IOLINK_M_SEQ_TYPE_2_V = 6U, /**< Type 2_V: 0..32 PD in/out + 1/2 OD octets (A.14). */
 } iolink_m_seq_type_t;
+
+/**
+ * @brief Return the On-request Data octet count for an M-sequence type.
+ *
+ * Table A.10: TYPE_1_2 carries two OD octets, TYPE_1_V eight, TYPE_2_V the
+ * configured two-octet variant, and the remaining types one.
+ * @param m_seq_type M-sequence type value.
+ * @return OD width in octets.
+ */
+static inline uint8_t iolink_mseq_od_len(uint8_t m_seq_type)
+{
+    switch (m_seq_type) {
+        case IOLINK_M_SEQ_TYPE_1_2:
+            return 2U;
+        case IOLINK_M_SEQ_TYPE_1_V:
+            return 8U;
+        case IOLINK_M_SEQ_TYPE_2_V:
+            return 2U;
+        default:
+            return 1U;
+    }
+}
 
 /**
  * @brief IO-Link stack configuration

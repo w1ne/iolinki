@@ -66,8 +66,8 @@ int main(void)
     exchange(&app, &link, transition, sizeof(transition));
 
     for (unsigned cycle = 0; cycle < 100; cycle++) {
-        /* Type 2_V: MC, CKT, 1 PD-out, 2 OD. Button remains released here. */
-        uint8_t frame[5] = {0x80, IOLINK_MSEQ_TYPE_2, (uint8_t) (cycle & 1U), 0, 0};
+        /* TYPE_2_V read: MC, CKT, 1 PD-out. A read request carries no OD. */
+        uint8_t frame[3] = {0x80, IOLINK_MSEQ_TYPE_2, (uint8_t) (cycle & 1U)};
         frame[1] |= iolink_checksum6(frame, sizeof(frame));
         if (reference_device_tick(&app, false) != 0) return 2;
         exchange(&app, &link, frame, sizeof(frame));

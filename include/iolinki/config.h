@@ -119,11 +119,11 @@
 
 /**
  * @brief Maximum On-Request Data size in bytes.
- * Type 1: 1 byte, Type 2: 2 bytes, Type 2_V extended: 4 bytes.
- * Default: 4 bytes (supports all types including extended Type 2_V)
+ * Table A.10: 1 byte for most types, 2 for TYPE_1_2/TYPE_2_V, 8 for TYPE_1_V.
+ * Default: 8 bytes (supports every streaming M-sequence type)
  */
 #ifndef IOLINK_OD_MAX_SIZE
-#define IOLINK_OD_MAX_SIZE 4U
+#define IOLINK_OD_MAX_SIZE 8U
 #endif
 
 /**

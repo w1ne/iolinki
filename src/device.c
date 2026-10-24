@@ -66,9 +66,9 @@ static void device_apply_stack_config(iolink_device_ctx_t* ctx)
         ctx->dll.t_pd_deadline_us = 0U;
     }
 
-    /* Table A.10: TYPE_2_1/TYPE_2_2 carry one On-request Data octet; TYPE_2_V is
-       the two-octet variant (OPERATE M-sequence code 5). */
-    ctx->dll.od_len = (ctx->dll.m_seq_type == IOLINK_M_SEQ_TYPE_2_V) ? 2U : 1U;
+    /* Table A.10: TYPE_1_2 carries two OD octets, TYPE_1_V eight, and
+       TYPE_2_V the two-octet variant; the remaining types carry one. */
+    ctx->dll.od_len = iolink_mseq_od_len(ctx->dll.m_seq_type);
 
     ctx->dll.pd_in_len_current = ctx->dll.pd_in_len;
     ctx->dll.pd_out_len_current = ctx->dll.pd_out_len;
