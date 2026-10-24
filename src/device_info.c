@@ -25,6 +25,7 @@ static const iolink_device_info_t k_default_info = {
     .vendor_text = "Open-Source IO-Link Stack",
     .product_name = "Generic IO-Link Device",
     .product_id = "IOLINK-DEV-001",
+    .product_uri = NULL,
     .product_text = "Reference Implementation",
     .serial_number = "0000000001",
     .hardware_revision = "1.0",

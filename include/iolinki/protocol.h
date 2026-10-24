@@ -66,7 +66,12 @@
 
 /** @brief MasterCommand value written to Direct Parameter page address 0x00 (Table B.2). */
 #define IOLINK_CMD_FALLBACK 0x5AU       /**< Transition to SIO (T_FBD, Table 43). */
-#define IOLINK_CMD_DEVICE_OPERATE 0x99U /**< Switch to OPERATE. */
+#define IOLINK_CMD_MASTER_IDENT 0x95U         /**< MasterIdent: master revision > 1.0. */
+#define IOLINK_CMD_DEVICE_IDENT 0x96U         /**< DeviceIdent: check DPP for changed entries. */
+#define IOLINK_CMD_DEVICE_STARTUP 0x97U       /**< DeviceStartup: -> STARTUP. */
+#define IOLINK_CMD_PROCESS_DATA_OPERATE 0x98U /**< ProcessDataOutputOperate: PD valid. */
+#define IOLINK_CMD_DEVICE_OPERATE 0x99U       /**< DeviceOperate: PD invalid, -> OPERATE. */
+#define IOLINK_CMD_DEVICE_PREOPERATE 0x9AU    /**< DevicePreoperate: -> PREOPERATE. */
 /** @} */
 
 /**
@@ -113,6 +118,7 @@
 #define IOLINK_IDX_APPLICATION_TAG 0x0018U        /**< Application tag index. */
 #define IOLINK_IDX_FUNCTION_TAG 0x0019U           /**< Function tag index. */
 #define IOLINK_IDX_LOCATION_TAG 0x001AU           /**< Location tag index. */
+#define IOLINK_IDX_PRODUCT_URI 0x001BU            /**< Product URI index (optional). */
 #define IOLINK_IDX_ERROR_COUNT 0x0020U            /**< ErrorCount index (2 octets). */
 #define IOLINK_IDX_DEVICE_STATUS 0x0024U          /**< DeviceStatus index (1 octet). */
 #define IOLINK_IDX_DETAILED_DEVICE_STATUS 0x0025U /**< DetailedDeviceStatus index (Table B.8). */
@@ -125,11 +131,12 @@
  * @ingroup iolinki_protocol
  * @{
  */
-#define IOLINK_CMD_PARAM_DOWNLOAD_START 0x05U /**< ParamDownloadStart command. */
-#define IOLINK_CMD_PARAM_DOWNLOAD_END 0x06U   /**< ParamDownloadEnd command. */
-#define IOLINK_CMD_PARAM_UPLOAD_START 0x07U   /**< ParamUploadStart command. */
-#define IOLINK_CMD_PARAM_UPLOAD_END 0x08U     /**< ParamUploadEnd command. */
-#define IOLINK_CMD_PARAM_DOWNLOAD_STORE 0x09U /**< ParamDownloadStore (V1.0/optional). */
+#define IOLINK_CMD_PARAM_UPLOAD_START 0x01U   /**< ParamUploadStart (Table B.9). */
+#define IOLINK_CMD_PARAM_UPLOAD_END 0x02U     /**< ParamUploadEnd (Table B.9). */
+#define IOLINK_CMD_PARAM_DOWNLOAD_START 0x03U /**< ParamDownloadStart (Table B.9). */
+#define IOLINK_CMD_PARAM_DOWNLOAD_END 0x04U   /**< ParamDownloadEnd (Table B.9). */
+#define IOLINK_CMD_PARAM_DOWNLOAD_STORE 0x05U /**< ParamDownloadStore (Table B.9). */
+#define IOLINK_CMD_PARAM_BREAK 0x06U          /**< ParamBreak (Table B.9). */
 /** @} */
 
 /**
@@ -141,10 +148,7 @@
 #define IOLINK_CMD_APPLICATION_RESET 0x81U        /**< Application reset command. */
 #define IOLINK_CMD_RESTORE_FACTORY_SETTINGS 0x82U /**< Restore factory settings command. */
 #define IOLINK_CMD_RESTORE_APP_DEFAULTS 0x83U     /**< Restore application defaults command. */
-#define IOLINK_CMD_SET_COMM_MODE 0x84U            /**< Set communication mode command. */
-#define IOLINK_CMD_PARAM_UPLOAD 0x95U             /**< Parameter upload command. */
-#define IOLINK_CMD_PARAM_DOWNLOAD 0x96U           /**< Parameter download command. */
-#define IOLINK_CMD_PARAM_BREAK 0x97U              /**< Parameter break command. */
+#define IOLINK_CMD_BACK_TO_BOX 0x83U              /**< Table B.9 name for 0x83 (Back-to-box). */
 /** @} */
 
 /**

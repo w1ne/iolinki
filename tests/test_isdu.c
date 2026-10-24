@@ -269,8 +269,8 @@ static void test_system_cmd_param_upload(void** state)
     iolink_isdu_init(&ctx);
     ctx.ds_ctx = &ds;
 
-    /* Write 0x95 to Index 0x0002 */
-    uint8_t cmd_data[] = {IOLINK_CMD_PARAM_UPLOAD};
+    /* Write 0x01 (ParamUploadStart) to Index 0x0002 */
+    uint8_t cmd_data[] = {IOLINK_CMD_PARAM_UPLOAD_START};
     assert_int_equal(isdu_send_write_request(&ctx, 0x0002, 0x00, cmd_data, 1), 1);
 
     iolink_isdu_process(&ctx);
@@ -295,8 +295,8 @@ static void test_system_cmd_param_download(void** state)
     iolink_isdu_init(&ctx);
     ctx.ds_ctx = &ds;
 
-    /* Write 0x96 to Index 0x0002 */
-    uint8_t cmd_data[] = {IOLINK_CMD_PARAM_DOWNLOAD};
+    /* Write 0x03 (ParamDownloadStart) to Index 0x0002 */
+    uint8_t cmd_data[] = {IOLINK_CMD_PARAM_DOWNLOAD_START};
     assert_int_equal(isdu_send_write_request(&ctx, 0x0002, 0x00, cmd_data, 1), 1);
 
     iolink_isdu_process(&ctx);
@@ -324,7 +324,7 @@ static void test_system_cmd_param_break(void** state)
     /* Set DS to uploading state first */
     ds.state = IOLINK_DS_STATE_UPLOADING;
 
-    /* Write 0x97 to Index 0x0002 */
+    /* Write 0x06 (ParamBreak) to Index 0x0002 */
     uint8_t cmd_data[] = {IOLINK_CMD_PARAM_BREAK};
     assert_int_equal(isdu_send_write_request(&ctx, 0x0002, 0x00, cmd_data, 1), 1);
 
@@ -611,15 +611,22 @@ static void test_isdu_device_id_three_octets(void** state)
     iolink_params_init();
     iolink_isdu_init(&ctx);
 
+    /* Table B.8: 0x000A/0x000B are reserved; VendorID/DeviceID live in DPP1
+       (0x07-0x0B), not in an ISDU index. A read returns IDX_NOTAVAIL. */
+    uint8_t byte;
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_VENDOR_ID, 0x00), 1);
+    iolink_isdu_process(&ctx);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+
     assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DEVICE_ID, 0x00), 1);
     iolink_isdu_process(&ctx);
-
-    uint8_t data[4];
-    int len = isdu_collect_response(&ctx, data, sizeof(data));
-    assert_int_equal(len, 3);
-    assert_int_equal(data[0], 0x01);
-    assert_int_equal(data[1], 0x02);
-    assert_int_equal(data[2], 0x03);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
 }
 
 static void test_isdu_reserved_indices_negative(void** state)
@@ -706,6 +713,91 @@ static void test_isdu_spec_index_constants(void** state)
     assert_int_equal(IOLINK_IDX_ERROR_STATS, 0x0040U);
 }
 
+static void test_isdu_write_rejects_read_only_identification(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+
+    /* Table C.1: a WRITE to a read-only identification object is access
+       denied (0x80 0x23). */
+    uint8_t data[] = {0x41U, 0x42U};
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_VENDOR_NAME, 0x00, data,
+                                             sizeof(data)),
+                     1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t byte;
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+}
+
+static void test_isdu_param_lock_blocks_tag_write(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+
+    iolink_device_info_set_access_locks(IOLINK_LOCK_PARAM);
+
+    uint8_t data[] = {0x41U, 0x42U};
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_APPLICATION_TAG, 0x00, data,
+                                             sizeof(data)),
+                     1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t byte;
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+}
+
+static void test_isdu_error_count_read(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+
+    /* ErrorCount (0x0020) is a 2-octet read-only object; zero without a DLL. */
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_ERROR_COUNT, 0x00), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t buf[2];
+    assert_int_equal(isdu_collect_response(&ctx, buf, sizeof(buf)), 2);
+    assert_int_equal(buf[0], 0);
+    assert_int_equal(buf[1], 0);
+}
+
+static void test_isdu_product_uri_read(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_t info;
+    (void) memset(&info, 0, sizeof(info));
+    info.product_uri = "https://example.org/iolinki";
+    iolink_device_info_init(&info);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_PRODUCT_URI, 0x00), 1);
+    iolink_isdu_process(&ctx);
+
+    char uri[64];
+    int len = isdu_collect_response(&ctx, (uint8_t*) uri, sizeof(uri) - 1);
+    assert_int_equal(len, (int) strlen("https://example.org/iolinki"));
+    uri[len] = '\0';
+    assert_string_equal(uri, "https://example.org/iolinki");
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -724,6 +816,12 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_isdu_spec_index_constants, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_system_command_read_only_write, test_setup,
                                         test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_write_rejects_read_only_identification,
+                                        test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_param_lock_blocks_tag_write, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_error_count_read, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_product_uri_read, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_device_reset, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_application_reset, test_setup,
                                         test_teardown),

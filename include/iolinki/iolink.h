@@ -54,6 +54,37 @@ typedef struct
 } iolink_config_t;
 
 /**
+ * @brief Encode a cycle time in 0.1 ms units to a Table B.3 octet.
+ *
+ * Time base bits 7:6 and multiplier bits 5:0 per Table B.3. Values below the
+ * 0.4 ms minimum are clamped to 0.4 ms; values above 132.8 ms saturate at
+ * 132.8 ms (time base 10, multiplier 63).
+ * @param units100us Cycle time in 100 us (0.1 ms) units.
+ * @return Table B.3 encoded octet.
+ */
+static inline uint8_t iolink_cycle_time_encode(uint16_t units100us)
+{
+    if (units100us < 4U) {
+        units100us = 4U; /* Table B.3 minimum is 0.4 ms. */
+    }
+    if (units100us <= 63U) {
+        return (uint8_t) units100us; /* 0.4 .. 6.3 ms */
+    }
+    if (units100us <= 316U) {
+        uint16_t m = (uint16_t) ((units100us - 64U + 3U) / 4U); /* ceil to 0.4 ms */
+        if (m > 63U) {
+            m = 63U;
+        }
+        return (uint8_t) (0x40U | (uint8_t) m);
+    }
+    uint32_t m = ((uint32_t) units100us - 320U + 15U) / 16U; /* ceil to 1.6 ms */
+    if (m > 63U) {
+        m = 63U;
+    }
+    return (uint8_t) (0x80U | (uint8_t) m);
+}
+
+/**
  * @brief Reset request type delivered to the application reset handler.
  */
 typedef enum
