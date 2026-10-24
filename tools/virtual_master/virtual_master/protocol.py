@@ -198,7 +198,13 @@ class MSequenceGenerator:
         return bytes(frame)
 
     def generate_type1(
-        self, mc: int, ckt: int, pd: bytes, od: object = 0, od2: int = 0x00
+        self,
+        mc: int,
+        ckt: int,
+        pd: bytes,
+        od: object = 0,
+        od2: int = 0x00,
+        read_od: bool = False,
     ) -> bytes:
         """
         Generate a Type 1/2 M-sequence: MC + CKT + PD-out [+ OD], with the A.1.6
@@ -212,6 +218,7 @@ class MSequenceGenerator:
             od: OD bytes, or the first OD octet when an int
             od2: Second OD octet (only used when od is an int and the OD width
                 is at least two)
+            read_od: keep the legacy TYPE_1_1 OD octets on a read request
 
         Returns:
             Frame bytes
@@ -219,7 +226,7 @@ class MSequenceGenerator:
         type_bits = ckt & M_SEQUENCE_TYPE_MASK
         read = (mc & 0x80) != 0
         body = bytes([mc, type_bits]) + pd
-        if not read:
+        if (not read) or read_od:
             if isinstance(od, (bytes, bytearray)):
                 od_bytes = bytes(od)
             else:

@@ -211,7 +211,11 @@ class VirtualMaster:
 
         pd = bytes([0] * self.pd_out_len)
         frame = self.generator.generate_type1(
-            mc, self._type_bits(), pd, od if not read else b""
+            mc,
+            self._type_bits(),
+            pd,
+            od if (not read or self.m_seq_type == MSequenceType.TYPE_1_1) else b"",
+            read_od=self.m_seq_type == MSequenceType.TYPE_1_1,
         )
         self.uart.send_bytes(frame)
         # Figures A.9/A.10/A.13/A.14: a multi-type READ reply is
