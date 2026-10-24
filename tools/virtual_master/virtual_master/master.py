@@ -78,6 +78,7 @@ class VirtualMaster:
         self.cycle_time_ms = 10  # Default cycle time
         self.phy_mode = "SDCI"  # Default PHY mode
         self.baudrate = "COM2"  # Default baudrate (38.4 kbit/s)
+        self.last_isdu_error: Optional[int] = None
 
     def get_device_tty(self) -> str:
         """Get the TTY path for connecting the Device."""
@@ -289,6 +290,7 @@ class VirtualMaster:
         print(
             f"[Master] ISDU Read request: Index=0x{index:04X}, Subindex=0x{subindex:02X}"
         )
+        self.last_isdu_error = None
         request = self.generator.build_isdu_read_request(index, subindex)
         if not self._isdu_send_request(request):
             return None
@@ -300,6 +302,7 @@ class VirtualMaster:
 
         service = framed[0] >> 4
         if service == 0xC:
+            self.last_isdu_error = (framed[1] << 8) | framed[2]
             print(
                 f"[Master] ISDU negative response: "
                 f"code=0x{framed[1]:02X} add=0x{framed[2]:02X}"
@@ -319,6 +322,15 @@ class VirtualMaster:
 
         print(f"[Master] ISDU Read complete: {data.hex()}")
         return bytes(data)
+
+    def read_isdu_ex(self, index: int, subindex: int = 0):
+        """Read an ISDU parameter and return ``(data, 16-bit error code)``.
+
+        ``data`` is None when the Device answers negatively; ``error`` is then
+        the 0x80xx code reported by the Device, otherwise None.
+        """
+        data = self.read_isdu(index, subindex)
+        return data, self.last_isdu_error
 
     def _diagnosis_read(self, addr: int, timeout_ms: int = 300) -> Optional[int]:
         """Read one diagnosis-channel memory octet (Type-0 READ, Table 58)."""

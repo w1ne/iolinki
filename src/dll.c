@@ -422,6 +422,7 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
 
     if (ctx->pd_out_len_current > 0U) {
         memcpy(ctx->pd_out, &ctx->frame_buf[pd_offset], ctx->pd_out_len_current);
+        ctx->pd_out_seen = true; /* B.2.24: last PDout written to the application */
     }
 
     uint8_t od_in[IOLINK_OD_MAX_SIZE] = {0};

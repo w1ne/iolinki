@@ -26,6 +26,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `product_uri`) returns `0x80 0x11`. Writes to read-only objects return
   `0x80 0x23`, the Parameter access lock covers tag writes, and a non-zero
   subindex on single-element objects returns `0x80 0x12`.
+- **ProcessDataInput/ProcessDataOutput and ProfileCharacteristic (breaking
+  change).** ISDU `0x0028`/`0x0029` now return the Process Data content of the
+  PDin/PDout channel as defined by B.2.23/B.2.24 instead of a single PD length
+  octet, so clients that parsed the old length reply must be updated.
+  `0x0028` answers `0x80 0x11` while the DLL flags PDin as invalid, and
+  `0x0029` answers `0x80 0x11` until a PDout frame has been received; a device
+  without PD answers with an empty positive response. `0x000D` is exposed as the ArrayT
+  of UIntegerT16 described in B.2.5, served for subindex 0/1 and answering
+  `0x80 0x11` when no Profile is implemented.
 - `MinCycleTime` in Direct Parameter Page 1 is encoded per Table B.3 instead of
   carrying the raw value. 0 still encodes as 0x00 ("no MinCycleTime", B.1.3),
   values below 0.4 ms clamp to 0.4 ms, values between steps round up, and

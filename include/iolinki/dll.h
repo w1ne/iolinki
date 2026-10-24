@@ -104,6 +104,8 @@ typedef struct
     uint8_t pd_in[IOLINK_PD_IN_MAX_SIZE];   /**< Input PD buffer (Device -> Master) */
     uint8_t pd_out[IOLINK_PD_OUT_MAX_SIZE]; /**< Output PD buffer (Master -> Device) */
 
+    bool pd_out_seen; /**< A PDout frame has been received (B.2.24) */
+
     /* Error Counters & Statistics */
     uint32_t crc_errors;            /**< Cumulative CRC error count */
     uint32_t timeout_errors;        /**< Cumulative timeout count */
