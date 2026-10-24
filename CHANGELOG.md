@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **ISDU conformance with Table B.8/B.9 (breaking change).** SystemCommand
+  codes now follow Table B.9 (`ParamUploadStart/End` 0x01/0x02,
+  `ParamDownloadStart/End` 0x03/0x04, `ParamDownloadStore` 0x05,
+  `ParamBreak` 0x06). This remaps the previously used 0x05 (now
+  `ParamDownloadStore`), 0x06 (now `ParamBreak`), 0x07 and 0x08 (now
+  reserved). 0x07-0x09 and the non-standard 0x95-0x97 are rejected with
+  `FUNC_NOTAVAIL` (0x35), and 0x84-0x9F is reserved, so masters and tools that
+  use the old codes must be updated. `IOLINK_CMD_RESTORE_APP_DEFAULTS` is
+  renamed to `IOLINK_CMD_BACK_TO_BOX` (same code 0x83).
+- The non-standard VendorID and DeviceID ISDU indices (0x000A/0x000B, both in
+  the reserved 0x0004-0x000B range of Table B.8) are removed, together with
+  `IOLINK_IDX_VENDOR_ID` and `IOLINK_IDX_DEVICE_ID`; both fields are only
+  available through Direct Parameter Page 1 (0x07-0x0B).
+- ErrorCount (0x0020) and ProductURI (0x001B) are served. A read of an
+  unconfigured optional identification string (for example ProductURI without
+  `product_uri`) returns `0x80 0x11`. Writes to read-only objects return
+  `0x80 0x23`, the Parameter access lock covers tag writes, and a non-zero
+  subindex on single-element objects returns `0x80 0x12`.
+- `MinCycleTime` in Direct Parameter Page 1 is encoded per Table B.3 instead of
+  carrying the raw value. 0 still encodes as 0x00 ("no MinCycleTime", B.1.3),
+  values below 0.4 ms clamp to 0.4 ms, values between steps round up, and
+  values above 132.8 ms saturate.
+- ErrorCount sums the DLL CRC, framing, timeout and timing counters and
+  saturates at 0xFFFF. B.2.20 makes the content vendor/Device specific and asks
+  for errors since power-on or reset; those counters are cleared by DLL
+  initialization, while the application owns the reset path.
+
 ### Fixed
 - **Streaming M-sequence request framing (wire change).** Read requests now
   carry no On-request Data octets: a typed read is `MC + CKT + PD-out`, while a

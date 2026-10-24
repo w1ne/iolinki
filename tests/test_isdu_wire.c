@@ -168,7 +168,9 @@ static void test_isdu_wire_write_figure_a20(void** state)
     iolink_params_init();
     iolink_isdu_init(&ctx);
 
-    const uint8_t req[6] = {0x26U, 0x10U, 0x01U, 0x12U, 0x34U, 0x11U};
+    /* Write to the writable ApplicationTag (0x0018) to exercise the
+       positive-write response (0x52, Figure A.20). */
+    const uint8_t req[6] = {0x26U, 0x18U, 0x00U, 0x12U, 0x34U, 0x18U};
     assert_int_equal(chkpdu(req, 6U), 0U);
     wire_write_request(&ctx, req, sizeof(req));
 

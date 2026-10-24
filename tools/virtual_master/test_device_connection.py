@@ -120,11 +120,10 @@ def test_type_1_2_connection():
                 print(f"  ❌ Cycle {i + 1} failed")
                 return False
 
-        print("\nReading ISDU (Vendor ID)...")
-        vendor_id_data = master.read_isdu(0x000A)
-        if vendor_id_data and len(vendor_id_data) >= 2:
-            vendor_id = (vendor_id_data[0] << 8) | vendor_id_data[1]
-            print(f"✅ Vendor ID: 0x{vendor_id:04X}")
+        print("\nReading ISDU (Vendor Name, 0x0010)...")
+        vendor_name_data = master.read_isdu(0x0010)
+        if vendor_name_data:
+            print(f"✅ Vendor Name: {vendor_name_data.decode(errors='replace')}")
             return True
         else:
             print("❌ ISDU read failed")

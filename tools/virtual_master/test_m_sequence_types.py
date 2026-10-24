@@ -68,12 +68,11 @@ def test_type_1_2():
     master.go_to_operate()
     time.sleep(0.1)
 
-    print("\nReading ISDU Index 0x000A (Vendor ID)...")
-    vendor_id_data = master.read_isdu(0x000A)
+    print("\nReading ISDU Index 0x0010 (Vendor Name)...")
+    vendor_name_data = master.read_isdu(0x0010)
 
-    if vendor_id_data:
-        vendor_id = (vendor_id_data[0] << 8) | vendor_id_data[1]
-        print(f"✅ Vendor ID: 0x{vendor_id:04X}")
+    if vendor_name_data:
+        print(f"✅ Vendor Name: {vendor_name_data.decode(errors='replace')}")
     else:
         print("❌ ISDU read failed")
         return False
