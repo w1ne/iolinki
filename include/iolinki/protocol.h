@@ -116,8 +116,9 @@
 #define IOLINK_IDX_ERROR_COUNT 0x0020U            /**< ErrorCount index (2 octets). */
 #define IOLINK_IDX_DEVICE_STATUS 0x0024U          /**< DeviceStatus index (1 octet). */
 #define IOLINK_IDX_DETAILED_DEVICE_STATUS 0x0025U /**< DetailedDeviceStatus index (Table B.8). */
-#define IOLINK_IDX_PROCESS_DATA_INPUT 0x0028U     /**< ProcessDataInput descriptor index. */
-#define IOLINK_IDX_ERROR_STATS 0x0040U /**< Vendor-specific error statistics (0x0040+). */
+#define IOLINK_IDX_PROCESS_DATA_INPUT 0x0028U     /**< ProcessDataInput index (last valid PDin). */
+#define IOLINK_IDX_PROCESS_DATA_OUTPUT 0x0029U /**< ProcessDataOutput index (last valid PDout). */
+#define IOLINK_IDX_ERROR_STATS 0x0040U         /**< Vendor-specific error statistics (0x0040+). */
 /** @} */
 
 /**

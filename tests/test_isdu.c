@@ -440,34 +440,87 @@ static void test_isdu_pdin_descriptor_read(void** state)
     iolink_params_init();
     iolink_isdu_init(&ctx);
 
-    /* Wire a DLL context with a configured PD-in length of 3 so the descriptor
-       reflects the real runtime length rather than a hardcoded constant. */
-    assert_int_equal(iolink_dll_set_pd_length(&dll, 3, 0), 0);
+    /* Wire a DLL context holding last-valid PD-in of 3 octets. */
+    assert_int_equal(iolink_dll_set_pd_length(&dll, 3, 1), 0);
+    dll.pd_in[0] = 0xAAU;
+    dll.pd_in[1] = 0xBBU;
+    dll.pd_in[2] = 0xCCU;
+    dll.pd_out[0] = 0x11U;
     ctx.dll_ctx = &dll;
 
-    /* Read Process Data Input descriptor (Index 0x0028) */
+    /* Read ProcessDataInput (Index 0x0028): last valid PD from PDin channel. */
     assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_PROCESS_DATA_INPUT, 0x00), 1);
-
     iolink_isdu_process(&ctx);
 
-    /* Verify response reports the configured PD-in length */
-    uint8_t byte;
-    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
-    assert_int_equal(byte, 3);
+    uint8_t pdi[3];
+    assert_int_equal(isdu_collect_response(&ctx, pdi, sizeof(pdi)), 3);
+    assert_int_equal(pdi[0], 0xAA);
+    assert_int_equal(pdi[1], 0xBB);
+    assert_int_equal(pdi[2], 0xCC);
 
-    /* Test write protection */
+    /* Read ProcessDataOutput (Index 0x0029): last valid PD from PDout channel. */
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_PROCESS_DATA_OUTPUT, 0x00), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t pdo[1];
+    assert_int_equal(isdu_collect_response(&ctx, pdo, sizeof(pdo)), 1);
+    assert_int_equal(pdo[0], 0x11);
+
+    /* Test write protection on 0x0028. */
     iolink_isdu_init(&ctx);
+    ctx.dll_ctx = &dll;
     uint8_t cmd_data[] = {0x05};
     assert_int_equal(
         isdu_send_write_request(&ctx, IOLINK_IDX_PROCESS_DATA_INPUT, 0x00, cmd_data, 1), 1);
 
     iolink_isdu_process(&ctx);
 
-    /* Verify write-protected error: {0x80, AdditionalCode}. */
+    uint8_t byte;
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
     assert_int_equal(byte, 0x80);
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
     assert_int_equal(byte, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+}
+
+static void test_isdu_profile_characteristic_arrayt(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_t info;
+    (void) memset(&info, 0, sizeof(info));
+    info.profile_characteristic = 0x1234U;
+    iolink_device_info_init(&info);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+
+    /* B.2.5: ArrayT of UIntegerT16; subindex 0 returns the single element. */
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_PROFILE_CHARACTERISTIC, 0x00), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t buf[2];
+    assert_int_equal(isdu_collect_response(&ctx, buf, sizeof(buf)), 2);
+    assert_int_equal(buf[0], 0x12);
+    assert_int_equal(buf[1], 0x34);
+
+    /* Subindex > 1 is out of range for a single-element array. */
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_PROFILE_CHARACTERISTIC, 0x02), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t byte;
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
+
+    /* A device without a profile does not expose the conditional parameter. */
+    iolink_isdu_init(&ctx);
+    info.profile_characteristic = 0U;
+    iolink_device_info_init(&info);
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_PROFILE_CHARACTERISTIC, 0x00), 1);
+    iolink_isdu_process(&ctx);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
 }
 
 static void test_isdu_data_storage_round_trip(void** state)
@@ -737,6 +790,8 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_isdu_location_tag_read_write, test_setup,
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_pdin_descriptor_read, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_profile_characteristic_arrayt, test_setup,
+                                        test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_direct_parameters_page1, test_setup,
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_direct_parameters_page2, test_setup,
