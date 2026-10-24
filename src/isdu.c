@@ -799,41 +799,44 @@ static void handle_detailed_device_status(iolink_isdu_ctx_t* ctx)
 
     iolink_critical_enter();
     iolink_events_ctx_t* event_ctx = (iolink_events_ctx_t*) ctx->event_ctx;
-    uint8_t count = event_ctx->count;
-    if (count > 8U) count = 8U; /* Limit to 8 events in response */
 
-    for (uint8_t i = 0U; i < count; i++) {
-        /* Calculate index in FIFO */
-        uint8_t idx = (uint8_t) ((event_ctx->head + i) % IOLINK_EVENT_QUEUE_SIZE);
-        const iolink_event_t* ev = &event_ctx->queue[idx];
-
-        /* EventQualifier byte per IO-Link V1.1.5 (Figure A.24):
-         *   MODE     (bits 7-6): 11 = event appears
-         *   TYPE     (bits 5-4): 01 notification, 10 warning, 11 error
-         *   SOURCE   (bit  3)  : 0 = device (Table A.18)
-         *   INSTANCE (bits 2-0): 4 = Application (Table A.17)
-         */
-        uint8_t qualifier = 0xC0U; /* MODE = event appears */
-        switch (ev->type) {
-            case IOLINK_EVENT_TYPE_NOTIFICATION:
-                qualifier |= (0x01U << 4);
-                break;
-            case IOLINK_EVENT_TYPE_WARNING:
-                qualifier |= (0x02U << 4);
-                break;
-            case IOLINK_EVENT_TYPE_ERROR:
-                qualifier |= (0x03U << 4);
-                break;
-            default:
-                break;
+    /* Collect the currently active Error/Warning events. B.2.22: only MODE
+       "Event appears" entries are listed; a disappeared event drops out, which
+       is equivalent to clearing its slot to 0x00/0x0000. */
+    uint16_t codes[IOLINK_EVENT_PENDING_MAX];
+    iolink_event_type_t types[IOLINK_EVENT_PENDING_MAX];
+    uint8_t n = 0U;
+    for (uint8_t i = 0U; i < IOLINK_EVENT_PENDING_MAX; i++) {
+        const iolink_event_pending_t* p = &event_ctx->pending[i];
+        if (p->active && (p->type != IOLINK_EVENT_TYPE_NOTIFICATION)) {
+            codes[n] = p->code;
+            types[n] = p->type;
+            n++;
         }
-        qualifier |= 0x04U; /* INSTANCE = Application */
-
-        ctx->response_buf[i * 3U] = qualifier;
-        ctx->response_buf[i * 3U + 1U] = (uint8_t) (ev->code >> 8);
-        ctx->response_buf[i * 3U + 2U] = (uint8_t) (ev->code & 0xFF);
     }
-    ctx->response_len = (uint8_t) (count * 3U);
+
+    const uint8_t sub = ctx->header.subindex;
+    if ((sub == 0U) || (sub <= n)) {
+        const uint8_t start = (sub == 0U) ? 0U : (uint8_t) (sub - 1U);
+        const uint8_t end = (sub == 0U) ? n : (uint8_t) (start + 1U);
+        uint8_t pos = 0U;
+        for (uint8_t i = start; i < end; i++) {
+            /* Figure A.24: MODE 11 = appears, TYPE 10 = Warning / 11 = Error,
+               INSTANCE 4 = Application. */
+            uint8_t qualifier = 0xC0U;
+            qualifier |= (types[i] == IOLINK_EVENT_TYPE_ERROR) ? (0x03U << 4) : (0x02U << 4);
+            qualifier |= 0x04U;
+            ctx->response_buf[pos++] = qualifier;
+            ctx->response_buf[pos++] = (uint8_t) (codes[i] >> 8);
+            ctx->response_buf[pos++] = (uint8_t) (codes[i] & 0xFFU);
+        }
+        ctx->response_len = pos;
+    }
+    else {
+        ctx->response_buf[0] = 0x80U;
+        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL;
+        ctx->response_len = 2U;
+    }
     ctx->response_idx = 0U;
     ctx->state = ISDU_STATE_RESPONSE_READY;
     iolink_critical_exit();

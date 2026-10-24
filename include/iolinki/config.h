@@ -50,6 +50,24 @@
 #define IOLINK_EVENT_QUEUE_SIZE 4U
 #endif
 
+/**
+ * @brief Minimum appearance time for an Error/Warning event (A.6.4).
+ *
+ * A disappearance is not reported until this long after the appearance.
+ */
+#ifndef IOLINK_EVENT_MIN_APPEAR_MS
+#define IOLINK_EVENT_MIN_APPEAR_MS 50U
+#endif
+
+/**
+ * @brief Minimum repeat interval for the same EventCode (A.6.4).
+ *
+ * The same EventCode is not reported more than once per this interval.
+ */
+#ifndef IOLINK_EVENT_MIN_REPEAT_MS
+#define IOLINK_EVENT_MIN_REPEAT_MS 1000U
+#endif
+
 /* -------------------------------------------------------------------------
  * Process Data Configuration
  * ------------------------------------------------------------------------- */
