@@ -182,7 +182,8 @@ int iolink_ds_abort(iolink_ds_ctx_t* ctx);
  * @param cmd SystemCommand code (ParamUploadStart/End, ParamDownloadStart/End,
  *            ParamDownloadStore, ParamBreak)
  * @param access_locks Current Access Lock state (Index 0x000C)
- * @return int 0: Success, -1: Busy, -2: Access Denied, -3: Unknown
+ * @return int 0: Success, -1: Busy, -2: Access Denied, -3: Unknown,
+ *         -4: Inconsistent parameter set
  */
 int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_locks);
 

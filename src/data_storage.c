@@ -39,6 +39,16 @@ static const struct
 #define DS_RECORD_HEADER 4U /* index(2) + subindex(1) + length(1) */
 #define DS_PARAM_VALUE_MAX 64U
 
+static bool ds_param_is_known(uint16_t index, uint8_t subindex)
+{
+    for (size_t i = 0U; i < DS_PARAM_COUNT; i++) {
+        if ((k_ds_params[i].index == index) && (k_ds_params[i].subindex == subindex)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void iolink_ds_init(iolink_ds_ctx_t* ctx, const iolink_ds_storage_api_t* storage)
 {
     if (!iolink_ctx_zero(ctx, sizeof(iolink_ds_ctx_t))) {
@@ -153,7 +163,12 @@ int iolink_ds_apply_image(iolink_ds_ctx_t* ctx, const uint8_t* data, size_t len)
         uint16_t index = (uint16_t) (((uint16_t) data[pos] << 8) | (uint16_t) data[pos + 1U]);
         uint8_t subindex = data[pos + 2U];
         size_t rlen = (size_t) data[pos + 3U];
-        (void) ds_params_set(ctx, index, subindex, &data[pos + DS_RECORD_HEADER], rlen, true);
+        /* A replacement Device may omit a backed-up parameter; unknown records
+           are intentionally skipped. Known DS parameters must apply cleanly. */
+        if (ds_param_is_known(index, subindex) &&
+            (ds_params_set(ctx, index, subindex, &data[pos + DS_RECORD_HEADER], rlen, true) != 0)) {
+            return -1; /* Parameter access/validity failure */
+        }
         pos += DS_RECORD_HEADER + rlen;
     }
 
@@ -339,7 +354,9 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
             /* Commit the parameter image staged via DS_Data (0x0003). */
             if (ctx->state == IOLINK_DS_STATE_DOWNLOADING) {
                 if (ctx->image_len > 0U) {
-                    (void) iolink_ds_apply_image(ctx, ctx->image, ctx->image_len);
+                    if (iolink_ds_apply_image(ctx, ctx->image, ctx->image_len) != 0) {
+                        return -4;
+                    }
                 }
                 ctx->state = IOLINK_DS_STATE_IDLE;
             }
@@ -356,10 +373,14 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
             }
             if (ctx->state == IOLINK_DS_STATE_DOWNLOADING) {
                 if (ctx->image_len > 0U) {
-                    (void) iolink_ds_apply_image(ctx, ctx->image, ctx->image_len);
+                    if (iolink_ds_apply_image(ctx, ctx->image, ctx->image_len) != 0) {
+                        return -4;
+                    }
                 }
             }
-            (void) iolink_ds_build_image(ctx);
+            if (iolink_ds_build_image(ctx) < 0) {
+                return -4;
+            }
             ctx->state = IOLINK_DS_STATE_UPLOAD_REQ;
             break;
 
