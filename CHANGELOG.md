@@ -32,8 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   values above 132.8 ms saturate.
 - ErrorCount sums the DLL CRC, framing, timeout and timing counters and
   saturates at 0xFFFF. B.2.20 makes the content vendor/Device specific and asks
-  for errors since power-on or reset; those counters are cleared by DLL
-  initialization, while the application owns the reset path.
+  for errors since power-on or reset.
+- Device diagnosis and status follow Table 101: Device reset (0x80), Restore
+  factory settings (0x82) and Back-to-box (0x83) clear ErrorCount and the event
+  memory behind DeviceStatus (0x0024) / DetailedDeviceStatus (0x0025), while
+  Application reset (0x81) leaves them untouched.
 
 ### Fixed
 - **Streaming M-sequence request framing (wire change).** Read requests now

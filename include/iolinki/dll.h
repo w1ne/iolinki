@@ -240,6 +240,19 @@ iolink_baudrate_t iolink_dll_get_baudrate(const iolink_dll_ctx_t* ctx);
 void iolink_dll_get_stats(const iolink_dll_ctx_t* ctx, iolink_dll_stats_t* out_stats);
 
 /**
+ * @brief Reset the Device diagnosis and status (Table 101)
+ *
+ * Clears the counters behind ErrorCount (0x0020) and discards the event queue,
+ * the Event flag and the Table 58 event memory, so DeviceStatus (0x0024) and
+ * DetailedDeviceStatus (0x0025) start from "0" again. Called for the Device
+ * reset, Restore factory settings and Back-to-box SystemCommands; an
+ * Application reset leaves the diagnosis untouched (Table 101).
+ *
+ * @param ctx DLL context
+ */
+void iolink_dll_reset_diagnostics(iolink_dll_ctx_t* ctx);
+
+/**
  * @brief Enable/disable timing enforcement (t_ren / t_cycle)
  *
  * @param ctx DLL context
