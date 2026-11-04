@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   settings (0x82) converts queued Error/Warning events to MODE "disappears"
   so the Master can clear its diagnosis; Back-to-box (0x83) clears diagnosis
   and disables communication after the positive response and three processing
-  cycles.
+  cycles, with a bounded wait so a Master that stops polling cannot keep the
+  link alive.
 - ParamDownloadStore now rejects malformed or invalid staged parameter images
   with `PARAM_INCONSISTENT` and does not enter `UPLOAD_REQ` or emit
   `DS_UPLOAD_REQ` on failure.

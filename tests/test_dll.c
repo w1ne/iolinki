@@ -210,6 +210,88 @@ static void test_dll_reject_transition_in_operate(void** state)
     assert_int_not_equal(stats.framing_errors, 0);
 }
 
+/* Send one valid TYPE_1_1 read frame and expect the [OD][CKS] reply. */
+static void type1_1_read_frame(iolink_device_ctx_t* ctx)
+{
+    /* TYPE_1_1 keeps the legacy interleaved layout: header + PD/OD octet. */
+    uint8_t frame[3] = {IOLINK_MC_RW_MASK, IOLINK_MSEQ_TYPE_1, 0x00U};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, sizeof(frame)));
+    for (size_t i = 0; i < sizeof(frame); i++) {
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, frame[i]);
+    }
+    will_return(mock_phy_recv_byte, 0);
+
+    expect_any(mock_phy_send, data);
+    expect_value(mock_phy_send, len, 2); /* OD(1) + CKS */
+    will_return(mock_phy_send, 0);
+    iolink_device_process(ctx);
+}
+
+/* 10.7.5: after the ISDU response of Back-to-box, the Device waits three
+ * Master cycles and then stops and disables communication. The hook lives in
+ * the shared response path, so a TYPE_1_1 link (the default transport for
+ * ISDU) must arm the countdown too. */
+static void test_dll_back_to_box_stops_after_three_cycles(void** state)
+{
+    (void) state;
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 0, .pd_out_len = 0};
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_test_device_t dev;
+    assert_int_equal(iolink_test_device_init(&dev, &config, NULL), 0);
+    move_to_operate_ctx(&dev.ctx);
+    assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_OPERATE);
+
+    /* The SystemCommand handler has queued the stop; the next response arms it. */
+    dev.ctx.dll.isdu.back_to_box_pending = true;
+    type1_1_read_frame(&dev.ctx);
+    assert_true(dev.ctx.dll.back_to_box_armed);
+    assert_int_equal(dev.ctx.dll.back_to_box_cycles, 3);
+    assert_false(dev.ctx.dll.communication_disabled);
+
+    /* Two further Master cycles are still answered. */
+    type1_1_read_frame(&dev.ctx);
+    assert_int_equal(dev.ctx.dll.back_to_box_cycles, 2);
+    type1_1_read_frame(&dev.ctx);
+    assert_int_equal(dev.ctx.dll.back_to_box_cycles, 1);
+
+    /* The third cycle stops communication; no response is sent. */
+    uint8_t frame[3] = {IOLINK_MC_RW_MASK, IOLINK_MSEQ_TYPE_1, 0x00U};
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, sizeof(frame)));
+    for (size_t i = 0; i < sizeof(frame); i++) {
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, frame[i]);
+    }
+    /* The Device returns as soon as the last cycle is consumed, before it asks
+       for another octet, so no terminator is queued here. */
+    iolink_device_process(&dev.ctx);
+
+    assert_true(dev.ctx.dll.communication_disabled);
+    assert_int_equal(iolink_device_get_phy_mode(&dev.ctx), IOLINK_PHY_MODE_INACTIVE);
+}
+
+/* A Master that stops polling must not keep the Device communicating: the
+ * bounded wait ends the countdown as well. */
+static void test_dll_back_to_box_deadline_stops_without_frames(void** state)
+{
+    (void) state;
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 0, .pd_out_len = 0};
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_test_device_t dev;
+    assert_int_equal(iolink_test_device_init(&dev, &config, NULL), 0);
+    move_to_operate_ctx(&dev.ctx);
+
+    dev.ctx.dll.back_to_box_armed = true;
+    dev.ctx.dll.back_to_box_cycles = 3U;
+    dev.ctx.dll.back_to_box_deadline_us = 1U; /* already elapsed */
+    iolink_device_process(&dev.ctx);
+
+    assert_true(dev.ctx.dll.communication_disabled);
+    assert_int_equal(iolink_device_get_phy_mode(&dev.ctx), IOLINK_PHY_MODE_INACTIVE);
+}
+
 /* Bring a Type-0 device to OPERATE: wake, PREOPERATE, transition command,
    then a valid Type-0 idle frame. */
 static void move_type0_to_operate(iolink_device_ctx_t* ctx)
@@ -535,6 +617,10 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_dll_preoperate_type0_od_write_ignores_operate_widths,
                                         test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_type0_write_is_three_octets_with_two_octet_od,
+                                        test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_dll_back_to_box_stops_after_three_cycles, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_dll_back_to_box_deadline_stops_without_frames,
                                         test_setup, test_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);

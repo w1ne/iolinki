@@ -351,6 +351,41 @@ static bool dll_dispatch_od(iolink_dll_ctx_t* ctx, uint8_t mc, const uint8_t* od
     return false;
 }
 
+/**
+ * @brief Arm the Back-to-box communication stop after a response was sent.
+ *
+ * 10.7.5: the ISDU response goes out first, then the Device waits at least
+ * three Master cycles before it stops and disables communication. The
+ * countdown advances on every valid Master frame; a deadline bounds the wait so
+ * a Master that stops polling still gets the Device disabled.
+ */
+static void dll_arm_back_to_box_stop(iolink_dll_ctx_t* ctx)
+{
+    if (!ctx->isdu.back_to_box_pending) {
+        return;
+    }
+    ctx->isdu.back_to_box_pending = false;
+    ctx->back_to_box_cycles = 3U;
+    ctx->back_to_box_armed = true;
+    /* Fallback bound: 3 x MinCycleTime, at least 3 ms. The actual MasterCycle
+       time is not tracked by this stack. */
+    const uint64_t frame_bound_us =
+        (ctx->min_cycle_time_us > 0U) ? (3ULL * (uint64_t) ctx->min_cycle_time_us) : 3000ULL;
+    ctx->back_to_box_deadline_us = iolink_time_get_us() + frame_bound_us;
+}
+
+/** @brief Stop and disable communication until the next power cycle (10.7.5). */
+static void dll_disable_communication(iolink_dll_ctx_t* ctx)
+{
+    if (ctx->phy->set_mode != NULL) {
+        ctx->phy->set_mode(ctx->phy->user, IOLINK_PHY_MODE_INACTIVE);
+    }
+    ctx->phy_mode = IOLINK_PHY_MODE_INACTIVE;
+    ctx->communication_disabled = true;
+    ctx->back_to_box_armed = false;
+    dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
+}
+
 /** @brief Process a 2-octet Type-0 request through ISDU and send the OD response. */
 static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t cks)
 {
@@ -387,11 +422,7 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
         }
     }
     ctx->last_response_us = iolink_time_get_us();
-    if (ctx->isdu.back_to_box_pending) {
-        ctx->isdu.back_to_box_pending = false;
-        ctx->back_to_box_cycles = 3U;
-        ctx->back_to_box_armed = true;
-    }
+    dll_arm_back_to_box_stop(ctx);
 }
 
 /** @brief Process a 3-octet Type-0 OD WRITE (MC, CKT, OD) and reply with CKS only (Figure A.5). */
@@ -413,11 +444,7 @@ static void dll_handle_type0_od_write(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t
         ctx->phy->send(ctx->phy->user, resp, 1);
     }
     ctx->last_response_us = iolink_time_get_us();
-    if (ctx->isdu.back_to_box_pending) {
-        ctx->isdu.back_to_box_pending = false;
-        ctx->back_to_box_cycles = 3U;
-        ctx->back_to_box_armed = true;
-    }
+    dll_arm_back_to_box_stop(ctx);
 }
 
 /** @brief Process a Type-1/Type-2 OPERATE frame (PD+OD) and build the response, enforcing t_REN. */
@@ -490,6 +517,7 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
         }
     }
     ctx->last_response_us = iolink_time_get_us();
+    dll_arm_back_to_box_stop(ctx);
 }
 
 /** @brief Poll PHY voltage and short-circuit status and raise events on faults. */
@@ -594,6 +622,12 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     }
 
     if (ctx->communication_disabled) {
+        return;
+    }
+    if (ctx->back_to_box_armed && (iolink_time_get_us() >= ctx->back_to_box_deadline_us)) {
+        /* 10.7.5: the wait after the response is bounded, so a Master that stops
+           polling cannot keep the Device communicating. */
+        dll_disable_communication(ctx);
         return;
     }
     /* Process acyclic ISDU state machine */
@@ -780,13 +814,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                         ctx->back_to_box_cycles--;
                     }
                     if (ctx->back_to_box_cycles == 0U) {
-                        if (ctx->phy->set_mode != NULL) {
-                            ctx->phy->set_mode(ctx->phy->user, IOLINK_PHY_MODE_INACTIVE);
-                        }
-                        ctx->phy_mode = IOLINK_PHY_MODE_INACTIVE;
-                        ctx->communication_disabled = true;
-                        ctx->back_to_box_armed = false;
-                        dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
+                        dll_disable_communication(ctx);
                         return;
                     }
                 }
