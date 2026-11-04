@@ -33,10 +33,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ErrorCount sums the DLL CRC, framing, timeout and timing counters and
   saturates at 0xFFFF. B.2.20 makes the content vendor/Device specific and asks
   for errors since power-on or reset.
-- Device diagnosis and status follow Table 101: Device reset (0x80), Restore
-  factory settings (0x82) and Back-to-box (0x83) clear ErrorCount and the event
-  memory behind DeviceStatus (0x0024) / DetailedDeviceStatus (0x0025), while
-  Application reset (0x81) leaves them untouched.
+- Device diagnosis and status follow Table 101. Device reset (0x80) sets them
+  to "0": the ErrorCount counters and the event memory behind DeviceStatus
+  (0x0024) / DetailedDeviceStatus (0x0025) are cleared. Restore factory
+  settings (0x82) and Back-to-box (0x83) reset ErrorCount as required by
+  10.7.4, but keep the active Events queued: Table 101 defines their diagnosis
+  as "Clear", i.e. withdrawn with "event disappears" (delivered with the
+  event-lifecycle work) rather than silently discarded. Application reset
+  (0x81) leaves the diagnosis untouched.
 
 ### Fixed
 - **Streaming M-sequence request framing (wire change).** Read requests now

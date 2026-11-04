@@ -258,8 +258,9 @@ static void test_system_cmd_factory_restore(void** state)
     assert_int_equal(len, 0); /* Should be empty after factory reset */
 }
 
-/* Table 101: Device reset / Restore factory settings / Back-to-box reset the
- * diagnosis and status; Application reset leaves it untouched. */
+/* Table 101: Device reset sets the diagnosis and status to "0"; Restore
+ * factory settings and Back-to-box "Clear" it by resetting ErrorCount and
+ * withdrawing the active Events; Application reset leaves it untouched. */
 static void test_system_cmd_resets_diagnostics(void** state)
 {
     (void) state;
@@ -267,10 +268,33 @@ static void test_system_cmd_resets_diagnostics(void** state)
     iolink_dll_ctx_t dll;
     iolink_device_info_init(NULL);
     iolink_params_init();
+    (void) memset(&dll, 0, sizeof(dll));
+    iolink_events_init(&dll.events);
+    dll.crc_errors = 3U;
+    dll.timeout_errors = 2U;
+    dll.framing_errors = 1U;
+    dll.timing_errors = 4U;
+    iolink_event_trigger(&dll.events, 0x1000U, IOLINK_EVENT_TYPE_ERROR);
 
-    const uint8_t reset_commands[] = {IOLINK_CMD_DEVICE_RESET, IOLINK_CMD_RESTORE_FACTORY_SETTINGS,
-                                      IOLINK_CMD_BACK_TO_BOX};
-    for (size_t i = 0U; i < (sizeof(reset_commands) / sizeof(reset_commands[0])); i++) {
+    iolink_isdu_init(&ctx);
+    ctx.dll_ctx = &dll;
+    const uint8_t device_reset = IOLINK_CMD_DEVICE_RESET;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &device_reset, 1),
+                     1);
+    iolink_isdu_process(&ctx);
+
+    assert_int_equal(dll.crc_errors, 0U);
+    assert_int_equal(dll.timeout_errors, 0U);
+    assert_int_equal(dll.framing_errors, 0U);
+    assert_int_equal(dll.timing_errors, 0U);
+    assert_int_equal(dll.events.count, 0U);
+    assert_false(iolink_events_flag(&dll.events));
+
+    /* 0x82/0x83: ErrorCount is reset (10.7.4), the active Events stay queued
+       so they can be withdrawn with "event disappears". */
+    const uint8_t keep_event_commands[] = {IOLINK_CMD_RESTORE_FACTORY_SETTINGS,
+                                           IOLINK_CMD_BACK_TO_BOX};
+    for (size_t i = 0U; i < (sizeof(keep_event_commands) / sizeof(keep_event_commands[0])); i++) {
         (void) memset(&dll, 0, sizeof(dll));
         iolink_events_init(&dll.events);
         dll.crc_errors = 3U;
@@ -281,16 +305,16 @@ static void test_system_cmd_resets_diagnostics(void** state)
 
         iolink_isdu_init(&ctx);
         ctx.dll_ctx = &dll;
-        const uint8_t cmd = reset_commands[i];
-        assert_int_equal(isdu_send_write_request(&ctx, 0x0002, 0x00, &cmd, 1), 1);
+        const uint8_t cmd = keep_event_commands[i];
+        assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &cmd, 1), 1);
         iolink_isdu_process(&ctx);
 
         assert_int_equal(dll.crc_errors, 0U);
         assert_int_equal(dll.timeout_errors, 0U);
         assert_int_equal(dll.framing_errors, 0U);
         assert_int_equal(dll.timing_errors, 0U);
-        assert_int_equal(dll.events.count, 0U);
-        assert_false(iolink_events_flag(&dll.events));
+        assert_int_equal(dll.events.count, 1U);
+        assert_true(iolink_events_flag(&dll.events));
     }
 
     /* Application reset (0x81): Table 101 says "No". */
@@ -302,7 +326,8 @@ static void test_system_cmd_resets_diagnostics(void** state)
     iolink_isdu_init(&ctx);
     ctx.dll_ctx = &dll;
     const uint8_t app_reset = IOLINK_CMD_APPLICATION_RESET;
-    assert_int_equal(isdu_send_write_request(&ctx, 0x0002, 0x00, &app_reset, 1), 1);
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &app_reset, 1),
+                     1);
     iolink_isdu_process(&ctx);
 
     assert_int_equal(dll.crc_errors, 5U);

@@ -971,21 +971,35 @@ void iolink_dll_get_stats(const iolink_dll_ctx_t* ctx, iolink_dll_stats_t* out_s
     out_stats->short_circuits = ctx->short_circuits;
 }
 
-void iolink_dll_reset_diagnostics(iolink_dll_ctx_t* ctx)
+static void dll_clear_error_counters_locked(iolink_dll_ctx_t* ctx)
 {
-    if (ctx == NULL) return;
-
-    /* B.2.20/Table 101: ErrorCount counts errors since power-on or reset, and
-       the diagnosis/status is cleared by the reset SystemCommands. The event
-       engine owns DeviceStatus and DetailedDeviceStatus, so re-initialise it
-       (init does not take the critical section; the counter reset does). */
-    iolink_events_init(&ctx->events);
-
-    iolink_critical_enter();
     ctx->crc_errors = 0U;
     ctx->timeout_errors = 0U;
     ctx->framing_errors = 0U;
     ctx->timing_errors = 0U;
+}
+
+void iolink_dll_reset_error_counters(iolink_dll_ctx_t* ctx)
+{
+    if (ctx == NULL) return;
+
+    /* B.2.20: ErrorCount counts errors since power-on or reset. */
+    iolink_critical_enter();
+    dll_clear_error_counters_locked(ctx);
+    iolink_critical_exit();
+}
+
+void iolink_dll_reset_diagnostics(iolink_dll_ctx_t* ctx)
+{
+    if (ctx == NULL) return;
+
+    /* Table 101 "0": Device reset clears the diagnosis and status along with
+       ErrorCount. The event engine owns DeviceStatus and
+       DetailedDeviceStatus, so re-initialise it under the same critical
+       section that guards the counters against an ISR-triggered event. */
+    iolink_critical_enter();
+    iolink_events_init(&ctx->events);
+    dll_clear_error_counters_locked(ctx);
     iolink_critical_exit();
 }
 

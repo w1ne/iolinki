@@ -851,11 +851,19 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
 }
 
 /** @brief Execute a SystemCommand (reset, factory restore, data-storage commands). */
-/** @brief Table 101: clear Device diagnosis/status on the reset commands. */
+/** @brief Table 101: reset the Device diagnosis/status for the "0" reset. */
 static void isdu_reset_diagnostics(iolink_isdu_ctx_t* ctx)
 {
     if (ctx->dll_ctx != NULL) {
         iolink_dll_reset_diagnostics((iolink_dll_ctx_t*) ctx->dll_ctx);
+    }
+}
+
+/** @brief Table 101: reset ErrorCount for the reset commands that keep Events. */
+static void isdu_reset_error_counters(iolink_isdu_ctx_t* ctx)
+{
+    if (ctx->dll_ctx != NULL) {
+        iolink_dll_reset_error_counters((iolink_dll_ctx_t*) ctx->dll_ctx);
     }
 }
 
@@ -875,17 +883,19 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
             break;
 
         case IOLINK_CMD_RESTORE_FACTORY_SETTINGS: /* 0x82 */
-            /* Reset all parameters to factory defaults; Table 101: "Clear"
-               the diagnosis and status. */
+            /* Reset all parameters to factory defaults. Table 101 "Clear":
+               10.7.4 requires ErrorCount to be reset, while active Events are
+               withdrawn with "event disappears" instead of being discarded. */
             isdu_params_factory_reset(ctx);
-            isdu_reset_diagnostics(ctx);
+            isdu_reset_error_counters(ctx);
             break;
 
         case IOLINK_CMD_BACK_TO_BOX: /* 0x83 */
             /* Reset application-specific parameters (currently same as factory);
-               Table 101: Diagnosis and status become "0". */
+               Table 101: Diagnosis and status become "0", so ErrorCount is
+               reset and the active Events are withdrawn the same way. */
             isdu_params_factory_reset(ctx);
-            isdu_reset_diagnostics(ctx);
+            isdu_reset_error_counters(ctx);
             break;
 
         /* Table B.9: ParamUploadStart/End (0x01/0x02), ParamDownloadStart/End
