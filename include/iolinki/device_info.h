@@ -38,6 +38,7 @@ typedef struct
     const char* product_name;      /**< Product name string (Index 0x0012). */
     const char* product_id;        /**< Product ID string (Index 0x0013). */
     const char* product_text;      /**< Product text string (Index 0x0014). */
+    const char* product_uri;       /**< Product URI string (Index 0x001B, optional). */
     const char* serial_number;     /**< Serial number string (Index 0x0015). */
     const char* hardware_revision; /**< Hardware revision string (Index 0x0016). */
     const char* firmware_revision; /**< Firmware revision string (Index 0x0017). */

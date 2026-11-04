@@ -7,7 +7,7 @@ This file is part of iolinki.
 See LICENSE for details.
 
 IO-Link V1.1.5 Conformance Test: System Command Validation
-Tests all seven system commands at ISDU index 0x0002.
+Tests the Table B.9 system commands at ISDU index 0x0002.
 """
 
 import sys
@@ -91,58 +91,96 @@ class TestSystemCommands(unittest.TestCase):
             f"[PASS] Factory restore executed, tag reset from {test_tag} to {readback_after}"
         )
 
-    def test_04_restore_app_defaults_0x83(self):
-        """Test system command 0x83: Restore Application Defaults"""
-        print("\n[TEST] System Command 0x83: Restore Application Defaults")
+    def test_04_back_to_box_0x83(self):
+        """Test system command 0x83: Back-to-box"""
+        print("\n[TEST] System Command 0x83: Back-to-box")
 
         result = self.master.write_isdu(index=0x0002, subindex=0x00, data=bytes([0x83]))
-        self.assertTrue(result, "Restore application defaults command should succeed")
+        self.assertTrue(result, "Back-to-box command should succeed")
 
-        print("[PASS] Restore application defaults command accepted")
+        print("[PASS] Back-to-box command accepted")
 
-    def test_05_set_comm_mode_0x84(self):
-        """Test system command 0x84: Set Communication Mode"""
-        print("\n[TEST] System Command 0x84: Set Communication Mode")
+    def test_05_param_upload_start_0x01(self):
+        """Test system command 0x01: ParamUploadStart (Table B.9)"""
+        print("\n[TEST] System Command 0x01: ParamUploadStart")
+
+        result = self.master.write_isdu(index=0x0002, subindex=0x00, data=bytes([0x01]))
+        self.assertTrue(result, "ParamUploadStart should succeed")
+
+        print("[PASS] ParamUploadStart accepted")
+
+    def test_06_param_upload_end_0x02(self):
+        """Test system command 0x02: ParamUploadEnd (Table B.9)"""
+        print("\n[TEST] System Command 0x02: ParamUploadEnd")
+
+        result = self.master.write_isdu(index=0x0002, subindex=0x00, data=bytes([0x02]))
+        self.assertTrue(result, "ParamUploadEnd should succeed")
+
+        print("[PASS] ParamUploadEnd accepted")
+
+    def test_07_param_download_start_0x03(self):
+        """Test system command 0x03: ParamDownloadStart (Table B.9)"""
+        print("\n[TEST] System Command 0x03: ParamDownloadStart")
+
+        result = self.master.write_isdu(index=0x0002, subindex=0x00, data=bytes([0x03]))
+        self.assertTrue(result, "ParamDownloadStart should succeed")
+
+        print("[PASS] ParamDownloadStart accepted")
+
+    def test_08_param_download_end_0x04(self):
+        """Test system command 0x04: ParamDownloadEnd (Table B.9)"""
+        print("\n[TEST] System Command 0x04: ParamDownloadEnd")
+
+        result = self.master.write_isdu(index=0x0002, subindex=0x00, data=bytes([0x04]))
+        self.assertTrue(result, "ParamDownloadEnd should succeed")
+
+        print("[PASS] ParamDownloadEnd accepted")
+
+    def test_09_param_download_store_0x05(self):
+        """Test system command 0x05: ParamDownloadStore (Table B.9)"""
+        print("\n[TEST] System Command 0x05: ParamDownloadStore")
+
+        result = self.master.write_isdu(index=0x0002, subindex=0x00, data=bytes([0x05]))
+        self.assertTrue(result, "ParamDownloadStore should succeed")
+
+        print("[PASS] ParamDownloadStore accepted")
+
+    def test_10_param_break_0x06(self):
+        """Test system command 0x06: ParamBreak (Table B.9)"""
+        print("\n[TEST] System Command 0x06: ParamBreak")
+
+        result = self.master.write_isdu(index=0x0002, subindex=0x00, data=bytes([0x06]))
+        self.assertTrue(result, "ParamBreak should succeed")
+
+        print("[PASS] ParamBreak accepted")
+
+    def test_11_reserved_command_0x84(self):
+        """Test reserved system command 0x84 (Table B.9) is rejected"""
+        print("\n[TEST] Reserved System Command 0x84")
 
         result = self.master.write_isdu(index=0x0002, subindex=0x00, data=bytes([0x84]))
-        self.assertTrue(result, "Set communication mode command should succeed")
+        self.assertFalse(result, "Reserved command 0x84 should be rejected")
 
-        print("[PASS] Set communication mode command accepted")
+        print("[PASS] Reserved command 0x84 rejected")
 
-    def test_06_param_upload_0x95(self):
-        """Test system command 0x95: Parameter Upload"""
-        print("\n[TEST] System Command 0x95: Parameter Upload")
+    def test_12_legacy_param_upload_0x95(self):
+        """Test legacy system command 0x95 is rejected"""
+        print("\n[TEST] Legacy System Command 0x95")
 
         result = self.master.write_isdu(index=0x0002, subindex=0x00, data=bytes([0x95]))
-        self.assertTrue(result, "Parameter upload command should succeed")
+        self.assertFalse(result, "Legacy command 0x95 should be rejected")
 
-        print("[PASS] Parameter upload command accepted")
+        print("[PASS] Legacy command 0x95 rejected")
 
-    def test_07_param_download_0x96(self):
-        """Test system command 0x96: Parameter Download"""
-        print("\n[TEST] System Command 0x96: Parameter Download")
-
-        result = self.master.write_isdu(index=0x0002, subindex=0x00, data=bytes([0x96]))
-        self.assertTrue(result, "Parameter download command should succeed")
-
-        print("[PASS] Parameter download command accepted")
-
-    def test_08_param_break_0x97(self):
-        """Test system command 0x97: Parameter Break"""
-        print("\n[TEST] System Command 0x97: Parameter Break")
-
-        result = self.master.write_isdu(index=0x0002, subindex=0x00, data=bytes([0x97]))
-        self.assertTrue(result, "Parameter break command should succeed")
-
-        print("[PASS] Parameter break command accepted")
-
-    def test_09_invalid_command(self):
+    def test_13_invalid_command(self):
         """Test invalid system command error handling"""
         print("\n[TEST] Invalid System Command Error Handling")
 
         result = self.master.write_isdu(index=0x0002, subindex=0x00, data=bytes([0xFF]))
 
-        print(f"[PASS] Invalid command handled gracefully: result={result}")
+        self.assertFalse(result, "Invalid command should be rejected")
+
+        print("[PASS] Invalid command rejected")
 
 
 if __name__ == "__main__":

@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A.6.4 event lifecycle.** Error and Warning events now follow the
+  appears/disappears pair (Figure A.24): the same EventCode may not appear again
+  before its disappearance has been reported, a disappearance is not issued
+  less than 50 ms after the appearance, and the same EventCode/EventQualifier is
+  not reported more than once per second. A re-trigger inside that second is
+  deferred by `iolink_events_process()` rather than dropped. Notifications stay
+  single shot. New public API: `iolink_event_clear()`,
+  `iolink_events_process()`, `iolink_events_reset()`,
+  `iolink_events_get_dropped_count()` and `iolink_event_classify()`;
+  `iolink_event_t` gained a `mode` field.
+- `IOLINK_EVENT_MIN_APPEAR_MS` (50 ms), `IOLINK_EVENT_MIN_REPEAT_MS` (1 s) and
+  `IOLINK_EVENT_PENDING_MAX` (8) configuration macros.
+- Events lost because the queue or the `IOLINK_EVENT_PENDING_MAX` lifecycle
+  table is full are counted by `iolink_events_get_dropped_count()`, so the loss
+  is observable instead of silent.
+
+### Changed
+- **ISDU conformance with Table B.8/B.9 (breaking change).** SystemCommand
+  codes now follow Table B.9 (`ParamUploadStart/End` 0x01/0x02,
+  `ParamDownloadStart/End` 0x03/0x04, `ParamDownloadStore` 0x05,
+  `ParamBreak` 0x06). This remaps the previously used 0x05 (now
+  `ParamDownloadStore`), 0x06 (now `ParamBreak`), 0x07 and 0x08 (now
+  reserved). 0x07-0x09 and the non-standard 0x95-0x97 are rejected with
+  `FUNC_NOTAVAIL` (0x35), and 0x84-0x9F is reserved, so masters and tools that
+  use the old codes must be updated. `IOLINK_CMD_RESTORE_APP_DEFAULTS` is
+  renamed to `IOLINK_CMD_BACK_TO_BOX` (same code 0x83).
+- The non-standard VendorID and DeviceID ISDU indices (0x000A/0x000B, both in
+  the reserved 0x0004-0x000B range of Table B.8) are removed, together with
+  `IOLINK_IDX_VENDOR_ID` and `IOLINK_IDX_DEVICE_ID`; both fields are only
+  available through Direct Parameter Page 1 (0x07-0x0B).
+- ErrorCount (0x0020) and ProductURI (0x001B) are served. A read of an
+  unconfigured optional identification string (for example ProductURI without
+  `product_uri`) returns `0x80 0x11`. Writes to read-only objects return
+  `0x80 0x23`, the Parameter access lock covers tag writes, and a non-zero
+  subindex on single-element objects returns `0x80 0x12`.
+- **ProcessDataInput/ProcessDataOutput and ProfileCharacteristic (breaking
+  change).** ISDU `0x0028`/`0x0029` now return the Process Data content of the
+  PDin/PDout channel as defined by B.2.23/B.2.24 instead of a single PD length
+  octet, so clients that parsed the old length reply must be updated.
+  `0x0028` answers `0x80 0x11` while the DLL flags PDin as invalid, and
+  `0x0029` answers `0x80 0x11` until a PDout frame has been received; a device
+  without PD answers with an empty positive response. `0x000D` is exposed as the ArrayT
+  of UIntegerT16 described in B.2.5, served for subindex 0/1 and answering
+  `0x80 0x11` when no Profile is implemented.
+- `MinCycleTime` in Direct Parameter Page 1 is encoded per Table B.3 instead of
+  carrying the raw value. 0 still encodes as 0x00 ("no MinCycleTime", B.1.3),
+  values below 0.4 ms clamp to 0.4 ms, values between steps round up, and
+  values above 132.8 ms saturate.
+- ErrorCount sums the DLL CRC, framing, timeout and timing counters and
+  saturates at 0xFFFF. B.2.20 makes the content vendor/Device specific and asks
+  for errors since power-on or reset.
+- Device diagnosis and status follow Table 101: Device reset (0x80), Restore
+  factory settings (0x82) and Back-to-box (0x83) clear ErrorCount and the event
+  memory behind DeviceStatus (0x0024) / DetailedDeviceStatus (0x0025), while
+  Application reset (0x81) leaves them untouched.
+- **Event memory freeze point (Table 60 T3).** The Table 58 diagnosis memory is
+  now frozen when the Event flag is raised instead of on the first readout, so
+  every readout returns one consistent snapshot. A StatusCode write
+  acknowledges exactly the queue entries that were presented (tracked by
+  internal insertion ids), not the first N entries of the current queue, so an
+  event that becomes more severe while the memory is frozen is never
+  acknowledged unseen.
+- `iolink_dll_process()` now services `iolink_events_process()`, so a normal
+  application no longer has to call it to get disappearances. Applications that
+  drive the event engine without `iolink_dll_process()` must call it
+  periodically (documented in `include/iolinki/events.h`).
+- Index `0x0024` (DeviceStatus) is mapped per Table B.13 (0 OK, 1
+  Maintenance-Required, 2 Out-of-Specification, 3 Functional-Check, 4 Failure)
+  with the correct dominance order. Index `0x0025` (DetailedDeviceStatus) is
+  built from the active appears set; subindex 0 returns the whole list, while
+  element access through subindex 1..n is a device extension (B.2.22 describes
+  subindex 0 only).
+- Queued events and the lifecycle state are discarded on the transition to
+  STARTUP (10.10.2: the queue is discarded when communication is interrupted or
+  cancelled).
+
 ### Fixed
 - **Streaming M-sequence request framing (wire change).** Read requests now
   carry no On-request Data octets: a typed read is `MC + CKT + PD-out`, while a
@@ -21,6 +98,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `iolinki-master` frames its ISDU and diagnosis read requests without OD and
   uses the same per-type OD widths, so the device/master pair remains
   interoperable.
+
+### Removed
+- The non-standard `IOLINK_EVENT_APP_TEMP_*` and `IOLINK_EVENT_HW_*` macros.
+  Use the standardized `IOLINK_EVENTCODE_*` values (Annex D, Table D.1) instead;
+  `IOLINK_EVENTCODE_TEMPERATURE_OVERRUN`/`_UNDERRUN`, `_HARDWARE_FAULT`,
+  `_NVM_LOSS`, `_COMPONENT_MALFUNCTION` and `_PARAMETER_ERROR` cover the same
+  conditions with the spec-defined EventCodes.
 
 ## [2.2.0] - 2026-10-17
 

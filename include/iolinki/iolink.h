@@ -76,6 +76,42 @@ typedef struct
 } iolink_config_t;
 
 /**
+ * @brief Encode a cycle time in 0.1 ms units to a Table B.3 octet.
+ *
+ * Time base bits 7:6 and multiplier bits 5:0 per Table B.3. A value of 0 is
+ * encoded as 0x00, which B.1.3 defines as "no MinCycleTime provided"; values
+ * below the 0.4 ms minimum are clamped to 0.4 ms; values above 132.8 ms
+ * saturate at 132.8 ms (time base 10, multiplier 63). Values between the
+ * representable steps are rounded up, so the encoded minimum never claims a
+ * cycle time shorter than the requested one.
+ * @param units100us Cycle time in 100 us (0.1 ms) units.
+ * @return Table B.3 encoded octet.
+ */
+static inline uint8_t iolink_cycle_time_encode(uint16_t units100us)
+{
+    if (units100us == 0U) {
+        return 0x00U; /* B.1.3: no MinCycleTime provided. */
+    }
+    if (units100us < 4U) {
+        units100us = 4U; /* Table B.3 minimum is 0.4 ms. */
+    }
+    if (units100us <= 63U) {
+        return (uint8_t) units100us; /* 0.1 ms x multiplier: 0.4 .. 6.3 ms */
+    }
+    if (units100us <= 316U) {
+        const uint16_t m = (uint16_t) ((units100us - 64U + 3U) / 4U); /* ceil to 0.4 ms steps */
+        return (uint8_t) (0x40U | (uint8_t) m);
+    }
+    /* 32.0 ms + 1.6 ms x multiplier. 317..320 all round up to multiplier 0. */
+    const uint32_t excess = (units100us > 320U) ? ((uint32_t) units100us - 320U) : 0U;
+    uint32_t m = (excess + 15U) / 16U; /* ceil to 1.6 ms steps */
+    if (m > 63U) {
+        m = 63U; /* saturate at 132.8 ms */
+    }
+    return (uint8_t) (0x80U | (uint8_t) m);
+}
+
+/**
  * @brief Reset request type delivered to the application reset handler.
  */
 typedef enum

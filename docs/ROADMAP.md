@@ -296,6 +296,4 @@ Follow-ups split out of this work:
 - Decide the operating-baudrate source for recovery; five sites still hard-code
   COM1 in `src/dll.c` (Figure 31 allows one supported rate, but no clause names
   the recovery rate) — maintainer decision needed before changing behavior.
-- Remaining legacy event macros in `include/iolinki/events.h` (`APP_TEMP_*`,
-  `HW_*`) still carry non-standard or reserved values; audit in a later task.
 - Physical-master re-validation of the corrected reply layout.

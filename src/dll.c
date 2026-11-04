@@ -9,6 +9,7 @@
 #include "iolinki/dll.h"
 #include "iolinki/crc.h"
 #include "iolinki/iolink.h"
+#include "iolinki/platform.h"
 #include "iolinki/protocol.h"
 #include "iolinki/time_utils.h"
 #include "iolinki/utils.h"
@@ -38,6 +39,11 @@ static void dll_set_state(iolink_dll_ctx_t* ctx, iolink_dll_state_t new_state)
 {
     if (ctx->state != new_state) {
         ctx->state = new_state;
+        if (new_state == IOLINK_DLL_STATE_STARTUP) {
+            /* A.6.4: queued events are discarded when communication is
+               interrupted or cancelled. */
+            iolink_events_reset(&ctx->events);
+        }
         if (ctx->state_cb != NULL) {
             ctx->state_cb(ctx->state_cb_user, new_state);
         }
@@ -421,6 +427,7 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
 
     if (ctx->pd_out_len_current > 0U) {
         memcpy(ctx->pd_out, &ctx->frame_buf[pd_offset], ctx->pd_out_len_current);
+        ctx->pd_out_seen = true; /* B.2.24: last PDout written to the application */
     }
 
     uint8_t od_in[IOLINK_OD_MAX_SIZE] = {0};
@@ -581,6 +588,11 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     if ((ctx == NULL) || (ctx->phy == NULL)) {
         return;
     }
+
+    /* A.6.4/10.10.2: service the deferred appears/disappears transitions. The
+       Event Dispatcher owns this flow, so applications do not have to remember
+       to call iolink_events_process() themselves. */
+    iolink_events_process(&ctx->events);
 
     /* Process acyclic ISDU state machine */
     iolink_isdu_process(&ctx->isdu);
@@ -968,6 +980,24 @@ void iolink_dll_get_stats(const iolink_dll_ctx_t* ctx, iolink_dll_stats_t* out_s
     out_stats->total_retries = ctx->total_retries;
     out_stats->voltage_faults = ctx->voltage_faults;
     out_stats->short_circuits = ctx->short_circuits;
+}
+
+void iolink_dll_reset_diagnostics(iolink_dll_ctx_t* ctx)
+{
+    if (ctx == NULL) return;
+
+    /* B.2.20/Table 101: ErrorCount counts errors since power-on or reset, and
+       the diagnosis/status is cleared by the reset SystemCommands. The event
+       engine owns DeviceStatus and DetailedDeviceStatus, so re-initialise it
+       (init does not take the critical section; the counter reset does). */
+    iolink_events_init(&ctx->events);
+
+    iolink_critical_enter();
+    ctx->crc_errors = 0U;
+    ctx->timeout_errors = 0U;
+    ctx->framing_errors = 0U;
+    ctx->timing_errors = 0U;
+    iolink_critical_exit();
 }
 
 void iolink_dll_set_timing_enforcement(iolink_dll_ctx_t* ctx, bool enable)

@@ -160,17 +160,21 @@ class TestISDUConformance(unittest.TestCase):
         print(f"[PASS] Device Access Locks: 0x{locks:04X}")
 
     def test_11_profile_characteristic_0x000D(self):
-        """Test mandatory index 0x000D: Profile Characteristic"""
+        """Test conditional index 0x000D: Profile Characteristic"""
         print("\n[TEST] ISDU Index 0x000D: Profile Characteristic")
 
-        response = self.master.read_isdu(index=0x000D, subindex=0x00)
-        self.assertIsNotNone(response, "Profile Characteristic must be readable")
-        self.assertGreaterEqual(
-            len(response), 2, "Profile Characteristic should be at least 2 bytes"
+        # B.2.5: ProfileCharacteristic is conditional on the associated Profile.
+        # The reference device implements no profile (profile_characteristic is
+        # 0), so the object is unavailable and the answer is 0x80 0x11. The
+        # readable ArrayT path is covered by the C unit tests (tests/test_isdu.c).
+        response, error = self.master.read_isdu_ex(index=0x000D, subindex=0x00)
+        self.assertIsNone(
+            response,
+            "Profile Characteristic must be unavailable for a device without a profile",
         )
+        self.assertEqual(error, 0x8011, "no profile -> IDX_NOTAVAIL (0x8011)")
 
-        profile_id = int.from_bytes(response[:2], byteorder="big")
-        print(f"[PASS] Profile Characteristic: 0x{profile_id:04X}")
+        print("[PASS] Profile Characteristic: 0x8011 (no profile implemented)")
 
     def test_12_device_status_0x0024(self):
         """Test optional index 0x0024: DeviceStatus (Table B.8, 1 octet)"""
