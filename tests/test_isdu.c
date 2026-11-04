@@ -767,7 +767,10 @@ static void test_isdu_direct_parameters_page1(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
-    iolink_device_info_init(NULL);
+    iolink_device_info_t info;
+    (void) memset(&info, 0, sizeof(info));
+    info.min_cycle_time = 63U; /* 6.3 ms -> Table B.3 time base 00, multiplier 63 */
+    iolink_device_info_init(&info);
     iolink_params_init();
     iolink_isdu_init(&ctx);
 
@@ -777,14 +780,15 @@ static void test_isdu_direct_parameters_page1(void** state)
     uint8_t page[16];
     assert_int_equal(isdu_collect_response(&ctx, page, sizeof(page)), 16);
 
-    const iolink_device_info_t* info = iolink_device_info_get();
+    const iolink_device_info_t* configured = iolink_device_info_get();
+    assert_int_equal(page[0x02], 0x3FU);         /* MinCycleTime (Table B.3) */
     assert_int_equal(page[0x04], 0x11);          /* RevisionID = v1.1 */
     assert_int_equal(page[0x03] & 0x01U, 0x01U); /* ISDU supported */
-    assert_int_equal(page[0x07], (uint8_t) (info->vendor_id >> 8));
-    assert_int_equal(page[0x08], (uint8_t) (info->vendor_id & 0xFFU));
-    assert_int_equal(page[0x09], (uint8_t) ((info->device_id >> 16) & 0xFFU));
-    assert_int_equal(page[0x0A], (uint8_t) ((info->device_id >> 8) & 0xFFU));
-    assert_int_equal(page[0x0B], (uint8_t) (info->device_id & 0xFFU));
+    assert_int_equal(page[0x07], (uint8_t) (configured->vendor_id >> 8));
+    assert_int_equal(page[0x08], (uint8_t) (configured->vendor_id & 0xFFU));
+    assert_int_equal(page[0x09], (uint8_t) ((configured->device_id >> 16) & 0xFFU));
+    assert_int_equal(page[0x0A], (uint8_t) ((configured->device_id >> 8) & 0xFFU));
+    assert_int_equal(page[0x0B], (uint8_t) (configured->device_id & 0xFFU));
 
     /* Single-octet read via subindex (addr 0x04 -> subindex 5). */
     iolink_isdu_init(&ctx);
