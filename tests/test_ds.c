@@ -164,6 +164,55 @@ static void test_ds_param_download_store_rejects_invalid_image(void** state)
     assert_int_equal(ds.state, IOLINK_DS_STATE_DOWNLOADING);
 }
 
+/* A rejected image must not partially apply: a long record that only fails
+ * during the second pass must be pre-validated (Table 98 rule 7). */
+static void test_ds_apply_rejects_invalid_lengths_atomically(void** state)
+{
+    (void) state;
+    iolink_ds_ctx_t ds;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_ds_init(&ds, NULL);
+
+    const char* old_app = "OLD-APP";
+    const char* old_fun = "OLD-FUN";
+    assert_int_equal(iolink_params_set(IOLINK_IDX_APPLICATION_TAG, 0U, (const uint8_t*) old_app,
+                                       strlen(old_app), false),
+                     0);
+    assert_int_equal(iolink_params_set(IOLINK_IDX_FUNCTION_TAG, 0U, (const uint8_t*) old_fun,
+                                       strlen(old_fun), false),
+                     0);
+
+    /* First record is valid-looking but truncated by copy_tag, second one
+       exceeds the ApplicationTag length. */
+    uint8_t img[160];
+    size_t p = 0U;
+    img[p++] = 0x00U;
+    img[p++] = IOLINK_IDX_FUNCTION_TAG;
+    img[p++] = 0x00U;
+    img[p++] = 100U;
+    for (size_t i = 0U; i < 100U; i++) {
+        img[p++] = (uint8_t) 'F';
+    }
+    img[p++] = 0x00U;
+    img[p++] = IOLINK_IDX_APPLICATION_TAG;
+    img[p++] = 0x00U;
+    img[p++] = 40U;
+    for (size_t i = 0U; i < 40U; i++) {
+        img[p++] = (uint8_t) 'A';
+    }
+
+    assert_int_equal(iolink_ds_apply_image(&ds, img, p), -1);
+
+    uint8_t buf[40];
+    int len = iolink_params_get(IOLINK_IDX_APPLICATION_TAG, 0U, buf, sizeof(buf));
+    assert_int_equal(len, (int) strlen(old_app));
+    assert_memory_equal(buf, old_app, strlen(old_app));
+    len = iolink_params_get(IOLINK_IDX_FUNCTION_TAG, 0U, buf, sizeof(buf));
+    assert_int_equal(len, (int) strlen(old_fun));
+    assert_memory_equal(buf, old_fun, strlen(old_fun));
+}
+
 static void test_ds_process_rejects_invalid_image(void** state)
 {
     (void) state;
@@ -353,6 +402,7 @@ int main(void)
         cmocka_unit_test(test_ds_param_download_store_requests_upload),
         cmocka_unit_test(test_ds_param_download_store_locked),
         cmocka_unit_test(test_ds_param_download_store_rejects_invalid_image),
+        cmocka_unit_test(test_ds_apply_rejects_invalid_lengths_atomically),
         cmocka_unit_test(test_ds_process_rejects_invalid_image),
         cmocka_unit_test(test_ds_param_round_trip),
         cmocka_unit_test(test_ds_bound_params_restore_device_context_only),

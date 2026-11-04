@@ -29,20 +29,33 @@ static const struct
 {
     uint16_t index;
     uint8_t subindex;
+    uint8_t max_len; /* Table B.8 StringT limit (B.2.16-B.2.18: max 32 octets) */
 } k_ds_params[] = {
-    {IOLINK_IDX_APPLICATION_TAG, 0U},
-    {IOLINK_IDX_FUNCTION_TAG, 0U},
-    {IOLINK_IDX_LOCATION_TAG, 0U},
+    {IOLINK_IDX_APPLICATION_TAG, 0U, 32U},
+    {IOLINK_IDX_FUNCTION_TAG, 0U, 32U},
+    {IOLINK_IDX_LOCATION_TAG, 0U, 32U},
 };
 
 #define DS_PARAM_COUNT (sizeof(k_ds_params) / sizeof(k_ds_params[0]))
 #define DS_RECORD_HEADER 4U /* index(2) + subindex(1) + length(1) */
 #define DS_PARAM_VALUE_MAX 64U
 
-static bool ds_param_is_known(uint16_t index, uint8_t subindex)
+/** @brief Match a DS-set parameter address; -1 when it is outside the set. */
+static int ds_param_find(uint16_t index, uint8_t subindex)
 {
     for (size_t i = 0U; i < DS_PARAM_COUNT; i++) {
         if ((k_ds_params[i].index == index) && (k_ds_params[i].subindex == subindex)) {
+            return (int) i;
+        }
+    }
+    return -1;
+}
+
+/** @brief True when @p index belongs to the DS set with a different subindex. */
+static bool ds_param_misaddressed(uint16_t index, uint8_t subindex)
+{
+    for (size_t i = 0U; i < DS_PARAM_COUNT; i++) {
+        if ((k_ds_params[i].index == index) && (k_ds_params[i].subindex != subindex)) {
             return true;
         }
     }
@@ -142,16 +155,29 @@ int iolink_ds_apply_image(iolink_ds_ctx_t* ctx, const uint8_t* data, size_t len)
         return -1;
     }
 
-    /* Validate the full record structure before applying anything, so a
-       truncated or corrupt image never partially overwrites parameters. */
+    /* Validate the full record structure and every address this Device owns
+       before applying anything, so a rejected image never partially overwrites
+       parameters (Table 98 rule 7). */
     size_t pos = 0U;
     while (pos < len) {
         if ((pos + DS_RECORD_HEADER) > len) {
             return -1; /* Truncated header */
         }
-        size_t rlen = (size_t) data[pos + 3U];
+        const uint16_t index = (uint16_t) (((uint16_t) data[pos] << 8) | data[pos + 1U]);
+        const uint8_t subindex = data[pos + 2U];
+        const size_t rlen = (size_t) data[pos + 3U];
         if ((pos + DS_RECORD_HEADER + rlen) > len) {
             return -1; /* Truncated data */
+        }
+        const int param = ds_param_find(index, subindex);
+        if (param < 0) {
+            if (ds_param_misaddressed(index, subindex)) {
+                return -1; /* Known parameter with a wrong subindex */
+            }
+            /* A replacement Device may omit a backed-up parameter. */
+        }
+        else if (rlen > (size_t) k_ds_params[param].max_len) {
+            return -1; /* Value exceeds the StringT fixedLength (Table B.8) */
         }
         pos += DS_RECORD_HEADER + rlen;
     }
@@ -165,9 +191,12 @@ int iolink_ds_apply_image(iolink_ds_ctx_t* ctx, const uint8_t* data, size_t len)
         size_t rlen = (size_t) data[pos + 3U];
         /* A replacement Device may omit a backed-up parameter; unknown records
            are intentionally skipped. Known DS parameters must apply cleanly. */
-        if (ds_param_is_known(index, subindex) &&
+        if ((ds_param_find(index, subindex) >= 0) &&
             (ds_params_set(ctx, index, subindex, &data[pos + DS_RECORD_HEADER], rlen, true) != 0)) {
-            return -1; /* Parameter access/validity failure */
+            /* Persistence failure after the validation pass: the remaining
+               records were not applied, but earlier records may already be in
+               NVM. The parameter manager has no transactional commit. */
+            return -1;
         }
         pos += DS_RECORD_HEADER + rlen;
     }
