@@ -439,6 +439,123 @@ void iolink_isdu_od_read(iolink_isdu_ctx_t* ctx, uint8_t flowctrl, uint8_t* od_o
     }
 }
 
+/** @brief Answer a negative ISDU response (Table C.1). */
+static void isdu_negative_response(iolink_isdu_ctx_t* ctx, uint8_t error)
+{
+    ctx->response_buf[0] = 0x80U;
+    ctx->response_buf[1] = error;
+    ctx->response_len = 2U;
+    ctx->response_idx = 0U;
+    ctx->state = ISDU_STATE_RESPONSE_READY;
+}
+
+/**
+ * @brief Object model of one Table B.8 index implemented by this stack.
+ *
+ * Object access is always possible through subindex 0 (Table B.8 note 1);
+ * max_subindex covers the element access this stack also serves.
+ */
+typedef struct
+{
+    uint8_t max_subindex; /**< Highest valid element subindex */
+    bool dynamic_array;   /**< Subindex range depends on the object content */
+} isdu_object_desc_t;
+
+/** @brief Look up an index implemented by this stack (Table B.8). */
+static bool isdu_object_lookup(uint16_t index, isdu_object_desc_t* desc)
+{
+    switch (index) {
+        case IOLINK_IDX_DIRECT_PARAMETERS_1:
+        case IOLINK_IDX_DIRECT_PARAMETERS_2:
+            /* Page channel: subindex 0 is the whole 16-octet page. */
+            desc->max_subindex = 16U;
+            desc->dynamic_array = false;
+            return true;
+
+        case IOLINK_IDX_SYSTEM_COMMAND:
+        case IOLINK_IDX_DATA_STORAGE:
+        case IOLINK_IDX_DEVICE_ACCESS_LOCKS:
+        case IOLINK_IDX_VENDOR_NAME:
+        case IOLINK_IDX_VENDOR_TEXT:
+        case IOLINK_IDX_PRODUCT_NAME:
+        case IOLINK_IDX_PRODUCT_ID:
+        case IOLINK_IDX_PRODUCT_TEXT:
+        case IOLINK_IDX_SERIAL_NUMBER:
+        case IOLINK_IDX_HARDWARE_REVISION:
+        case IOLINK_IDX_FIRMWARE_REVISION:
+        case IOLINK_IDX_APPLICATION_TAG:
+        case IOLINK_IDX_FUNCTION_TAG:
+        case IOLINK_IDX_LOCATION_TAG:
+        case IOLINK_IDX_PRODUCT_URI:
+        case IOLINK_IDX_ERROR_COUNT:
+        case IOLINK_IDX_DEVICE_STATUS:
+        case IOLINK_IDX_PROCESS_DATA_INPUT:
+            desc->max_subindex = 0U;
+            desc->dynamic_array = false;
+            return true;
+
+        case IOLINK_IDX_PROFILE_CHARACTERISTIC:
+            /* B.2.5: ArrayT; this stack implements a single array element. */
+            desc->max_subindex = 1U;
+            desc->dynamic_array = false;
+            return true;
+
+        case IOLINK_IDX_DETAILED_DEVICE_STATUS:
+            /* B.2.22/Table B.14: variable-length array of 3-octet entries. */
+            desc->max_subindex = 0U;
+            desc->dynamic_array = true;
+            return true;
+
+        default:
+            return false;
+    }
+}
+
+/** @brief Request validation result (Table C.1). */
+typedef enum
+{
+    ISDU_REQUEST_VALID = 0U,
+    ISDU_REQUEST_INDEX_NOT_AVAIL,
+    ISDU_REQUEST_SUBINDEX_NOT_AVAIL
+} isdu_request_check_t;
+
+/**
+ * @brief Validate the requested index/subindex before any handler runs.
+ *
+ * C.2.3: an index that does not exist answers IDX_NOTAVAIL even when the
+ * request also carries a non-zero subindex; C.2.4 only applies to an existing
+ * object that has no such subindex.
+ */
+static isdu_request_check_t isdu_validate_request(const iolink_isdu_ctx_t* ctx)
+{
+    const uint16_t index = ctx->header.index;
+    const uint8_t subindex = ctx->header.subindex;
+
+    /* B.2.27/B.2.28: Preferred (0x0040-0x00FE) and Extended (0x0100-0x3FFF)
+       indices are device-specific and owned by the application service when
+       one is registered. */
+    if (((index >= 0x0040U) && (index <= 0x00FEU)) || (index >= 0x0100U)) {
+        if (ctx->vendor_service != NULL) {
+            return ISDU_REQUEST_VALID;
+        }
+        if (index == IOLINK_IDX_ERROR_STATS) {
+            /* Vendor error statistics are a single-element object. */
+            return (subindex == 0U) ? ISDU_REQUEST_VALID : ISDU_REQUEST_SUBINDEX_NOT_AVAIL;
+        }
+        return ISDU_REQUEST_INDEX_NOT_AVAIL;
+    }
+
+    isdu_object_desc_t desc;
+    if (!isdu_object_lookup(index, &desc)) {
+        /* Reserved or unimplemented Table B.8 index. */
+        return ISDU_REQUEST_INDEX_NOT_AVAIL;
+    }
+    if (!desc.dynamic_array && (subindex > desc.max_subindex)) {
+        return ISDU_REQUEST_SUBINDEX_NOT_AVAIL;
+    }
+    return ISDU_REQUEST_VALID;
+}
+
 /** @brief Serve the mandatory identification/status indices (vendor, product, tags, etc.). */
 static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
 {
@@ -500,17 +617,7 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
         }
     }
 
-    /* B.2.5: 0x000D is an ArrayT; every other object handled here is a
-       single-element parameter that only exposes subindex 0. */
-    if ((ctx->header.subindex != 0U) && (ctx->header.index != IOLINK_IDX_PROFILE_CHARACTERISTIC)) {
-        ctx->response_buf[0] = 0x80U;
-        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL;
-        ctx->response_len = 2U;
-        ctx->response_idx = 0U;
-        ctx->state = ISDU_STATE_RESPONSE_READY;
-        return;
-    }
-
+    /* The index/subindex model was validated before dispatch (Table B.8). */
     switch (ctx->header.index) {
             /* Table B.8: 0x0004-0x000B are reserved. VendorID/DeviceID live in
                Direct Parameter Page 1 (0x07-0x0B), not in an ISDU index. */
@@ -872,10 +979,22 @@ static void handle_detailed_device_status(iolink_isdu_ctx_t* ctx)
     uint8_t count = event_ctx->count;
     if (count > 8U) count = 8U; /* Limit to 8 events in response */
 
-    for (uint8_t i = 0U; i < count; i++) {
+    /* Table B.14: subindex 0 returns the whole list; subindex 1..n addresses
+       one 3-octet entry. */
+    const uint8_t sub = ctx->header.subindex;
+    if (sub > count) {
+        iolink_critical_exit();
+        isdu_negative_response(ctx, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
+        return;
+    }
+    const uint8_t first = (sub == 0U) ? 0U : (uint8_t) (sub - 1U);
+    const uint8_t last = (sub == 0U) ? count : sub;
+
+    for (uint8_t i = first; i < last; i++) {
         /* Calculate index in FIFO */
         uint8_t idx = (uint8_t) ((event_ctx->head + i) % IOLINK_EVENT_QUEUE_SIZE);
         const iolink_event_t* ev = &event_ctx->queue[idx];
+        const uint8_t pos = (uint8_t) ((i - first) * 3U);
 
         /* EventQualifier byte per IO-Link V1.1.5 (Figure A.24):
          *   MODE     (bits 7-6): 11 = event appears
@@ -899,11 +1018,11 @@ static void handle_detailed_device_status(iolink_isdu_ctx_t* ctx)
         }
         qualifier |= 0x04U; /* INSTANCE = Application */
 
-        ctx->response_buf[i * 3U] = qualifier;
-        ctx->response_buf[i * 3U + 1U] = (uint8_t) (ev->code >> 8);
-        ctx->response_buf[i * 3U + 2U] = (uint8_t) (ev->code & 0xFF);
+        ctx->response_buf[pos] = qualifier;
+        ctx->response_buf[pos + 1U] = (uint8_t) (ev->code >> 8);
+        ctx->response_buf[pos + 2U] = (uint8_t) (ev->code & 0xFF);
     }
-    ctx->response_len = (uint8_t) (count * 3U);
+    ctx->response_len = (uint8_t) ((last - first) * 3U);
     ctx->response_idx = 0U;
     ctx->state = ISDU_STATE_RESPONSE_READY;
     iolink_critical_exit();
@@ -1163,10 +1282,25 @@ static void handle_data_storage(iolink_isdu_ctx_t* ctx)
 static void handle_standard_commands(iolink_isdu_ctx_t* ctx)
 {
     ctx->vendor_positive = false;
+    const uint16_t index = ctx->header.index;
+
+    /* Table B.8/C.2.3/C.2.4: validate index and subindex before dispatch so a
+       reserved index is IDX_NOTAVAIL even with a non-zero subindex, and every
+       handler starts from a valid object address. */
+    switch (isdu_validate_request(ctx)) {
+        case ISDU_REQUEST_INDEX_NOT_AVAIL:
+            isdu_negative_response(ctx, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+            return;
+        case ISDU_REQUEST_SUBINDEX_NOT_AVAIL:
+            isdu_negative_response(ctx, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
+            return;
+        default:
+            break;
+    }
+
     /* B.2.27: Preferred Indices 0x0040-0x00FE are device-specific like the
        Extended Index range from 0x0100; both reach the application vendor
        service. 0x00FF itself is reserved. */
-    const uint16_t index = ctx->header.index;
     const bool device_specific = ((index >= 0x0040U) && (index <= 0x00FEU)) || (index >= 0x0100U);
     if (device_specific && (ctx->vendor_service != NULL)) {
 #if IOLINK_ISDU_BUFFER_SIZE > 238U

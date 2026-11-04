@@ -688,6 +688,135 @@ static void test_isdu_reserved_indices_negative(void** state)
     assert_int_equal(byte, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
 }
 
+/* C.2.3: a non-existent index answers IDX_NOTAVAIL, not SUBIDX_NOTAVAIL, even
+ * when the request also carries a non-zero subindex. */
+static void test_isdu_reserved_index_with_subindex(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+
+    assert_int_equal(isdu_send_read_request(&ctx, 0x000AU, 0x01U), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t byte;
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+}
+
+/* B.2.4: DeviceAccessLocks is accessible through subindex 0 only. */
+static void test_isdu_access_locks_rejects_nonzero_subindex(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DEVICE_ACCESS_LOCKS, 0x01U), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t byte;
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
+}
+
+/* Table B.14: 0x0025 subindex 0 is the whole list, subindex 1..n one entry. */
+static void test_isdu_detailed_status_subindex_elements(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_events_ctx_t events;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_events_init(&events);
+    iolink_event_trigger(&events, 0x1000U, IOLINK_EVENT_TYPE_ERROR);
+    iolink_event_trigger(&events, 0x8CA0U, IOLINK_EVENT_TYPE_WARNING);
+
+    iolink_isdu_init(&ctx);
+    ctx.event_ctx = &events;
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DETAILED_DEVICE_STATUS, 0x00U), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t all[6];
+    assert_int_equal(isdu_collect_response(&ctx, all, sizeof(all)), 6);
+    assert_int_equal(all[1], 0x10U);
+    assert_int_equal(all[4], 0x8CU);
+
+    /* First element: the Error that was queued first. */
+    iolink_isdu_init(&ctx);
+    ctx.event_ctx = &events;
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DETAILED_DEVICE_STATUS, 0x01U), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t first[3];
+    assert_int_equal(isdu_collect_response(&ctx, first, sizeof(first)), 3);
+    assert_int_equal(first[0] & 0x30U, 0x30U); /* TYPE = Error */
+    assert_int_equal(first[1], 0x10U);
+    assert_int_equal(first[2], 0x00U);
+
+    /* Out-of-range subindex. */
+    iolink_isdu_init(&ctx);
+    ctx.event_ctx = &events;
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DETAILED_DEVICE_STATUS, 0x03U), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t byte;
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
+}
+
+/* B.8: this stack serves the Data Storage image through subindex 0 only. */
+static void test_isdu_data_storage_subindex_not_available(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_ds_ctx_t ds;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+    iolink_ds_init(&ds, NULL);
+    ctx.ds_ctx = &ds;
+
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DATA_STORAGE, 0x01U), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t byte;
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
+}
+
+/* B.2.5: ProfileCharacteristic is an ArrayT with one element in this stack. */
+static void test_isdu_profile_characteristic_subindex(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_PROFILE_CHARACTERISTIC, 0x01U), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t element[2];
+    assert_int_equal(isdu_collect_response(&ctx, element, sizeof(element)), 2);
+
+    iolink_isdu_init(&ctx);
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_PROFILE_CHARACTERISTIC, 0x02U), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t byte;
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
+}
+
 static void test_isdu_system_command_read_only_write(void** state)
 {
     (void) state;
@@ -869,6 +998,16 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_isdu_vendor_device_id_not_available, test_setup,
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_reserved_indices_negative, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_reserved_index_with_subindex, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_access_locks_rejects_nonzero_subindex,
+                                        test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_detailed_status_subindex_elements, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_data_storage_subindex_not_available, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_profile_characteristic_subindex, test_setup,
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_mseq_capability_codes, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_spec_index_constants, test_setup, test_teardown),
