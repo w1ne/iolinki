@@ -252,9 +252,16 @@ void iolink_ds_process(iolink_ds_ctx_t* ctx)
             break;
 
         case IOLINK_DS_STATE_DOWNLOADING:
-            /* Commit a staged image if one was written to DS_Data (0x0003). */
+            /* Commit a staged image if one was written to DS_Data (0x0003). A
+               rejected image is discarded without touching the active
+               parameters; the checksum stays unchanged, so the next
+               iolink_ds_check() asks the Master for a new download. */
             if (ctx->image_len > 0U) {
-                (void) iolink_ds_apply_image(ctx, ctx->image, ctx->image_len);
+                if (iolink_ds_apply_image(ctx, ctx->image, ctx->image_len) != 0) {
+                    ctx->image_len = 0U;
+                    ctx->state = IOLINK_DS_STATE_IDLE;
+                    break;
+                }
             }
             else {
                 ctx->current_checksum = ctx->master_checksum;

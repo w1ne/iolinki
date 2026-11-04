@@ -164,6 +164,29 @@ static void test_ds_param_download_store_rejects_invalid_image(void** state)
     assert_int_equal(ds.state, IOLINK_DS_STATE_DOWNLOADING);
 }
 
+static void test_ds_process_rejects_invalid_image(void** state)
+{
+    (void) state;
+    iolink_ds_ctx_t ds;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_ds_init(&ds, NULL);
+    ds.state = IOLINK_DS_STATE_DOWNLOADING;
+    ds.image[0] = 0x00U;
+    ds.image[1] = IOLINK_IDX_APPLICATION_TAG;
+    ds.image[2] = 0x00U;
+    ds.image[3] = 0xFFU; /* Truncated record payload. */
+    ds.image_len = 4U;
+    ds.current_checksum = 0x1234U;
+
+    iolink_ds_process(&ds);
+
+    assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
+    assert_int_equal(ds.image_len, 0U);
+    /* Parameters and checksum stay untouched so a new download is requested. */
+    assert_int_equal(ds.current_checksum, 0x1234U);
+}
+
 static void test_ds_param_round_trip(void** state)
 {
     (void) state;
@@ -330,6 +353,7 @@ int main(void)
         cmocka_unit_test(test_ds_param_download_store_requests_upload),
         cmocka_unit_test(test_ds_param_download_store_locked),
         cmocka_unit_test(test_ds_param_download_store_rejects_invalid_image),
+        cmocka_unit_test(test_ds_process_rejects_invalid_image),
         cmocka_unit_test(test_ds_param_round_trip),
         cmocka_unit_test(test_ds_bound_params_restore_device_context_only),
         cmocka_unit_test(test_ds_apply_rejects_truncated),
