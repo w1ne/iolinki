@@ -105,7 +105,7 @@ static int params_ctx_write_nvm(const iolink_params_ctx_t* ctx)
     if (ctx->location_tag_valid) {
         (void) memcpy(nvm.location_tag, ctx->location_tag, sizeof(nvm.location_tag));
     }
-    return iolink_nvm_write(0U, (const uint8_t*) &nvm, sizeof(nvm));
+    return iolink_nvm_write(IOLINK_NVM_TAG_OFFSET, (const uint8_t*) &nvm, sizeof(nvm));
 }
 
 /** @brief Persist the DeviceAccessLocks record; 0 on success. */
@@ -166,7 +166,7 @@ void iolink_params_ctx_init(iolink_params_ctx_t* ctx, iolink_device_info_ctx_t* 
         iolink_device_info_ctx_set_access_locks(ctx->device_info, stored_locks);
     }
 
-    if ((iolink_nvm_read(0U, (uint8_t*) &nvm, sizeof(nvm)) == 0) &&
+    if ((iolink_nvm_read(IOLINK_NVM_TAG_OFFSET, (uint8_t*) &nvm, sizeof(nvm)) == 0) &&
         (nvm.magic == PARAMS_NVM_MAGIC)) {
         copy_tag(ctx->application_tag, &ctx->application_tag_valid,
                  (const uint8_t*) nvm.application_tag, bounded_tag_len(nvm.application_tag));
@@ -350,5 +350,11 @@ int iolink_params_set(uint16_t index, uint8_t subindex, const uint8_t* data, siz
 void iolink_params_factory_reset(void)
 {
     iolink_params_ctx_factory_reset(legacy_params_ctx());
-    (void) iolink_device_info_set_application_tag("", 0U);
+    iolink_device_info_set_application_tag("", 0U);
+    /* The legacy parameter manager keeps its own device-info snapshot while the
+       ISDU legacy reader uses the device_info singleton. Restore the
+       singleton's state-of-delivery locks and persist that value so the two
+       objects cannot disagree after a Restore factory settings. */
+    iolink_device_info_reset_access_locks();
+    (void) iolink_params_store_access_locks(iolink_device_info_get_access_locks());
 }

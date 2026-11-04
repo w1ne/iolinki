@@ -1773,11 +1773,13 @@ static void test_system_cmd_reset_discards_staged_download_image(void** state)
         iolink_params_init();
         iolink_ds_init(&ds, NULL);
         ds.state = IOLINK_DS_STATE_DOWNLOADING;
-        ds.image_len = 4U;
+        /* Staged image: ApplicationTag = "X". */
         ds.image[0] = 0x00U;
         ds.image[1] = IOLINK_IDX_APPLICATION_TAG;
         ds.image[2] = 0x00U;
         ds.image[3] = 0x01U;
+        ds.image[4] = (uint8_t) 'X';
+        ds.image_len = 5U;
 
         iolink_isdu_init(&ctx);
         ctx.ds_ctx = &ds;
@@ -1786,8 +1788,20 @@ static void test_system_cmd_reset_discards_staged_download_image(void** state)
             isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00U, &cmds[i], 1), 1);
         iolink_isdu_process(&ctx);
 
+        /* The staged image is gone and the device serves its own parameters. */
         assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
-        assert_int_equal(ds.image_len, 0U);
+        assert_int_not_equal(ds.image_len, 5U);
+        assert_true(iolink_ds_verify(&ds));
+
+        /* A later ds_process() must not apply it: the staged "X" never lands in
+           the parameter set (Device reset keeps the default tag). */
+        iolink_ds_process(&ds);
+        uint8_t tag[33];
+        const int tag_len = iolink_params_get(IOLINK_IDX_APPLICATION_TAG, 0x00U, tag, sizeof(tag));
+        assert_true(tag_len >= 0);
+        if (tag_len > 0) {
+            assert_int_not_equal(tag[0], (uint8_t) 'X');
+        }
     }
 }
 
@@ -1971,6 +1985,42 @@ static void test_isdu_device_init_binds_device_info(void** state)
     assert_int_equal(resp[1], IOLINK_ISDU_ERROR_WRITE_PROTECTED);
 }
 
+/* Legacy (context-less) configuration: Restore factory settings must keep the
+ * configured state-of-delivery locks and persist that value, not overwrite the
+ * NVM record with the parameter manager's private 0 default. */
+static void test_params_legacy_factory_reset_keeps_configured_default_locks(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_t info;
+
+    (void) memset(&info, 0, sizeof(info));
+    info.access_locks = IOLINK_LOCK_DS;
+    iolink_device_info_init(&info);
+    iolink_params_init();
+
+    iolink_isdu_init(&ctx);
+    const uint8_t lock_write[2] = {0x00U, IOLINK_LOCK_PARAM};
+    assert_int_equal(
+        isdu_send_write_request(&ctx, IOLINK_IDX_DEVICE_ACCESS_LOCKS, 0x00U, lock_write, 2), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t resp[2];
+    assert_int_equal(isdu_collect_response(&ctx, resp, sizeof(resp)), 0);
+    assert_int_equal(iolink_device_info_get_access_locks(), IOLINK_LOCK_PARAM);
+
+    iolink_isdu_init(&ctx);
+    const uint8_t cmd = IOLINK_CMD_RESTORE_FACTORY_SETTINGS;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00U, &cmd, 1), 1);
+    iolink_isdu_process(&ctx);
+    assert_int_equal(isdu_collect_response(&ctx, resp, sizeof(resp)), 0);
+    assert_int_equal(iolink_device_info_get_access_locks(), IOLINK_LOCK_DS);
+
+    /* The persisted value must match, or a power cycle resurrects the lock. */
+    iolink_device_info_init(&info);
+    iolink_params_init();
+    assert_int_equal(iolink_device_info_get_access_locks(), IOLINK_LOCK_DS);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -2069,6 +2119,9 @@ int main(void)
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_reset_lock_commit_failure_reported, test_setup,
                                         test_teardown),
+        cmocka_unit_test_setup_teardown(
+            test_params_legacy_factory_reset_keeps_configured_default_locks, test_setup,
+            test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_access_locks_persist_across_reinit, test_setup,
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_application_reset_requests_ds_upload,

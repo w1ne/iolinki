@@ -355,8 +355,11 @@ int iolink_ds_discard(iolink_ds_ctx_t* ctx)
     }
 
     ctx->state = IOLINK_DS_STATE_IDLE;
-    /* A staged Master image must never be applied after a reset command. */
+    /* A staged Master image must never be applied after a reset command. Keep
+       the image/checksum pair consistent (verify() true, get_image() serves the
+       device's own parameters). */
     ctx->image_len = 0U;
+    (void) iolink_ds_build_image(ctx);
     return 0;
 }
 

@@ -996,11 +996,11 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
             /* Table 101 "Clear": active Events are withdrawn with MODE
                "disappears" while ErrorCount is reset. Access locks fall back to
                the state of delivery and the block transfer is discarded. */
-            isdu_discard_ds(ctx);
             if (isdu_reset_access_locks(ctx) != 0) {
                 isdu_negative_response(ctx, IOLINK_ISDU_ERROR_APP_DEVICE);
                 return;
             }
+            isdu_discard_ds(ctx);
             isdu_params_factory_reset(ctx);
             isdu_reset_error_counters(ctx);
             if (ctx->event_ctx != NULL) {
@@ -1011,11 +1011,11 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
         case IOLINK_CMD_BACK_TO_BOX: /* 0x83 */
             /* Back-to-box sets diagnosis/status to "0" and stops communication
                after the positive response and three Master cycles. */
-            isdu_discard_ds(ctx);
             if (isdu_reset_access_locks(ctx) != 0) {
                 isdu_negative_response(ctx, IOLINK_ISDU_ERROR_APP_DEVICE);
                 return;
             }
+            isdu_discard_ds(ctx);
             isdu_params_factory_reset(ctx);
             isdu_reset_error_counters(ctx);
             if (ctx->event_ctx != NULL) {
