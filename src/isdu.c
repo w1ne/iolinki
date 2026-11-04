@@ -918,7 +918,7 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
                 if (ret != 0) {
                     ctx->response_buf[0] = 0x80U;
                     if (ret == -1) {
-                        ctx->response_buf[1] = IOLINK_ISDU_ERROR_BUSY; /* 0x30 */
+                        ctx->response_buf[1] = IOLINK_ISDU_ERROR_FUNCTION_TEMP_UNAVAIL;
                     }
                     else if (ret == -2) {
                         ctx->response_buf[1] =

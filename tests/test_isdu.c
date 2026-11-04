@@ -346,6 +346,70 @@ static void test_system_cmd_resets_diagnostics(void** state)
     assert_int_equal(dll.events.count, 1U);
 }
 
+/* Table 100/C.2.15: a DS command that the current state does not allow is
+ * answered with 0x36 (FUNC_UNAVAILTEMP), not 0x30 (PAR_VALOUTOFRNG). */
+static void test_system_cmd_param_download_store_busy(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_ds_ctx_t ds;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_ds_init(&ds, NULL);
+    ds.state = IOLINK_DS_STATE_UPLOADING;
+    iolink_isdu_init(&ctx);
+    ctx.ds_ctx = &ds;
+
+    const uint8_t store = IOLINK_CMD_PARAM_DOWNLOAD_STORE;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &store, 1), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t response[2];
+    assert_int_equal(isdu_collect_response(&ctx, response, sizeof(response)), 2);
+    assert_int_equal(response[0], 0x80U);
+    assert_int_equal(response[1], IOLINK_ISDU_ERROR_FUNCTION_TEMP_UNAVAIL);
+}
+
+/* B.2.22: after Restore factory settings the withdrawn Events are not part of
+ * DetailedDeviceStatus, and DeviceStatus is back to "0". */
+static void test_system_cmd_factory_restore_clears_detailed_status(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_dll_ctx_t dll;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    (void) memset(&dll, 0, sizeof(dll));
+    iolink_events_init(&dll.events);
+    iolink_event_trigger(&dll.events, IOLINK_EVENTCODE_GENERAL_MALFUNCTION,
+                         IOLINK_EVENT_TYPE_ERROR);
+
+    iolink_isdu_init(&ctx);
+    ctx.dll_ctx = &dll;
+    ctx.event_ctx = &dll.events;
+    const uint8_t restore = IOLINK_CMD_RESTORE_FACTORY_SETTINGS;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &restore, 1),
+                     1);
+    iolink_isdu_process(&ctx);
+
+    iolink_isdu_init(&ctx);
+    ctx.dll_ctx = &dll;
+    ctx.event_ctx = &dll.events;
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DEVICE_STATUS, 0x00U), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t status = 0xFFU;
+    assert_int_equal(isdu_collect_response(&ctx, &status, 1), 1);
+    assert_int_equal(status, 0U);
+
+    iolink_isdu_init(&ctx);
+    ctx.dll_ctx = &dll;
+    ctx.event_ctx = &dll.events;
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DETAILED_DEVICE_STATUS, 0x00U), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t detailed[8];
+    assert_int_equal(isdu_collect_response(&ctx, detailed, sizeof(detailed)), 0);
+}
+
 static void test_system_cmd_param_upload(void** state)
 {
     (void) state;
@@ -1310,6 +1374,10 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_system_cmd_factory_restore, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_resets_diagnostics, test_setup,
                                         test_teardown),
+        cmocka_unit_test_setup_teardown(test_system_cmd_param_download_store_busy, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_system_cmd_factory_restore_clears_detailed_status,
+                                        test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_param_upload, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_param_download, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_param_break, test_setup, test_teardown),
