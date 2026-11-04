@@ -34,12 +34,12 @@ typedef enum
     IOLINK_EVENT_TYPE_ERROR = 2U         /**< Critical failure, operation might be degraded */
 } iolink_event_type_t;
 
-/** @brief Event transmission mode from Table A.20. */
+/** @brief Event transmission mode, coded per Table A.20 (bits 6-7). */
 typedef enum
 {
-    IOLINK_EVENT_MODE_APPEARS = 0U,
-    IOLINK_EVENT_MODE_DISAPPEARS = 1U,
-    IOLINK_EVENT_MODE_SINGLE_SHOT = 2U
+    IOLINK_EVENT_MODE_SINGLE_SHOT = 1U, /**< Event single shot */
+    IOLINK_EVENT_MODE_DISAPPEARS = 2U,  /**< Event disappears */
+    IOLINK_EVENT_MODE_APPEARS = 3U      /**< Event appears */
 } iolink_event_mode_t;
 
 /*
@@ -155,7 +155,18 @@ void iolink_events_init(iolink_events_ctx_t* ctx);
  */
 void iolink_event_trigger(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_type_t type);
 
-/** @brief Convert queued Error/Warning events to Event Disappears (Table 101). */
+/**
+ * @brief Convert queued Error/Warning events to Event Disappears (Table 101).
+ *
+ * Implements the "Clear" action of Restore factory settings: every queued
+ * Error/Warning keeps its EventCode and is re-issued with MODE "event
+ * disappears", so the Master can withdraw it from its diagnosis cache.
+ * Notification entries are discarded. The event memory is rebuilt, the Event
+ * flag stays set while entries remain, and the caller still has to reset the
+ * ErrorCount counters.
+ *
+ * @param ctx Event context
+ */
 void iolink_events_clear_diagnosis(iolink_events_ctx_t* ctx);
 
 /**

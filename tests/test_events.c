@@ -232,14 +232,64 @@ static void test_event_memory_confirm(void** state)
     assert_int_equal(iolink_events_memory_read(&ctx, 0x01U), 0xE4U); /* warning qualifier */
 }
 
+/* Table 101 "Clear": queued Error/Warning events become Event Disappears,
+ * Notification entries are discarded, and the Event flag/memory follow. */
+static void test_event_clear_diagnosis(void** state)
+{
+    (void) state;
+    iolink_events_ctx_t ctx;
+    iolink_events_init(&ctx);
+
+    iolink_event_trigger(&ctx, 0x1000U, IOLINK_EVENT_TYPE_ERROR);
+    iolink_event_trigger(&ctx, 0x8CA0U, IOLINK_EVENT_TYPE_WARNING);
+    iolink_event_trigger(&ctx, IOLINK_EVENTCODE_DS_UPLOAD_REQUEST, IOLINK_EVENT_TYPE_NOTIFICATION);
+    assert_int_equal(ctx.count, 3U);
+
+    iolink_events_clear_diagnosis(&ctx);
+
+    assert_int_equal(ctx.count, 2U);
+    iolink_event_t event;
+    assert_true(iolink_events_pop(&ctx, &event));
+    assert_int_equal(event.code, 0x1000U);
+    assert_int_equal(event.mode, IOLINK_EVENT_MODE_DISAPPEARS);
+    assert_true(iolink_events_pop(&ctx, &event));
+    assert_int_equal(event.code, 0x8CA0U);
+    assert_int_equal(event.mode, IOLINK_EVENT_MODE_DISAPPEARS);
+
+    /* MODE 2 in bits 6-7 of every presented event. */
+    assert_int_equal(iolink_events_memory_read(&ctx, 1U) & 0xC0U, 0x80U);
+    assert_int_equal(iolink_events_get_highest_severity(&ctx), 0U);
+}
+
+static void test_event_clear_diagnosis_discards_all_notifications(void** state)
+{
+    (void) state;
+    iolink_events_ctx_t ctx;
+    iolink_events_init(&ctx);
+
+    iolink_event_trigger(&ctx, IOLINK_EVENTCODE_NO_MALFUNCTION, IOLINK_EVENT_TYPE_NOTIFICATION);
+    iolink_events_clear_diagnosis(&ctx);
+
+    assert_int_equal(ctx.count, 0U);
+    assert_false(iolink_events_flag(&ctx));
+    assert_int_equal(iolink_events_memory_read(&ctx, 0U), 0U);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_event_queue_flow),    cmocka_unit_test(test_event_queue_overflow),
-        cmocka_unit_test(test_standard_codes),      cmocka_unit_test(test_phy_diagnostic_codes),
-        cmocka_unit_test(test_event_peek),          cmocka_unit_test(test_event_helpers),
-        cmocka_unit_test(test_event_classify),      cmocka_unit_test(test_event_memory_layout),
-        cmocka_unit_test(test_event_memory_frozen), cmocka_unit_test(test_event_memory_confirm),
+        cmocka_unit_test(test_event_queue_flow),
+        cmocka_unit_test(test_event_queue_overflow),
+        cmocka_unit_test(test_standard_codes),
+        cmocka_unit_test(test_phy_diagnostic_codes),
+        cmocka_unit_test(test_event_peek),
+        cmocka_unit_test(test_event_helpers),
+        cmocka_unit_test(test_event_classify),
+        cmocka_unit_test(test_event_memory_layout),
+        cmocka_unit_test(test_event_memory_frozen),
+        cmocka_unit_test(test_event_memory_confirm),
+        cmocka_unit_test(test_event_clear_diagnosis),
+        cmocka_unit_test(test_event_clear_diagnosis_discards_all_notifications),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

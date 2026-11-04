@@ -30,9 +30,9 @@ void iolink_events_init(iolink_events_ctx_t* ctx)
 /** @brief EventQualifier for an event type (A.6.4, Figure A.24). */
 static uint8_t event_qualifier(iolink_event_type_t type, iolink_event_mode_t mode)
 {
-    uint8_t q = (mode == IOLINK_EVENT_MODE_DISAPPEARS)
-                    ? 0x80U
-                    : ((mode == IOLINK_EVENT_MODE_SINGLE_SHOT) ? 0x40U : 0xC0U);
+    /* Table A.20: bits 6-7 carry MODE (1 single shot, 2 disappears,
+       3 appears). */
+    uint8_t q = (uint8_t) (((uint8_t) mode & 0x03U) << 6U);
     switch (type) {
         case IOLINK_EVENT_TYPE_NOTIFICATION:
             q |= (0x01U << 4);

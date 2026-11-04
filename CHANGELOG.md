@@ -1,4 +1,4 @@
-# Changelog
+#Changelog
 
 All notable changes to the `iolinki` project will be documented in this file.
 
@@ -15,9 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and disables communication after the positive response and three processing
   cycles, with a bounded wait so a Master that stops polling cannot keep the
   link alive.
-- ParamDownloadStore now rejects malformed or invalid staged parameter images
-  with `PARAM_INCONSISTENT` and does not enter `UPLOAD_REQ` or emit
-  `DS_UPLOAD_REQ` on failure.
+- ParamDownloadStore/ParamDownloadEnd reject malformed or inconsistent staged
+  parameter images with `PARAM_INCONSISTENT` (0x41, C.2.17) and do not enter
+  `UPLOAD_REQ` or emit `DS_UPLOAD_REQ` on failure. An image is validated
+  completely before any parameter is written.
 - **ISDU conformance with Table B.8/B.9 (breaking change).** SystemCommand
   codes now follow Table B.9 (`ParamUploadStart/End` 0x01/0x02,
   `ParamDownloadStart/End` 0x03/0x04, `ParamDownloadStore` 0x05,
@@ -38,8 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (identification tags, Direct Parameter page 2 and device-specific indices),
   with DeviceAccessLocks and Data Storage downloads exempt. An index that is
   not implemented answers `0x80 0x11` even when the request carries a non-zero
-  subindex, an unsupported subindex answers `0x80 0x12`, and
-  DetailedDeviceStatus additionally serves subindex 1..n element reads.
+  subindex, an unsupported subindex answers `0x80 0x12` (DetailedDeviceStatus
+  follows B.2.22 and supports subindex 0 only).
 - `MinCycleTime` in Direct Parameter Page 1 is encoded per Table B.3 instead of
   carrying the raw value. 0 still encodes as 0x00 ("no MinCycleTime", B.1.3),
   values below 0.4 ms clamp to 0.4 ms, values between steps round up, and
@@ -57,11 +58,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Device diagnosis and status follow Table 101. Device reset (0x80) sets them
   to "0": the ErrorCount counters and the event memory behind DeviceStatus
   (0x0024) / DetailedDeviceStatus (0x0025) are cleared. Restore factory
-  settings (0x82) and Back-to-box (0x83) reset ErrorCount as required by
-  10.7.4, but keep the active Events queued: Table 101 defines their diagnosis
-  as "Clear", i.e. withdrawn with "event disappears" (delivered with the
-  event-lifecycle work) rather than silently discarded. Application reset
-  (0x81) leaves the diagnosis untouched.
+  settings (0x82) resets ErrorCount as required by 10.7.4 and withdraws the
+  active Error/Warning Events with "event disappears" (Table 101 "Clear");
+  Back-to-box (0x83) sets the diagnosis to "0". Application reset (0x81)
+  leaves the diagnosis untouched.
 
 ### Fixed
 - **Streaming M-sequence request framing (wire change).** Read requests now
