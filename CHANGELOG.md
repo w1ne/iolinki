@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- DetailedDeviceStatus (0x0025) follows Table B.14: subindex access is not
+  supported and only subindex 0 returns the complete ArrayT. Restore factory
+  settings (0x82) converts queued Error/Warning events to MODE "disappears"
+  so the Master can clear its diagnosis; Back-to-box (0x83) clears diagnosis
+  and disables communication after the positive response and three processing
+  cycles.
+- ParamDownloadStore now rejects malformed or invalid staged parameter images
+  with `PARAM_INCONSISTENT` and does not enter `UPLOAD_REQ` or emit
+  `DS_UPLOAD_REQ` on failure.
 - **ISDU conformance with Table B.8/B.9 (breaking change).** SystemCommand
   codes now follow Table B.9 (`ParamUploadStart/End` 0x01/0x02,
   `ParamDownloadStart/End` 0x03/0x04, `ParamDownloadStore` 0x05,

@@ -34,6 +34,14 @@ typedef enum
     IOLINK_EVENT_TYPE_ERROR = 2U         /**< Critical failure, operation might be degraded */
 } iolink_event_type_t;
 
+/** @brief Event transmission mode from Table A.20. */
+typedef enum
+{
+    IOLINK_EVENT_MODE_APPEARS = 0U,
+    IOLINK_EVENT_MODE_DISAPPEARS = 1U,
+    IOLINK_EVENT_MODE_SINGLE_SHOT = 2U
+} iolink_event_mode_t;
+
 /*
  * Device vendor-specific communication events.
  *
@@ -104,6 +112,7 @@ typedef struct
 {
     uint16_t code;            /**< 16-bit IO-Link EventCode (per spec or device-specific) */
     iolink_event_type_t type; /**< Severity level */
+    iolink_event_mode_t mode; /**< Event mode on the diagnosis channel */
 } iolink_event_t;
 
 /**
@@ -145,6 +154,9 @@ void iolink_events_init(iolink_events_ctx_t* ctx);
  * @param type Severity level
  */
 void iolink_event_trigger(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_type_t type);
+
+/** @brief Convert queued Error/Warning events to Event Disappears (Table 101). */
+void iolink_events_clear_diagnosis(iolink_events_ctx_t* ctx);
 
 /**
  * @brief Check if any events are pending for Master retrieval

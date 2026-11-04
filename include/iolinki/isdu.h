@@ -110,8 +110,9 @@ typedef struct
     void* direct_param_page2;        /**< Per-device Direct Parameter page 2 storage */
 
     /* System Command Flags */
-    bool reset_pending;     /**< Device reset requested (0x80) */
-    bool app_reset_pending; /**< Application reset requested (0x81) */
+    bool reset_pending;       /**< Device reset requested (0x80) */
+    bool app_reset_pending;   /**< Application reset requested (0x81) */
+    bool back_to_box_pending; /**< Back-to-box response sent; stop communication next */
 } iolink_isdu_ctx_t;
 
 /**

@@ -387,6 +387,10 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
         }
     }
     ctx->last_response_us = iolink_time_get_us();
+    if (ctx->isdu.back_to_box_pending) {
+        ctx->isdu.back_to_box_pending = false;
+        ctx->back_to_box_cycles = 3U;
+    }
 }
 
 /** @brief Process a 3-octet Type-0 OD WRITE (MC, CKT, OD) and reply with CKS only (Figure A.5). */
@@ -408,6 +412,10 @@ static void dll_handle_type0_od_write(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t
         ctx->phy->send(ctx->phy->user, resp, 1);
     }
     ctx->last_response_us = iolink_time_get_us();
+    if (ctx->isdu.back_to_box_pending) {
+        ctx->isdu.back_to_box_pending = false;
+        ctx->back_to_box_cycles = 3U;
+    }
 }
 
 /** @brief Process a Type-1/Type-2 OPERATE frame (PD+OD) and build the response, enforcing t_REN. */
@@ -580,6 +588,22 @@ void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy)
 void iolink_dll_process(iolink_dll_ctx_t* ctx)
 {
     if ((ctx == NULL) || (ctx->phy == NULL)) {
+        return;
+    }
+
+    if (ctx->communication_disabled) {
+        return;
+    }
+    if (ctx->back_to_box_cycles > 0U) {
+        ctx->back_to_box_cycles--;
+        if (ctx->back_to_box_cycles == 0U) {
+            if (ctx->phy->set_mode != NULL) {
+                ctx->phy->set_mode(ctx->phy->user, IOLINK_PHY_MODE_INACTIVE);
+            }
+            ctx->phy_mode = IOLINK_PHY_MODE_INACTIVE;
+            ctx->communication_disabled = true;
+            dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
+        }
         return;
     }
 

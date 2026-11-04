@@ -290,8 +290,8 @@ static void test_system_cmd_resets_diagnostics(void** state)
     assert_int_equal(dll.events.count, 0U);
     assert_false(iolink_events_flag(&dll.events));
 
-    /* 0x82/0x83: ErrorCount is reset (10.7.4), the active Events stay queued
-       so they can be withdrawn with "event disappears". */
+    /* 0x82 clears active diagnosis through Event Disappears; 0x83 sets status
+       to zero and discards the diagnosis before communication is stopped. */
     const uint8_t keep_event_commands[] = {IOLINK_CMD_RESTORE_FACTORY_SETTINGS,
                                            IOLINK_CMD_BACK_TO_BOX};
     for (size_t i = 0U; i < (sizeof(keep_event_commands) / sizeof(keep_event_commands[0])); i++) {
@@ -305,6 +305,7 @@ static void test_system_cmd_resets_diagnostics(void** state)
 
         iolink_isdu_init(&ctx);
         ctx.dll_ctx = &dll;
+        ctx.event_ctx = &dll.events;
         const uint8_t cmd = keep_event_commands[i];
         assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &cmd, 1),
                          1);
@@ -314,8 +315,18 @@ static void test_system_cmd_resets_diagnostics(void** state)
         assert_int_equal(dll.timeout_errors, 0U);
         assert_int_equal(dll.framing_errors, 0U);
         assert_int_equal(dll.timing_errors, 0U);
-        assert_int_equal(dll.events.count, 1U);
-        assert_true(iolink_events_flag(&dll.events));
+        if (cmd == IOLINK_CMD_RESTORE_FACTORY_SETTINGS) {
+            iolink_event_t event;
+            assert_int_equal(dll.events.count, 1U);
+            assert_true(iolink_events_flag(&dll.events));
+            assert_true(iolink_events_peek(&dll.events, &event));
+            assert_int_equal(event.mode, IOLINK_EVENT_MODE_DISAPPEARS);
+            assert_int_equal(iolink_events_memory_read(&dll.events, 1U) & 0xC0U, 0x80U);
+        }
+        else {
+            assert_int_equal(dll.events.count, 0U);
+            assert_false(iolink_events_flag(&dll.events));
+        }
     }
 
     /* Application reset (0x81): Table 101 says "No". */
@@ -449,6 +460,39 @@ static void test_system_cmd_param_download_end_no_upload_request(void** state)
     iolink_isdu_process(&ctx);
 
     assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
+    iolink_event_t event;
+    assert_false(iolink_events_pop(&events, &event));
+}
+
+static void test_system_cmd_param_download_store_rejects_invalid_image(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_ds_ctx_t ds;
+    iolink_events_ctx_t events;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_ds_init(&ds, NULL);
+    iolink_events_init(&events);
+    ds.state = IOLINK_DS_STATE_DOWNLOADING;
+    ds.image[0] = 0x00U;
+    ds.image[1] = IOLINK_IDX_APPLICATION_TAG;
+    ds.image[2] = 0x00U;
+    ds.image[3] = 0xFFU;
+    ds.image_len = 4U;
+
+    iolink_isdu_init(&ctx);
+    ctx.ds_ctx = &ds;
+    ctx.event_ctx = &events;
+    const uint8_t store = IOLINK_CMD_PARAM_DOWNLOAD_STORE;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &store, 1), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t response[2];
+    assert_int_equal(isdu_collect_response(&ctx, response, sizeof(response)), 2);
+    assert_int_equal(response[0], 0x80U);
+    assert_int_equal(response[1], IOLINK_ISDU_ERROR_PARAM_INCONSISTENT);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_DOWNLOADING);
     iolink_event_t event;
     assert_false(iolink_events_pop(&events, &event));
 }
@@ -819,8 +863,8 @@ static void test_isdu_access_locks_rejects_nonzero_subindex(void** state)
     assert_int_equal(byte, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
 }
 
-/* Table B.14: 0x0025 subindex 0 is the whole list, subindex 1..n one entry. */
-static void test_isdu_detailed_status_subindex_elements(void** state)
+/* Table B.14: 0x0025 is an ArrayT, but subindex access is not supported. */
+static void test_isdu_detailed_status_rejects_subindex(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
@@ -833,6 +877,7 @@ static void test_isdu_detailed_status_subindex_elements(void** state)
 
     iolink_isdu_init(&ctx);
     ctx.event_ctx = &events;
+    /* Subindex 0 returns the complete list. */
     assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DETAILED_DEVICE_STATUS, 0x00U), 1);
     iolink_isdu_process(&ctx);
     uint8_t all[6];
@@ -840,21 +885,11 @@ static void test_isdu_detailed_status_subindex_elements(void** state)
     assert_int_equal(all[1], 0x10U);
     assert_int_equal(all[4], 0x8CU);
 
-    /* First element: the Error that was queued first. */
+    /* Any non-zero subindex is rejected, even when the corresponding array
+       element exists. */
     iolink_isdu_init(&ctx);
     ctx.event_ctx = &events;
     assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DETAILED_DEVICE_STATUS, 0x01U), 1);
-    iolink_isdu_process(&ctx);
-    uint8_t first[3];
-    assert_int_equal(isdu_collect_response(&ctx, first, sizeof(first)), 3);
-    assert_int_equal(first[0] & 0x30U, 0x30U); /* TYPE = Error */
-    assert_int_equal(first[1], 0x10U);
-    assert_int_equal(first[2], 0x00U);
-
-    /* Out-of-range subindex. */
-    iolink_isdu_init(&ctx);
-    ctx.event_ctx = &events;
-    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DETAILED_DEVICE_STATUS, 0x03U), 1);
     iolink_isdu_process(&ctx);
     uint8_t byte;
     assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
@@ -1244,7 +1279,7 @@ int main(void)
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_access_locks_rejects_nonzero_subindex, test_setup,
                                         test_teardown),
-        cmocka_unit_test_setup_teardown(test_isdu_detailed_status_subindex_elements, test_setup,
+        cmocka_unit_test_setup_teardown(test_isdu_detailed_status_rejects_subindex, test_setup,
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_data_storage_subindex_not_available, test_setup,
                                         test_teardown),
@@ -1281,6 +1316,8 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_system_cmd_param_download_store, test_setup,
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_param_download_end_no_upload_request,
+                                        test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_system_cmd_param_download_store_rejects_invalid_image,
                                         test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_invalid, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_function_tag_read_write, test_setup,

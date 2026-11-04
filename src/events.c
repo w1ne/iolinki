@@ -28,9 +28,11 @@ void iolink_events_init(iolink_events_ctx_t* ctx)
 }
 
 /** @brief EventQualifier for an event type (A.6.4, Figure A.24). */
-static uint8_t event_qualifier(iolink_event_type_t type)
+static uint8_t event_qualifier(iolink_event_type_t type, iolink_event_mode_t mode)
 {
-    uint8_t q = 0xC0U; /* MODE = event appears */
+    uint8_t q = (mode == IOLINK_EVENT_MODE_DISAPPEARS)
+                    ? 0x80U
+                    : ((mode == IOLINK_EVENT_MODE_SINGLE_SHOT) ? 0x40U : 0xC0U);
     switch (type) {
         case IOLINK_EVENT_TYPE_NOTIFICATION:
             q |= (0x01U << 4);
@@ -62,7 +64,7 @@ static void event_memory_rebuild(iolink_events_ctx_t* ctx)
     for (uint8_t i = 0U; i < slots; i++) {
         uint8_t idx = (uint8_t) ((ctx->head + i) % IOLINK_EVENT_QUEUE_SIZE);
         const iolink_event_t* ev = &ctx->queue[idx];
-        ctx->memory[1U + i * 3U] = event_qualifier(ev->type);
+        ctx->memory[1U + i * 3U] = event_qualifier(ev->type, ev->mode);
         ctx->memory[2U + i * 3U] = (uint8_t) (ev->code >> 8);
         ctx->memory[3U + i * 3U] = (uint8_t) (ev->code & 0xFFU);
     }
@@ -91,6 +93,7 @@ void iolink_event_trigger(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_
 
     ctx->queue[ctx->tail].code = code;
     ctx->queue[ctx->tail].type = type;
+    ctx->queue[ctx->tail].mode = IOLINK_EVENT_MODE_APPEARS;
     ctx->tail = (uint8_t) ((ctx->tail + 1U) % IOLINK_EVENT_QUEUE_SIZE);
     ctx->count++;
 
@@ -102,6 +105,38 @@ void iolink_event_trigger(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_
     }
     ctx->flag = true;
 
+    iolink_critical_exit();
+}
+
+void iolink_events_clear_diagnosis(iolink_events_ctx_t* ctx)
+{
+    if (ctx == NULL) {
+        return;
+    }
+
+    iolink_critical_enter();
+    uint8_t kept = 0U;
+    for (uint8_t i = 0U; i < ctx->count; i++) {
+        const uint8_t idx = (uint8_t) ((ctx->head + i) % IOLINK_EVENT_QUEUE_SIZE);
+        iolink_event_t event = ctx->queue[idx];
+        if (event.type == IOLINK_EVENT_TYPE_NOTIFICATION) {
+            continue;
+        }
+        event.mode = IOLINK_EVENT_MODE_DISAPPEARS;
+        ctx->queue[(uint8_t) ((ctx->head + kept) % IOLINK_EVENT_QUEUE_SIZE)] = event;
+        kept++;
+    }
+    ctx->count = kept;
+    ctx->tail = (uint8_t) ((ctx->head + kept) % IOLINK_EVENT_QUEUE_SIZE);
+    ctx->frozen = false;
+    ctx->flag = (kept > 0U);
+    if (kept > 0U) {
+        event_memory_rebuild(ctx);
+        ctx->frozen = true;
+    }
+    else {
+        (void) memset(ctx->memory, 0, sizeof(ctx->memory));
+    }
     iolink_critical_exit();
 }
 
@@ -211,6 +246,10 @@ uint8_t iolink_events_get_highest_severity(iolink_events_ctx_t* ctx)
     for (uint8_t i = 0U; i < ctx->count; i++) {
         uint8_t idx = (uint8_t) ((ctx->head + i) % IOLINK_EVENT_QUEUE_SIZE);
         iolink_event_type_t type = ctx->queue[idx].type;
+
+        if (ctx->queue[idx].mode == IOLINK_EVENT_MODE_DISAPPEARS) {
+            continue;
+        }
 
         uint8_t severity = 0U;
         switch (type) {

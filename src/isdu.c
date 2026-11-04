@@ -501,9 +501,10 @@ static bool isdu_object_lookup(uint16_t index, isdu_object_desc_t* desc)
             return true;
 
         case IOLINK_IDX_DETAILED_DEVICE_STATUS:
-            /* B.2.22/Table B.14: variable-length array of 3-octet entries. */
+            /* B.2.22/Table B.14: variable-length array of 3-octet entries;
+               Table B.14 explicitly does not support subindex access. */
             desc->max_subindex = 0U;
-            desc->dynamic_array = true;
+            desc->dynamic_array = false;
             return true;
 
         default:
@@ -883,19 +884,24 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
             break;
 
         case IOLINK_CMD_RESTORE_FACTORY_SETTINGS: /* 0x82 */
-            /* Reset all parameters to factory defaults. Table 101 "Clear":
-               10.7.4 requires ErrorCount to be reset, while active Events are
-               withdrawn with "event disappears" instead of being discarded. */
+            /* Table 101 "Clear": active Events are withdrawn with MODE
+               "disappears" while ErrorCount is reset. */
             isdu_params_factory_reset(ctx);
             isdu_reset_error_counters(ctx);
+            if (ctx->event_ctx != NULL) {
+                iolink_events_clear_diagnosis((iolink_events_ctx_t*) ctx->event_ctx);
+            }
             break;
 
         case IOLINK_CMD_BACK_TO_BOX: /* 0x83 */
-            /* Reset application-specific parameters (currently same as factory);
-               Table 101: Diagnosis and status become "0", so ErrorCount is
-               reset and the active Events are withdrawn the same way. */
+            /* Back-to-box sets diagnosis/status to "0" and stops communication
+               after the positive response and three Master cycles. */
             isdu_params_factory_reset(ctx);
             isdu_reset_error_counters(ctx);
+            if (ctx->event_ctx != NULL) {
+                iolink_events_init((iolink_events_ctx_t*) ctx->event_ctx);
+            }
+            ctx->back_to_box_pending = true;
             break;
 
         /* Table B.9: ParamUploadStart/End (0x01/0x02), ParamDownloadStart/End
@@ -917,6 +923,9 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
                     else if (ret == -2) {
                         ctx->response_buf[1] =
                             IOLINK_ISDU_ERROR_WRITE_PROTECTED; /* 0x23, Table C.1 */
+                    }
+                    else if (ret == -4) {
+                        ctx->response_buf[1] = IOLINK_ISDU_ERROR_PARAM_INCONSISTENT;
                     }
                     else {
                         ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
@@ -1003,22 +1012,18 @@ static void handle_detailed_device_status(iolink_isdu_ctx_t* ctx)
     uint8_t count = event_ctx->count;
     if (count > 8U) count = 8U; /* Limit to 8 events in response */
 
-    /* Table B.14: subindex 0 returns the whole list; subindex 1..n addresses
-       one 3-octet entry. */
-    const uint8_t sub = ctx->header.subindex;
-    if (sub > count) {
-        iolink_critical_exit();
-        isdu_negative_response(ctx, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
-        return;
-    }
-    const uint8_t first = (sub == 0U) ? 0U : (uint8_t) (sub - 1U);
-    const uint8_t last = (sub == 0U) ? count : sub;
-
-    for (uint8_t i = first; i < last; i++) {
+    /* Table B.14: subindex access is not supported; subindex 0 returns the
+       complete array. */
+    uint8_t out_count = 0U;
+    for (uint8_t i = 0U; i < count; i++) {
         /* Calculate index in FIFO */
         uint8_t idx = (uint8_t) ((event_ctx->head + i) % IOLINK_EVENT_QUEUE_SIZE);
         const iolink_event_t* ev = &event_ctx->queue[idx];
-        const uint8_t pos = (uint8_t) ((i - first) * 3U);
+        if ((ev->mode == IOLINK_EVENT_MODE_DISAPPEARS) ||
+            (ev->type == IOLINK_EVENT_TYPE_NOTIFICATION)) {
+            continue;
+        }
+        const uint8_t pos = (uint8_t) (out_count * 3U);
 
         /* EventQualifier byte per IO-Link V1.1.5 (Figure A.24):
          *   MODE     (bits 7-6): 11 = event appears
@@ -1045,8 +1050,9 @@ static void handle_detailed_device_status(iolink_isdu_ctx_t* ctx)
         ctx->response_buf[pos] = qualifier;
         ctx->response_buf[pos + 1U] = (uint8_t) (ev->code >> 8);
         ctx->response_buf[pos + 2U] = (uint8_t) (ev->code & 0xFF);
+        out_count++;
     }
-    ctx->response_len = (uint8_t) ((last - first) * 3U);
+    ctx->response_len = (uint8_t) (out_count * 3U);
     ctx->response_idx = 0U;
     ctx->state = ISDU_STATE_RESPONSE_READY;
     iolink_critical_exit();

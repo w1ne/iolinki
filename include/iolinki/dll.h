@@ -122,8 +122,10 @@ typedef struct
     uint8_t sio_fallback_threshold; /**< Fallback threshold to enter SIO mode (default 3) */
 
     /* Timing Statistics */
-    uint64_t last_response_us; /**< Microsecond timestamp of last response */
-    uint32_t response_time_us; /**< Measured stack response time (t2) */
+    uint64_t last_response_us;   /**< Microsecond timestamp of last response */
+    uint32_t response_time_us;   /**< Measured stack response time (t2) */
+    uint8_t back_to_box_cycles;  /**< Master cycles remaining before communication stop */
+    bool communication_disabled; /**< Back-to-box disabled communication */
 
     /* Sub-modules */
     iolink_events_ctx_t events; /**< Diagnostic Events engine */
