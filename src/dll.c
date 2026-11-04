@@ -390,6 +390,7 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
     if (ctx->isdu.back_to_box_pending) {
         ctx->isdu.back_to_box_pending = false;
         ctx->back_to_box_cycles = 3U;
+        ctx->back_to_box_armed = true;
     }
 }
 
@@ -415,6 +416,7 @@ static void dll_handle_type0_od_write(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t
     if (ctx->isdu.back_to_box_pending) {
         ctx->isdu.back_to_box_pending = false;
         ctx->back_to_box_cycles = 3U;
+        ctx->back_to_box_armed = true;
     }
 }
 
@@ -594,19 +596,6 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     if (ctx->communication_disabled) {
         return;
     }
-    if (ctx->back_to_box_cycles > 0U) {
-        ctx->back_to_box_cycles--;
-        if (ctx->back_to_box_cycles == 0U) {
-            if (ctx->phy->set_mode != NULL) {
-                ctx->phy->set_mode(ctx->phy->user, IOLINK_PHY_MODE_INACTIVE);
-            }
-            ctx->phy_mode = IOLINK_PHY_MODE_INACTIVE;
-            ctx->communication_disabled = true;
-            dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
-        }
-        return;
-    }
-
     /* Process acyclic ISDU state machine */
     iolink_isdu_process(&ctx->isdu);
 
@@ -786,6 +775,21 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             const bool type_ok = dll_type_allowed(ctx, ctx->frame_buf);
 
             if (crc_ok && type_ok) {
+                if (ctx->back_to_box_armed) {
+                    if (ctx->back_to_box_cycles > 0U) {
+                        ctx->back_to_box_cycles--;
+                    }
+                    if (ctx->back_to_box_cycles == 0U) {
+                        if (ctx->phy->set_mode != NULL) {
+                            ctx->phy->set_mode(ctx->phy->user, IOLINK_PHY_MODE_INACTIVE);
+                        }
+                        ctx->phy_mode = IOLINK_PHY_MODE_INACTIVE;
+                        ctx->communication_disabled = true;
+                        ctx->back_to_box_armed = false;
+                        dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
+                        return;
+                    }
+                }
                 bool was_establishing = (ctx->state == IOLINK_DLL_STATE_AWAITING_COMM) ||
                                         (ctx->state == IOLINK_DLL_STATE_STARTUP);
                 if (was_establishing) {

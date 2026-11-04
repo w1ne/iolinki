@@ -125,6 +125,7 @@ typedef struct
     uint64_t last_response_us;   /**< Microsecond timestamp of last response */
     uint32_t response_time_us;   /**< Measured stack response time (t2) */
     uint8_t back_to_box_cycles;  /**< Master cycles remaining before communication stop */
+    bool back_to_box_armed;      /**< Back-to-box cycle countdown is active */
     bool communication_disabled; /**< Back-to-box disabled communication */
 
     /* Sub-modules */
