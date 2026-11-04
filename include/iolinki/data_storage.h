@@ -133,6 +133,19 @@ void iolink_ds_bind_params(iolink_ds_ctx_t* ctx, iolink_params_ctx_t* params_ctx
 uint16_t iolink_ds_calc_checksum(const uint8_t* data, size_t len);
 
 /**
+ * @brief Discard the active Data Storage operation and any staged download image.
+ *
+ * Table 101 requires every reset command to discard a block parameter
+ * transfer, and Restore factory settings / Back-to-box to delete a pending
+ * upload request. After this call the DS engine is idle and no Master-supplied
+ * image can be applied by a later iolink_ds_process().
+ *
+ * @param ctx DS context
+ * @return 0 on success, negative on invalid parameters
+ */
+int iolink_ds_discard(iolink_ds_ctx_t* ctx);
+
+/**
  * @brief Process Data Storage engine logic
  *
  * Handles state transitions and background synchronization tasks. The

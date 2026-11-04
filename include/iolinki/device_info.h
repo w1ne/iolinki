@@ -116,6 +116,13 @@ uint16_t iolink_device_info_ctx_get_access_locks(const iolink_device_info_ctx_t*
 void iolink_device_info_ctx_set_access_locks(iolink_device_info_ctx_t* ctx, uint16_t locks);
 
 /**
+ * @brief Get the state-of-delivery access locks of a context (Table 101).
+ * @param ctx Device-info context.
+ * @return Access locks value configured at initialization.
+ */
+uint16_t iolink_device_info_ctx_get_default_access_locks(const iolink_device_info_ctx_t* ctx);
+
+/**
  * @brief Restore the access locks to the state of delivery (Table 101).
  * @param ctx Device-info context.
  */
@@ -157,6 +164,12 @@ void iolink_device_info_set_access_locks(uint16_t locks);
  * @brief Restore the legacy Device Access Locks to the state of delivery.
  */
 void iolink_device_info_reset_access_locks(void);
+
+/**
+ * @brief Get the legacy state-of-delivery access locks (Table 101).
+ * @return Access locks value configured at initialization.
+ */
+uint16_t iolink_device_info_get_default_access_locks(void);
 
 /** @} */ /* end of iolinki_device_info */
 

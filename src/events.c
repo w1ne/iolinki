@@ -253,22 +253,18 @@ uint8_t iolink_events_get_highest_severity(iolink_events_ctx_t* ctx)
         if (ctx->queue[idx].mode == IOLINK_EVENT_MODE_DISAPPEARS) {
             continue;
         }
-        /* Table D.1: DS_UPLOAD_REQ is an internal Notification, not visible to
-           the user, with Preferred DeviceStatus "0". */
-        if (ctx->queue[idx].code == IOLINK_EVENTCODE_DS_UPLOAD_REQUEST) {
-            continue;
-        }
 
         uint8_t severity = 0U;
         switch (type) {
             case IOLINK_EVENT_TYPE_NOTIFICATION:
-                severity = 1U;
-                break; /* Maintenance */
+                /* Table B.13/Table D.1: Notifications (including the internal
+                   DS_UPLOAD_REQ 0xFF91) do not change DeviceStatus. */
+                continue;
             case IOLINK_EVENT_TYPE_WARNING:
                 severity = 2U;
-                break; /* Out of Spec */
+                break; /* Out-of-Specification */
             case IOLINK_EVENT_TYPE_ERROR:
-                severity = 3U;
+                severity = 4U;
                 break; /* Failure */
             default:
                 severity = 0U;

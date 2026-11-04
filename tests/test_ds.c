@@ -300,6 +300,13 @@ static void test_ds_rejected_image_not_synchronised_next_cycle(void** state)
     iolink_ds_check(&ds, master_checksum);
     assert_int_equal(ds.state, IOLINK_DS_STATE_DOWNLOAD_REQ);
     assert_int_equal(ds.current_checksum, device_checksum);
+
+    /* The device keeps a valid image of its own parameters - never the
+       rejected Master image - so 0x0003 stays meaningful. */
+    assert_true(iolink_ds_verify(&ds));
+    size_t len = 0U;
+    assert_non_null(iolink_ds_get_image(&ds, &len));
+    assert_true(len > 0U);
 }
 
 static void test_ds_param_round_trip(void** state)

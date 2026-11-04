@@ -71,7 +71,8 @@ uint8_t* iolink_ds_mock_get_buf(void);
 
 /* Mock NVM Cleanup */
 void iolink_nvm_mock_cleanup(void);
-
+/* Make subsequent iolink_nvm_write() calls fail (storage-error injection). */
+void iolink_nvm_mock_fail_writes(bool fail);
 /* ISDU V1.1.5 Interleaved Format Helpers */
 #include "iolinki/isdu.h"
 

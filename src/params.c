@@ -27,8 +27,9 @@
 
 /* DeviceAccessLocks record (Index 0x000C) lives in its own NVM slot so the
    existing tag record keeps its layout and magic. B.2.4 requires the value to
-   survive a power cycle. */
-#define LOCKS_NVM_OFFSET 128U
+   survive a power cycle. The offsets are published in params.h so a port can
+   size its NVM region (IOLINK_NVM_MIN_SIZE). */
+#define LOCKS_NVM_OFFSET IOLINK_NVM_LOCKS_OFFSET
 #define LOCKS_NVM_MAGIC 0x4C4F434BU /* "LOCK" */
 
 typedef struct
@@ -50,6 +51,8 @@ typedef struct
 static iolink_device_info_ctx_t g_legacy_device_info_ctx;
 static iolink_params_ctx_t g_legacy_params_ctx;
 static bool g_legacy_params_ctx_initialized = false;
+
+static iolink_params_ctx_t* legacy_params_ctx(void);
 
 /** @brief Copy up to 32 bytes into a NUL-terminated tag buffer and mark it valid. */
 static void copy_tag(char* dst, bool* valid, const uint8_t* data, size_t len)
@@ -114,6 +117,24 @@ static int locks_nvm_write(uint16_t locks)
     rec.magic = LOCKS_NVM_MAGIC;
     rec.access_locks = locks;
     return iolink_nvm_write(LOCKS_NVM_OFFSET, (const uint8_t*) &rec, sizeof(rec));
+}
+
+/** @brief Persist the record only when it differs, to spare flash endurance. */
+static int locks_nvm_write_if_changed(uint16_t locks)
+{
+    iolink_locks_nvm_t rec;
+    uint16_t current = 0U;
+    bool have_current;
+
+    have_current = (iolink_nvm_read(LOCKS_NVM_OFFSET, (uint8_t*) &rec, sizeof(rec)) == 0) &&
+                   (rec.magic == LOCKS_NVM_MAGIC);
+    if (have_current) {
+        current = rec.access_locks;
+        if (current == locks) {
+            return 0;
+        }
+    }
+    return locks_nvm_write(locks);
 }
 
 /** @brief Load the DeviceAccessLocks record; true when a valid record was found. */
@@ -250,6 +271,11 @@ void iolink_params_ctx_factory_reset(iolink_params_ctx_t* ctx)
 
     if (ctx->device_info != NULL) {
         (void) iolink_device_info_ctx_set_application_tag(ctx->device_info, "", 0U);
+        /* Table 101 "Restore factory settings": the access locks return to the
+           state of delivery and the reset is persisted. */
+        iolink_device_info_ctx_reset_access_locks(ctx->device_info);
+        (void) locks_nvm_write_if_changed(
+            iolink_device_info_ctx_get_access_locks(ctx->device_info));
     }
     /* Legacy void API: reset RAM even if unsupported/failed storage cannot
      * retain the reset. Integrators cannot infer persistence from this call. */
@@ -258,16 +284,28 @@ void iolink_params_ctx_factory_reset(iolink_params_ctx_t* ctx)
 
 int iolink_params_ctx_store_access_locks(iolink_params_ctx_t* ctx, uint16_t locks)
 {
-    if (ctx == NULL) {
+    if ((ctx == NULL) || (ctx->device_info == NULL)) {
+        /* Without a device-info binding the value cannot be applied at runtime;
+           report it instead of acking a write the Device would not observe. */
         return -1;
     }
-    if (locks_nvm_write(locks) != 0) {
+    if (locks_nvm_write_if_changed(locks) != 0) {
         return -1;
     }
-    if (ctx->device_info != NULL) {
-        iolink_device_info_ctx_set_access_locks(ctx->device_info, locks);
-    }
+    iolink_device_info_ctx_set_access_locks(ctx->device_info, locks);
     return 0;
+}
+
+int iolink_params_store_access_locks(uint16_t locks)
+{
+    int rc = iolink_params_ctx_store_access_locks(legacy_params_ctx(), locks);
+
+    if (rc == 0) {
+        /* The legacy parameter manager keeps its own device-info snapshot; the
+           ISDU legacy reader uses the device_info singleton, so mirror it. */
+        iolink_device_info_set_access_locks(locks);
+    }
+    return rc;
 }
 
 /** @brief Lazily initialize and return the process-wide legacy parameter context. */
@@ -276,6 +314,10 @@ static iolink_params_ctx_t* legacy_params_ctx(void)
     if (!g_legacy_params_ctx_initialized) {
         iolink_device_info_ctx_init(&g_legacy_device_info_ctx, NULL);
         iolink_params_ctx_init(&g_legacy_params_ctx, &g_legacy_device_info_ctx);
+        /* The ISDU legacy reader uses the device_info singleton, not this
+           private copy; mirror the restored access locks into it. */
+        iolink_device_info_set_access_locks(
+            iolink_device_info_ctx_get_access_locks(&g_legacy_device_info_ctx));
         g_legacy_params_ctx_initialized = true;
     }
     return &g_legacy_params_ctx;
@@ -285,6 +327,8 @@ void iolink_params_init(void)
 {
     iolink_device_info_ctx_init(&g_legacy_device_info_ctx, iolink_device_info_get());
     iolink_params_ctx_init(&g_legacy_params_ctx, &g_legacy_device_info_ctx);
+    iolink_device_info_set_access_locks(
+        iolink_device_info_ctx_get_access_locks(&g_legacy_device_info_ctx));
     g_legacy_params_ctx_initialized = true;
 }
 

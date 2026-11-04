@@ -242,12 +242,14 @@ bool iolink_events_pop(iolink_events_ctx_t* ctx, iolink_event_t* event);
 bool iolink_events_peek(const iolink_events_ctx_t* ctx, iolink_event_t* event);
 
 /**
- * @brief Get the highest severity level currently in the event queue
+ * @brief Get the highest DeviceStatus implied by the queued events
  *
- * Maps to IO-Link Device Status (0=OK, 1=Maintenance, 2=Out of Spec, 3=Failure)
+ * Maps to IO-Link Device Status (Table B.13): 0 = OK, 1 = Maintenance Required,
+ * 2 = Out-of-Specification, 3 = Functional Check, 4 = Failure. Notifications do
+ * not change DeviceStatus; a queued "event disappears" is ignored.
  *
  * @param ctx Event context
- * @return uint8_t Highest severity level (0-3)
+ * @return uint8_t Highest severity level (0-4)
  */
 uint8_t iolink_events_get_highest_severity(iolink_events_ctx_t* ctx);
 

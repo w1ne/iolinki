@@ -116,55 +116,81 @@ static uint16_t isdu_access_locks(const iolink_isdu_ctx_t* ctx)
 static int isdu_store_access_locks(iolink_isdu_ctx_t* ctx, uint16_t locks)
 {
     if ((ctx != NULL) && (ctx->params_ctx != NULL)) {
-        return iolink_params_ctx_store_access_locks(ctx->params_ctx, locks);
+        if (iolink_params_ctx_store_access_locks(ctx->params_ctx, locks) != 0) {
+            return -1;
+        }
+        /* The parameter manager applies the value to its own device-info
+           binding; keep the object this engine reads in sync with it. */
+        if (ctx->device_info != NULL) {
+            iolink_device_info_ctx_set_access_locks(ctx->device_info, locks);
+        }
+        return 0;
     }
     if ((ctx != NULL) && (ctx->device_info != NULL)) {
         iolink_device_info_ctx_set_access_locks(ctx->device_info, locks);
         return 0;
     }
-    iolink_device_info_set_access_locks(locks);
+    if (iolink_params_store_access_locks(locks) == 0) {
+        iolink_device_info_set_access_locks(locks);
+        return 0;
+    }
+    return -1;
+}
+
+/** @brief Table 101: restore the state-of-delivery DeviceAccessLocks value.
+ *
+ * @return 0 on success, negative when the non-volatile commit failed. The
+ *         runtime value is only changed after a successful commit, so RAM and
+ *         NVM cannot diverge.
+ */
+static int isdu_reset_access_locks(iolink_isdu_ctx_t* ctx)
+{
+    uint16_t defaults;
+    uint16_t previous;
+
+    if ((ctx != NULL) && (ctx->device_info != NULL)) {
+        defaults = iolink_device_info_ctx_get_default_access_locks(ctx->device_info);
+        previous = iolink_device_info_ctx_get_access_locks(ctx->device_info);
+    }
+    else {
+        defaults = iolink_device_info_get_default_access_locks();
+        previous = iolink_device_info_get_access_locks();
+    }
+
+    if (isdu_store_access_locks(ctx, defaults) != 0) {
+        /* Leave the runtime value untouched on a failed commit. */
+        if ((ctx != NULL) && (ctx->device_info != NULL)) {
+            iolink_device_info_ctx_set_access_locks(ctx->device_info, previous);
+        }
+        else {
+            iolink_device_info_set_access_locks(previous);
+        }
+        return -1;
+    }
     return 0;
 }
 
-/** @brief Table 101: restore the state-of-delivery DeviceAccessLocks value. */
-static void isdu_reset_access_locks(iolink_isdu_ctx_t* ctx)
+/** @brief Discard an active Data Storage transfer (Table 101 "Discard"). */
+static void isdu_discard_ds(iolink_isdu_ctx_t* ctx)
 {
-    uint16_t locks;
-
-    if ((ctx != NULL) && (ctx->device_info != NULL)) {
-        iolink_device_info_ctx_reset_access_locks(ctx->device_info);
-        locks = iolink_device_info_ctx_get_access_locks(ctx->device_info);
-    }
-    else {
-        iolink_device_info_reset_access_locks();
-        locks = iolink_device_info_get_access_locks();
-    }
-    /* Persist the restored default so it also survives a power cycle. */
-    if ((ctx != NULL) && (ctx->params_ctx != NULL)) {
-        (void) iolink_params_ctx_store_access_locks(ctx->params_ctx, locks);
+    if (ctx->ds_ctx != NULL) {
+        (void) iolink_ds_discard((iolink_ds_ctx_t*) ctx->ds_ctx);
     }
 }
 
-/** @brief 10.4.2/Table 101: request a Data Storage upload (DS_UPLOAD_REQ). */
+/** @brief 10.4.2/Table 101: discard any transfer, then request a DS upload. */
 static void isdu_request_ds_upload(iolink_isdu_ctx_t* ctx)
 {
-    if (ctx->ds_ctx != NULL) {
-        (void) iolink_ds_start_upload((iolink_ds_ctx_t*) ctx->ds_ctx);
+    if (ctx->ds_ctx == NULL) {
+        return;
+    }
+    isdu_discard_ds(ctx);
+    if (iolink_ds_start_upload((iolink_ds_ctx_t*) ctx->ds_ctx) != 0) {
+        return; /* Busy: the Master must not be told to upload. */
     }
     if (ctx->event_ctx != NULL) {
         iolink_event_trigger((iolink_events_ctx_t*) ctx->event_ctx,
                              IOLINK_EVENTCODE_DS_UPLOAD_REQUEST, IOLINK_EVENT_TYPE_NOTIFICATION);
-    }
-}
-
-/** @brief Table 101: delete a pending Data Storage upload request (DS_UPLOAD_REQ = 0). */
-static void isdu_cancel_ds_upload(iolink_isdu_ctx_t* ctx)
-{
-    if (ctx->ds_ctx != NULL) {
-        iolink_ds_ctx_t* ds = (iolink_ds_ctx_t*) ctx->ds_ctx;
-        if (ds->state == IOLINK_DS_STATE_UPLOAD_REQ) {
-            (void) iolink_ds_abort(ds);
-        }
     }
 }
 
@@ -946,16 +972,22 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
 {
     switch (cmd) {
         case IOLINK_CMD_DEVICE_RESET: /* 0x80 */
-            /* Table 101: Device reset sets Diagnosis and status to "0". */
+            /* Table 101: Device reset sets Diagnosis and status to "0" and
+               discards a block parameter transfer. */
+            isdu_discard_ds(ctx);
             isdu_reset_diagnostics(ctx);
             /* Set reset flag for application to handle */
             ctx->reset_pending = true;
             break;
 
         case IOLINK_CMD_APPLICATION_RESET: /* 0x81 */
-            /* Table 101: Access locks return to the state of delivery and the
-               Data Storage behaviour becomes "upload required" (DS_UPLOAD_REQ). */
-            isdu_reset_access_locks(ctx);
+            /* Table 101: Access locks return to the state of delivery, the
+               block transfer is discarded and the Data Storage behaviour
+               becomes "upload required" (DS_UPLOAD_REQ). */
+            if (isdu_reset_access_locks(ctx) != 0) {
+                isdu_negative_response(ctx, IOLINK_ISDU_ERROR_APP_DEVICE);
+                return;
+            }
             isdu_request_ds_upload(ctx);
             ctx->app_reset_pending = true;
             break;
@@ -963,11 +995,14 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
         case IOLINK_CMD_RESTORE_FACTORY_SETTINGS: /* 0x82 */
             /* Table 101 "Clear": active Events are withdrawn with MODE
                "disappears" while ErrorCount is reset. Access locks fall back to
-               the state of delivery and a pending DS upload request is deleted. */
-            isdu_reset_access_locks(ctx);
+               the state of delivery and the block transfer is discarded. */
+            isdu_discard_ds(ctx);
+            if (isdu_reset_access_locks(ctx) != 0) {
+                isdu_negative_response(ctx, IOLINK_ISDU_ERROR_APP_DEVICE);
+                return;
+            }
             isdu_params_factory_reset(ctx);
             isdu_reset_error_counters(ctx);
-            isdu_cancel_ds_upload(ctx);
             if (ctx->event_ctx != NULL) {
                 iolink_events_clear_diagnosis((iolink_events_ctx_t*) ctx->event_ctx);
             }
@@ -976,10 +1011,13 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
         case IOLINK_CMD_BACK_TO_BOX: /* 0x83 */
             /* Back-to-box sets diagnosis/status to "0" and stops communication
                after the positive response and three Master cycles. */
-            isdu_reset_access_locks(ctx);
+            isdu_discard_ds(ctx);
+            if (isdu_reset_access_locks(ctx) != 0) {
+                isdu_negative_response(ctx, IOLINK_ISDU_ERROR_APP_DEVICE);
+                return;
+            }
             isdu_params_factory_reset(ctx);
             isdu_reset_error_counters(ctx);
-            isdu_cancel_ds_upload(ctx);
             if (ctx->event_ctx != NULL) {
                 iolink_events_init((iolink_events_ctx_t*) ctx->event_ctx);
             }
@@ -1009,8 +1047,11 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
                     else if (ret == -4) {
                         ctx->response_buf[1] = IOLINK_ISDU_ERROR_PARAM_INCONSISTENT;
                     }
+                    else if (ret == -3) {
+                        ctx->response_buf[1] = IOLINK_ISDU_ERROR_FUNCTION_NOT_AVAIL;
+                    }
                     else {
-                        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+                        ctx->response_buf[1] = IOLINK_ISDU_ERROR_IDX_NOT_AVAIL;
                     }
                     ctx->response_len = 2U;
                     ctx->response_idx = 0U;
@@ -1063,19 +1104,25 @@ static void handle_access_locks(iolink_isdu_ctx_t* ctx)
         ctx->response_len = 2U;
     }
     else {
-        /* B.2.4: the 16-bit object must be written completely; a short write is
-           an invalid parameter value (Table C.1). */
+        /* B.2.4/Table B.12: the object is exactly two octets; bits 4-15 are
+           reserved. A wrong length is a length error (C.2.12/C.2.13) and the
+           reserved bits are not stored. */
         if (ctx->buffer_idx < 2U) {
             ctx->response_buf[0] = 0x80U;
             ctx->response_buf[1] = IOLINK_ISDU_ERROR_PARAM_LEN_UNDERRUN;
             ctx->response_len = 2U;
         }
+        else if (ctx->buffer_idx > 2U) {
+            ctx->response_buf[0] = 0x80U;
+            ctx->response_buf[1] = IOLINK_ISDU_ERROR_PARAM_LEN_OVERRUN;
+            ctx->response_len = 2U;
+        }
         else {
             const uint16_t new_locks =
-                (uint16_t) (((uint16_t) ctx->buffer[0] << 8) | ctx->buffer[1]);
+                (uint16_t) ((((uint16_t) ctx->buffer[0] << 8) | ctx->buffer[1]) & 0x000FU);
             if (isdu_store_access_locks(ctx, new_locks) != 0) {
                 ctx->response_buf[0] = 0x80U;
-                ctx->response_buf[1] = IOLINK_ISDU_ERROR_FUNCTION_TEMP_UNAVAIL;
+                ctx->response_buf[1] = IOLINK_ISDU_ERROR_APP_DEVICE;
                 ctx->response_len = 2U;
             }
             else {
@@ -1098,7 +1145,11 @@ static void handle_detailed_device_status(iolink_isdu_ctx_t* ctx)
     }
 
     if (ctx->event_ctx == NULL) {
+        /* No event host: answer an empty array instead of dropping the
+           response (which would time out at the Master). */
         ctx->response_len = 0U;
+        ctx->response_idx = 0U;
+        ctx->state = ISDU_STATE_RESPONSE_READY;
         return;
     }
 
@@ -1176,7 +1227,7 @@ static void handle_error_stats(iolink_isdu_ctx_t* ctx)
     }
 
     if (ctx->dll_ctx == NULL) {
-        isdu_negative_response(ctx, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+        isdu_negative_response(ctx, IOLINK_ISDU_ERROR_SERVICE_UNAVAIL);
         return;
     }
 

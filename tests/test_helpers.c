@@ -35,6 +35,7 @@ static uint32_t g_mock_send_delay_us = 0U;
 /* Strong deterministic test storage. The library's weak unsupported defaults
  * can otherwise satisfy archive references before the Linux backend is loaded. */
 static uint8_t g_nvm_mock[4096];
+static bool g_nvm_write_fail = false;
 int iolink_nvm_read(uint32_t offset, uint8_t* data, size_t len)
 {
     if (offset > sizeof(g_nvm_mock) || len > sizeof(g_nvm_mock) - offset ||
@@ -45,6 +46,9 @@ int iolink_nvm_read(uint32_t offset, uint8_t* data, size_t len)
 }
 int iolink_nvm_write(uint32_t offset, const uint8_t* data, size_t len)
 {
+    if (g_nvm_write_fail) {
+        return -1;
+    }
     if (offset > sizeof(g_nvm_mock) || len > sizeof(g_nvm_mock) - offset ||
         (len != 0U && data == NULL))
         return -1;
@@ -281,7 +285,13 @@ uint8_t* iolink_ds_mock_get_buf(void)
 void iolink_nvm_mock_cleanup(void)
 {
     memset(g_nvm_mock, 0, sizeof(g_nvm_mock));
+    g_nvm_write_fail = false;
     remove("iolink_nvm.bin");
+}
+
+void iolink_nvm_mock_fail_writes(bool fail)
+{
+    g_nvm_write_fail = fail;
 }
 
 /* ISDU V1.1.5 Interleaved Format Helpers */

@@ -121,13 +121,13 @@ static void test_event_helpers(void** state)
     assert_int_equal(iolink_events_get_highest_severity(&ctx), 0); /* OK */
 
     iolink_event_trigger(&ctx, 0x1001, IOLINK_EVENT_TYPE_NOTIFICATION);
-    assert_int_equal(iolink_events_get_highest_severity(&ctx), 1); /* Maintenance */
+    assert_int_equal(iolink_events_get_highest_severity(&ctx), 0); /* OK: notifications */
 
     iolink_event_trigger(&ctx, 0x1002, IOLINK_EVENT_TYPE_ERROR);
-    assert_int_equal(iolink_events_get_highest_severity(&ctx), 3); /* Failure */
+    assert_int_equal(iolink_events_get_highest_severity(&ctx), 4); /* Failure */
 
     iolink_event_trigger(&ctx, 0x1003, IOLINK_EVENT_TYPE_WARNING);
-    assert_int_equal(iolink_events_get_highest_severity(&ctx), 3); /* Still Failure */
+    assert_int_equal(iolink_events_get_highest_severity(&ctx), 4); /* Still Failure */
 
     /* Test get_all */
     iolink_event_t events[8];
@@ -287,6 +287,9 @@ static void test_event_notification_mode_single_shot(void** state)
 
     /* MODE 01 (bits 6-7) | TYPE Notification 01 (bits 5-4) | INSTANCE 4. */
     assert_int_equal(iolink_events_memory_read(&ctx, 1U), 0x54U);
+    /* 0xFF91 is still presented to the Master in the Table 58 event memory. */
+    assert_int_equal(iolink_events_memory_read(&ctx, 2U), 0xFFU);
+    assert_int_equal(iolink_events_memory_read(&ctx, 3U), 0x91U);
 }
 
 /* Table D.1: DS_UPLOAD_REQ is an internal Notification, not visible to the
@@ -301,6 +304,20 @@ static void test_event_ds_upload_request_invisible_in_device_status(void** state
 
     assert_int_equal(iolink_events_get_highest_severity(&ctx), 0U);
     /* Still queued for the Master; only the DeviceStatus is unaffected. */
+    assert_true(iolink_events_pending(&ctx));
+}
+
+/* Table B.13/Table D.1: a notification never changes DeviceStatus, including
+ * the standardized "No malfunction" (0x0000) notification. */
+static void test_event_no_malfunction_notification_invisible_in_device_status(void** state)
+{
+    (void) state;
+    iolink_events_ctx_t ctx;
+    iolink_events_init(&ctx);
+
+    iolink_event_trigger(&ctx, IOLINK_EVENTCODE_NO_MALFUNCTION, IOLINK_EVENT_TYPE_NOTIFICATION);
+
+    assert_int_equal(iolink_events_get_highest_severity(&ctx), 0U);
     assert_true(iolink_events_pending(&ctx));
 }
 
@@ -321,6 +338,7 @@ int main(void)
         cmocka_unit_test(test_event_clear_diagnosis_discards_all_notifications),
         cmocka_unit_test(test_event_notification_mode_single_shot),
         cmocka_unit_test(test_event_ds_upload_request_invisible_in_device_status),
+        cmocka_unit_test(test_event_no_malfunction_notification_invisible_in_device_status),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

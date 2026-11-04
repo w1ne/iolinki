@@ -348,6 +348,18 @@ int iolink_ds_abort(iolink_ds_ctx_t* ctx)
     return 0;
 }
 
+int iolink_ds_discard(iolink_ds_ctx_t* ctx)
+{
+    if (ctx == NULL) {
+        return -1;
+    }
+
+    ctx->state = IOLINK_DS_STATE_IDLE;
+    /* A staged Master image must never be applied after a reset command. */
+    ctx->image_len = 0U;
+    return 0;
+}
+
 int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_locks)
 {
     if (ctx == NULL) {
@@ -394,6 +406,11 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
             if (ctx->state == IOLINK_DS_STATE_DOWNLOADING) {
                 if (ctx->image_len > 0U) {
                     if (iolink_ds_apply_image(ctx, ctx->image, ctx->image_len) != 0) {
+                        /* Table 98 rule 7: the previous parameter set stays
+                           active and the rejected image must not be readable
+                           through DS_Data (0x0003). */
+                        ctx->image_len = 0U;
+                        (void) iolink_ds_build_image(ctx);
                         return -4;
                     }
                 }
@@ -413,6 +430,10 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
             if (ctx->state == IOLINK_DS_STATE_DOWNLOADING) {
                 if (ctx->image_len > 0U) {
                     if (iolink_ds_apply_image(ctx, ctx->image, ctx->image_len) != 0) {
+                        /* Same rule as ParamDownloadEnd: discard the rejected
+                           image so 0x0003 cannot serve it. */
+                        ctx->image_len = 0U;
+                        (void) iolink_ds_build_image(ctx);
                         return -4;
                     }
                 }
