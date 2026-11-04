@@ -335,8 +335,7 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
             ctx->state = IOLINK_DS_STATE_DOWNLOAD_REQ;
             break;
 
-        case IOLINK_CMD_PARAM_DOWNLOAD_END:   /* 0x04 */
-        case IOLINK_CMD_PARAM_DOWNLOAD_STORE: /* 0x05 */
+        case IOLINK_CMD_PARAM_DOWNLOAD_END: /* 0x04 */
             /* Commit the parameter image staged via DS_Data (0x0003). */
             if (ctx->state == IOLINK_DS_STATE_DOWNLOADING) {
                 if (ctx->image_len > 0U) {
@@ -344,6 +343,24 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
                 }
                 ctx->state = IOLINK_DS_STATE_IDLE;
             }
+            break;
+
+        case IOLINK_CMD_PARAM_DOWNLOAD_STORE: /* 0x05 */
+            /* 10.3.5: terminates the Block Parameter transfer like
+               ParamDownloadEnd and additionally starts the Data Storage upload
+               (DS_UPLOAD_REQ, 10.4.2). It also applies after single-parameter
+               writes, so it is accepted from Idle as well. */
+            if ((ctx->state != IOLINK_DS_STATE_IDLE) &&
+                (ctx->state != IOLINK_DS_STATE_DOWNLOADING)) {
+                return -1; /* Busy */
+            }
+            if (ctx->state == IOLINK_DS_STATE_DOWNLOADING) {
+                if (ctx->image_len > 0U) {
+                    (void) iolink_ds_apply_image(ctx, ctx->image, ctx->image_len);
+                }
+            }
+            (void) iolink_ds_build_image(ctx);
+            ctx->state = IOLINK_DS_STATE_UPLOAD_REQ;
             break;
 
         case IOLINK_CMD_PARAM_BREAK: /* 0x06 */

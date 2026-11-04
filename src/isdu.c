@@ -916,6 +916,15 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
                     ctx->state = ISDU_STATE_RESPONSE_READY;
                     return;
                 }
+
+                /* 10.3.5/10.4.2: ParamDownloadStore starts the Data Storage
+                   upload; the Master is notified through the DS_UPLOAD_REQ
+                   Event (0xFF91, Table D.1). */
+                if ((cmd == IOLINK_CMD_PARAM_DOWNLOAD_STORE) && (ctx->event_ctx != NULL)) {
+                    iolink_event_trigger((iolink_events_ctx_t*) ctx->event_ctx,
+                                         IOLINK_EVENTCODE_DS_UPLOAD_REQUEST,
+                                         IOLINK_EVENT_TYPE_NOTIFICATION);
+                }
             }
             break;
 

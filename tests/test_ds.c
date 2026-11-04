@@ -112,6 +112,40 @@ static void test_ds_commands_unlocked(void** state)
     assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
 }
 
+static void test_ds_param_download_store_requests_upload(void** state)
+{
+    (void) state;
+    iolink_ds_ctx_t ds;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_ds_init(&ds, NULL);
+
+    assert_int_equal(iolink_ds_handle_command(&ds, IOLINK_CMD_PARAM_DOWNLOAD_START, 0U), 0);
+    iolink_ds_process(&ds); /* DOWNLOAD_REQ -> DOWNLOADING */
+    assert_int_equal(ds.state, IOLINK_DS_STATE_DOWNLOADING);
+
+    /* 10.3.5: ParamDownloadStore ends the download and starts the DS upload. */
+    assert_int_equal(iolink_ds_handle_command(&ds, IOLINK_CMD_PARAM_DOWNLOAD_STORE, 0U), 0);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_UPLOAD_REQ);
+    assert_true(ds.image_len > 0U);
+
+    iolink_ds_process(&ds); /* UPLOAD_REQ -> UPLOADING */
+    assert_int_equal(ds.state, IOLINK_DS_STATE_UPLOADING);
+}
+
+static void test_ds_param_download_store_locked(void** state)
+{
+    (void) state;
+    iolink_ds_ctx_t ds;
+    iolink_ds_init(&ds, NULL);
+
+    /* B.2.4: the Data Storage access lock disables the mechanism, including
+       the upload that ParamDownloadStore would start. */
+    assert_int_equal(iolink_ds_handle_command(&ds, IOLINK_CMD_PARAM_DOWNLOAD_STORE, IOLINK_LOCK_DS),
+                     -2);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
+}
+
 static void test_ds_param_round_trip(void** state)
 {
     (void) state;
@@ -275,6 +309,8 @@ int main(void)
         cmocka_unit_test(test_ds_state_transitions),
         cmocka_unit_test(test_ds_commands_locked),
         cmocka_unit_test(test_ds_commands_unlocked),
+        cmocka_unit_test(test_ds_param_download_store_requests_upload),
+        cmocka_unit_test(test_ds_param_download_store_locked),
         cmocka_unit_test(test_ds_param_round_trip),
         cmocka_unit_test(test_ds_bound_params_restore_device_context_only),
         cmocka_unit_test(test_ds_apply_rejects_truncated),

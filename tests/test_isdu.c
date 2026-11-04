@@ -361,6 +361,74 @@ static void test_system_cmd_param_download(void** state)
     assert_int_equal(isdu_collect_response(&ctx, resp_buf, sizeof(resp_buf)), 0); /* No data */
 }
 
+/* 10.3.5/10.4.2: ParamDownloadStore ends the download and asks the Master to
+ * upload the parameter set through the DS_UPLOAD_REQ Event. */
+static void test_system_cmd_param_download_store(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_ds_ctx_t ds;
+    iolink_events_ctx_t events;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_ds_init(&ds, NULL);
+    iolink_events_init(&events);
+    iolink_isdu_init(&ctx);
+    ctx.ds_ctx = &ds;
+    ctx.event_ctx = &events;
+
+    const uint8_t download_start = IOLINK_CMD_PARAM_DOWNLOAD_START;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &download_start,
+                                             1),
+                     1);
+    iolink_isdu_process(&ctx);
+    iolink_ds_process(&ds); /* DOWNLOAD_REQ -> DOWNLOADING */
+
+    iolink_isdu_init(&ctx);
+    ctx.ds_ctx = &ds;
+    ctx.event_ctx = &events;
+    const uint8_t store = IOLINK_CMD_PARAM_DOWNLOAD_STORE;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &store, 1), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t resp_buf[1];
+    assert_int_equal(isdu_collect_response(&ctx, resp_buf, sizeof(resp_buf)), 0); /* No data */
+    assert_int_equal(ds.state, IOLINK_DS_STATE_UPLOAD_REQ);
+
+    iolink_event_t event;
+    assert_true(iolink_events_pop(&events, &event));
+    assert_int_equal(event.code, IOLINK_EVENTCODE_DS_UPLOAD_REQUEST);
+    assert_int_equal(event.type, IOLINK_EVENT_TYPE_NOTIFICATION);
+    assert_false(iolink_events_pop(&events, &event));
+}
+
+/* ParamDownloadEnd does not start the upload. */
+static void test_system_cmd_param_download_end_no_upload_request(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_ds_ctx_t ds;
+    iolink_events_ctx_t events;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_ds_init(&ds, NULL);
+    iolink_events_init(&events);
+    iolink_isdu_init(&ctx);
+    ctx.ds_ctx = &ds;
+    ctx.event_ctx = &events;
+
+    ds.state = IOLINK_DS_STATE_DOWNLOADING;
+    const uint8_t download_end = IOLINK_CMD_PARAM_DOWNLOAD_END;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &download_end,
+                                             1),
+                     1);
+    iolink_isdu_process(&ctx);
+
+    assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
+    iolink_event_t event;
+    assert_false(iolink_events_pop(&events, &event));
+}
+
 static void test_system_cmd_param_break(void** state)
 {
     (void) state;
@@ -1148,6 +1216,10 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_system_cmd_param_upload, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_param_download, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_param_break, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_system_cmd_param_download_store, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_system_cmd_param_download_end_no_upload_request,
+                                        test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_invalid, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_function_tag_read_write, test_setup,
                                         test_teardown),

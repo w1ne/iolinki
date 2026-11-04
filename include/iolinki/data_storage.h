@@ -152,7 +152,7 @@ void iolink_ds_process(iolink_ds_ctx_t* ctx);
 void iolink_ds_check(iolink_ds_ctx_t* ctx, uint16_t master_checksum);
 
 /**
- * @brief Start parameter upload to Master (System Command 0x95)
+ * @brief Start parameter upload to Master (SystemCommand ParamUploadStart 0x01)
  *
  * @param ctx DS context
  * @return int 0 on success, negative if DS not initialized
@@ -160,7 +160,7 @@ void iolink_ds_check(iolink_ds_ctx_t* ctx, uint16_t master_checksum);
 int iolink_ds_start_upload(iolink_ds_ctx_t* ctx);
 
 /**
- * @brief Start parameter download from Master (System Command 0x96)
+ * @brief Start parameter download from Master (SystemCommand ParamDownloadStart 0x03)
  *
  * @param ctx DS context
  * @return int 0 on success, negative if DS not initialized
@@ -176,10 +176,11 @@ int iolink_ds_start_download(iolink_ds_ctx_t* ctx);
 int iolink_ds_abort(iolink_ds_ctx_t* ctx);
 
 /**
- * @brief Handle standard DS System Command
+ * @brief Handle a Table B.9 SystemCommand that acts on Data Storage
  *
  * @param ctx DS context
- * @param cmd System Command (0x05-0x08)
+ * @param cmd SystemCommand code (ParamUploadStart/End, ParamDownloadStart/End,
+ *            ParamDownloadStore, ParamBreak)
  * @param access_locks Current Access Lock state (Index 0x000C)
  * @return int 0: Success, -1: Busy, -2: Access Denied, -3: Unknown
  */
