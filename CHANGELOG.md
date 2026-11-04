@@ -58,8 +58,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   saturates at 0xFFFF.
 - `IOLINK_ISDU_ERROR_IDX_NOT_AVAIL` (0x11, C.2.3) is added;
   `IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL` stays as a deprecated alias because the
-  stack historically returned 0x11 for several "not available" paths. Code that
-  needs "service not available" must use 0x20 instead.
+  stack historically returned 0x11 for several "not available" paths.
+  `IOLINK_ISDU_ERROR_SERVICE_UNAVAIL` (0x20, C.2.5) and
+  `IOLINK_ISDU_ERROR_PARAM_LEN_OVERRUN` (0x33, C.2.12) are added, and
+  `IOLINK_ISDU_ERROR_APP_DEVICE` (0x00, C.2.2) names the "no further details"
+  response used for storage failures.
 - DataStorageIndex (0x0003) serves the serialized parameter image through
   subindex 0 only; the B.10 record items (DS_Command, State_Property,
   Data_Storage_Size, Parameter_Checksum, Index_List) are not implemented, so a
@@ -83,12 +86,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Application reset (0x81), Restore factory settings (0x82) and Back-to-box
   (0x83) restore its state-of-delivery value and the Data Storage behaviour
   from Table 101: 0x81 requests an upload (DS_UPLOAD_REQ), 0x82/0x83 delete a
-  pending request.
+  pending request. A reset whose non-volatile lock commit fails answers
+  `0x80 0x00` instead of reporting a change that a power cycle would undo.
 - Notification events are coded MODE "single shot" (Table A.20/10.10.2)
-  instead of "appears", and the internal DS_UPLOAD_REQ Notification (0xFF91)
-  no longer raises DeviceStatus (0x0024), per Table D.1.
+  instead of "appears", and notifications no longer raise DeviceStatus
+  (0x0024): the DeviceStatus encoding follows Table B.13 (Warning = 2
+  "Out-of-Specification", Error = 4 "Failure"). This also covers the internal
+  DS_UPLOAD_REQ Notification (0xFF91), per Table D.1.
+- DeviceAccessLocks (0x000C) writes must be exactly two octets (`0x80 0x34`
+  underrun, `0x80 0x33` overrun), reserved bits 4-15 are not stored, and the
+  NVM record layout is published as `IOLINK_NVM_*` macros so a port can size
+  its region (`IOLINK_NVM_MIN_SIZE`).
 
 ### Fixed
+- Every reset command discards an active Block Parameter transfer (Table 101
+  "Discard"): a staged download image is deleted, so a later
+  `iolink_ds_process()` cannot re-apply the pre-reset parameter set.
+  Application reset announces DS_UPLOAD_REQ only when the upload actually
+  starts, and a device without a Data Storage engine stays quiet.
+- A rejected ParamDownloadEnd/ParamDownloadStore no longer leaves the rejected
+  Master image readable through DS_Data (0x0003): the image and checksum are
+  rebuilt from the device's actual parameters.
 - A Data Storage download that stages no image no longer adopts the Master's
   checksum: the checksum is always recomputed from the device's actual
   parameters, so a rejected or empty download stays out of sync and is

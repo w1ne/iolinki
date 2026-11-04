@@ -103,7 +103,8 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [x] 0x0002: System Command (Table B.9: 0x80 Device Reset, 0x81 Application
       Reset, 0x82 Restore Factory Settings, 0x83 Back-to-box, 0x01-0x06
       parameter transfer)
-    - [x] 0x0003: Data Storage (serialized parameter image, subindex 0)
+    - [ ] 0x0003: DataStorageIndex (B.10 subindices 01-05 are not implemented;
+      the stack serves the serialized image through subindex 0)
     - [x] 0x000C: Device Access Locks (Parameter, DS, local parameterization,
       local UI)
     - [x] 0x000D: Profile Characteristic
