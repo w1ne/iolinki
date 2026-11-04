@@ -25,6 +25,19 @@
 
 #define PARAMS_NVM_MAGIC 0x494F4C31U /* "IOL1" */
 
+/* DeviceAccessLocks record (Index 0x000C) lives in its own NVM slot so the
+   existing tag record keeps its layout and magic. B.2.4 requires the value to
+   survive a power cycle. */
+#define LOCKS_NVM_OFFSET 128U
+#define LOCKS_NVM_MAGIC 0x4C4F434BU /* "LOCK" */
+
+typedef struct
+{
+    uint32_t magic;
+    uint16_t access_locks;
+    uint16_t reserved;
+} iolink_locks_nvm_t;
+
 typedef struct
 {
     uint32_t magic;
@@ -92,9 +105,34 @@ static int params_ctx_write_nvm(const iolink_params_ctx_t* ctx)
     return iolink_nvm_write(0U, (const uint8_t*) &nvm, sizeof(nvm));
 }
 
+/** @brief Persist the DeviceAccessLocks record; 0 on success. */
+static int locks_nvm_write(uint16_t locks)
+{
+    iolink_locks_nvm_t rec;
+
+    (void) memset(&rec, 0, sizeof(rec));
+    rec.magic = LOCKS_NVM_MAGIC;
+    rec.access_locks = locks;
+    return iolink_nvm_write(LOCKS_NVM_OFFSET, (const uint8_t*) &rec, sizeof(rec));
+}
+
+/** @brief Load the DeviceAccessLocks record; true when a valid record was found. */
+static bool locks_nvm_read(uint16_t* locks)
+{
+    iolink_locks_nvm_t rec;
+
+    if ((locks == NULL) || (iolink_nvm_read(LOCKS_NVM_OFFSET, (uint8_t*) &rec, sizeof(rec)) != 0) ||
+        (rec.magic != LOCKS_NVM_MAGIC)) {
+        return false;
+    }
+    *locks = rec.access_locks;
+    return true;
+}
+
 void iolink_params_ctx_init(iolink_params_ctx_t* ctx, iolink_device_info_ctx_t* device_info)
 {
     iolink_params_nvm_t nvm;
+    uint16_t stored_locks = 0U;
 
     if (ctx == NULL) {
         return;
@@ -102,6 +140,10 @@ void iolink_params_ctx_init(iolink_params_ctx_t* ctx, iolink_device_info_ctx_t* 
 
     (void) memset(ctx, 0, sizeof(*ctx));
     ctx->device_info = device_info;
+
+    if (locks_nvm_read(&stored_locks) && (ctx->device_info != NULL)) {
+        iolink_device_info_ctx_set_access_locks(ctx->device_info, stored_locks);
+    }
 
     if ((iolink_nvm_read(0U, (uint8_t*) &nvm, sizeof(nvm)) == 0) &&
         (nvm.magic == PARAMS_NVM_MAGIC)) {
@@ -212,6 +254,20 @@ void iolink_params_ctx_factory_reset(iolink_params_ctx_t* ctx)
     /* Legacy void API: reset RAM even if unsupported/failed storage cannot
      * retain the reset. Integrators cannot infer persistence from this call. */
     (void) params_ctx_write_nvm(ctx);
+}
+
+int iolink_params_ctx_store_access_locks(iolink_params_ctx_t* ctx, uint16_t locks)
+{
+    if (ctx == NULL) {
+        return -1;
+    }
+    if (locks_nvm_write(locks) != 0) {
+        return -1;
+    }
+    if (ctx->device_info != NULL) {
+        iolink_device_info_ctx_set_access_locks(ctx->device_info, locks);
+    }
+    return 0;
 }
 
 /** @brief Lazily initialize and return the process-wide legacy parameter context. */

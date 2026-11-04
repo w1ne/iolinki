@@ -93,7 +93,10 @@ void iolink_event_trigger(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_
 
     ctx->queue[ctx->tail].code = code;
     ctx->queue[ctx->tail].type = type;
-    ctx->queue[ctx->tail].mode = IOLINK_EVENT_MODE_APPEARS;
+    /* 10.10.2/Table A.20: Notifications are always single shot. */
+    ctx->queue[ctx->tail].mode = (type == IOLINK_EVENT_TYPE_NOTIFICATION)
+                                     ? IOLINK_EVENT_MODE_SINGLE_SHOT
+                                     : IOLINK_EVENT_MODE_APPEARS;
     ctx->tail = (uint8_t) ((ctx->tail + 1U) % IOLINK_EVENT_QUEUE_SIZE);
     ctx->count++;
 
@@ -248,6 +251,11 @@ uint8_t iolink_events_get_highest_severity(iolink_events_ctx_t* ctx)
         iolink_event_type_t type = ctx->queue[idx].type;
 
         if (ctx->queue[idx].mode == IOLINK_EVENT_MODE_DISAPPEARS) {
+            continue;
+        }
+        /* Table D.1: DS_UPLOAD_REQ is an internal Notification, not visible to
+           the user, with Preferred DeviceStatus "0". */
+        if (ctx->queue[idx].code == IOLINK_EVENTCODE_DS_UPLOAD_REQUEST) {
             continue;
         }
 

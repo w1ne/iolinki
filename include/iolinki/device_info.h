@@ -73,6 +73,7 @@ typedef struct
     iolink_device_info_t defaults;          /**< Factory-default identity snapshot. */
     char application_tag[33];               /**< Runtime application tag (32 bytes + NUL). */
     uint16_t access_locks;                  /**< Runtime device access locks value. */
+    uint16_t default_access_locks;          /**< State-of-delivery access locks (Table 101). */
 } iolink_device_info_ctx_t;
 
 /**
@@ -115,6 +116,12 @@ uint16_t iolink_device_info_ctx_get_access_locks(const iolink_device_info_ctx_t*
 void iolink_device_info_ctx_set_access_locks(iolink_device_info_ctx_t* ctx, uint16_t locks);
 
 /**
+ * @brief Restore the access locks to the state of delivery (Table 101).
+ * @param ctx Device-info context.
+ */
+void iolink_device_info_ctx_reset_access_locks(iolink_device_info_ctx_t* ctx);
+
+/**
  * @brief Initialize device information
  * @param info Pointer to device info structure
  */
@@ -145,6 +152,11 @@ uint16_t iolink_device_info_get_access_locks(void);
  * @param locks 16-bit access locks value
  */
 void iolink_device_info_set_access_locks(uint16_t locks);
+
+/**
+ * @brief Restore the legacy Device Access Locks to the state of delivery.
+ */
+void iolink_device_info_reset_access_locks(void);
 
 /** @} */ /* end of iolinki_device_info */
 

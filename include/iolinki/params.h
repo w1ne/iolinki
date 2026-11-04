@@ -80,6 +80,20 @@ int iolink_params_ctx_set(iolink_params_ctx_t* ctx, uint16_t index, uint8_t subi
 void iolink_params_ctx_factory_reset(iolink_params_ctx_t* ctx);
 
 /**
+ * @brief Commit the DeviceAccessLocks value (Index 0x000C) to non-volatile memory.
+ *
+ * B.2.4 requires the access locks to survive a power cycle. The value is stored
+ * in a dedicated NVM record next to the tag record and restored by
+ * iolink_params_ctx_init().
+ *
+ * @param ctx    Parameter manager context (provides the NVM binding).
+ * @param locks  16-bit access locks value.
+ * @return 0 on success, negative when the NVM commit fails. On failure the
+ *         runtime value is left unchanged.
+ */
+int iolink_params_ctx_store_access_locks(iolink_params_ctx_t* ctx, uint16_t locks);
+
+/**
  * @brief Initialize the parameter manager
  *
  * Compatibility wrapper around the context API.

@@ -220,20 +220,86 @@ static void test_ds_process_rejects_invalid_image(void** state)
     iolink_device_info_init(NULL);
     iolink_params_init();
     iolink_ds_init(&ds, NULL);
+    /* Record the device's real parameter state before the rejected download. */
+    assert_true(iolink_ds_build_image(&ds) > 0);
+    const uint16_t device_checksum = ds.current_checksum;
+
     ds.state = IOLINK_DS_STATE_DOWNLOADING;
     ds.image[0] = 0x00U;
     ds.image[1] = IOLINK_IDX_APPLICATION_TAG;
     ds.image[2] = 0x00U;
     ds.image[3] = 0xFFU; /* Truncated record payload. */
     ds.image_len = 4U;
-    ds.current_checksum = 0x1234U;
 
     iolink_ds_process(&ds);
 
     assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
+    /* The rejected image is not retained, and the checksum keeps describing the
+       device's actual parameters so a new download is requested. */
+    assert_true(iolink_ds_verify(&ds));
+    assert_int_equal(ds.current_checksum, device_checksum);
+}
+
+/* Table 98 rule 7: a download that stages no image must not fabricate a match
+ * with the Master's checksum. The device parameters were never changed, so the
+ * next consistency check has to request the download again instead of
+ * reporting a synchronised parameter set. */
+static void test_ds_process_empty_download_keeps_real_checksum(void** state)
+{
+    (void) state;
+    iolink_ds_ctx_t ds;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_ds_init(&ds, NULL);
+    assert_true(iolink_ds_build_image(&ds) > 0);
+    const uint16_t device_checksum = ds.current_checksum;
+    const uint16_t master_checksum = (uint16_t) (device_checksum ^ 0x5A5AU);
+
+    /* ParamDownloadStart clears any staged image and starts the download. */
+    assert_int_equal(iolink_ds_start_download(&ds), 0);
     assert_int_equal(ds.image_len, 0U);
-    /* Parameters and checksum stay untouched so a new download is requested. */
-    assert_int_equal(ds.current_checksum, 0x1234U);
+    iolink_ds_process(&ds); /* DOWNLOAD_REQ -> DOWNLOADING */
+    assert_int_equal(ds.state, IOLINK_DS_STATE_DOWNLOADING);
+
+    /* Nothing was staged: the download completes without accepting the
+       Master's checksum. */
+    iolink_ds_process(&ds);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
+    assert_int_equal(ds.current_checksum, device_checksum);
+
+    iolink_ds_check(&ds, master_checksum);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_DOWNLOAD_REQ);
+}
+
+/* A rejected parameter set must not become "synchronised" on the next cycle:
+ * the device keeps its previous parameter set active (Table 98 rule 7). */
+static void test_ds_rejected_image_not_synchronised_next_cycle(void** state)
+{
+    (void) state;
+    iolink_ds_ctx_t ds;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_ds_init(&ds, NULL);
+    assert_true(iolink_ds_build_image(&ds) > 0);
+
+    const uint16_t device_checksum = ds.current_checksum;
+    const uint16_t master_checksum = (uint16_t) (device_checksum ^ 0x1234U);
+
+    ds.state = IOLINK_DS_STATE_DOWNLOADING;
+    ds.master_checksum = master_checksum;
+    ds.image[0] = 0x00U;
+    ds.image[1] = IOLINK_IDX_APPLICATION_TAG;
+    ds.image[2] = 0x00U;
+    ds.image[3] = 0xFFU; /* Truncated record payload. */
+    ds.image_len = 4U;
+
+    iolink_ds_process(&ds); /* reject -> IDLE */
+    assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
+
+    /* The rejected set is still out of sync; the Master is asked again. */
+    iolink_ds_check(&ds, master_checksum);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_DOWNLOAD_REQ);
+    assert_int_equal(ds.current_checksum, device_checksum);
 }
 
 static void test_ds_param_round_trip(void** state)
@@ -404,6 +470,8 @@ int main(void)
         cmocka_unit_test(test_ds_param_download_store_rejects_invalid_image),
         cmocka_unit_test(test_ds_apply_rejects_invalid_lengths_atomically),
         cmocka_unit_test(test_ds_process_rejects_invalid_image),
+        cmocka_unit_test(test_ds_process_empty_download_keeps_real_checksum),
+        cmocka_unit_test(test_ds_rejected_image_not_synchronised_next_cycle),
         cmocka_unit_test(test_ds_param_round_trip),
         cmocka_unit_test(test_ds_bound_params_restore_device_context_only),
         cmocka_unit_test(test_ds_apply_rejects_truncated),

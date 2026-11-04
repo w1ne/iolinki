@@ -1331,6 +1331,323 @@ static void test_isdu_product_uri_absent(void** state)
     assert_int_equal(byte, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
 }
 
+/* Blocker: the ISDU engine must read the identity and access locks from the
+ * device-local context, not from the process-wide legacy singleton. */
+static void test_isdu_uses_bound_device_info(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_t info;
+    iolink_device_info_ctx_t info_ctx;
+
+    (void) memset(&info, 0, sizeof(info));
+    info.product_uri = "urn:iolinki:bound";
+    iolink_device_info_ctx_init(&info_ctx, &info);
+    iolink_device_info_init(NULL); /* The legacy identity has no ProductURI. */
+    iolink_params_init();
+
+    iolink_isdu_init(&ctx);
+    ctx.device_info = &info_ctx;
+
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_PRODUCT_URI, 0x00), 1);
+    iolink_isdu_process(&ctx);
+
+    char uri[64];
+    const int len = isdu_collect_response(&ctx, (uint8_t*) uri, sizeof(uri) - 1);
+    assert_int_equal(len, (int) strlen("urn:iolinki:bound"));
+    uri[len] = '\0';
+    assert_string_equal(uri, "urn:iolinki:bound");
+}
+
+/* Blocker: a lock set on the device's own device_info context must protect the
+ * parameters, and a lock set only on the legacy singleton must not. */
+static void test_isdu_param_lock_uses_bound_device_info(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_ctx_t info_ctx;
+
+    iolink_device_info_init(NULL);
+    iolink_device_info_ctx_init(&info_ctx, NULL);
+    iolink_params_init();
+    iolink_device_info_ctx_set_access_locks(&info_ctx, IOLINK_LOCK_PARAM);
+
+    iolink_isdu_init(&ctx);
+    ctx.device_info = &info_ctx;
+
+    const uint8_t data[] = {0x41U, 0x42U};
+    assert_int_equal(
+        isdu_send_write_request(&ctx, IOLINK_IDX_APPLICATION_TAG, 0x00, data, sizeof(data)), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t byte;
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80U);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+
+    /* The reverse: an unlocked device context wins over a locked legacy one. */
+    iolink_device_info_ctx_set_access_locks(&info_ctx, 0U);
+    iolink_device_info_set_access_locks(IOLINK_LOCK_PARAM);
+    iolink_isdu_init(&ctx);
+    ctx.device_info = &info_ctx;
+    assert_int_equal(
+        isdu_send_write_request(&ctx, IOLINK_IDX_APPLICATION_TAG, 0x00, data, sizeof(data)), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t resp[2];
+    assert_int_equal(isdu_collect_response(&ctx, resp, sizeof(resp)), 0);
+}
+
+/* Table B.14/B.2.22: writing a read-only object must produce a framed negative
+ * confirmation, not a silently dropped response. */
+static void test_isdu_write_read_only_objects_negative_confirm(void** state)
+{
+    (void) state;
+    const uint16_t read_only[] = {IOLINK_IDX_DETAILED_DEVICE_STATUS, IOLINK_IDX_ERROR_STATS};
+
+    for (size_t i = 0U; i < (sizeof(read_only) / sizeof(read_only[0])); i++) {
+        iolink_isdu_ctx_t ctx;
+        iolink_events_ctx_t events;
+        iolink_device_info_init(NULL);
+        iolink_params_init();
+        iolink_events_init(&events);
+        iolink_isdu_init(&ctx);
+        ctx.event_ctx = &events;
+
+        const uint8_t value = 0x00U;
+        assert_int_equal(isdu_send_write_request(&ctx, read_only[i], 0x00U, &value, 1), 1);
+        iolink_isdu_process(&ctx);
+
+        uint8_t resp[2];
+        assert_int_equal(isdu_collect_response(&ctx, resp, sizeof(resp)), 2);
+        assert_int_equal(resp[0], 0x80U);
+        assert_int_equal(resp[1], IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+    }
+}
+
+/* B.2.4: the 16-bit DeviceAccessLocks object rejects a short write. */
+static void test_isdu_access_locks_rejects_short_write(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_ctx_t info_ctx;
+    iolink_device_info_ctx_init(&info_ctx, NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+    ctx.device_info = &info_ctx;
+
+    const uint8_t one_byte = 0x01U;
+    assert_int_equal(
+        isdu_send_write_request(&ctx, IOLINK_IDX_DEVICE_ACCESS_LOCKS, 0x00U, &one_byte, 1), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t resp[2];
+    assert_int_equal(isdu_collect_response(&ctx, resp, sizeof(resp)), 2);
+    assert_int_equal(resp[0], 0x80U);
+    assert_int_equal(resp[1], IOLINK_ISDU_ERROR_PARAM_LEN_UNDERRUN);
+    assert_int_equal(iolink_device_info_ctx_get_access_locks(&info_ctx), 0U);
+}
+
+/* Table 101: Application reset, Restore factory settings and Back-to-box
+ * restore the access locks to the state of delivery; Device reset does not. */
+static void test_isdu_reset_commands_restore_default_access_locks(void** state)
+{
+    (void) state;
+    const uint8_t reset_to_default[] = {
+        IOLINK_CMD_APPLICATION_RESET, IOLINK_CMD_RESTORE_FACTORY_SETTINGS, IOLINK_CMD_BACK_TO_BOX};
+
+    for (size_t i = 0U; i < (sizeof(reset_to_default) / sizeof(reset_to_default[0])); i++) {
+        iolink_isdu_ctx_t ctx;
+        iolink_device_info_ctx_t info_ctx;
+        iolink_params_ctx_t params;
+
+        iolink_nvm_mock_cleanup();
+        iolink_device_info_ctx_init(&info_ctx, NULL);
+        iolink_params_ctx_init(&params, &info_ctx);
+        iolink_device_info_ctx_set_access_locks(&info_ctx,
+                                                (uint16_t) (IOLINK_LOCK_PARAM | IOLINK_LOCK_DS));
+
+        iolink_isdu_init(&ctx);
+        ctx.device_info = &info_ctx;
+        ctx.params_ctx = &params;
+
+        assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00U,
+                                                 &reset_to_default[i], 1),
+                         1);
+        iolink_isdu_process(&ctx);
+        uint8_t resp[1];
+        assert_int_equal(isdu_collect_response(&ctx, resp, sizeof(resp)), 0);
+        assert_int_equal(iolink_device_info_ctx_get_access_locks(&info_ctx), 0U);
+    }
+
+    /* Device reset (0x80) leaves the access locks untouched ("No"). */
+    {
+        iolink_isdu_ctx_t ctx;
+        iolink_device_info_ctx_t info_ctx;
+        iolink_device_info_ctx_init(&info_ctx, NULL);
+        iolink_params_init();
+        iolink_device_info_ctx_set_access_locks(&info_ctx, IOLINK_LOCK_PARAM);
+        iolink_isdu_init(&ctx);
+        ctx.device_info = &info_ctx;
+        const uint8_t cmd = IOLINK_CMD_DEVICE_RESET;
+        assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00U, &cmd, 1),
+                         1);
+        iolink_isdu_process(&ctx);
+        assert_int_equal(iolink_device_info_ctx_get_access_locks(&info_ctx), IOLINK_LOCK_PARAM);
+    }
+}
+
+/* B.2.4/Table 101: the access locks are non-volatile. */
+static void test_isdu_access_locks_persist_across_reinit(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_ctx_t info_ctx;
+    iolink_params_ctx_t params;
+
+    iolink_device_info_ctx_init(&info_ctx, NULL);
+    iolink_params_ctx_init(&params, &info_ctx);
+    iolink_isdu_init(&ctx);
+    ctx.device_info = &info_ctx;
+    ctx.params_ctx = &params;
+
+    const uint8_t locks[2] = {0x00U, IOLINK_LOCK_PARAM};
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_DEVICE_ACCESS_LOCKS, 0x00U, locks, 2),
+                     1);
+    iolink_isdu_process(&ctx);
+    uint8_t resp[2];
+    assert_int_equal(isdu_collect_response(&ctx, resp, sizeof(resp)), 0);
+    assert_int_equal(iolink_device_info_ctx_get_access_locks(&info_ctx), IOLINK_LOCK_PARAM);
+
+    /* Power cycle: both managers are rebuilt from the non-volatile record. */
+    iolink_device_info_ctx_init(&info_ctx, NULL);
+    iolink_params_ctx_init(&params, &info_ctx);
+    assert_int_equal(iolink_device_info_ctx_get_access_locks(&info_ctx), IOLINK_LOCK_PARAM);
+}
+
+/* Table 101: Application reset makes a Data Storage upload required. */
+static void test_system_cmd_application_reset_requests_ds_upload(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_ds_ctx_t ds;
+    iolink_events_ctx_t events;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_ds_init(&ds, NULL);
+    iolink_events_init(&events);
+    iolink_isdu_init(&ctx);
+    ctx.ds_ctx = &ds;
+    ctx.event_ctx = &events;
+
+    const uint8_t cmd = IOLINK_CMD_APPLICATION_RESET;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00U, &cmd, 1), 1);
+    iolink_isdu_process(&ctx);
+
+    assert_int_equal(ds.state, IOLINK_DS_STATE_UPLOAD_REQ);
+    iolink_event_t event;
+    assert_true(iolink_events_pop(&events, &event));
+    assert_int_equal(event.code, IOLINK_EVENTCODE_DS_UPLOAD_REQUEST);
+    assert_int_equal(event.type, IOLINK_EVENT_TYPE_NOTIFICATION);
+}
+
+/* Table 101: Restore factory settings and Back-to-box delete a pending Data
+ * Storage upload request (DS_UPLOAD_REQ = 0). */
+static void test_system_cmd_reset_commands_cancel_ds_upload_request(void** state)
+{
+    (void) state;
+    const uint8_t cancel[] = {IOLINK_CMD_RESTORE_FACTORY_SETTINGS, IOLINK_CMD_BACK_TO_BOX};
+
+    for (size_t i = 0U; i < (sizeof(cancel) / sizeof(cancel[0])); i++) {
+        iolink_isdu_ctx_t ctx;
+        iolink_ds_ctx_t ds;
+        iolink_device_info_init(NULL);
+        iolink_params_init();
+        iolink_ds_init(&ds, NULL);
+        ds.state = IOLINK_DS_STATE_UPLOAD_REQ;
+        iolink_isdu_init(&ctx);
+        ctx.ds_ctx = &ds;
+
+        assert_int_equal(
+            isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00U, &cancel[i], 1), 1);
+        iolink_isdu_process(&ctx);
+        assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
+    }
+}
+
+/* Table D.1: the internal DS_UPLOAD_REQ notification must not raise the
+ * DeviceStatus reported through index 0x0024. */
+static void test_system_cmd_param_download_store_keeps_device_status_zero(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_ds_ctx_t ds;
+    iolink_events_ctx_t events;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_ds_init(&ds, NULL);
+    iolink_events_init(&events);
+    iolink_isdu_init(&ctx);
+    ctx.ds_ctx = &ds;
+    ctx.event_ctx = &events;
+
+    const uint8_t store = IOLINK_CMD_PARAM_DOWNLOAD_STORE;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00U, &store, 1), 1);
+    iolink_isdu_process(&ctx);
+    assert_true(iolink_events_pending(&events));
+
+    iolink_isdu_init(&ctx);
+    ctx.ds_ctx = &ds;
+    ctx.event_ctx = &events;
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_DEVICE_STATUS, 0x00U), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t status = 0xFFU;
+    assert_int_equal(isdu_collect_response(&ctx, &status, 1), 1);
+    assert_int_equal(status, 0U);
+}
+
+/* Blocker regression: iolink_device_init() must bind the configured identity
+ * and access locks into the ISDU engine instead of relying on the legacy
+ * process-wide singleton. */
+static void test_isdu_device_init_binds_device_info(void** state)
+{
+    (void) state;
+    iolink_test_device_t dev;
+    iolink_device_info_t info;
+
+    (void) memset(&info, 0, sizeof(info));
+    info.product_uri = "urn:dev-init";
+    info.access_locks = IOLINK_LOCK_PARAM;
+
+    (void) memset(&dev, 0, sizeof(dev));
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    dev.cfg.phy = g_phy_mock;
+    dev.cfg.stack.m_seq_type = IOLINK_M_SEQ_TYPE_0;
+    dev.cfg.device_info = &info;
+    assert_int_equal(iolink_device_init(&dev.ctx, &dev.cfg), 0);
+
+    iolink_isdu_ctx_t* isdu = &dev.ctx.dll.isdu;
+    assert_int_equal(isdu_send_read_request(isdu, IOLINK_IDX_PRODUCT_URI, 0x00), 1);
+    iolink_isdu_process(isdu);
+
+    char uri[64];
+    const int len = isdu_collect_response(isdu, (uint8_t*) uri, sizeof(uri) - 1);
+    assert_int_equal(len, (int) strlen("urn:dev-init"));
+    uri[len] = '\0';
+    assert_string_equal(uri, "urn:dev-init");
+
+    /* The configured Parameter lock protects the device's parameters. */
+    const uint8_t tag[] = {0x41U};
+    assert_int_equal(
+        isdu_send_write_request(isdu, IOLINK_IDX_APPLICATION_TAG, 0x00, tag, sizeof(tag)), 1);
+    iolink_isdu_process(isdu);
+    uint8_t resp[2];
+    assert_int_equal(isdu_collect_response(isdu, resp, sizeof(resp)), 2);
+    assert_int_equal(resp[0], 0x80U);
+    assert_int_equal(resp[1], IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -1405,6 +1722,27 @@ int main(void)
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_data_storage_round_trip, test_setup,
                                         test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_uses_bound_device_info, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_device_init_binds_device_info, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_param_lock_uses_bound_device_info, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_write_read_only_objects_negative_confirm,
+                                        test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_access_locks_rejects_short_write, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_reset_commands_restore_default_access_locks,
+                                        test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_access_locks_persist_across_reinit, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_system_cmd_application_reset_requests_ds_upload,
+                                        test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_system_cmd_reset_commands_cancel_ds_upload_request,
+                                        test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(
+            test_system_cmd_param_download_store_keeps_device_status_zero, test_setup,
+            test_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

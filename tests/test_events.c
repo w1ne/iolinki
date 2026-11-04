@@ -275,6 +275,35 @@ static void test_event_clear_diagnosis_discards_all_notifications(void** state)
     assert_int_equal(iolink_events_memory_read(&ctx, 0U), 0U);
 }
 
+/* 10.10.2/Table A.20: Notifications are always single shot (MODE = 1), never
+ * "appears" (MODE = 3). */
+static void test_event_notification_mode_single_shot(void** state)
+{
+    (void) state;
+    iolink_events_ctx_t ctx;
+    iolink_events_init(&ctx);
+
+    iolink_event_trigger(&ctx, IOLINK_EVENTCODE_DS_UPLOAD_REQUEST, IOLINK_EVENT_TYPE_NOTIFICATION);
+
+    /* MODE 01 (bits 6-7) | TYPE Notification 01 (bits 5-4) | INSTANCE 4. */
+    assert_int_equal(iolink_events_memory_read(&ctx, 1U), 0x54U);
+}
+
+/* Table D.1: DS_UPLOAD_REQ is an internal Notification, not visible to the
+ * user, with Preferred DeviceStatus "0". */
+static void test_event_ds_upload_request_invisible_in_device_status(void** state)
+{
+    (void) state;
+    iolink_events_ctx_t ctx;
+    iolink_events_init(&ctx);
+
+    iolink_event_trigger(&ctx, IOLINK_EVENTCODE_DS_UPLOAD_REQUEST, IOLINK_EVENT_TYPE_NOTIFICATION);
+
+    assert_int_equal(iolink_events_get_highest_severity(&ctx), 0U);
+    /* Still queued for the Master; only the DeviceStatus is unaffected. */
+    assert_true(iolink_events_pending(&ctx));
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -290,6 +319,8 @@ int main(void)
         cmocka_unit_test(test_event_memory_confirm),
         cmocka_unit_test(test_event_clear_diagnosis),
         cmocka_unit_test(test_event_clear_diagnosis_discards_all_notifications),
+        cmocka_unit_test(test_event_notification_mode_single_shot),
+        cmocka_unit_test(test_event_ds_upload_request_invisible_in_device_status),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
