@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and disables communication after the positive response and three processing
   cycles, with a bounded wait so a Master that stops polling cannot keep the
   link alive.
+- **Error-code API change.** `IOLINK_ISDU_ERROR_PARAM_INCONSISTENT` now carries
+  the C.2.17 value 0x41; `IOLINK_ISDU_ERROR_PARAM_SET_INVALID` (0x40) is added
+  for the single-parameter C.2.16 meaning. The mislabelled
+  `IOLINK_ISDU_ERROR_BUSY` (0x30, actually PAR_VALOUTOFRNG) is replaced by
+  `IOLINK_ISDU_ERROR_FUNCTION_TEMP_UNAVAIL` (0x36, C.2.15).
 - ParamDownloadStore/ParamDownloadEnd reject malformed or inconsistent staged
   parameter images with `PARAM_INCONSISTENT` (0x41, C.2.17) and do not enter
   `UPLOAD_REQ` or emit `DS_UPLOAD_REQ` on failure. An image is validated
