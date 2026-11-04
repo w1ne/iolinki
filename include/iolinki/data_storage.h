@@ -135,7 +135,10 @@ uint16_t iolink_ds_calc_checksum(const uint8_t* data, size_t len);
 /**
  * @brief Process Data Storage engine logic
  *
- * Handles state transitions and background synchronization tasks.
+ * Handles state transitions and background synchronization tasks. The
+ * application must call this periodically from its main loop (for example next
+ * to ::iolink_device_process); the stack does not drive it, and a pending
+ * upload request that follows ParamDownloadStore stalls until it runs.
  *
  * @param ctx DS context to process
  */

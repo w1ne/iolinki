@@ -56,6 +56,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the content vendor/Device specific: this Device reports its SDCI error count
   since power-on or reset (CRC, framing, timeout and timing errors) and
   saturates at 0xFFFF.
+- `IOLINK_ISDU_ERROR_IDX_NOT_AVAIL` (0x11, C.2.3) is added;
+  `IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL` stays as a deprecated alias because the
+  stack historically returned 0x11 for several "not available" paths. Code that
+  needs "service not available" must use 0x20 instead.
 - DataStorageIndex (0x0003) serves the serialized parameter image through
   subindex 0 only; the B.10 record items (DS_Command, State_Property,
   Data_Storage_Size, Parameter_Checksum, Index_List) are not implemented, so a
@@ -71,8 +75,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   active Error/Warning Events with "event disappears" (Table 101 "Clear");
   Back-to-box (0x83) sets the diagnosis to "0". Application reset (0x81)
   leaves the diagnosis untouched.
+- The ISDU engine reads the device identification and DeviceAccessLocks
+  (0x000C) from the device-local `iolink_device_info_ctx_t` bound by
+  `iolink_device_init()` instead of the process-wide legacy singleton; the
+  legacy accessors remain as a fallback when no context is bound.
+  DeviceAccessLocks is now committed to NVM and restored on startup (B.2.4).
+  Application reset (0x81), Restore factory settings (0x82) and Back-to-box
+  (0x83) restore its state-of-delivery value and the Data Storage behaviour
+  from Table 101: 0x81 requests an upload (DS_UPLOAD_REQ), 0x82/0x83 delete a
+  pending request.
+- Notification events are coded MODE "single shot" (Table A.20/10.10.2)
+  instead of "appears", and the internal DS_UPLOAD_REQ Notification (0xFF91)
+  no longer raises DeviceStatus (0x0024), per Table D.1.
 
 ### Fixed
+- A Data Storage download that stages no image no longer adopts the Master's
+  checksum: the checksum is always recomputed from the device's actual
+  parameters, so a rejected or empty download stays out of sync and is
+  requested again (Table 98 rule 7).
+- Writes to read-only objects (DetailedDeviceStatus 0x0025, error statistics
+  0x0040) return a framed `0x80 0x23` negative confirmation instead of a
+  response the transport discarded. A DeviceAccessLocks write shorter than two
+  octets answers `0x80 0x34` (C.2.13).
 - **Streaming M-sequence request framing (wire change).** Read requests now
   carry no On-request Data octets: a typed read is `MC + CKT + PD-out`, while a
   write is `MC + CKT + PD-out + OD`. Type 0 write requests on the page,
@@ -86,6 +110,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `iolinki-master` frames its ISDU and diagnosis read requests without OD and
   uses the same per-type OD widths, so the device/master pair remains
   interoperable.
+
+### Known limitations
+- `iolink_events_clear_diagnosis()` can only withdraw events still held in the
+  event queue; an Error/Warning that the Master already acknowledged while its
+  fault remains active is not re-announced with MODE "disappears". Tracking
+  announced-but-active events is part of the event-lifecycle work.
+- Data Storage images cannot be rolled back across an NVM write failure; the
+  parameter manager has no transactional commit. The failure is reported to the
+  Master (`0x80 0x41`) and the DS checksum is rebuilt from the actual
+  parameters.
+- `iolink_ds_process()` must be called from the application main loop for the
+  Data Storage state machine (including the upload that follows
+  ParamDownloadStore) to progress.
+- A local parameter change (for example an ISDU write to an identification tag)
+  does not by itself raise DS_UPLOAD_REQ; the upload is requested by
+  ParamDownloadStore and by Application reset (0x81). The Data Storage upload
+  state is not retained in non-volatile memory across a power cycle.
 
 ## [2.2.0] - 2026-10-17
 

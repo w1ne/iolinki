@@ -261,9 +261,10 @@ void iolink_dll_reset_diagnostics(iolink_dll_ctx_t* ctx);
  *
  * Clears the CRC, framing, timeout and timing counters behind ErrorCount
  * (0x0020) and leaves the event queue, the Event flag and the event memory
- * untouched. Used by Restore factory settings (0x82) and Back-to-box (0x83):
- * Table 101 asks for a "Clear" of the diagnosis there, which is delivered as
- * "event disappears" entries rather than by discarding active Events.
+ * untouched. Used by Restore factory settings (0x82) and Back-to-box (0x83),
+ * which both reset ErrorCount (Table 101). 0x82 additionally withdraws active
+ * Events with "event disappears" ("Clear"), while 0x83 sets the diagnosis to
+ * "0" and disables communication.
  *
  * @param ctx DLL context
  */

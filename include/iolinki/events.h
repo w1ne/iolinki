@@ -165,6 +165,10 @@ void iolink_event_trigger(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_
  * flag stays set while entries remain, and the caller still has to reset the
  * ErrorCount counters.
  *
+ * Limitation: only events still present in the queue can be withdrawn. An
+ * Error/Warning that the Master already acknowledged while the fault condition
+ * remains active is not re-announced with MODE "disappears".
+ *
  * @param ctx Event context
  */
 void iolink_events_clear_diagnosis(iolink_events_ctx_t* ctx);
