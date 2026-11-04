@@ -926,6 +926,119 @@ static void test_isdu_param_lock_blocks_tag_write(void** state)
     assert_int_equal(byte, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
 }
 
+static unsigned g_vendor_writes = 0U;
+
+static uint8_t vendor_write_spy(void* user, uint16_t index, uint8_t subindex, bool write,
+                                const uint8_t* input, size_t length, uint8_t* output,
+                                size_t* capacity)
+{
+    (void) user;
+    (void) index;
+    (void) subindex;
+    (void) input;
+    (void) length;
+    (void) output;
+    if (write) {
+        g_vendor_writes++;
+    }
+    *capacity = 0U;
+    return 0U;
+}
+
+/* B.2.4/10.6.5: the Parameter access lock covers every writable parameter, not
+ * only the identification tags. */
+static void test_isdu_param_lock_blocks_dpp2_write(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    uint8_t page2[16] = {0U};
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+    ctx.direct_param_page2 = page2;
+
+    iolink_device_info_set_access_locks(IOLINK_LOCK_PARAM);
+
+    uint8_t data[] = {0x11U, 0x22U};
+    assert_int_equal(
+        isdu_send_write_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_2, 0x00, data, sizeof(data)), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t byte;
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+    assert_int_equal(page2[0], 0U);
+    assert_int_equal(page2[1], 0U);
+}
+
+/* B.2.27: device-specific parameters are writable parameters as well. */
+static void test_isdu_param_lock_blocks_vendor_write(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_isdu_init(&ctx);
+    ctx.vendor_service = vendor_write_spy;
+
+    g_vendor_writes = 0U;
+    iolink_device_info_set_access_locks(IOLINK_LOCK_PARAM);
+
+    const uint8_t value = 0x01U;
+    assert_int_equal(isdu_send_write_request(&ctx, 0x0100U, 0x00, &value, 1), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t byte;
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, 0x80);
+    assert_int_equal(iolink_isdu_get_response_byte(&ctx, &byte), 1);
+    assert_int_equal(byte, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+    assert_int_equal(g_vendor_writes, 0U);
+}
+
+/* B.2.4: DeviceAccessLocks stays writable, and neither SystemCommand nor the
+ * Data Storage download are parameters. */
+static void test_isdu_param_lock_exempt_writes(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_ds_ctx_t ds;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    iolink_ds_init(&ds, NULL);
+    iolink_isdu_init(&ctx);
+    ctx.ds_ctx = &ds;
+
+    iolink_device_info_set_access_locks(IOLINK_LOCK_PARAM);
+
+    uint8_t locks[2] = {0x00U, 0x01U}; /* keep the Parameter lock set */
+    assert_int_equal(
+        isdu_send_write_request(&ctx, IOLINK_IDX_DEVICE_ACCESS_LOCKS, 0x00, locks, 2), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t resp[2];
+    assert_int_equal(isdu_collect_response(&ctx, resp, sizeof(resp)), 0);
+    assert_int_equal(iolink_device_info_get_access_locks(), IOLINK_LOCK_PARAM);
+
+    iolink_isdu_init(&ctx);
+    ctx.ds_ctx = &ds;
+    const uint8_t reset_cmd = IOLINK_CMD_APPLICATION_RESET;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &reset_cmd, 1),
+                     1);
+    iolink_isdu_process(&ctx);
+    assert_true(ctx.app_reset_pending);
+    assert_int_equal(isdu_collect_response(&ctx, resp, sizeof(resp)), 0);
+
+    iolink_isdu_init(&ctx);
+    ctx.ds_ctx = &ds;
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_DATA_STORAGE, 0x00, NULL, 0), 1);
+    iolink_isdu_process(&ctx);
+    uint8_t image_resp[2];
+    const int image_len = isdu_collect_response(&ctx, image_resp, sizeof(image_resp));
+    assert_true(image_len == 0);
+}
+
 static void test_isdu_error_count_read(void** state)
 {
     (void) state;
@@ -1016,6 +1129,12 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_isdu_write_rejects_read_only_identification,
                                         test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_param_lock_blocks_tag_write, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_param_lock_blocks_dpp2_write, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_param_lock_blocks_vendor_write, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_param_lock_exempt_writes, test_setup,
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_error_count_read, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_product_uri_read, test_setup, test_teardown),

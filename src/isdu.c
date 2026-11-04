@@ -556,6 +556,23 @@ static isdu_request_check_t isdu_validate_request(const iolink_isdu_ctx_t* ctx)
     return ISDU_REQUEST_VALID;
 }
 
+/** @brief Whether an SDCI write to @p index is a parameter write (Table B.2.4). */
+static bool isdu_write_is_parameter(uint16_t index)
+{
+    /* SystemCommand is a command object, not a parameter; Data Storage
+       downloads are explicitly excluded from the Parameter access lock, and
+       DeviceAccessLocks must stay writable to release the lock (B.2.4). */
+    if ((index == IOLINK_IDX_SYSTEM_COMMAND) || (index == IOLINK_IDX_DATA_STORAGE) ||
+        (index == IOLINK_IDX_DEVICE_ACCESS_LOCKS)) {
+        return false;
+    }
+    /* Direct Parameter page 1 is read-only; its handler rejects the write. */
+    if (index == IOLINK_IDX_DIRECT_PARAMETERS_1) {
+        return false;
+    }
+    return true;
+}
+
 /** @brief Serve the mandatory identification/status indices (vendor, product, tags, etc.). */
 static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
 {
@@ -579,19 +596,7 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
         const bool writable_tag = (index == IOLINK_IDX_APPLICATION_TAG) ||
                                   (index == IOLINK_IDX_FUNCTION_TAG) ||
                                   (index == IOLINK_IDX_LOCATION_TAG);
-        if (writable_tag) {
-            /* Table B.2.4: with the Parameter (write) access lock set, every
-               read/write parameter except DeviceAccessLocks is write-protected. */
-            if ((iolink_device_info_get_access_locks() & IOLINK_LOCK_PARAM) != 0U) {
-                ctx->response_buf[0] = 0x80U;
-                ctx->response_buf[1] = IOLINK_ISDU_ERROR_WRITE_PROTECTED;
-                ctx->response_len = 2U;
-                ctx->response_idx = 0U;
-                ctx->state = ISDU_STATE_RESPONSE_READY;
-                return;
-            }
-        }
-        else {
+        if (!writable_tag) {
             switch (index) {
                 case IOLINK_IDX_PROFILE_CHARACTERISTIC:
                 case IOLINK_IDX_VENDOR_NAME:
@@ -1296,6 +1301,17 @@ static void handle_standard_commands(iolink_isdu_ctx_t* ctx)
             return;
         default:
             break;
+    }
+
+    /* Table B.2.4/10.6.5: with the Parameter (write) access lock set, every
+       read/write parameter accessible over SDCI rejects a write with access
+       denied. DeviceAccessLocks, SystemCommand and Data Storage downloads are
+       exempt. */
+    if ((ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) &&
+        isdu_write_is_parameter(index) &&
+        ((iolink_device_info_get_access_locks() & IOLINK_LOCK_PARAM) != 0U)) {
+        isdu_negative_response(ctx, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+        return;
     }
 
     /* B.2.27: Preferred Indices 0x0040-0x00FE are device-specific like the
