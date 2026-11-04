@@ -45,16 +45,17 @@ typedef struct
     const char* application_tag;   /**< Application tag string (Index 0x0018, optional). */
 
     /* Device IDs (Mandatory Indices) */
-    uint16_t vendor_id;              /**< Vendor ID (Index 0x000A). */
-    uint32_t device_id;              /**< Device ID (Index 0x000B). */
-    uint16_t function_id;            /**< Function ID (Index 0x001C). */
+    uint16_t vendor_id;              /**< Vendor ID (Direct Parameter page 1, 0x07-0x08). */
+    uint32_t device_id;              /**< Device ID (Direct Parameter page 1, 0x09-0x0B). */
+    uint16_t function_id;            /**< Function ID (Direct Parameter page 1, 0x0C-0x0D). */
     uint16_t profile_characteristic; /**< Profile characteristic (Index 0x000D). */
 
     /* System Info */
-    uint8_t min_cycle_time;          /**< Minimum cycle time in 100us units (Index 0x0024). */
-    uint16_t revision_id;            /**< Revision ID (Index 0x001E). */
-    uint8_t device_status;           /**< Device status (Index 0x001B). */
-    uint16_t detailed_device_status; /**< Detailed device status (Index 0x001C, optional). */
+    uint8_t min_cycle_time;          /**< MinCycleTime in 0.1 ms units (page 1, 0x02); an octet
+                                          caps it at 25.5 ms. */
+    uint16_t revision_id;            /**< RevisionID (Direct Parameter page 1, 0x04). */
+    uint8_t device_status;           /**< DeviceStatus (Index 0x0024). */
+    uint16_t detailed_device_status; /**< DetailedDeviceStatus (Index 0x0025, optional). */
 
     /* Access Control */
     uint16_t access_locks; /**< Device access locks bitmask (Index 0x000C). */

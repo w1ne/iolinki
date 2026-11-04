@@ -1326,8 +1326,7 @@ static void handle_standard_commands(iolink_isdu_ctx_t* ctx)
        read/write parameter accessible over SDCI rejects a write with access
        denied. DeviceAccessLocks, SystemCommand and Data Storage downloads are
        exempt. */
-    if ((ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) &&
-        isdu_write_is_parameter(index) &&
+    if ((ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) && isdu_write_is_parameter(index) &&
         ((iolink_device_info_get_access_locks() & IOLINK_LOCK_PARAM) != 0U)) {
         isdu_negative_response(ctx, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
         return;

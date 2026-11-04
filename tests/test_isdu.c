@@ -279,8 +279,8 @@ static void test_system_cmd_resets_diagnostics(void** state)
     iolink_isdu_init(&ctx);
     ctx.dll_ctx = &dll;
     const uint8_t device_reset = IOLINK_CMD_DEVICE_RESET;
-    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &device_reset, 1),
-                     1);
+    assert_int_equal(
+        isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &device_reset, 1), 1);
     iolink_isdu_process(&ctx);
 
     assert_int_equal(dll.crc_errors, 0U);
@@ -306,7 +306,8 @@ static void test_system_cmd_resets_diagnostics(void** state)
         iolink_isdu_init(&ctx);
         ctx.dll_ctx = &dll;
         const uint8_t cmd = keep_event_commands[i];
-        assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &cmd, 1), 1);
+        assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &cmd, 1),
+                         1);
         iolink_isdu_process(&ctx);
 
         assert_int_equal(dll.crc_errors, 0U);
@@ -403,9 +404,8 @@ static void test_system_cmd_param_download_store(void** state)
     ctx.event_ctx = &events;
 
     const uint8_t download_start = IOLINK_CMD_PARAM_DOWNLOAD_START;
-    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &download_start,
-                                             1),
-                     1);
+    assert_int_equal(
+        isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &download_start, 1), 1);
     iolink_isdu_process(&ctx);
     iolink_ds_process(&ds); /* DOWNLOAD_REQ -> DOWNLOADING */
 
@@ -444,9 +444,8 @@ static void test_system_cmd_param_download_end_no_upload_request(void** state)
 
     ds.state = IOLINK_DS_STATE_DOWNLOADING;
     const uint8_t download_end = IOLINK_CMD_PARAM_DOWNLOAD_END;
-    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &download_end,
-                                             1),
-                     1);
+    assert_int_equal(
+        isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &download_end, 1), 1);
     iolink_isdu_process(&ctx);
 
     assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
@@ -1107,8 +1106,8 @@ static void test_isdu_param_lock_exempt_writes(void** state)
     iolink_device_info_set_access_locks(IOLINK_LOCK_PARAM);
 
     uint8_t locks[2] = {0x00U, 0x01U}; /* keep the Parameter lock set */
-    assert_int_equal(
-        isdu_send_write_request(&ctx, IOLINK_IDX_DEVICE_ACCESS_LOCKS, 0x00, locks, 2), 1);
+    assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_DEVICE_ACCESS_LOCKS, 0x00, locks, 2),
+                     1);
     iolink_isdu_process(&ctx);
     uint8_t resp[2];
     assert_int_equal(isdu_collect_response(&ctx, resp, sizeof(resp)), 0);
@@ -1148,6 +1147,42 @@ static void test_isdu_error_count_read(void** state)
     assert_int_equal(isdu_collect_response(&ctx, buf, sizeof(buf)), 2);
     assert_int_equal(buf[0], 0);
     assert_int_equal(buf[1], 0);
+}
+
+/* B.2.20: this Device reports the SDCI error counters since power-on/reset,
+ * big-endian and saturated at 0xFFFF. */
+static void test_isdu_error_count_sums_dll_errors(void** state)
+{
+    (void) state;
+    iolink_isdu_ctx_t ctx;
+    iolink_dll_ctx_t dll;
+    iolink_device_info_init(NULL);
+    iolink_params_init();
+    (void) memset(&dll, 0, sizeof(dll));
+    iolink_events_init(&dll.events);
+    dll.crc_errors = 2U;
+    dll.framing_errors = 3U;
+    dll.timeout_errors = 4U;
+    dll.timing_errors = 1U;
+
+    iolink_isdu_init(&ctx);
+    ctx.dll_ctx = &dll;
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_ERROR_COUNT, 0x00), 1);
+    iolink_isdu_process(&ctx);
+
+    uint8_t buf[2];
+    assert_int_equal(isdu_collect_response(&ctx, buf, sizeof(buf)), 2);
+    assert_int_equal(buf[0], 0x00U);
+    assert_int_equal(buf[1], 0x0AU);
+
+    dll.crc_errors = 0x10000U;
+    iolink_isdu_init(&ctx);
+    ctx.dll_ctx = &dll;
+    assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_ERROR_COUNT, 0x00), 1);
+    iolink_isdu_process(&ctx);
+    assert_int_equal(isdu_collect_response(&ctx, buf, sizeof(buf)), 2);
+    assert_int_equal(buf[0], 0xFFU);
+    assert_int_equal(buf[1], 0xFFU);
 }
 
 static void test_isdu_product_uri_read(void** state)
@@ -1207,8 +1242,8 @@ int main(void)
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_reserved_index_with_subindex, test_setup,
                                         test_teardown),
-        cmocka_unit_test_setup_teardown(test_isdu_access_locks_rejects_nonzero_subindex,
-                                        test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_access_locks_rejects_nonzero_subindex, test_setup,
+                                        test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_detailed_status_subindex_elements, test_setup,
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_data_storage_subindex_not_available, test_setup,
@@ -1230,6 +1265,8 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_isdu_param_lock_exempt_writes, test_setup,
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_error_count_read, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_error_count_sums_dll_errors, test_setup,
+                                        test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_product_uri_read, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_product_uri_absent, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_system_cmd_device_reset, test_setup, test_teardown),

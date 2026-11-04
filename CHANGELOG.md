@@ -24,15 +24,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ErrorCount (0x0020) and ProductURI (0x001B) are served. A read of an
   unconfigured optional identification string (for example ProductURI without
   `product_uri`) returns `0x80 0x11`. Writes to read-only objects return
-  `0x80 0x23`, the Parameter access lock covers tag writes, and a non-zero
-  subindex on single-element objects returns `0x80 0x12`.
+  `0x80 0x23`. The Parameter access lock now covers every writable parameter
+  (identification tags, Direct Parameter page 2 and device-specific indices),
+  with DeviceAccessLocks and Data Storage downloads exempt. An index that is
+  not implemented answers `0x80 0x11` even when the request carries a non-zero
+  subindex, an unsupported subindex answers `0x80 0x12`, and
+  DetailedDeviceStatus additionally serves subindex 1..n element reads.
 - `MinCycleTime` in Direct Parameter Page 1 is encoded per Table B.3 instead of
   carrying the raw value. 0 still encodes as 0x00 ("no MinCycleTime", B.1.3),
   values below 0.4 ms clamp to 0.4 ms, values between steps round up, and
-  values above 132.8 ms saturate.
-- ErrorCount sums the DLL CRC, framing, timeout and timing counters and
-  saturates at 0xFFFF. B.2.20 makes the content vendor/Device specific and asks
-  for errors since power-on or reset.
+  values above 132.8 ms saturate. The configured `min_cycle_time` keeps its
+  0.1 ms unit and its octet width, so a Device configuration covers up to
+  25.5 ms.
+- ErrorCount is served as a 2-octet UIntegerT read-only object. B.2.20 leaves
+  the content vendor/Device specific: this Device reports its SDCI error count
+  since power-on or reset (CRC, framing, timeout and timing errors) and
+  saturates at 0xFFFF.
+- ParamDownloadStore (0x05) now ends a Block Parameter transfer like
+  ParamDownloadEnd and additionally starts the Data Storage upload: the
+  parameter image is rebuilt and the DS_UPLOAD_REQ Event (0xFF91, Notification)
+  notifies the Master to back the parameter set up (10.3.5/10.4.2).
 - Device diagnosis and status follow Table 101. Device reset (0x80) sets them
   to "0": the ErrorCount counters and the event memory behind DeviceStatus
   (0x0024) / DetailedDeviceStatus (0x0025) are cleared. Restore factory
