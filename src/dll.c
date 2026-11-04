@@ -29,6 +29,8 @@
 
 #define DLL_LOG(...)
 
+static void dll_disable_communication(iolink_dll_ctx_t* ctx);
+
 /**
  * @brief Centralised state transition.
  *
@@ -203,6 +205,13 @@ static void dll_enter_fallback(iolink_dll_ctx_t* ctx)
         return;
     }
 
+    /* 10.7.5: Back-to-box disables communication until the next power cycle;
+       a fallback to SIO must not resurrect the link. */
+    if (ctx->back_to_box_armed) {
+        dll_disable_communication(ctx);
+        return;
+    }
+
     ctx->fallback_count++;
     ctx->total_retries++;
 
@@ -364,14 +373,23 @@ static void dll_arm_back_to_box_stop(iolink_dll_ctx_t* ctx)
     if (!ctx->isdu.back_to_box_pending) {
         return;
     }
+    /* 10.7.5 counts from the last ISDU response octet: wait until the staged
+       response has been read out completely. */
+    if ((ctx->isdu.resp_total != 0U) && (ctx->isdu.resp_idx < ctx->isdu.resp_total)) {
+        return;
+    }
     ctx->isdu.back_to_box_pending = false;
     ctx->back_to_box_cycles = 3U;
     ctx->back_to_box_armed = true;
-    /* Fallback bound: 3 x MinCycleTime, at least 3 ms. The actual MasterCycle
-       time is not tracked by this stack. */
-    const uint64_t frame_bound_us =
-        (ctx->min_cycle_time_us > 0U) ? (3ULL * (uint64_t) ctx->min_cycle_time_us) : 3000ULL;
-    ctx->back_to_box_deadline_us = iolink_time_get_us() + frame_bound_us;
+    /* Watchdog: the MasterCycle time is not tracked by this stack and is always
+       >= MinCycleTime, so 3 x MinCycleTime is the lower bound; a 1 s ceiling
+       keeps a Master that stops polling from leaving the link enabled. */
+    uint64_t watchdog_us =
+        (ctx->min_cycle_time_us > 0U) ? (3ULL * (uint64_t) ctx->min_cycle_time_us) : 0ULL;
+    if (watchdog_us < 1000000ULL) {
+        watchdog_us = 1000000ULL;
+    }
+    ctx->back_to_box_deadline_us = iolink_time_get_us() + watchdog_us;
 }
 
 /** @brief Stop and disable communication until the next power cycle (10.7.5). */
