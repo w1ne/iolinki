@@ -1772,6 +1772,9 @@ static void test_system_cmd_reset_discards_staged_download_image(void** state)
         iolink_device_info_init(NULL);
         iolink_params_init();
         iolink_ds_init(&ds, NULL);
+        /* A real device image makes the consistency assertions meaningful (a
+           zeroed context would make them trivially true). */
+        assert_true(iolink_ds_build_image(&ds) > 0);
         ds.state = IOLINK_DS_STATE_DOWNLOADING;
         /* Staged image: ApplicationTag = "X". */
         ds.image[0] = 0x00U;
@@ -1788,13 +1791,28 @@ static void test_system_cmd_reset_discards_staged_download_image(void** state)
             isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00U, &cmds[i], 1), 1);
         iolink_isdu_process(&ctx);
 
-        /* The staged image is gone and the device serves its own parameters. */
+        /* The staged image is gone and the image/checksum pair stays valid. */
         assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
-        assert_int_not_equal(ds.image_len, 5U);
         assert_true(iolink_ds_verify(&ds));
 
-        /* A later ds_process() must not apply it: the staged "X" never lands in
-           the parameter set (Device reset keeps the default tag). */
+        /* DS_Data serves the device's own parameters, rebuilt after the reset
+           (not the staged "X" and not a pre-reset snapshot). */
+        size_t len = 0U;
+        const uint8_t* img = iolink_ds_get_image(&ds, &len);
+        assert_non_null(img);
+        assert_int_equal(img[0], 0x00U);
+        assert_int_equal(img[1], IOLINK_IDX_APPLICATION_TAG);
+        if (cmds[i] == IOLINK_CMD_DEVICE_RESET) {
+            /* Tags survive a Device reset: the factory default is still there. */
+            assert_true(img[3] > 0U);
+            assert_int_equal(img[4], (uint8_t) 'D');
+        }
+        else {
+            /* Restore factory settings / Back-to-box clear the tags. */
+            assert_int_equal(img[3], 0U);
+        }
+
+        /* A later ds_process() must not apply the staged "X". */
         iolink_ds_process(&ds);
         uint8_t tag[33];
         const int tag_len = iolink_params_get(IOLINK_IDX_APPLICATION_TAG, 0x00U, tag, sizeof(tag));
@@ -2014,6 +2032,14 @@ static void test_params_legacy_factory_reset_keeps_configured_default_locks(void
     iolink_isdu_process(&ctx);
     assert_int_equal(isdu_collect_response(&ctx, resp, sizeof(resp)), 0);
     assert_int_equal(iolink_device_info_get_access_locks(), IOLINK_LOCK_DS);
+
+    /* The NVM record must hold the configured default, not the parameter
+       manager's private 0. */
+    uint8_t rec[8];
+    assert_int_equal(iolink_nvm_read(IOLINK_NVM_LOCKS_OFFSET, rec, sizeof(rec)), 0);
+    uint16_t stored = 0U;
+    (void) memcpy(&stored, &rec[4], sizeof(stored));
+    assert_int_equal(stored, IOLINK_LOCK_DS);
 
     /* The persisted value must match, or a power cycle resurrects the lock. */
     iolink_device_info_init(&info);

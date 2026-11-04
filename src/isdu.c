@@ -1000,8 +1000,10 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
                 isdu_negative_response(ctx, IOLINK_ISDU_ERROR_APP_DEVICE);
                 return;
             }
-            isdu_discard_ds(ctx);
             isdu_params_factory_reset(ctx);
+            /* Discard after the parameter reset so the rebuilt Data Storage
+               image reflects the new (default) parameters. */
+            isdu_discard_ds(ctx);
             isdu_reset_error_counters(ctx);
             if (ctx->event_ctx != NULL) {
                 iolink_events_clear_diagnosis((iolink_events_ctx_t*) ctx->event_ctx);
@@ -1015,8 +1017,10 @@ static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
                 isdu_negative_response(ctx, IOLINK_ISDU_ERROR_APP_DEVICE);
                 return;
             }
-            isdu_discard_ds(ctx);
             isdu_params_factory_reset(ctx);
+            /* Discard after the parameter reset so the rebuilt Data Storage
+               image reflects the new (default) parameters. */
+            isdu_discard_ds(ctx);
             isdu_reset_error_counters(ctx);
             if (ctx->event_ctx != NULL) {
                 iolink_events_init((iolink_events_ctx_t*) ctx->event_ctx);
