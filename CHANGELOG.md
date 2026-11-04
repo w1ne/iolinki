@@ -51,6 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the content vendor/Device specific: this Device reports its SDCI error count
   since power-on or reset (CRC, framing, timeout and timing errors) and
   saturates at 0xFFFF.
+- DataStorageIndex (0x0003) serves the serialized parameter image through
+  subindex 0 only; the B.10 record items (DS_Command, State_Property,
+  Data_Storage_Size, Parameter_Checksum, Index_List) are not implemented, so a
+  non-zero subindex answers `0x80 0x12`.
 - ParamDownloadStore (0x05) now ends a Block Parameter transfer like
   ParamDownloadEnd and additionally starts the Data Storage upload: the
   parameter image is rebuilt and the DS_UPLOAD_REQ Event (0xFF91, Notification)

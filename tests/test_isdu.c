@@ -962,7 +962,9 @@ static void test_isdu_detailed_status_rejects_subindex(void** state)
     assert_int_equal(byte, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
 }
 
-/* B.8: this stack serves the Data Storage image through subindex 0 only. */
+/* This stack serves the serialized Data Storage image through subindex 0 and
+ * does not implement the B.10 record items (DS_Command, State_Property, ...);
+ * a non-zero subindex is therefore SUBIDX_NOTAVAIL. */
 static void test_isdu_data_storage_subindex_not_available(void** state)
 {
     (void) state;
