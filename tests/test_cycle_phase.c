@@ -110,7 +110,6 @@ int main(void)
 {
     scenario(1000000U);
     scenario((uint64_t) UINT32_MAX - 1000U); /* cross the 32-bit microsecond boundary */
-    puts("STARTUP/PREOPERATE recovery, OPERATE start-to-start, genuine early cycle, "
-         "CRC and completion reference passed");
+    puts("Cycle phase, early cycle, CRC isolation, completion reference and timer wrap: PASS");
     return 0;
 }

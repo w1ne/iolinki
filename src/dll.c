@@ -249,8 +249,7 @@ static void dll_monitor_operate_cycle(iolink_dll_ctx_t* ctx)
         if (ctx->last_frame_us - ctx->last_operate_start_us < ctx->min_cycle_time_us) {
             ctx->timing_errors++;
             ctx->t_cycle_violations++;
-            iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING,
-                                 IOLINK_EVENT_TYPE_WARNING);
+            iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING, IOLINK_EVENT_TYPE_WARNING);
         }
     }
     ctx->last_operate_start_us = ctx->last_frame_us;
