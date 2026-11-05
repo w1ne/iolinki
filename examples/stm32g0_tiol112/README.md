@@ -143,6 +143,48 @@ Compile results and host ring tests do not establish CQ timing, hardware error
 behavior, IAR compilation or physical-master interoperability; each exact ELF
 requires its own runtime evidence.
 
+### Recorded GCC DMA results
+
+The four exact GCC 13.2.1/newlib images built from
+[`0a3f1b0138b815fff610c6e02960eb5ef84e80f9`](https://github.com/w1ne/iolinki/commit/0a3f1b0138b815fff610c6e02960eb5ef84e80f9)
+pass the native LabWired matrix with `-O2`, 64MHz, timing enforcement enabled,
+and the unchanged 6us EN guard. The model source was
+[`055dd261b57292a5c467add05696409c45465b6f`](https://github.com/w1ne/labwired-core/commit/055dd261b57292a5c467add05696409c45465b6f).
+The [compact evidence record](../../validation/stm32g0-dma-gcc-evidence.json)
+contains the four ELF, layout, input-manifest and raw-report hashes, compiler
+and vendor pins, counters, and separate COM3 recovery/one-action identities.
+
+| Transport | Mode | Observed cyclic C/Q tA (us) | Allowed tA (us) |
+| --- | --- | ---: | ---: |
+| CMSIS DMA | COM3 | 25.285078–38.144453 | 4.340278–43.402778 |
+| HAL UART/DMA | COM3 | 27.238203–39.191328 | 4.340278–43.402778 |
+| CMSIS DMA | COM2 | 30.507299–41.022924 | 26.041667–260.416667 |
+| HAL UART/DMA | COM2 | 32.022924–43.054174 | 26.041667–260.416667 |
+
+Each image passed 100 READ, 100 WRITE and eight application-cadence exchanges:
+208 cyclic / 211 total replies, 6,656 current-selector PD bytes, and 6,977 UART
+reply characters. The model observed 734 RX and 6,977 TX DMA bus transfers;
+TX-start, DMA-TC and USART-TC firmware counters each equal 211. Device byte gaps
+and UART/DMA/timing errors were zero. STARTUP/PREOPERATE bounds and invalid-CKT
+silence also passed; the negative control deliberately increments the DLL's
+CRC and framing diagnostics.
+
+Separate same-instance COM3 runs for both transports passed a 132-byte circular
+RX lap, damaged final-character parity/framing rejection, and a real DMA bus
+error followed by correct PD32 recovery. The circular test uses the existing
+legacy transition command and is a transport diagnostic. The one-action lab
+fixture also passed with both exact COM3 images. These fault tests do not cover
+COM2 or every interrupt-masking phase.
+
+This evidence uses an ideal supply, fixed post-PLL 64MHz and an instruction-cycle
+model that is not calibrated silicon WCET. The 4us transceiver enable/disable
+scenario is typical, and the 6us guard remains an engineering assumption.
+Physical wake current detection, IAR 9.70, the customer's BSP, Beckhoff and
+electrical/conformance acceptance remain unvalidated. Bulk ISDU protocol tests
+are separate host evidence, not a measured wire-throughput result. Later host
+test formatting and evidence documentation leave every firmware compiler input
+byte-identical; the manifests retain the original compiled-source identity.
+
 ## 64MHz protocol profile
 
 The default reference firmware remains at 16MHz. Select
@@ -317,6 +359,6 @@ physical board/master or native IAR execution was available for this example.
 
 The original reference-port verification used Arm GNU GCC 13.2.1, ST CMSIS device headers reporting
 1.4.4, and CMSIS core headers reporting 6.1.0 (PlatformIO framework-cmsis package
-2.60300.0). Those are the tested installed revisions, not a claim that all vendor
-versions or the selectable DMA backends have been verified. New backend artifacts
-record their exact compiler and input hashes separately.
+2.60300.0). Those revisions describe the original IRQ-port build. The recorded
+DMA evaluation above uses separately pinned device v1.4.5, HAL v1.4.7 and CMSIS
+Core 5.9 inputs, with exact compiler and input hashes in its artifacts.
