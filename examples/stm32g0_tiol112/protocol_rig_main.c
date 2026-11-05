@@ -7,6 +7,13 @@
 #include "iolinki/protocol.h"
 #include <string.h>
 
+#ifndef IOLINK_RIG_TIMING_ENFORCE
+#define IOLINK_RIG_TIMING_ENFORCE 0
+#endif
+#if (IOLINK_RIG_TIMING_ENFORCE != 0) && (IOLINK_RIG_TIMING_ENFORCE != 1)
+#error "IOLINK_RIG_TIMING_ENFORCE must be 0 or 1"
+#endif
+
 #ifndef IOLINK_RIG_COM
 #define IOLINK_RIG_COM 3
 #endif
@@ -23,6 +30,7 @@
 /* Exported debugger evidence; counters are not used as timing oracles. */
 iolink_device_ctx_t protocol_device;
 volatile uint32_t protocol_ready;
+volatile uint32_t rig_timing_enforced;
 volatile int protocol_init_error;
 volatile uint32_t rig_requests;
 volatile uint32_t rig_last_selector;
@@ -122,11 +130,14 @@ int main(void)
         }
     }
     (void) iolink_device_pd_input_update(&protocol_device, blocks[0], 32U, true);
-    /* Legacy statistic ends at UART TC. This is a 20ms completion watchdog,
-     * NOT a tA limit. Measure final master stop-end to first CQ start separately.
-     * Inter-byte and other DLL checks remain enabled.
+    /* Legacy statistic ends at UART TC. The 20ms limit applies only when
+     * internal timing checks are explicitly enabled; it is NOT a tA limit.
+     * The default profile leaves those checks off. The external oracle always
+     * measures final master stop-end to first CQ start and UART byte gaps.
      */
     iolink_device_set_t_ren_limit_us(&protocol_device, 20000U);
+    iolink_device_set_timing_enforcement(&protocol_device, IOLINK_RIG_TIMING_ENFORCE != 0);
+    rig_timing_enforced = protocol_device.dll.enforce_timing ? 1U : 0U;
     protocol_init_error = iolink_dll_set_baudrate(&protocol_device.dll, RIG_BAUD);
     if (protocol_init_error != 0) {
         for (;;) {

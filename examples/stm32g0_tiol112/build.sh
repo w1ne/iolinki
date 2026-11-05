@@ -14,9 +14,14 @@ esac
 main_source="$example_dir/main.c"
 image_name=reference-device
 rig_com="${IOLINK_RIG_COM:-3}"
+rig_timing="${IOLINK_RIG_TIMING_ENFORCE:-0}"
 enable_guard_us="${IOLINK_G0_TIOL112_ENABLE_GUARD_US:-6}"
 case "$enable_guard_us" in
     ''|*[!0-9]*) echo 'IOLINK_G0_TIOL112_ENABLE_GUARD_US must be a nonnegative integer' >&2; exit 1 ;;
+esac
+case "$rig_timing" in
+    0|1) ;;
+    *) echo 'IOLINK_RIG_TIMING_ENFORCE must be 0 or 1' >&2; exit 1 ;;
 esac
 case "$rig_com" in
     2|3) ;;
@@ -34,6 +39,7 @@ mkdir -p "$build_dir"
 flags=(-mcpu=cortex-m0plus -mthumb -std=c99 -Os -g3 -Wall -Wextra -Werror
        -ffunction-sections -fdata-sections -DSTM32G0B1xx "-DIOLINK_G0_SYSCLK_HZ=$clock_hz"
        "-DIOLINK_RIG_COM=$rig_com"
+       "-DIOLINK_RIG_TIMING_ENFORCE=$rig_timing"
        "-DIOLINK_G0_TIOL112_ENABLE_GUARD_US=$enable_guard_us"
        -I"$repo_dir/include" -I"$repo_dir/examples/reference_device"
        -I"$STM32_CMSIS_ROOT/Include" -I"$CMSIS_CORE_ROOT/Include" -I"$example_dir")

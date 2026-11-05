@@ -104,9 +104,31 @@ record size for the required latency. The stack's asynchronous completion API
 and acknowledgment-timeout handling remain open work, as documented in the
 protocol rig README.
 
-Its legacy send-completion watchdog is 20ms and is explicitly not tA;
-the external rig must measure the actual last-master-stop to first-device-start
-gap. An OPERATE LED indicates state, not conformance.
+The profile explicitly defaults `IOLINK_RIG_TIMING_ENFORCE=0`. Internal DLL
+timing checks are disabled in that build; setting a response-time limit does
+not enable them. Build a separate image with `IOLINK_RIG_TIMING_ENFORCE=1` to
+evaluate the internal inter-byte, cycle and completion checks. The CI 64MHz
+protocol artifact explicitly selects this enabled option. The exported
+`rig_timing_enforced` symbol records the selected state. The legacy completion
+threshold is 20ms and applies only when internal checks are enabled; it is not
+tA. The external rig must independently measure the actual last-master-stop to
+first-device-start gap and byte gaps in either build. Receive-pop timestamps
+are not pin timestamps, so internal checks need their own integration result.
+An OPERATE LED indicates state, not conformance.
+
+The internal cycle monitor applies MinCycleTime only in OPERATE and compares
+observed first-byte dequeue timestamps, separately from its legacy
+complete-request-to-end-TX duration. STARTUP/PREOPERATE retain their distinct
+recovery rules. Queue observation can jitter, so the external wire oracle is
+still required even when internal checks are enabled.
+
+A separate board-local minimum response floor starts at the last valid RX IRQ
+observation. It waits for `ceil(1.5 * Tbit) + 1us` before the first TDR write,
+using wrapping TIM2 arithmetic; this covers the remaining half stop bit and the
+minimum one-bit response interval, with timer quantization margin. Baud-derived
+values are cached during UART configuration. This floor is independent of the
+TIOL112 enable guard below; neither is a substitute for measuring CQ edges on
+the actual hardware. No new receive-timestamp PHY API is introduced.
 
 `IOLINK_G0_TIOL112_ENABLE_GUARD_US` defaults to 6us between entering the
 EN-asserted send callback and permitting the first UART data write. This guard

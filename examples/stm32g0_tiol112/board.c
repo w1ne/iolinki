@@ -20,6 +20,9 @@ static volatile uint32_t timer_high;
 static volatile uint8_t wake_pending;
 static uint32_t critical_depth, saved_primask;
 static uint32_t tx_octet_timeout_us;
+static uint32_t response_start_floor_us;
+static volatile uint32_t last_rx_irq_us;
+static volatile bool have_rx_irq;
 
 void iolink_critical_enter(void)
 {
@@ -202,6 +205,10 @@ static int configure(void* user, uint32_t baud)
     /* Cache a rounded-up character budget outside the response-start path. */
     const uint32_t actual_baud_floor = SystemCoreClock / USART1->BRR;
     tx_octet_timeout_us = (11000000UL + actual_baud_floor - 1U) / actual_baud_floor;
+    /* RXNE follows stop-bit sampling. 1.5Tbit from the IRQ observation covers
+     * the remaining half stop bit and the device's minimum 1Tbit response gap.
+     * Add 1us for the timer's downward quantization; keep PHY EN guard separate. */
+    response_start_floor_us = (1500000UL + actual_baud_floor - 1U) / actual_baud_floor + 1U;
     USART1->CR2 = 0; /* one stop bit */
     USART1->CR3 = USART_CR3_EIE;
     USART1->ICR =
@@ -210,6 +217,7 @@ static int configure(void* user, uint32_t baud)
     iolink_critical_enter();
     board_rx.head = board_rx.tail = 0;
     board_rx.failed = 0;
+    have_rx_irq = false;
     iolink_critical_exit();
     /* 9-bit word INCLUDING parity = eight payload bits and even parity. */
     USART1->CR1 = USART_CR1_M0 | USART_CR1_PCE | USART_CR1_TE | USART_CR1_RE |
@@ -226,7 +234,11 @@ void USART1_IRQHandler(void)
     }
     if (status & USART_ISR_RXNE_RXFNE) {
         uint8_t byte = (uint8_t) USART1->RDR;
-        if (!errors) rx_queue_push(&board_rx, byte);
+        if (!errors) {
+            last_rx_irq_us = TIM2->CNT;
+            have_rx_irq = true;
+            rx_queue_push(&board_rx, byte);
+        }
     }
 }
 static int recv_byte(void* user, uint8_t* byte)
@@ -260,6 +272,11 @@ static int send_complete(void* user, const uint8_t* data, size_t len)
         if (iolink_time_get_us() >= deadline) goto finished;
     }
     while (iolink_time_get_us() < driver_ready_at) {
+    }
+    if (have_rx_irq) {
+        const uint32_t received_at = last_rx_irq_us;
+        while ((uint32_t) (TIM2->CNT - received_at) < response_start_floor_us) {
+        }
     }
     USART1->ICR = USART_ICR_TCCF;
     for (size_t i = 0; i < len; ++i) {

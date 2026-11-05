@@ -14,6 +14,7 @@ core = [f'src/{name}.c' for name in (
     'device_info', 'device', 'platform', 'phy_l6362a', 'phy_tiol112')]
 clock = ['src/platform/baremetal/time_utils.c']
 cases = [
+    ('test_cycle_phase', ['tests/test_cycle_phase.c'] + core, []),
     ('test_deadline_rollover', ['tests/test_deadline_rollover.c'] + core, []),
     ('test_events_dll', ['tests/test_events_dll.c'] + core, []),
     ('test_params_persistence', ['tests/test_params_persistence.c'] + core + clock, []),
@@ -39,6 +40,6 @@ for name, sources, flags in cases:
     result = subprocess.run([str(build / name)], cwd=build, text=True, capture_output=True)
     results.append({'name': name, 'status': 'PASS' if result.returncode == 0 else 'FAIL',
                     'returncode': result.returncode, 'detail': result.stdout + result.stderr})
-print(json.dumps({'scope': 'dependency-free upstream tests; CMocka suite not run',
+print(json.dumps({'scope': 'dependency-free project tests; CMocka suite not run',
                   'results': results}, indent=2))
 raise SystemExit(any(item['status'] != 'PASS' for item in results))

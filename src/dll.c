@@ -39,6 +39,7 @@ static void dll_set_state(iolink_dll_ctx_t* ctx, iolink_dll_state_t new_state)
 {
     if (ctx->state != new_state) {
         ctx->state = new_state;
+        if (new_state != IOLINK_DLL_STATE_OPERATE) ctx->have_operate_start = false;
         if (new_state == IOLINK_DLL_STATE_STARTUP) {
             /* A.6.4: queued events are discarded when communication is
                interrupted or cancelled. */
@@ -238,6 +239,24 @@ static bool dll_is_fallback_command(const iolink_dll_ctx_t* ctx)
            ((mc & IOLINK_MC_ADDR_MASK) == 0x00U) && (ctx->frame_buf[2] == IOLINK_CMD_FALLBACK);
 }
 
+/** @brief Monitor OPERATE start-to-start cadence using portable dequeue timestamps. */
+static void dll_monitor_operate_cycle(iolink_dll_ctx_t* ctx)
+{
+    if (ctx->state != IOLINK_DLL_STATE_OPERATE) return;
+    /* STARTUP/PREOPERATE use their own recovery rules, not MinCycleTime.
+       Queue observation can jitter; external pin timing remains authoritative. */
+    if (ctx->enforce_timing && (ctx->min_cycle_time_us > 0U) && ctx->have_operate_start) {
+        if (ctx->last_frame_us - ctx->last_operate_start_us < ctx->min_cycle_time_us) {
+            ctx->timing_errors++;
+            ctx->t_cycle_violations++;
+            iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING,
+                                 IOLINK_EVENT_TYPE_WARNING);
+        }
+    }
+    ctx->last_operate_start_us = ctx->last_frame_us;
+    ctx->have_operate_start = true;
+}
+
 /**
  * @brief Handle a FALLBACK MasterCommand (0x5A, Table B.2) from the master.
  *
@@ -246,6 +265,7 @@ static bool dll_is_fallback_command(const iolink_dll_ctx_t* ctx)
  * iolink_dll_process(); the reply is a Type-0 write CKS-only response. */
 static void dll_handle_fallback_command(iolink_dll_ctx_t* ctx)
 {
+    dll_monitor_operate_cycle(ctx);
     uint32_t t_fbd_ms = 500U;
     if (ctx->min_cycle_time_us > 0U) {
         t_fbd_ms = (3U * ctx->min_cycle_time_us) / 1000U;
@@ -359,6 +379,7 @@ static bool dll_dispatch_od(iolink_dll_ctx_t* ctx, uint8_t mc, const uint8_t* od
 /** @brief Process a 2-octet Type-0 request through ISDU and send the OD response. */
 static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t cks)
 {
+    dll_monitor_operate_cycle(ctx);
     (void) cks;
     uint8_t od_resp = 0U;
     (void) dll_dispatch_od(ctx, mc, &cks, 1U, &od_resp);
@@ -397,6 +418,7 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
 /** @brief Process a 3-octet Type-0 OD WRITE (MC, CKT, OD) and reply with CKS only (Figure A.5). */
 static void dll_handle_type0_od_write(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t od_in)
 {
+    dll_monitor_operate_cycle(ctx);
     uint8_t od_resp = 0U;
     (void) dll_dispatch_od(ctx, mc, &od_in, 1U, &od_resp);
 
@@ -418,6 +440,7 @@ static void dll_handle_type0_od_write(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t
 /** @brief Process a Type-1/Type-2 OPERATE frame (PD+OD) and build the response, enforcing t_REN. */
 static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
 {
+    dll_monitor_operate_cycle(ctx);
     /* Type-1/2 master message: MC | CKT | PD-out | OD for a write; the OD
        octets are absent from a read request (Annex A). The checksum is in CKT. */
     const uint16_t pd_offset = IOLINK_M_SEQ_HEADER_LEN;
@@ -765,15 +788,6 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
 
         if ((ctx->frame_index > 0U) && (ctx->frame_index >= ctx->req_len)) {
             uint64_t now_us_proc = iolink_time_get_us();
-            if ((ctx->enforce_timing) && (ctx->min_cycle_time_us > 0U) &&
-                (ctx->last_cycle_start_us != 0U)) {
-                if (now_us_proc - ctx->last_cycle_start_us < (uint64_t) ctx->min_cycle_time_us) {
-                    ctx->timing_errors++;
-                    ctx->t_cycle_violations++;
-                    iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING,
-                                         IOLINK_EVENT_TYPE_WARNING);
-                }
-            }
             ctx->last_cycle_start_us = now_us_proc;
 
             /* A.1.6/Figure A.2: the master message carries the checksum in the

@@ -1,4 +1,7 @@
 find_package(PkgConfig QUIET)
+add_executable(test_cycle_phase test_cycle_phase.c)
+target_link_libraries(test_cycle_phase iolinki)
+add_test(NAME test_cycle_phase COMMAND test_cycle_phase)
 add_executable(test_protocol_rig ../validation/protocol_rig.c)
 target_compile_definitions(test_protocol_rig PRIVATE IOLINK_RIG_HOST_MAIN)
 target_link_libraries(test_protocol_rig iolinki)
