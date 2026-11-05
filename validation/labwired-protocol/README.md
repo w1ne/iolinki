@@ -37,11 +37,18 @@ python3 validation/labwired-protocol/package.py build/labwired-protocol/source_r
 ```
 
 The generated JSON contains `entryPath`, `source`, and a `files` array suitable
-for the hosted firmware source request. It embeds the current public headers,
-the ten required core C files, and this fixture. Keep the request and resulting
-firmware tied to the exact Git commit being demonstrated. The script performs
-local packaging only; compiling, running, and creating a lab use the LabWired
-tools and their selected board/toolchain configuration.
+for the hosted firmware source request. Its default `--hosted` mode fits the
+262144-byte source limit by omitting four unused PHY driver headers and
+`dll_internal.h`, and removing Doxygen documentation from included headers.
+Header line counts and license notices are preserved. The ten runtime C files
+and the fixture remain verbatim. This produces 29 companion files, including
+17 stack headers. Use `--full` to retain all headers and documentation for
+review; that larger request may exceed the hosted limit.
+
+Keep the request and resulting firmware tied to the exact Git commit being
+demonstrated. The script performs local packaging only; compiling, running,
+and creating a lab use the LabWired tools and their selected board/toolchain
+configuration.
 
 `main.ino` reports results over the console. PA6 marks request processing, PA7
 marks a virtual reply callback, and PA5 goes high after all assertions pass.
