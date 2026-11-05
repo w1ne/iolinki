@@ -100,9 +100,11 @@ A 232-byte ISDU read requires five request and 235 response OD1 cycles: at
 not a five-second timeout violation: the ISDU acknowledgment interval ends at
 the **beginning** of the response, not after every response segment has been
 transferred (IO-Link V1.1.4, Tables 53 and 102). Choose cycle frequency and
-record size for the required latency. The stack's asynchronous completion API
-and acknowledgment-timeout handling remain open work, as documented in the
-protocol rig README.
+record size for the required latency. The acknowledgment watchdog belongs to
+the master. Device applications must make the first non-Busy response available
+within that window. The stack uses synchronous application handlers and has no
+general deferred completion/cancellation API, as documented in the protocol
+rig README.
 
 The profile explicitly defaults `IOLINK_RIG_TIMING_ENFORCE=0`. Internal DLL
 timing checks are disabled in that build; setting a response-time limit does

@@ -47,14 +47,17 @@ ReturningNULL retains cached PDin; the callback can set `*valid=false`.
 
 - The existing `response_time_us` statistic includes synchronous send completion;
   it is not the last-master-stop to first-device-start tA measurement.
-- The G0 reference uses HSI16MHz, RX interrupts, and polled synchronous TX. A
-  64MHz application BSP and DMA port require separate verification.
+- The G0 reference defaults to 16 MHz and has an optional 64 MHz profile. It
+  uses RX interrupts and polled synchronous TX. An application-owned BSP and
+  DMA port require separate verification.
 - The native IAR project exists, but structural project tests are not evidence
   of an IAR compiler run.
 - Busy is implemented while synchronous dispatch is pending. There is no
-  asynchronous application completion API or five-second ISDU acknowledgment
-  timeout. That timeout concerns request reception to response beginning, not
-  the duration of the entire segmented transfer.
+  general deferred completion/cancellation API. Applications must make the
+  first non-Busy response available within the master's five-second ISDU
+  acknowledgment window. The watchdog belongs to the master; it is not missing
+  device-stack functionality. The window ends at response beginning and does
+  not limit the duration of the entire segmented transfer.
 - The five-record1KiB test defines its own application record scheme; actual
   products must specify record identity and cross-record snapshot consistency.
 
