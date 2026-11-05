@@ -39,6 +39,7 @@ static void dll_set_state(iolink_dll_ctx_t* ctx, iolink_dll_state_t new_state)
 {
     if (ctx->state != new_state) {
         ctx->state = new_state;
+        if (new_state != IOLINK_DLL_STATE_OPERATE) ctx->have_operate_start = false;
         if (new_state == IOLINK_DLL_STATE_STARTUP) {
             /* A.6.4: queued events are discarded when communication is
                interrupted or cancelled. */
@@ -238,6 +239,23 @@ static bool dll_is_fallback_command(const iolink_dll_ctx_t* ctx)
            ((mc & IOLINK_MC_ADDR_MASK) == 0x00U) && (ctx->frame_buf[2] == IOLINK_CMD_FALLBACK);
 }
 
+/** @brief Monitor OPERATE start-to-start cadence using portable dequeue timestamps. */
+static void dll_monitor_operate_cycle(iolink_dll_ctx_t* ctx)
+{
+    if (ctx->state != IOLINK_DLL_STATE_OPERATE) return;
+    /* STARTUP/PREOPERATE use their own recovery rules, not MinCycleTime.
+       Queue observation can jitter; external pin timing remains authoritative. */
+    if (ctx->enforce_timing && (ctx->min_cycle_time_us > 0U) && ctx->have_operate_start) {
+        if (ctx->last_frame_us - ctx->last_operate_start_us < ctx->min_cycle_time_us) {
+            ctx->timing_errors++;
+            ctx->t_cycle_violations++;
+            iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING, IOLINK_EVENT_TYPE_WARNING);
+        }
+    }
+    ctx->last_operate_start_us = ctx->last_frame_us;
+    ctx->have_operate_start = true;
+}
+
 /**
  * @brief Handle a FALLBACK MasterCommand (0x5A, Table B.2) from the master.
  *
@@ -246,6 +264,7 @@ static bool dll_is_fallback_command(const iolink_dll_ctx_t* ctx)
  * iolink_dll_process(); the reply is a Type-0 write CKS-only response. */
 static void dll_handle_fallback_command(iolink_dll_ctx_t* ctx)
 {
+    dll_monitor_operate_cycle(ctx);
     uint32_t t_fbd_ms = 500U;
     if (ctx->min_cycle_time_us > 0U) {
         t_fbd_ms = (3U * ctx->min_cycle_time_us) / 1000U;
@@ -359,6 +378,7 @@ static bool dll_dispatch_od(iolink_dll_ctx_t* ctx, uint8_t mc, const uint8_t* od
 /** @brief Process a 2-octet Type-0 request through ISDU and send the OD response. */
 static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t cks)
 {
+    dll_monitor_operate_cycle(ctx);
     (void) cks;
     uint8_t od_resp = 0U;
     (void) dll_dispatch_od(ctx, mc, &cks, 1U, &od_resp);
@@ -397,6 +417,7 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
 /** @brief Process a 3-octet Type-0 OD WRITE (MC, CKT, OD) and reply with CKS only (Figure A.5). */
 static void dll_handle_type0_od_write(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t od_in)
 {
+    dll_monitor_operate_cycle(ctx);
     uint8_t od_resp = 0U;
     (void) dll_dispatch_od(ctx, mc, &od_in, 1U, &od_resp);
 
@@ -418,6 +439,7 @@ static void dll_handle_type0_od_write(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t
 /** @brief Process a Type-1/Type-2 OPERATE frame (PD+OD) and build the response, enforcing t_REN. */
 static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
 {
+    dll_monitor_operate_cycle(ctx);
     /* Type-1/2 master message: MC | CKT | PD-out | OD for a write; the OD
        octets are absent from a read request (Annex A). The checksum is in CKT. */
     const uint16_t pd_offset = IOLINK_M_SEQ_HEADER_LEN;
@@ -430,8 +452,21 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
         ctx->pd_out_seen = true; /* B.2.24: last PDout written to the application */
     }
 
-    uint8_t od_in[IOLINK_OD_MAX_SIZE] = {0};
-    uint8_t od_out[IOLINK_OD_MAX_SIZE] = {0};
+    const uint8_t* pd_in = ctx->pd_in;
+    if (ctx->pd_input_select != NULL) {
+        bool valid = ctx->pd_valid;
+        const uint8_t* selected =
+            ctx->pd_input_select(ctx->pd_input_select_user, ctx->pd_out, ctx->pd_out_len_current,
+                                 ctx->pd_in_len_current, &valid);
+        if (selected != NULL) pd_in = selected;
+        ctx->pd_valid = valid;
+    }
+
+    uint8_t od_in[IOLINK_OD_MAX_SIZE];
+    uint8_t od_out[IOLINK_OD_MAX_SIZE];
+    /* Every dispatcher branch is bounded by od_w; initialize only active OD. */
+    (void) memset(od_in, 0, od_w);
+    (void) memset(od_out, 0, od_w);
     if (!read && (od_w > 0U)) {
         memcpy(od_in, &ctx->frame_buf[od_offset], od_w);
     }
@@ -454,7 +489,7 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
         pos += od_w;
     }
     if (ctx->pd_in_len_current > 0U) {
-        memcpy(&resp[pos], ctx->pd_in, ctx->pd_in_len_current);
+        memcpy(&resp[pos], pd_in, ctx->pd_in_len_current);
         pos += ctx->pd_in_len_current;
     }
 
@@ -484,6 +519,11 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
                                      IOLINK_EVENT_TYPE_WARNING);
             }
         }
+    }
+    /* Preserve the published snapshot for legacy observers and ISDU PD reads.
+       This copy is after send, outside the request-to-first-TX critical path. */
+    if ((pd_in != ctx->pd_in) && (ctx->pd_in_len_current > 0U)) {
+        memcpy(ctx->pd_in, pd_in, ctx->pd_in_len_current);
     }
     ctx->last_response_us = iolink_time_get_us();
 }
@@ -600,7 +640,10 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     dll_poll_diagnostics(ctx);
 
     uint32_t now_ms = iolink_time_get_ms();
-    uint64_t now_ms64 = iolink_time_get_us() / 1000U;
+    uint64_t now_ms64 = 0U;
+    if ((ctx->dsio_deadline_ms != 0U) || (ctx->fallback_deadline_ms != 0U)) {
+        now_ms64 = iolink_time_get_us() / 1000U;
+    }
     if ((ctx->last_activity_ms != 0U) && (now_ms - ctx->last_activity_ms > 1000U)) {
         ctx->last_activity_ms = 0U; /* Prevent repeated resets */
         ctx->timeout_errors++;      /* Link went idle past the inactivity window */
@@ -744,15 +787,6 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
 
         if ((ctx->frame_index > 0U) && (ctx->frame_index >= ctx->req_len)) {
             uint64_t now_us_proc = iolink_time_get_us();
-            if ((ctx->enforce_timing) && (ctx->min_cycle_time_us > 0U) &&
-                (ctx->last_cycle_start_us != 0U)) {
-                if (now_us_proc - ctx->last_cycle_start_us < (uint64_t) ctx->min_cycle_time_us) {
-                    ctx->timing_errors++;
-                    ctx->t_cycle_violations++;
-                    iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING,
-                                         IOLINK_EVENT_TYPE_WARNING);
-                }
-            }
             ctx->last_cycle_start_us = now_us_proc;
 
             /* A.1.6/Figure A.2: the master message carries the checksum in the

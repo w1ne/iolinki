@@ -59,6 +59,15 @@ void iolink_isdu_init(iolink_isdu_ctx_t* ctx)
     ctx->state = ISDU_STATE_IDLE;
 }
 
+/** @brief Resolve device-local identity, retaining standalone legacy ISDU behavior. */
+static const iolink_device_info_t* isdu_device_info(const iolink_isdu_ctx_t* ctx)
+{
+    if ((ctx != NULL) && (ctx->params_ctx != NULL) && (ctx->params_ctx->device_info != NULL)) {
+        return iolink_device_info_ctx_get(ctx->params_ctx->device_info);
+    }
+    return iolink_device_info_get();
+}
+
 /** @brief Read a parameter via the bound params context, or the legacy global set. */
 static int isdu_params_get(const iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subindex,
                            uint8_t* buffer, size_t max_len)
@@ -112,6 +121,8 @@ static void isdu_transport_reset(iolink_isdu_ctx_t* ctx)
     ctx->response_idx = 0U;
     ctx->flowctrl_seen = false;
     ctx->repeat_pending = false;
+    ctx->read_cache_valid = false;
+    ctx->last_read_od_len = 0U;
     ctx->error_code = IOLINK_ISDU_ERROR_NONE;
     ctx->header.type = IOLINK_ISDU_SERVICE_TYPE_READ;
     ctx->header.length = 0U;
@@ -225,8 +236,12 @@ static void isdu_execute_request(iolink_isdu_ctx_t* ctx, size_t total)
         size_t data_end = total - 1U; /* exclude CHKPDU */
         if (data_end > pos) {
             size_t n = data_end - pos;
-            if (n > sizeof(ctx->buffer)) {
-                n = sizeof(ctx->buffer);
+            if ((n > sizeof(ctx->buffer)) || (n > IOLINK_ISDU_DATA_MAX_SIZE)) {
+                ctx->response_buf[0] = 0x80U;
+                ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+                ctx->response_len = 2U;
+                ctx->state = ISDU_STATE_RESPONSE_READY;
+                return;
             }
             (void) memcpy(ctx->buffer, &buf[pos], n);
             ctx->buffer_idx = n;
@@ -242,6 +257,15 @@ static void isdu_execute_request(iolink_isdu_ctx_t* ctx, size_t total)
 /** @brief Frame the handler result into ctx->resp_buf (positive or negative, A.5/C.1). */
 static void isdu_frame_response(iolink_isdu_ctx_t* ctx)
 {
+    /* The record bound is 232 application octets, even when a shorter header
+       would leave room below the 238-octet total-PDU bound. */
+    if ((ctx->response_len > IOLINK_ISDU_DATA_MAX_SIZE) ||
+        ((ctx->response_len + 3U) > sizeof(ctx->resp_buf))) {
+        ctx->vendor_positive = false;
+        ctx->response_buf[0] = 0x80U;
+        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+        ctx->response_len = 2U;
+    }
     const bool negative =
         !ctx->vendor_positive && ((ctx->response_len == 2U) && (ctx->response_buf[0] == 0x80U));
     const bool write = (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE);
@@ -347,6 +371,12 @@ void iolink_isdu_od_write(iolink_isdu_ctx_t* ctx, uint8_t flowctrl, const uint8_
         }
         if (ctx->req_total == 0U) {
             ctx->req_total = isdu_declared_total(ctx->req_buf, ctx->req_idx);
+            if ((ctx->req_idx >= 2U) && ((ctx->req_buf[0] & 0x0FU) == 1U) &&
+                (ctx->req_total == 0U)) {
+                /* Invalid ExtLength must not keep an unbounded partial service. */
+                isdu_transport_reset(ctx);
+                return;
+            }
         }
         if ((ctx->req_total > 0U) && (ctx->req_idx >= ctx->req_total)) {
             break;
@@ -381,18 +411,19 @@ void iolink_isdu_od_read(iolink_isdu_ctx_t* ctx, uint8_t flowctrl, uint8_t* od_o
     if (ctx == NULL) {
         return;
     }
-    for (uint8_t i = 0U; i < od_len; i++) {
-        od_out[i] = 0U;
-    }
-
-    if (flowctrl == IOLINK_FLOWCTRL_ABORT) {
+    if ((flowctrl == IOLINK_FLOWCTRL_ABORT) || (flowctrl == IOLINK_FLOWCTRL_IDLE) ||
+        (flowctrl == IOLINK_FLOWCTRL_IDLE2)) {
+        /* Control-only calls must reset the transport even without an OD buffer. */
         isdu_transport_reset(ctx);
+        if ((od_out != NULL) && (od_len <= IOLINK_OD_MAX_SIZE)) {
+            (void) memset(od_out, 0, od_len);
+        }
         return;
     }
-    if ((flowctrl == IOLINK_FLOWCTRL_IDLE) || (flowctrl == IOLINK_FLOWCTRL_IDLE2)) {
-        isdu_transport_reset(ctx);
+    if ((od_out == NULL) || (od_len == 0U) || (od_len > IOLINK_OD_MAX_SIZE)) {
         return;
     }
+    (void) memset(od_out, 0, od_len);
 
     if (flowctrl == IOLINK_FLOWCTRL_START) {
         /* Start of response read. If a service is being executed and the
@@ -414,8 +445,24 @@ void iolink_isdu_od_read(iolink_isdu_ctx_t* ctx, uint8_t flowctrl, uint8_t* od_o
         ctx->flowctrl_seen = true;
     }
     else if (flowctrl < IOLINK_FLOWCTRL_START) {
-        /* COUNT on a read continues the response sequentially. */
-        if (!ctx->flowctrl_seen) {
+        /* A retry repeats exactly the previous OD segment, including a final
+           segment already delivered before the service returned to Idle. */
+        if (!ctx->read_cache_valid) {
+            return;
+        }
+        if (flowctrl == ctx->last_read_flowctrl) {
+            if (od_len != ctx->last_read_od_len) {
+                isdu_transport_reset(ctx);
+                return;
+            }
+            (void) memcpy(od_out, ctx->last_read_od, od_len);
+            return;
+        }
+        const uint8_t expected =
+            (uint8_t) ((ctx->last_read_flowctrl + 1U) & IOLINK_FLOWCTRL_COUNT_MASK);
+        if ((flowctrl != expected) || (ctx->state != ISDU_STATE_RESPONSE_READY) ||
+            (ctx->resp_idx >= ctx->resp_total)) {
+            isdu_transport_reset(ctx);
             return;
         }
         ctx->last_flowctrl = flowctrl;
@@ -434,15 +481,21 @@ void iolink_isdu_od_read(iolink_isdu_ctx_t* ctx, uint8_t flowctrl, uint8_t* od_o
         }
     }
 
-    if ((ctx->state == ISDU_STATE_RESPONSE_READY) && (ctx->resp_idx >= ctx->resp_total)) {
+    const bool complete =
+        (ctx->state == ISDU_STATE_RESPONSE_READY) && (ctx->resp_idx >= ctx->resp_total);
+    if (complete) {
         isdu_transport_reset(ctx);
     }
+    (void) memcpy(ctx->last_read_od, od_out, od_len);
+    ctx->last_read_od_len = od_len;
+    ctx->last_read_flowctrl = flowctrl;
+    ctx->read_cache_valid = true;
 }
 
 /** @brief Serve the mandatory identification/status indices (vendor, product, tags, etc.). */
 static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
 {
-    const iolink_device_info_t* info = iolink_device_info_get();
+    const iolink_device_info_t* info = isdu_device_info(ctx);
     const char* str_data = NULL;
 
     if (info == NULL) {
@@ -1088,7 +1141,7 @@ static uint8_t direct_param_encode_pd(uint8_t octets)
  * bit0 = ISDU supported, bits1-3 = OPERATE M-sequence code (Table A.10),
  * bits4-5 = PREOPERATE M-sequence code (Table A.8; TYPE_0 = 0 here).
  */
-static uint8_t direct_param_mseq_capability(uint8_t m_seq_type)
+static uint8_t direct_param_mseq_capability(uint8_t m_seq_type, uint8_t od_len)
 {
     uint8_t cap = 0x01U; /* ISDU supported */
     uint8_t operate_code;
@@ -1100,7 +1153,7 @@ static uint8_t direct_param_mseq_capability(uint8_t m_seq_type)
             operate_code = 6U; /* 8 OD octets, no PD */
             break;
         case IOLINK_M_SEQ_TYPE_2_V:
-            operate_code = 5U; /* OD 2, variable PD */
+            operate_code = (od_len == 1U) ? 4U : 5U; /* OD 1/2, variable PD */
             break;
         case IOLINK_M_SEQ_TYPE_1_1:
         case IOLINK_M_SEQ_TYPE_2_1:
@@ -1118,24 +1171,26 @@ static uint8_t direct_param_mseq_capability(uint8_t m_seq_type)
 /** @brief Populate the 16-octet Direct Parameter page 1 from device-info and DLL state. */
 static void build_direct_param_page1(iolink_isdu_ctx_t* ctx, uint8_t* page)
 {
-    const iolink_device_info_t* info = iolink_device_info_get();
+    const iolink_device_info_t* info = isdu_device_info(ctx);
     uint8_t pd_in = 0U;
     uint8_t pd_out = 0U;
     uint8_t m_seq = 0U;
+    uint8_t od_len = 1U;
     if (ctx->dll_ctx != NULL) {
         const iolink_dll_ctx_t* dll = (const iolink_dll_ctx_t*) ctx->dll_ctx;
         iolink_dll_get_pd_length(dll, &pd_in, &pd_out);
         m_seq = dll->m_seq_type;
+        od_len = dll->od_len;
     }
 
     (void) memset(page, 0, 16);
     /* 0x00 MasterCommand (W) and 0x01 MasterCycleTime default to 0. */
     page[0x02] = (info != NULL) ? iolink_cycle_time_encode((uint16_t) info->min_cycle_time)
-                                : 0U;                 /* MinCycleTime (Table B.3) */
-    page[0x03] = direct_param_mseq_capability(m_seq); /* M-sequenceCapability */
-    page[0x04] = 0x11U;                               /* RevisionID = v1.1 */
-    page[0x05] = direct_param_encode_pd(pd_in);       /* ProcessDataIn */
-    page[0x06] = direct_param_encode_pd(pd_out);      /* ProcessDataOut */
+                                : 0U;                         /* MinCycleTime (Table B.3) */
+    page[0x03] = direct_param_mseq_capability(m_seq, od_len); /* M-sequenceCapability */
+    page[0x04] = 0x11U;                                       /* RevisionID = v1.1 */
+    page[0x05] = direct_param_encode_pd(pd_in);               /* ProcessDataIn */
+    page[0x06] = direct_param_encode_pd(pd_out);              /* ProcessDataOut */
     if (info != NULL) {
         page[0x07] = (uint8_t) (info->vendor_id >> 8);            /* VendorID MSB */
         page[0x08] = (uint8_t) (info->vendor_id & 0xFFU);         /* VendorID LSB */
@@ -1269,8 +1324,8 @@ static void handle_standard_commands(iolink_isdu_ctx_t* ctx)
     const uint16_t index = ctx->header.index;
     const bool device_specific = ((index >= 0x0040U) && (index <= 0x00FEU)) || (index >= 0x0100U);
     if (device_specific && (ctx->vendor_service != NULL)) {
-#if IOLINK_ISDU_BUFFER_SIZE > 238U
-        size_t length = 235U;
+#if IOLINK_ISDU_BUFFER_SIZE > (IOLINK_ISDU_DATA_MAX_SIZE + 3U)
+        size_t length = IOLINK_ISDU_DATA_MAX_SIZE;
 #else
         size_t length = sizeof(ctx->resp_buf) - 3U;
 #endif

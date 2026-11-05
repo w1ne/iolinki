@@ -7,6 +7,32 @@ on:
     branches: [ main, develop ]
 
 jobs:
+  protocol-rig:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run exact-frame protocol rig
+        run: bash validation/run_protocol_rig.sh | tee protocol-rig.log
+      - name: Run hosted demonstration vectors on the host
+        run: bash validation/labwired-protocol/run_host.sh | tee labwired-protocol.log
+      - name: Run dependency-free upstream regressions
+        run: python3 validation/run_upstream_regressions.py | tee upstream-regressions.json
+      - name: Check rig with address and undefined-behavior sanitizers
+        run: |
+          cc -std=c99 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -DIOLINK_RIG_HOST_MAIN -Iinclude validation/protocol_rig.c src/{crc,frame,dll,isdu,events,params,data_storage,device_info,device,platform}.c -o /tmp/iolinki-protocol-rig
+          ASAN_OPTIONS=detect_leaks=0 /tmp/iolinki-protocol-rig | tee protocol-rig-sanitized.log
+      - name: Archive protocol evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: type2v-protocol-rig
+          if-no-files-found: error
+          path: |
+            protocol-rig.log
+            labwired-protocol.log
+            protocol-rig-sanitized.log
+            upstream-regressions.json
+
   esp32-example:
     runs-on: ubuntu-latest
     steps:
@@ -114,6 +140,25 @@ jobs:
             examples/stm32g0_tiol112/build/reference-device.elf
             examples/stm32g0_tiol112/build/reference-device.hex
             examples/stm32g0_tiol112/build/reference-device.map
+
+      - name: Build 64MHz STM32G0B1 protocol profile
+        env:
+          STM32_CMSIS_ROOT: ${{ github.workspace }}/vendor/cmsis-device-g0
+          CMSIS_CORE_ROOT: ${{ github.workspace }}/vendor/CMSIS_5/CMSIS/Core
+          IOLINK_G0_SYSCLK_HZ: '64000000'
+          IOLINK_G0_PROTOCOL_PROFILE: '1'
+          IOLINK_RIG_TIMING_ENFORCE: '1'
+          BUILD_DIR: ${{ github.workspace }}/examples/stm32g0_tiol112/build-protocol64
+        run: bash examples/stm32g0_tiol112/build.sh
+      - name: Archive 64MHz protocol firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: stm32g0-tiol112-protocol-64mhz-gcc
+          if-no-files-found: error
+          path: |
+            examples/stm32g0_tiol112/build-protocol64/protocol-rig-64mhz.elf
+            examples/stm32g0_tiol112/build-protocol64/protocol-rig-64mhz.hex
+            examples/stm32g0_tiol112/build-protocol64/protocol-rig-64mhz.map
 
   # Required gate: code quality, unit tests, and virtual-master conformance.
   # Lightweight (no multi-GB Zephyr image), so it is fast and reliable.

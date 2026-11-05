@@ -10,7 +10,8 @@ The [ST STM32G0B1 datasheet](https://www.st.com/resource/en/datasheet/stm32g0b1r
 identifies the RE variant as 512KiB flash and lists USART1 TX/RX on PA9/PA10 AF1
 (table 13), and TIM2 as 32-bit. Linkers deliberately use the 128KiB SRAM region;
 the extra 16KiB requires repurposing parity storage. These settings assume reset
-entry, 16MHz HSI, and undivided AHB/APB. Do not enter from a bootloader with live
+entry and undivided AHB/APB. The default uses 16MHz HSI; an optional 64MHz PLL
+configuration is described below. Do not enter from a bootloader with live
 peripherals without adding a handover/deinitialization sequence.
 
 | STM32 pin | TIOL112 signal / application |
@@ -60,6 +61,91 @@ The `stm32g0-example` CI job uses that ST commit and CMSIS 5.9.0
 archives ELF, HEX and memory map. A local build with the same vendor revisions
 and Arm GCC 13.2.1 uses 13,984 bytes of text, 4 bytes of initialized data and
 6,736 bytes of BSS including the reserved stack. This is compilation evidence.
+
+## 64MHz protocol profile
+
+The default reference firmware remains at 16MHz. Select
+`IOLINK_G0_SYSCLK_HZ=64000000` to use HSI16 with PLL M=1, N=8, R=2. The BSP sets
+voltage range 1 and two Flash wait states before switching to PLLRCLK, then
+derives TIM2's 1MHz prescaler, UART BRR and TX timeout baud from
+`SystemCoreClock`. AHB and APB remain undivided. This uses CMSIS registers,
+without linking ST HAL. The clock parameters match ST's
+[NUCLEO-G0B1RE 64MHz example](https://github.com/STMicroelectronics/STM32CubeG0/blob/master/Projects/NUCLEO-G0B1RE/Examples/PWR/PWR_SLEEP/Src/main.c).
+
+For the real UART/TIOL112 protocol application, build:
+
+```sh
+IOLINK_G0_SYSCLK_HZ=64000000 IOLINK_G0_PROTOCOL_PROFILE=1 \
+  BUILD_DIR="$PWD/examples/stm32g0_tiol112/build-protocol64" \
+  bash examples/stm32g0_tiol112/build.sh
+```
+
+This selects `protocol_rig_main.c` and produces `protocol-rig-64mhz.elf`, `.hex`
+and `.map`. The application uses TYPE_2_V, PDout1, PDin32, OD1/code4, current-cycle
+prepared-buffer selection and an application-defined segmented ISDU record.
+COM3 is the default; `IOLINK_RIG_COM=2` selects COM2 for a separate build.
+It uses the actual board UART, RX ISR, TIOL112 driver and timer; it does not
+inject virtual PHY bytes or force the DLL to OPERATE. The master must perform
+the wake-up and startup sequence. The CI job archives this firmware separately
+as `stm32g0-tiol112-protocol-64mhz-gcc`.
+
+The immutable 1024-byte image is exposed read-only at indices 0x0100 through
+0x0104 as four 232-byte records and one 96-byte record. PDin byte 0 echoes the
+current selector. Remaining PDin bytes and the image use the deterministic
+formula in `protocol_rig_main.c`. Configured minimum cycle times are 3ms for
+COM3 and 15ms for COM2; the Direct Parameter encoding rounds COM2 up to 15.2ms.
+The 34 application blocks per second are independent of the IO-Link cycle rate.
+A 232-byte ISDU read requires five request and 235 response OD1 cycles: at
+34 cycles/s this is about 7.1s of transfer time. This is a throughput figure,
+not a five-second timeout violation: the ISDU acknowledgment interval ends at
+the **beginning** of the response, not after every response segment has been
+transferred (IO-Link V1.1.4, Tables 53 and 102). Choose cycle frequency and
+record size for the required latency. The acknowledgment watchdog belongs to
+the master. Device applications must make the first non-Busy response available
+within that window. The stack uses synchronous application handlers and has no
+general deferred completion/cancellation API, as documented in the protocol
+rig README.
+
+The profile explicitly defaults `IOLINK_RIG_TIMING_ENFORCE=0`. Internal DLL
+timing checks are disabled in that build; setting a response-time limit does
+not enable them. Build a separate image with `IOLINK_RIG_TIMING_ENFORCE=1` to
+evaluate the internal inter-byte, cycle and completion checks. The CI 64MHz
+protocol artifact explicitly selects this enabled option. The exported
+`rig_timing_enforced` symbol records the selected state. The legacy completion
+threshold is 20ms and applies only when internal checks are enabled; it is not
+tA. The external rig must independently measure the actual last-master-stop to
+first-device-start gap and byte gaps in either build. Receive-pop timestamps
+are not pin timestamps, so internal checks need their own integration result.
+An OPERATE LED indicates state, not conformance.
+
+The internal cycle monitor applies MinCycleTime only in OPERATE and compares
+observed first-byte dequeue timestamps, separately from its legacy
+complete-request-to-end-TX duration. STARTUP/PREOPERATE retain their distinct
+recovery rules. Queue observation can jitter, so the external wire oracle is
+still required even when internal checks are enabled.
+
+A separate board-local minimum response floor starts at the last valid RX IRQ
+observation. It waits for `ceil(1.5 * Tbit) + 1us` before the first TDR write,
+using wrapping TIM2 arithmetic; this covers the remaining half stop bit and the
+minimum one-bit response interval, with timer quantization margin. Baud-derived
+values are cached during UART configuration. This floor is independent of the
+TIOL112 enable guard below; neither is a substitute for measuring CQ edges on
+the actual hardware. No new receive-timestamp PHY API is introduced.
+
+`IOLINK_G0_TIOL112_ENABLE_GUARD_US` defaults to 6us between entering the
+EN-asserted send callback and permitting the first UART data write. This guard
+is part of the measured tA path. TIOL112 specifies a **typical** 4us driver
+enable delay in datasheet section 6.7; it does not establish a guaranteed
+maximum. The 6us setting is an engineering assumption, including timer
+quantization margin, that requires validation across the actual operating
+conditions. A simulated 4us enable-delay scenario is not worst-case electrical
+certification. Override the setting deliberately when evaluating another
+measured bound.
+
+A successful cross-build proves compilation of this CMSIS/GCC reference. A
+simulator run must establish its own instruction/peripheral-model accuracy.
+Neither is an IAR build, a customer BSP sign-off, a measured electrical tA result,
+or a physical-master interoperability result.
 
 ## Native IAR EWARM project
 

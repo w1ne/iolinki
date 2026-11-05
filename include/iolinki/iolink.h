@@ -73,6 +73,9 @@ typedef struct
     uint8_t pd_in_len;              /**< Process Data Input length (Device to Master) in bytes */
     uint8_t pd_out_len;             /**< Process Data Output length (Master to Device) in bytes */
     uint32_t t_pd_us;               /**< Power-on delay (t_pd) in microseconds */
+    /** OD width: 0 keeps the type default. TYPE_2_V accepts 1 or 2 with nonzero PD.
+     * OD1 advertises code4 and requires at least 3 PD octets in one direction. */
+    uint8_t od_len;
 } iolink_config_t;
 
 /**
