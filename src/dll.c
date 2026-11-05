@@ -440,8 +440,11 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
         ctx->pd_valid = valid;
     }
 
-    uint8_t od_in[IOLINK_OD_MAX_SIZE] = {0};
-    uint8_t od_out[IOLINK_OD_MAX_SIZE] = {0};
+    uint8_t od_in[IOLINK_OD_MAX_SIZE];
+    uint8_t od_out[IOLINK_OD_MAX_SIZE];
+    /* Every dispatcher branch is bounded by od_w; initialize only active OD. */
+    (void) memset(od_in, 0, od_w);
+    (void) memset(od_out, 0, od_w);
     if (!read && (od_w > 0U)) {
         memcpy(od_in, &ctx->frame_buf[od_offset], od_w);
     }
@@ -615,7 +618,10 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     dll_poll_diagnostics(ctx);
 
     uint32_t now_ms = iolink_time_get_ms();
-    uint64_t now_ms64 = iolink_time_get_us() / 1000U;
+    uint64_t now_ms64 = 0U;
+    if ((ctx->dsio_deadline_ms != 0U) || (ctx->fallback_deadline_ms != 0U)) {
+        now_ms64 = iolink_time_get_us() / 1000U;
+    }
     if ((ctx->last_activity_ms != 0U) && (now_ms - ctx->last_activity_ms > 1000U)) {
         ctx->last_activity_ms = 0U; /* Prevent repeated resets */
         ctx->timeout_errors++;      /* Link went idle past the inactivity window */
