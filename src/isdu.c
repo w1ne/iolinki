@@ -59,6 +59,15 @@ void iolink_isdu_init(iolink_isdu_ctx_t* ctx)
     ctx->state = ISDU_STATE_IDLE;
 }
 
+/** @brief Resolve device-local identity, retaining standalone legacy ISDU behavior. */
+static const iolink_device_info_t* isdu_device_info(const iolink_isdu_ctx_t* ctx)
+{
+    if ((ctx != NULL) && (ctx->params_ctx != NULL) && (ctx->params_ctx->device_info != NULL)) {
+        return iolink_device_info_ctx_get(ctx->params_ctx->device_info);
+    }
+    return iolink_device_info_get();
+}
+
 /** @brief Read a parameter via the bound params context, or the legacy global set. */
 static int isdu_params_get(const iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subindex,
                            uint8_t* buffer, size_t max_len)
@@ -486,7 +495,7 @@ void iolink_isdu_od_read(iolink_isdu_ctx_t* ctx, uint8_t flowctrl, uint8_t* od_o
 /** @brief Serve the mandatory identification/status indices (vendor, product, tags, etc.). */
 static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
 {
-    const iolink_device_info_t* info = iolink_device_info_get();
+    const iolink_device_info_t* info = isdu_device_info(ctx);
     const char* str_data = NULL;
 
     if (info == NULL) {
@@ -1162,7 +1171,7 @@ static uint8_t direct_param_mseq_capability(uint8_t m_seq_type, uint8_t od_len)
 /** @brief Populate the 16-octet Direct Parameter page 1 from device-info and DLL state. */
 static void build_direct_param_page1(iolink_isdu_ctx_t* ctx, uint8_t* page)
 {
-    const iolink_device_info_t* info = iolink_device_info_get();
+    const iolink_device_info_t* info = isdu_device_info(ctx);
     uint8_t pd_in = 0U;
     uint8_t pd_out = 0U;
     uint8_t m_seq = 0U;

@@ -58,6 +58,10 @@ static void device_apply_stack_config(iolink_device_ctx_t* ctx)
     ctx->dll.pd_in_len = ctx->stack_config.pd_in_len;
     ctx->dll.pd_out_len = ctx->stack_config.pd_out_len;
     ctx->dll.min_cycle_time_us = (uint32_t) ctx->stack_config.min_cycle_time * 100U;
+    if (ctx->stack_config.min_cycle_time != 0U) {
+        /* Advertise the explicit stack limit through this device's DPP identity. */
+        ctx->device_info.defaults.min_cycle_time = ctx->stack_config.min_cycle_time;
+    }
     ctx->dll.t_pd_delay_us = ctx->stack_config.t_pd_us;
     if (ctx->dll.t_pd_delay_us > 0U) {
         ctx->dll.t_pd_deadline_us = iolink_time_get_us() + (uint64_t) ctx->dll.t_pd_delay_us;

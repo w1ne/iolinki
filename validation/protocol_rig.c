@@ -418,10 +418,67 @@ static bool one_kib_in_five_records(void)
     return true;
 }
 
+static bool device_local_identity_and_min_cycle(void)
+{
+    iolink_device_ctx_t first, second;
+    rig_link_t first_link, second_link;
+    const iolink_device_info_t first_info = {
+        .vendor_name = "RigA", .vendor_id = 0x1234U, .device_id = 0x123456U,
+        .min_cycle_time = 10U
+    };
+    const iolink_device_info_t second_info = {
+        .vendor_name = "RigB", .vendor_id = 0x5678U, .device_id = 0x654321U,
+        .min_cycle_time = 20U
+    };
+    const iolink_device_info_t legacy_before = *iolink_device_info_get();
+    CHECK(rig_init(&first, &first_link, 1U));
+    CHECK(rig_init(&second, &second_link, 1U));
+    first_link.config.device_info = &first_info;
+    first_link.config.stack.min_cycle_time = 30U;
+    second_link.config.device_info = &second_info;
+    second_link.config.stack.min_cycle_time = 150U;
+    CHECK(iolink_device_init(&first, &first_link.config) == 0);
+    CHECK(iolink_device_init(&second, &second_link.config) == 0);
+    CHECK(first.dll.min_cycle_time_us == 3000U);
+    CHECK(second.dll.min_cycle_time_us == 15000U);
+    uint8_t request[2] = {0xA2U, 0U};
+    request[1] = iolink_checksum6(request, sizeof(request));
+    rig_exchange(&first, &first_link, request, sizeof(request));
+    CHECK(first_link.tx_len == 2U && first_link.tx[0] == 0x1EU);
+    rig_exchange(&second, &second_link, request, sizeof(request));
+    CHECK(second_link.tx_len == 2U && second_link.tx[0] == 0x56U);
+    CHECK(iolink_isdu_direct_param_page1_octet(&first.dll.isdu, 7U) == 0x12U);
+    CHECK(iolink_isdu_direct_param_page1_octet(&second.dll.isdu, 7U) == 0x56U);
+    CHECK(iolink_isdu_direct_param_page1_octet(&first.dll.isdu, 8U) == 0x34U);
+    CHECK(iolink_isdu_direct_param_page1_octet(&second.dll.isdu, 8U) == 0x78U);
+    CHECK(iolink_isdu_direct_param_page1_octet(&first.dll.isdu, 9U) == 0x12U);
+    CHECK(iolink_isdu_direct_param_page1_octet(&second.dll.isdu, 9U) == 0x65U);
+    rig_isdu_read_request(&first.dll.isdu, 0x0010U, 0U);
+    iolink_isdu_process(&first.dll.isdu);
+    CHECK(first.dll.isdu.response_len == 4U);
+    CHECK(memcmp(first.dll.isdu.response_buf, "RigA", 4U) == 0);
+    rig_isdu_read_request(&second.dll.isdu, 0x0010U, 0U);
+    iolink_isdu_process(&second.dll.isdu);
+    CHECK(second.dll.isdu.response_len == 4U);
+    CHECK(memcmp(second.dll.isdu.response_buf, "RigB", 4U) == 0);
+    CHECK(iolink_isdu_direct_param_page1_octet(&first.dll.isdu, 2U) == 0x1EU);
+    CHECK(first_info.min_cycle_time == 10U && second_info.min_cycle_time == 20U);
+    iolink_isdu_ctx_t legacy;
+    iolink_isdu_init(&legacy);
+    CHECK(iolink_isdu_direct_param_page1_octet(&legacy, 2U) ==
+          iolink_cycle_time_encode(legacy_before.min_cycle_time));
+    CHECK(iolink_isdu_direct_param_page1_octet(&legacy, 7U) ==
+          (uint8_t) (legacy_before.vendor_id >> 8));
+    CHECK(iolink_device_info_get()->min_cycle_time == legacy_before.min_cycle_time);
+    CHECK(iolink_device_info_get()->vendor_id == legacy_before.vendor_id);
+    return true;
+}
+
 unsigned iolink_protocol_rig_run(void (*emit)(const char*))
 {
     const struct { const char* name; bool (*run)(void); } cases[] = {
         {"exact_code4_profile_and_legacy_default", exact_profile},
+        {"device_local_identity_and_min_cycle", device_local_identity_and_min_cycle},
         {"current_cycle_340_distinct_requests", current_cycle_340_frames},
         {"checksum_and_fragment_guards", checksum_and_fragment_guards},
         {"write_cycle_and_invalid_selector", write_cycle_and_invalid_selector},

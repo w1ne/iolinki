@@ -19,6 +19,7 @@ volatile uint32_t board_tx_timeouts;
 static volatile uint32_t timer_high;
 static volatile uint8_t wake_pending;
 static uint32_t critical_depth, saved_primask;
+static uint32_t tx_octet_timeout_us;
 
 void iolink_critical_enter(void)
 {
@@ -198,6 +199,9 @@ static int configure(void* user, uint32_t baud)
     mode(GPIOA, 9, 2);
     mode(GPIOA, 10, 2);
     USART1->BRR = (SystemCoreClock + baud / 2U) / baud;
+    /* Cache a rounded-up character budget outside the response-start path. */
+    const uint32_t actual_baud_floor = SystemCoreClock / USART1->BRR;
+    tx_octet_timeout_us = (11000000UL + actual_baud_floor - 1U) / actual_baud_floor;
     USART1->CR2 = 0; /* one stop bit */
     USART1->CR3 = USART_CR3_EIE;
     USART1->ICR =
@@ -249,8 +253,8 @@ static int send_complete(void* user, const uint8_t* data, size_t len)
     /* Disable receiver throughout transmission; no local CQ echo can enter ISR. */
     USART1->CR1 &= ~(USART_CR1_RE | USART_CR1_RXNEIE_RXFNEIE | USART_CR1_PEIE);
     USART1->CR3 &= ~USART_CR3_EIE;
-    uint32_t baud = SystemCoreClock / USART1->BRR;
-    uint64_t deadline = iolink_time_get_us() + ((uint64_t) len * 11000000ULL / baud) + 2000U;
+    /* len*ceil(character time) is no shorter than the previous frame budget. */
+    uint64_t deadline = iolink_time_get_us() + (uint64_t) len * tx_octet_timeout_us + 2000U;
     int result = -1;
     while (USART1->ISR & USART_ISR_REACK) {
         if (iolink_time_get_us() >= deadline) goto finished;
