@@ -250,10 +250,14 @@ static void test_dll_back_to_box_stops_after_three_cycles(void** state)
     assert_int_equal(dev.ctx.dll.back_to_box_cycles, 3);
     assert_false(dev.ctx.dll.communication_disabled);
 
-    /* Two further Master cycles are still answered. */
+    /* Two further Master cycles are still answered: count the actual replies,
+       not only the countdown field. */
+    const unsigned sends = iolink_phy_mock_get_send_count();
     type1_1_read_frame(&dev.ctx);
+    assert_int_equal(iolink_phy_mock_get_send_count(), sends + 1U);
     assert_int_equal(dev.ctx.dll.back_to_box_cycles, 2);
     type1_1_read_frame(&dev.ctx);
+    assert_int_equal(iolink_phy_mock_get_send_count(), sends + 2U);
     assert_int_equal(dev.ctx.dll.back_to_box_cycles, 1);
 
     /* The third cycle stops communication; no response is sent. */

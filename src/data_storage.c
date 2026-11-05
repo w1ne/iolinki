@@ -157,7 +157,7 @@ int iolink_ds_apply_image(iolink_ds_ctx_t* ctx, const uint8_t* data, size_t len)
 
     /* Validate the full record structure and every address this Device owns
        before applying anything, so a rejected image never partially overwrites
-       parameters (Table 98 rule 7). */
+       parameters (Table 98 rule 6). */
     size_t pos = 0U;
     while (pos < len) {
         if ((pos + DS_RECORD_HEADER) > len) {
@@ -286,7 +286,7 @@ void iolink_ds_process(iolink_ds_ctx_t* ctx)
                parameters. The checksum is always recomputed from the device's
                ACTUAL parameters, never copied from the Master: adopting the
                Master value would mark a rejected/never-staged download as
-               synchronised (Table 98 rule 7). */
+               synchronised (Table 98 rule 6). */
             if (ctx->image_len > 0U) {
                 if (iolink_ds_apply_image(ctx, ctx->image, ctx->image_len) != 0) {
                     ctx->image_len = 0U;
@@ -343,9 +343,10 @@ int iolink_ds_abort(iolink_ds_ctx_t* ctx)
         return -1;
     }
 
-    /* Abort any active DS operation */
-    ctx->state = IOLINK_DS_STATE_IDLE;
-    return 0;
+    /* An aborted transfer must not leave the staged Master image readable
+       through 0x0003: fall back to the Device's own parameters (Table 98
+       rule 6). */
+    return iolink_ds_discard(ctx);
 }
 
 int iolink_ds_discard(iolink_ds_ctx_t* ctx)
@@ -409,7 +410,7 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
             if (ctx->state == IOLINK_DS_STATE_DOWNLOADING) {
                 if (ctx->image_len > 0U) {
                     if (iolink_ds_apply_image(ctx, ctx->image, ctx->image_len) != 0) {
-                        /* Table 98 rule 7: the previous parameter set stays
+                        /* Table 98 rule 6: the previous parameter set stays
                            active and the rejected image must not be readable
                            through DS_Data (0x0003). */
                         ctx->image_len = 0U;
