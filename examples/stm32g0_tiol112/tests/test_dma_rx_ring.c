@@ -4,15 +4,14 @@
 #include <stdlib.h>
 
 static unsigned checks;
-#define CHECK(condition)                                                           \
-    do {                                                                           \
-        ++checks;                                                                  \
-        if (!(condition)) {                                                        \
-            fprintf(stderr, "DMA ring check failed at line %d: %s\n", __LINE__,     \
-                    #condition);                                                   \
-            exit(1);                                                               \
-        }                                                                          \
-    } while (0)
+static void check(bool condition, const char* expression, int line)
+{
+    ++checks;
+    if (condition) return;
+    fprintf(stderr, "DMA ring check failed at line %d: %s\n", line, expression);
+    exit(1);
+}
+#define CHECK(condition) check((condition), #condition, __LINE__)
 
 int main(void)
 {

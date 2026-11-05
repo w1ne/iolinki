@@ -16,7 +16,8 @@
 #error "IOLINK_G0_UART_BACKEND must be 0 (CMSIS IRQ), 1 (CMSIS DMA), or 2 (HAL DMA)"
 #endif
 
-typedef struct {
+typedef struct
+{
     volatile uint32_t rx_bytes;
     volatile uint32_t rx_half_events;
     volatile uint32_t rx_wraps;

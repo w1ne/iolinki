@@ -53,8 +53,7 @@ static void rx_service_flags(void)
         DMA1->IFCR = DMA_IFCR_CGIF1;
         return;
     }
-    if ((flags & (DMA_ISR_HTIF1 | DMA_ISR_TCIF1)) ==
-        (DMA_ISR_HTIF1 | DMA_ISR_TCIF1)) {
+    if ((flags & (DMA_ISR_HTIF1 | DMA_ISR_TCIF1)) == (DMA_ISR_HTIF1 | DMA_ISR_TCIF1)) {
         rx_fail(true);
         DMA1->IFCR = DMA_IFCR_CGIF1;
         return;
@@ -62,8 +61,7 @@ static void rx_service_flags(void)
 #if IOLINK_G0_UART_BACKEND == IOLINK_G0_UART_HAL_DMA
     /* HAL handles one flag per entry. An error takes precedence over data. */
     if (flags & DMA_ISR_TEIF1) DMA1->IFCR = DMA_IFCR_CHTIF1 | DMA_IFCR_CTCIF1;
-    if (flags & (DMA_ISR_TEIF1 | DMA_ISR_HTIF1 | DMA_ISR_TCIF1))
-        HAL_DMA_IRQHandler(&rx_dma);
+    if (flags & (DMA_ISR_TEIF1 | DMA_ISR_HTIF1 | DMA_ISR_TCIF1)) HAL_DMA_IRQHandler(&rx_dma);
 #else
     if (flags & DMA_ISR_TEIF1) {
         ++board_dma_stats.dma_errors;
@@ -91,7 +89,8 @@ void DMA1_Channel2_3_IRQHandler(void)
 {
     const uint32_t flags = DMA1->ISR;
 #if IOLINK_G0_UART_BACKEND == IOLINK_G0_UART_HAL_DMA
-    if (flags & DMA_ISR_TEIF2) DMA1->IFCR = DMA_IFCR_CHTIF2 | DMA_IFCR_CTCIF2;
+    if (flags & DMA_ISR_TEIF2)
+        DMA1->IFCR = DMA_IFCR_CHTIF2 | DMA_IFCR_CTCIF2;
     else if ((flags & DMA_ISR_TCIF2) && tx_state == 1)
         ++board_dma_stats.tx_dma_completed;
     HAL_DMA_IRQHandler(&tx_dma);
@@ -103,7 +102,8 @@ void DMA1_Channel2_3_IRQHandler(void)
         USART1->CR1 &= ~USART_CR1_TCIE;
         ++board_dma_stats.dma_errors;
         tx_state = -1;
-    } else if (flags & DMA_ISR_TCIF2) {
+    }
+    else if (flags & DMA_ISR_TCIF2) {
         USART1->CR3 &= ~USART_CR3_DMAT;
         DMA1_Channel2->CCR &= ~DMA_CCR_EN;
         DMA1->IFCR = DMA_IFCR_CGIF2;
@@ -147,8 +147,8 @@ int board_dma_rx_resume(void)
         return -1;
     }
 #else
-    DMA1_Channel1->CCR = DMA_CCR_MINC | DMA_CCR_CIRC | DMA_CCR_HTIE | DMA_CCR_TCIE |
-                        DMA_CCR_TEIE | DMA_CCR_PL_1;
+    DMA1_Channel1->CCR =
+        DMA_CCR_MINC | DMA_CCR_CIRC | DMA_CCR_HTIE | DMA_CCR_TCIE | DMA_CCR_TEIE | DMA_CCR_PL_1;
     DMA1_Channel1->CPAR = (uint32_t) &USART1->RDR;
     DMA1_Channel1->CMAR = (uint32_t) rx_data;
     DMA1_Channel1->CNDTR = BOARD_DMA_RX_SIZE;
@@ -194,7 +194,8 @@ int board_dma_recv(uint8_t* byte, uint32_t* observed_us)
         if (result > 0) {
             *observed_us = rx_ring.observed_us;
             ++board_dma_stats.rx_bytes;
-        } else if (result < 0) {
+        }
+        else if (result < 0) {
             rx_fail(true);
             rx_error_pending = false;
             board_dma_rx_pause();
@@ -207,8 +208,7 @@ int board_dma_recv(uint8_t* byte, uint32_t* observed_us)
 
 int board_dma_tx_begin(const uint8_t* data, size_t length)
 {
-    if (!configured || data == NULL || length == 0U || length > 65535U || tx_state == 1)
-        return -1;
+    if (!configured || data == NULL || length == 0U || length > 65535U || tx_state == 1) return -1;
     tx_state = 1;
     USART1->ICR = USART_ICR_TCCF;
     DMA1->IFCR = DMA_IFCR_CGIF2;
@@ -220,8 +220,7 @@ int board_dma_tx_begin(const uint8_t* data, size_t length)
     /* No TX half-buffer work is needed for a single synchronous frame. */
     DMA1_Channel2->CCR &= ~DMA_CCR_HTIE;
 #else
-    DMA1_Channel2->CCR = DMA_CCR_DIR | DMA_CCR_MINC | DMA_CCR_TCIE | DMA_CCR_TEIE |
-                        DMA_CCR_PL_1;
+    DMA1_Channel2->CCR = DMA_CCR_DIR | DMA_CCR_MINC | DMA_CCR_TCIE | DMA_CCR_TEIE | DMA_CCR_PL_1;
     DMA1_Channel2->CPAR = (uint32_t) &USART1->TDR;
     DMA1_Channel2->CMAR = (uint32_t) data;
     DMA1_Channel2->CNDTR = (uint32_t) length;
@@ -337,12 +336,13 @@ int board_dma_configure(uint32_t baud)
         HAL_UART_Init(&uart) != HAL_OK)
         return -1;
 #else
-    (void) baud; /* Common BSP sets BRR and 8E1 before enabling DMA. */
+    /* Common BSP sets BRR and 8E1 before enabling DMA. */
+    (void) baud;
     DMAMUX1_Channel0->CCR = 50U; /* USART1_RX: RM0444/ST LL_DMAMUX_REQ_USART1_RX */
     DMAMUX1_Channel1->CCR = 51U; /* USART1_TX */
     DMAMUX1_ChannelStatus->CFR = 3U;
-    USART1->CR1 = USART_CR1_M0 | USART_CR1_PCE | USART_CR1_TE | USART_CR1_RE |
-                  USART_CR1_PEIE | USART_CR1_UE;
+    USART1->CR1 =
+        USART_CR1_M0 | USART_CR1_PCE | USART_CR1_TE | USART_CR1_RE | USART_CR1_PEIE | USART_CR1_UE;
 #endif
     configured = true;
     tx_state = 0;
@@ -379,8 +379,10 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef* handle)
 void HAL_UART_ErrorCallback(UART_HandleTypeDef* handle)
 {
     if (handle != &uart) return;
-    if (handle->ErrorCode & HAL_UART_ERROR_DMA) ++board_dma_stats.dma_errors;
-    else ++board_dma_stats.uart_errors;
+    if (handle->ErrorCode & HAL_UART_ERROR_DMA)
+        ++board_dma_stats.dma_errors;
+    else
+        ++board_dma_stats.uart_errors;
     /* A bad RX byte may already be in RAM before HAL observes PE/FE/ORE. */
     rx_fail(false);
     if (tx_state == 1) tx_state = -1;

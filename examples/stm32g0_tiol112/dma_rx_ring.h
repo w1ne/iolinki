@@ -9,7 +9,8 @@
 
 /* The hardware adapter supplies a coherent epoch/CNDTR observation. Keep one
  * slot spare: a full ring is an error, never indistinguishable from empty. */
-typedef struct {
+typedef struct
+{
     uint32_t epoch;
     uint32_t consumed;
     uint32_t observed;
