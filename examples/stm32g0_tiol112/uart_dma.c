@@ -53,22 +53,26 @@ static void rx_service_flags(void)
         DMA1->IFCR = DMA_IFCR_CGIF1;
         return;
     }
+    if (flags & DMA_ISR_TEIF1) {
+#if IOLINK_G0_UART_BACKEND == IOLINK_G0_UART_HAL_DMA
+        /* HAL handles one flag per entry. An error takes precedence over data. */
+        DMA1->IFCR = DMA_IFCR_CHTIF1 | DMA_IFCR_CTCIF1;
+        HAL_DMA_IRQHandler(&rx_dma);
+#else
+        ++board_dma_stats.dma_errors;
+        rx_fail(false);
+        DMA1->IFCR = DMA_IFCR_CGIF1;
+#endif
+        return;
+    }
     if ((flags & (DMA_ISR_HTIF1 | DMA_ISR_TCIF1)) == (DMA_ISR_HTIF1 | DMA_ISR_TCIF1)) {
         rx_fail(true);
         DMA1->IFCR = DMA_IFCR_CGIF1;
         return;
     }
 #if IOLINK_G0_UART_BACKEND == IOLINK_G0_UART_HAL_DMA
-    /* HAL handles one flag per entry. An error takes precedence over data. */
-    if (flags & DMA_ISR_TEIF1) DMA1->IFCR = DMA_IFCR_CHTIF1 | DMA_IFCR_CTCIF1;
-    if (flags & (DMA_ISR_TEIF1 | DMA_ISR_HTIF1 | DMA_ISR_TCIF1)) HAL_DMA_IRQHandler(&rx_dma);
+    if (flags & (DMA_ISR_HTIF1 | DMA_ISR_TCIF1)) HAL_DMA_IRQHandler(&rx_dma);
 #else
-    if (flags & DMA_ISR_TEIF1) {
-        ++board_dma_stats.dma_errors;
-        rx_fail(false);
-        DMA1->IFCR = DMA_IFCR_CGIF1;
-        return;
-    }
     if (flags & DMA_ISR_HTIF1) {
         DMA1->IFCR = DMA_IFCR_CHTIF1;
         rx_event(true, false);
@@ -89,11 +93,16 @@ void DMA1_Channel2_3_IRQHandler(void)
 {
     const uint32_t flags = DMA1->ISR;
 #if IOLINK_G0_UART_BACKEND == IOLINK_G0_UART_HAL_DMA
-    if (flags & DMA_ISR_TEIF2)
-        DMA1->IFCR = DMA_IFCR_CHTIF2 | DMA_IFCR_CTCIF2;
-    else if ((flags & DMA_ISR_TCIF2) && tx_state == 1)
-        ++board_dma_stats.tx_dma_completed;
+    const bool request_active = (USART1->CR3 & USART_CR3_DMAT) != 0U;
+    if (flags & DMA_ISR_TEIF2) DMA1->IFCR = DMA_IFCR_CHTIF2 | DMA_IFCR_CTCIF2;
     HAL_DMA_IRQHandler(&tx_dma);
+    /* HAL handles HT before TC when both are latched on a short reply. Count
+     * the actual normal-mode DMA-to-USART handoff, not a TC flag that HAL may
+     * leave for the next IRQ. USART has the same priority and cannot preempt
+     * this handler between that handoff and the counter update. */
+    if (request_active && tx_state == 1 && (USART1->CR1 & USART_CR1_TCIE)) {
+        if (!(USART1->CR3 & USART_CR3_DMAT)) ++board_dma_stats.tx_dma_completed;
+    }
 #else
     if (flags & DMA_ISR_TEIF2) {
         USART1->CR3 &= ~USART_CR3_DMAT;
@@ -179,6 +188,15 @@ int board_dma_recv(uint8_t* byte, uint32_t* observed_us)
             if (!(DMA1->ISR & (DMA_ISR_TCIF1 | DMA_ISR_TEIF1))) break;
         }
         if (attempts == 3U) rx_fail(true);
+    }
+    if (rx_active) {
+        /* UART errors can be pending while PRIMASK masks their IRQ. Check
+         * after CNDTR, before a buffered final byte can complete a request
+         * from an incomplete receive history (for example ORE). G0 DDRE
+         * semantics already suppress DMA transfer of PE/FE/NE error items. */
+        const uint32_t errors =
+            USART1->ISR & (USART_ISR_PE | USART_ISR_FE | USART_ISR_NE | USART_ISR_ORE);
+        if (errors != 0U) board_dma_uart_irq();
     }
     if (rx_error_pending) {
         rx_error_pending = false;
@@ -383,7 +401,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef* handle)
         ++board_dma_stats.dma_errors;
     else
         ++board_dma_stats.uart_errors;
-    /* A bad RX byte may already be in RAM before HAL observes PE/FE/ORE. */
+    /* Discard queued data: an overrun can make the receive history incomplete. */
     rx_fail(false);
     if (tx_state == 1) tx_state = -1;
 }
