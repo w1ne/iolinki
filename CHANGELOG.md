@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through USART TC. Added overflow/error recovery, explicit transport counters,
   a sanitized RX-ring regression and COM2/COM3 GCC artifact matrix. The HAL
   option preserves the CMSIS clock/GPIO/TIM2 BSP and the synchronous PHY API.
+  `IOLINK_G0_OPTIMIZATION=2` explicitly selects the GCC performance profile for
+  DMA timing evaluation; the reference default remains size-optimized (`s`).
 - **A.6.4 event lifecycle.** Error and Warning events now follow the
   appears/disappears pair (Figure A.24): the same EventCode may not appear again
   before its disappearance has been reported, a disappearance is not issued

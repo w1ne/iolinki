@@ -16,6 +16,11 @@ image_name=reference-device
 rig_com="${IOLINK_RIG_COM:-3}"
 rig_timing="${IOLINK_RIG_TIMING_ENFORCE:-0}"
 uart_backend="${IOLINK_G0_UART_BACKEND:-0}"
+optimization="${IOLINK_G0_OPTIMIZATION:-s}"
+case "$optimization" in
+    s|2) ;;
+    *) echo 'IOLINK_G0_OPTIMIZATION must be s (size) or 2 (production performance)' >&2; exit 1 ;;
+esac
 case "$uart_backend" in
     0|1) ;;
     2) : "${STM32_HAL_ROOT:?Set STM32_HAL_ROOT to ST stm32g0xx-hal-driver root for HAL DMA}" ;;
@@ -42,7 +47,7 @@ if [[ "${IOLINK_G0_PROTOCOL_PROFILE:-0}" == 1 ]]; then
     image_name=protocol-rig-64mhz
 fi
 mkdir -p "$build_dir"
-flags=(-mcpu=cortex-m0plus -mthumb -std=c99 -Os -g3 -Wall -Wextra -Werror -MMD
+flags=(-mcpu=cortex-m0plus -mthumb -std=c99 "-O$optimization" -g3 -Wall -Wextra -Werror -MMD
        -ffunction-sections -fdata-sections -DSTM32G0B1xx "-DIOLINK_G0_SYSCLK_HZ=$clock_hz"
        "-DIOLINK_RIG_COM=$rig_com"
        "-DIOLINK_RIG_TIMING_ENFORCE=$rig_timing"
@@ -82,6 +87,7 @@ if [[ -n "$(arm-none-eabi-nm -u "$build_dir/$image_name.elf")" ]]; then
 fi
 manifest_args=(--repo "$repo_dir" --elf "$build_dir/$image_name.elf" --compiler "$compiler"
                --backend "$uart_backend" --clock "$clock_hz" --com "$rig_com"
+               --optimization "$optimization"
                --timing "$rig_timing" --guard "$enable_guard_us"
                --device-root "$STM32_CMSIS_ROOT" --core-root "$CMSIS_CORE_ROOT"
                --input "$example_dir/build.sh" --input "$example_dir/stm32g0b1re.ld"

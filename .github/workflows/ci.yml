@@ -200,9 +200,11 @@ jobs:
           IOLINK_RIG_TIMING_ENFORCE: '1'
         run: |
           for backend in 0 1 2; do
+            optimization=s
+            if [[ "$backend" != 0 ]]; then optimization=2; fi
             for com in 2 3; do
               output="$PWD/build-uart-matrix/backend-$backend-com$com"
-              IOLINK_G0_UART_BACKEND="$backend" IOLINK_RIG_COM="$com" BUILD_DIR="$output" bash examples/stm32g0_tiol112/build.sh
+              IOLINK_G0_UART_BACKEND="$backend" IOLINK_RIG_COM="$com" IOLINK_G0_OPTIMIZATION="$optimization" BUILD_DIR="$output" bash examples/stm32g0_tiol112/build.sh
               python3 tools/extract_stm32g0_layout.py "$output/protocol-rig-64mhz.elf"
             done
           done

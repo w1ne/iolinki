@@ -111,12 +111,18 @@ For the HAL UART/DMA option, supply ST's unmodified
 git clone https://github.com/STMicroelectronics/stm32g0xx-hal-driver.git /tmp/stm32g0xx-hal-driver
 git -C /tmp/stm32g0xx-hal-driver checkout a0cf8a8b96183fdcc2e3b1cf0bcf0825f27bd0c9
 export STM32_HAL_ROOT=/tmp/stm32g0xx-hal-driver
-IOLINK_G0_UART_BACKEND=2 IOLINK_G0_SYSCLK_HZ=64000000 \
+IOLINK_G0_UART_BACKEND=2 IOLINK_G0_OPTIMIZATION=2 IOLINK_G0_SYSCLK_HZ=64000000 \
   IOLINK_G0_PROTOCOL_PROFILE=1 IOLINK_RIG_TIMING_ENFORCE=1 \
   BUILD_DIR="$PWD/build-hal-dma-com3" bash examples/stm32g0_tiol112/build.sh
 ```
 
 Use `IOLINK_G0_UART_BACKEND=1` for the CMSIS DMA port; it needs no HAL tree.
+Select `IOLINK_G0_OPTIMIZATION=2` for the production performance profile. The
+reference default remains `s` (`-Os`); the explicit `2` setting uses GCC `-O2`.
+Compiler optimization is part of the timing configuration, not a relaxation of
+the IO-Link deadline or the 6us transceiver guard. A bounded `-Os` HAL run at
+64MHz exceeded COM3's 43.403us maximum; do not treat a successful size-optimized
+build as timing acceptance. Qualify each exact ELF/compiler/options combination.
 `IOLINK_RIG_COM=2` selects the separate COM2 protocol image. Give each profile
 its own `BUILD_DIR`. The optional HAL transport uses actual vendor UART/DMA
 initialization, transfer, IRQ and abort APIs. The existing BSP still owns clock,
@@ -126,8 +132,10 @@ performed. The pinned HAL and device v1.4.5 revision are the pair in CubeG0
 v1.6.3; CMSIS Core 5.9 is a separately selected newer core dependency.
 
 The `stm32g0-uart-backends` CI job cross-builds all three transports for both
-COM2 and COM3 at 64MHz with internal DLL checks enabled. Artifacts include
-compiler/input hashes and an ELF-hash-bound DWARF counter layout. The
+COM2 and COM3 at 64MHz with internal DLL checks enabled. The four DMA profiles
+use `-O2`; the IRQ comparison profiles retain `-Os`. Artifacts include
+compiler/input hashes, the explicit optimization setting, and an ELF-hash-bound
+DWARF counter layout. The
 `board_uart_backend` symbol records 0/1/2; `board_dma_stats` records consumed DMA
 RX bytes, half/full events, rearms, overflows, TX starts, DMA completions, USART
 completions, aborts and errors. These are observations, not a verification badge.

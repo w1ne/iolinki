@@ -27,6 +27,7 @@ def main():
     parser.add_argument("--elf", type=Path, required=True)
     parser.add_argument("--compiler", required=True)
     parser.add_argument("--backend", type=int, choices=(0, 1, 2), required=True)
+    parser.add_argument("--optimization", choices=("s", "2"), required=True)
     parser.add_argument("--clock", type=int, required=True)
     parser.add_argument("--com", type=int, choices=(2, 3), required=True)
     parser.add_argument("--timing", type=int, choices=(0, 1), required=True)
@@ -62,6 +63,7 @@ def main():
         "tracked_source_diff": git_value(args.repo, "diff", "--stat", "HEAD"),
         "backend": args.backend,
         "backend_name": ("cmsis-irq", "cmsis-dma", "hal-uart-dma")[args.backend],
+        "optimization": "-O" + args.optimization,
         "target": "STM32G0B1RE",
         "sysclk_hz": args.clock,
         "protocol_profile": args.protocol_profile,
