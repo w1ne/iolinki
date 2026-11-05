@@ -13,6 +13,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run exact-frame protocol rig
         run: bash validation/run_protocol_rig.sh | tee protocol-rig.log
+      - name: Run hosted demonstration vectors on the host
+        run: bash validation/labwired-protocol/run_host.sh | tee labwired-protocol.log
       - name: Run dependency-free upstream regressions
         run: python3 validation/run_upstream_regressions.py | tee upstream-regressions.json
       - name: Check rig with address and undefined-behavior sanitizers
@@ -27,6 +29,7 @@ jobs:
           if-no-files-found: error
           path: |
             protocol-rig.log
+            labwired-protocol.log
             protocol-rig-sanitized.log
             upstream-regressions.json
 
