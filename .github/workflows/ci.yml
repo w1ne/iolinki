@@ -160,6 +160,72 @@ jobs:
             examples/stm32g0_tiol112/build-protocol64/protocol-rig-64mhz.hex
             examples/stm32g0_tiol112/build-protocol64/protocol-rig-64mhz.map
 
+  stm32g0-uart-backends:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Get pinned ST device headers and startup
+        uses: actions/checkout@v4
+        with:
+          repository: STMicroelectronics/cmsis-device-g0
+          ref: f576c24e123edf3332988ecd49512c0f35f85186
+          path: vendor/cmsis-device-g0
+      - name: Get pinned CMSIS core
+        uses: actions/checkout@v4
+        with:
+          repository: ARM-software/CMSIS_5
+          ref: 61e36449f53c25ef7825c40f7dd93685736f457f
+          path: vendor/CMSIS_5
+      - name: Get pinned ST HAL UART and DMA sources
+        uses: actions/checkout@v4
+        with:
+          repository: STMicroelectronics/stm32g0xx-hal-driver
+          ref: a0cf8a8b96183fdcc2e3b1cf0bcf0825f27bd0c9
+          path: vendor/stm32g0xx-hal-driver
+      - name: Install Arm GCC
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi
+      - name: Check circular RX overflow and wrap with sanitizers
+        run: |
+          cc -std=c99 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -Iexamples/stm32g0_tiol112 examples/stm32g0_tiol112/dma_rx_ring.c examples/stm32g0_tiol112/tests/test_dma_rx_ring.c -o /tmp/dma-rx-ring-test
+          ASAN_OPTIONS=detect_leaks=0 /tmp/dma-rx-ring-test
+      - name: Check exact TIM2 millisecond conversion and wrap with sanitizers
+        run: |
+          cc -std=c99 -O2 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -Iexamples/stm32g0_tiol112 examples/stm32g0_tiol112/tests/test_timebase.c -o /tmp/timebase-test
+          ASAN_OPTIONS=detect_leaks=0 /tmp/timebase-test
+      - name: Cross-build exact IRQ, CMSIS DMA and HAL DMA COM2/COM3 profiles
+        env:
+          STM32_CMSIS_ROOT: ${{ github.workspace }}/vendor/cmsis-device-g0
+          CMSIS_CORE_ROOT: ${{ github.workspace }}/vendor/CMSIS_5/CMSIS/Core
+          STM32_HAL_ROOT: ${{ github.workspace }}/vendor/stm32g0xx-hal-driver
+          IOLINK_G0_SYSCLK_HZ: '64000000'
+          IOLINK_G0_PROTOCOL_PROFILE: '1'
+          IOLINK_RIG_TIMING_ENFORCE: '1'
+        run: |
+          for backend in 0 1 2; do
+            optimization=s
+            if [[ "$backend" != 0 ]]; then optimization=2; fi
+            for com in 2 3; do
+              output="$PWD/build-uart-matrix/backend-$backend-com$com"
+              IOLINK_G0_UART_BACKEND="$backend" IOLINK_RIG_COM="$com" IOLINK_G0_OPTIMIZATION="$optimization" BUILD_DIR="$output" bash examples/stm32g0_tiol112/build.sh
+              python3 tools/extract_stm32g0_layout.py "$output/protocol-rig-64mhz.elf"
+            done
+          done
+      - name: Check IAR reference project source paths
+        run: python3 tools/check_iar_project.py examples/stm32g0_tiol112/iar/reference-device.ewp --device-root vendor/cmsis-device-g0 --core-root vendor/CMSIS_5/CMSIS/Core
+      - name: Archive compiler inputs, exact firmware and debugger layouts
+        uses: actions/upload-artifact@v4
+        with:
+          name: stm32g0-uart-backends-gcc
+          if-no-files-found: error
+          path: |
+            build-uart-matrix/*/*.elf
+            build-uart-matrix/*/*.hex
+            build-uart-matrix/*/*.map
+            build-uart-matrix/*/firmware-manifest.json
+            build-uart-matrix/*/arm-eabi-layout.json
+
   # Required gate: code quality, unit tests, and virtual-master conformance.
   # Lightweight (no multi-GB Zephyr image), so it is fast and reliable.
   docker-validation:

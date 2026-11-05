@@ -308,6 +308,11 @@ synthetic clocks are not wire-timing measurements.
 
 ### 6.3 Hardware Abstraction
 - [ ] **DMA Support**: Extend PHY API for DMA-based transfers (zero-copy).
+- The STM32G0B1RE example now supplies selectable CMSIS DMA and optional ST HAL
+  UART/DMA transports behind the existing synchronous PHY contract. These move
+  UART bytes through DMA and wait for USART TC before releasing TIOL112 EN.
+  A portable asynchronous/zero-copy PHY API remains separate work; this example
+  does not introduce one. See its README and exact-ELF validation evidence.
 - [ ] **IRQ Mode**: Add interrupt-driven receive mode to PHY abstraction.
 - [ ] **GPIO Control**: Abstract C/Q line control for PHY implementations.
 - [ ] **Timer Abstraction**: Formalize timer requirements beyond time_utils.

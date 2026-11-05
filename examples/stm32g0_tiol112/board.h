@@ -3,6 +3,7 @@
 #define STM32_TIOL112_BOARD_H
 #include "iolinki/phy_tiol112.h"
 #include "rx_queue.h"
+#include "uart_dma.h"
 void board_init(void);
 const iolink_tiol112_io_t* board_tiol112_io(void);
 bool board_button(void);
