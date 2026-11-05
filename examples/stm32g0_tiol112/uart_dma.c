@@ -207,6 +207,15 @@ int board_dma_recv(uint8_t* byte, uint32_t* observed_us)
     }
     int result = 0;
     if (rx_active) {
+        /* Empty polling dominates a short request's response-phase jitter.
+         * Keep all fault/reload checks above, but avoid the full pop helper and
+         * timestamp read when this coherent producer snapshot is still empty. */
+        const uint32_t position = (BOARD_DMA_RX_SIZE - remaining) & (BOARD_DMA_RX_SIZE - 1U);
+        if (!rx_ring.failed && remaining <= BOARD_DMA_RX_SIZE &&
+            rx_ring.epoch + position == rx_ring.consumed) {
+            iolink_critical_exit();
+            return 0;
+        }
         __DMB();
         result = board_dma_rx_ring_pop(&rx_ring, rx_data, remaining, TIM2->CNT, byte);
         if (result > 0) {
