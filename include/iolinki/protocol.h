@@ -165,15 +165,23 @@
  * @ingroup iolinki_protocol
  * @{
  */
-#define IOLINK_ISDU_ERROR_NONE 0x00U               /**< No error. */
-#define IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL 0x11U  /**< Requested service not available. */
+#define IOLINK_ISDU_ERROR_NONE 0x00U          /**< No error. */
+#define IOLINK_ISDU_ERROR_APP_DEVICE 0x00U    /**< Device application error (C.2.2). */
+#define IOLINK_ISDU_ERROR_IDX_NOT_AVAIL 0x11U /**< Requested index not available (C.2.3). */
+#define IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL \
+    IOLINK_ISDU_ERROR_IDX_NOT_AVAIL /**< Deprecated alias of IOLINK_ISDU_ERROR_IDX_NOT_AVAIL. */
 #define IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL 0x12U /**< Requested subindex not available. */
+#define IOLINK_ISDU_ERROR_SERVICE_UNAVAIL 0x20U    /**< Service not available (C.2.5). */
 #define IOLINK_ISDU_ERROR_NOT_ACCESSIBLE 0x23U     /**< Object access denied (Table C.1). */
 #define IOLINK_ISDU_ERROR_FUNCTION_NOT_AVAIL \
-    0x35U                                       /**< Command function not available (Table C.1). */
-#define IOLINK_ISDU_ERROR_BUSY 0x30U            /**< Device busy. */
-#define IOLINK_ISDU_ERROR_WRITE_PROTECTED 0x23U /**< Access denied, Table C.1. */
-#define IOLINK_ISDU_ERROR_PARAM_INCONSISTENT 0x40U /**< Parameter set inconsistent. */
+    0x35U /**< Command function not available (Table C.1). */
+#define IOLINK_ISDU_ERROR_FUNCTION_TEMP_UNAVAIL \
+    0x36U                                         /**< Function temporarily unavailable (C.2.15). */
+#define IOLINK_ISDU_ERROR_WRITE_PROTECTED 0x23U   /**< Access denied, Table C.1. */
+#define IOLINK_ISDU_ERROR_PARAM_LEN_OVERRUN 0x33U /**< Parameter length overrun (C.2.12). */
+#define IOLINK_ISDU_ERROR_PARAM_LEN_UNDERRUN 0x34U /**< Parameter length underrun (C.2.13). */
+#define IOLINK_ISDU_ERROR_PARAM_SET_INVALID 0x40U  /**< Parameter set invalid (C.2.16). */
+#define IOLINK_ISDU_ERROR_PARAM_INCONSISTENT 0x41U /**< Parameter set inconsistent (C.2.17). */
 #define IOLINK_ISDU_ERROR_SEGMENTATION 0x81U       /**< Segmentation error. */
 /** @} */
 

@@ -29,6 +29,8 @@
 
 #define DLL_LOG(...)
 
+static void dll_disable_communication(iolink_dll_ctx_t* ctx);
+
 /**
  * @brief Centralised state transition.
  *
@@ -208,6 +210,13 @@ static void dll_enter_fallback(iolink_dll_ctx_t* ctx)
         return;
     }
 
+    /* 10.7.5: Back-to-box disables communication until the next power cycle;
+       a fallback to SIO must not resurrect the link. */
+    if (ctx->back_to_box_armed) {
+        dll_disable_communication(ctx);
+        return;
+    }
+
     ctx->fallback_count++;
     ctx->total_retries++;
 
@@ -356,6 +365,50 @@ static bool dll_dispatch_od(iolink_dll_ctx_t* ctx, uint8_t mc, const uint8_t* od
     return false;
 }
 
+/**
+ * @brief Arm the Back-to-box communication stop after a response was sent.
+ *
+ * 10.7.5: the ISDU response goes out first, then the Device waits at least
+ * three Master cycles before it stops and disables communication. The
+ * countdown advances on every valid Master frame; a deadline bounds the wait so
+ * a Master that stops polling still gets the Device disabled.
+ */
+static void dll_arm_back_to_box_stop(iolink_dll_ctx_t* ctx)
+{
+    if (!ctx->isdu.back_to_box_pending) {
+        return;
+    }
+    /* 10.7.5 counts from the last ISDU response octet: wait until the staged
+       response has been read out completely. */
+    if ((ctx->isdu.resp_total != 0U) && (ctx->isdu.resp_idx < ctx->isdu.resp_total)) {
+        return;
+    }
+    ctx->isdu.back_to_box_pending = false;
+    ctx->back_to_box_cycles = 3U;
+    ctx->back_to_box_armed = true;
+    /* Watchdog: the MasterCycle time is not tracked by this stack and is always
+       >= MinCycleTime, so 3 x MinCycleTime is the lower bound; a 1 s ceiling
+       keeps a Master that stops polling from leaving the link enabled. */
+    uint64_t watchdog_us =
+        (ctx->min_cycle_time_us > 0U) ? (3ULL * (uint64_t) ctx->min_cycle_time_us) : 0ULL;
+    if (watchdog_us < 1000000ULL) {
+        watchdog_us = 1000000ULL;
+    }
+    ctx->back_to_box_deadline_us = iolink_time_get_us() + watchdog_us;
+}
+
+/** @brief Stop and disable communication until the next power cycle (10.7.5). */
+static void dll_disable_communication(iolink_dll_ctx_t* ctx)
+{
+    if (ctx->phy->set_mode != NULL) {
+        ctx->phy->set_mode(ctx->phy->user, IOLINK_PHY_MODE_INACTIVE);
+    }
+    ctx->phy_mode = IOLINK_PHY_MODE_INACTIVE;
+    ctx->communication_disabled = true;
+    ctx->back_to_box_armed = false;
+    dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
+}
+
 /** @brief Process a 2-octet Type-0 request through ISDU and send the OD response. */
 static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t cks)
 {
@@ -392,6 +445,7 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
         }
     }
     ctx->last_response_us = iolink_time_get_us();
+    dll_arm_back_to_box_stop(ctx);
 }
 
 /** @brief Process a 3-octet Type-0 OD WRITE (MC, CKT, OD) and reply with CKS only (Figure A.5). */
@@ -413,6 +467,7 @@ static void dll_handle_type0_od_write(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t
         ctx->phy->send(ctx->phy->user, resp, 1);
     }
     ctx->last_response_us = iolink_time_get_us();
+    dll_arm_back_to_box_stop(ctx);
 }
 
 /** @brief Process a Type-1/Type-2 OPERATE frame (PD+OD) and build the response, enforcing t_REN. */
@@ -486,6 +541,7 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
         }
     }
     ctx->last_response_us = iolink_time_get_us();
+    dll_arm_back_to_box_stop(ctx);
 }
 
 /** @brief Poll PHY voltage and short-circuit status and raise events on faults. */
@@ -586,6 +642,16 @@ void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy)
 void iolink_dll_process(iolink_dll_ctx_t* ctx)
 {
     if ((ctx == NULL) || (ctx->phy == NULL)) {
+        return;
+    }
+
+    if (ctx->communication_disabled) {
+        return;
+    }
+    if (ctx->back_to_box_armed && (iolink_time_get_us() >= ctx->back_to_box_deadline_us)) {
+        /* 10.7.5: the wait after the response is bounded, so a Master that stops
+           polling cannot keep the Device communicating. */
+        dll_disable_communication(ctx);
         return;
     }
 
@@ -773,6 +839,15 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             const bool type_ok = dll_type_allowed(ctx, ctx->frame_buf);
 
             if (crc_ok && type_ok) {
+                if (ctx->back_to_box_armed) {
+                    if (ctx->back_to_box_cycles > 0U) {
+                        ctx->back_to_box_cycles--;
+                    }
+                    if (ctx->back_to_box_cycles == 0U) {
+                        dll_disable_communication(ctx);
+                        return;
+                    }
+                }
                 bool was_establishing = (ctx->state == IOLINK_DLL_STATE_AWAITING_COMM) ||
                                         (ctx->state == IOLINK_DLL_STATE_STARTUP);
                 if (was_establishing) {
@@ -982,21 +1057,35 @@ void iolink_dll_get_stats(const iolink_dll_ctx_t* ctx, iolink_dll_stats_t* out_s
     out_stats->short_circuits = ctx->short_circuits;
 }
 
-void iolink_dll_reset_diagnostics(iolink_dll_ctx_t* ctx)
+static void dll_clear_error_counters_locked(iolink_dll_ctx_t* ctx)
 {
-    if (ctx == NULL) return;
-
-    /* B.2.20/Table 101: ErrorCount counts errors since power-on or reset, and
-       the diagnosis/status is cleared by the reset SystemCommands. The event
-       engine owns DeviceStatus and DetailedDeviceStatus, so re-initialise it
-       (init does not take the critical section; the counter reset does). */
-    iolink_events_init(&ctx->events);
-
-    iolink_critical_enter();
     ctx->crc_errors = 0U;
     ctx->timeout_errors = 0U;
     ctx->framing_errors = 0U;
     ctx->timing_errors = 0U;
+}
+
+void iolink_dll_reset_error_counters(iolink_dll_ctx_t* ctx)
+{
+    if (ctx == NULL) return;
+
+    /* B.2.20: ErrorCount counts errors since power-on or reset. */
+    iolink_critical_enter();
+    dll_clear_error_counters_locked(ctx);
+    iolink_critical_exit();
+}
+
+void iolink_dll_reset_diagnostics(iolink_dll_ctx_t* ctx)
+{
+    if (ctx == NULL) return;
+
+    /* Table 101 "0": Device reset clears the diagnosis and status along with
+       ErrorCount. The event engine owns DeviceStatus and
+       DetailedDeviceStatus, so re-initialise it under the same critical
+       section that guards the counters against an ISR-triggered event. */
+    iolink_critical_enter();
+    iolink_events_init(&ctx->events);
+    dll_clear_error_counters_locked(ctx);
     iolink_critical_exit();
 }
 

@@ -133,9 +133,25 @@ void iolink_ds_bind_params(iolink_ds_ctx_t* ctx, iolink_params_ctx_t* params_ctx
 uint16_t iolink_ds_calc_checksum(const uint8_t* data, size_t len);
 
 /**
+ * @brief Discard the active Data Storage operation and any staged download image.
+ *
+ * Table 101 requires every reset command to discard a block parameter
+ * transfer, and Restore factory settings / Back-to-box to delete a pending
+ * upload request. After this call the DS engine is idle and no Master-supplied
+ * image can be applied by a later iolink_ds_process().
+ *
+ * @param ctx DS context
+ * @return 0 on success, negative on invalid parameters
+ */
+int iolink_ds_discard(iolink_ds_ctx_t* ctx);
+
+/**
  * @brief Process Data Storage engine logic
  *
- * Handles state transitions and background synchronization tasks.
+ * Handles state transitions and background synchronization tasks. The
+ * application must call this periodically from its main loop (for example next
+ * to ::iolink_device_process); the stack does not drive it, and a pending
+ * upload request that follows ParamDownloadStore stalls until it runs.
  *
  * @param ctx DS context to process
  */
@@ -152,7 +168,7 @@ void iolink_ds_process(iolink_ds_ctx_t* ctx);
 void iolink_ds_check(iolink_ds_ctx_t* ctx, uint16_t master_checksum);
 
 /**
- * @brief Start parameter upload to Master (System Command 0x95)
+ * @brief Start parameter upload to Master (SystemCommand ParamUploadStart 0x01)
  *
  * @param ctx DS context
  * @return int 0 on success, negative if DS not initialized
@@ -160,7 +176,7 @@ void iolink_ds_check(iolink_ds_ctx_t* ctx, uint16_t master_checksum);
 int iolink_ds_start_upload(iolink_ds_ctx_t* ctx);
 
 /**
- * @brief Start parameter download from Master (System Command 0x96)
+ * @brief Start parameter download from Master (SystemCommand ParamDownloadStart 0x03)
  *
  * @param ctx DS context
  * @return int 0 on success, negative if DS not initialized
@@ -176,12 +192,14 @@ int iolink_ds_start_download(iolink_ds_ctx_t* ctx);
 int iolink_ds_abort(iolink_ds_ctx_t* ctx);
 
 /**
- * @brief Handle standard DS System Command
+ * @brief Handle a Table B.9 SystemCommand that acts on Data Storage
  *
  * @param ctx DS context
- * @param cmd System Command (0x05-0x08)
+ * @param cmd SystemCommand code (ParamUploadStart/End, ParamDownloadStart/End,
+ *            ParamDownloadStore, ParamBreak)
  * @param access_locks Current Access Lock state (Index 0x000C)
- * @return int 0: Success, -1: Busy, -2: Access Denied, -3: Unknown
+ * @return int 0: Success, -1: Busy, -2: Access Denied, -3: Unknown,
+ *         -4: Inconsistent parameter set
  */
 int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_locks);
 

@@ -26,6 +26,20 @@
  */
 
 /**
+ * @defgroup iolinki_params_nvm NVM layout
+ * @brief Non-volatile layout owned by the parameter manager.
+ *
+ * The platform must provide at least ::IOLINK_NVM_MIN_SIZE bytes of NVM.
+ * A port whose region is smaller can build, but every persistent write then
+ * fails and the Device answers the corresponding negative confirmation.
+ * @{
+ */
+#define IOLINK_NVM_TAG_OFFSET 0U     /**< Identification-tag record offset. */
+#define IOLINK_NVM_LOCKS_OFFSET 128U /**< DeviceAccessLocks record offset. */
+#define IOLINK_NVM_MIN_SIZE 136U     /**< Minimum NVM region size in bytes. */
+/** @} */
+
+/**
  * @brief Per-device parameter manager context.
  */
 typedef struct
@@ -78,6 +92,27 @@ int iolink_params_ctx_set(iolink_params_ctx_t* ctx, uint16_t index, uint8_t subi
  * @param ctx Parameter manager context.
  */
 void iolink_params_ctx_factory_reset(iolink_params_ctx_t* ctx);
+
+/**
+ * @brief Commit the DeviceAccessLocks value (Index 0x000C) to non-volatile memory.
+ *
+ * B.2.4 requires the access locks to survive a power cycle. The value is stored
+ * in a dedicated NVM record next to the tag record and restored by
+ * iolink_params_ctx_init().
+ *
+ * @param ctx    Parameter manager context (provides the NVM binding).
+ * @param locks  16-bit access locks value.
+ * @return 0 on success, negative when the context has no device-info binding or
+ *         the NVM commit fails. On failure the runtime value is left unchanged.
+ */
+int iolink_params_ctx_store_access_locks(iolink_params_ctx_t* ctx, uint16_t locks);
+
+/**
+ * @brief Commit the DeviceAccessLocks value through the legacy context.
+ * @param locks 16-bit access locks value.
+ * @return 0 on success, negative on error.
+ */
+int iolink_params_store_access_locks(uint16_t locks);
 
 /**
  * @brief Initialize the parameter manager

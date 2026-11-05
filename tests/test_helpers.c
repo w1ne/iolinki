@@ -32,9 +32,11 @@ uint8_t g_rx_buf[1024];
 static int g_mock_wakeup = 0;
 static uint8_t g_mock_cq_state = 0U;
 static uint32_t g_mock_send_delay_us = 0U;
+static uint32_t g_mock_send_count = 0U;
 /* Strong deterministic test storage. The library's weak unsupported defaults
  * can otherwise satisfy archive references before the Linux backend is loaded. */
 static uint8_t g_nvm_mock[4096];
+static bool g_nvm_write_fail = false;
 int iolink_nvm_read(uint32_t offset, uint8_t* data, size_t len)
 {
     if (offset > sizeof(g_nvm_mock) || len > sizeof(g_nvm_mock) - offset ||
@@ -45,6 +47,9 @@ int iolink_nvm_read(uint32_t offset, uint8_t* data, size_t len)
 }
 int iolink_nvm_write(uint32_t offset, const uint8_t* data, size_t len)
 {
+    if (g_nvm_write_fail) {
+        return -1;
+    }
     if (offset > sizeof(g_nvm_mock) || len > sizeof(g_nvm_mock) - offset ||
         (len != 0U && data == NULL))
         return -1;
@@ -73,6 +78,7 @@ void mock_phy_set_baudrate(void* user, iolink_baudrate_t baudrate)
 int mock_phy_send(void* user, const uint8_t* data, size_t len)
 {
     (void) user;
+    g_mock_send_count++;
     check_expected_ptr(data);
     check_expected(len);
     if (g_mock_send_delay_us > 0U) {
@@ -118,6 +124,7 @@ const iolink_phy_api_t g_phy_mock = {.user = NULL,
 
 void setup_mock_phy(void)
 {
+    g_mock_send_count = 0U;
     /* Use -1 for infinite expectations to avoid errors on earlier test exit. */
     expect_any_count(mock_phy_set_mode, mode, -1);
     expect_any_count(mock_phy_set_baudrate, baudrate, -1);
@@ -226,6 +233,7 @@ void move_to_operate_ctx(iolink_device_ctx_t* ctx)
 
 void iolink_phy_mock_reset(void)
 {
+    g_mock_send_count = 0U;
     g_mock_wakeup = 0;
     g_mock_cq_state = 0U;
     g_mock_send_delay_us = 0U;
@@ -281,7 +289,13 @@ uint8_t* iolink_ds_mock_get_buf(void)
 void iolink_nvm_mock_cleanup(void)
 {
     memset(g_nvm_mock, 0, sizeof(g_nvm_mock));
+    g_nvm_write_fail = false;
     remove("iolink_nvm.bin");
+}
+
+void iolink_nvm_mock_fail_writes(bool fail)
+{
+    g_nvm_write_fail = fail;
 }
 
 /* ISDU V1.1.5 Interleaved Format Helpers */
@@ -387,4 +401,9 @@ int isdu_collect_response(iolink_isdu_ctx_t* ctx, uint8_t* buffer, size_t buffer
     }
 
     return (int) idx;
+}
+
+uint32_t iolink_phy_mock_get_send_count(void)
+{
+    return g_mock_send_count;
 }
