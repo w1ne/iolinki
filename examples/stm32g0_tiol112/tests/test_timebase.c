@@ -21,19 +21,8 @@ static uint32_t reference_ms(uint32_t high, uint32_t low)
 int main(void)
 {
     static const uint32_t lows[] = {
-        0U,
-        1U,
-        295U,
-        296U,
-        703U,
-        704U,
-        999U,
-        1000U,
-        1001U,
-        4294966999U,
-        4294967000U,
-        0xfffffffeU,
-        0xffffffffU,
+        0U,    1U,    295U,        296U,        703U,        704U,        999U,
+        1000U, 1001U, 4294966999U, 4294967000U, 0xfffffffeU, 0xffffffffU,
     };
     uint32_t epoch_ms = 0U;
     uint32_t remainder = 0U;
@@ -55,13 +44,7 @@ int main(void)
     }
 
     static const uint32_t highs[] = {
-        124U,
-        125U,
-        999U,
-        1000U,
-        0x7fffffffU,
-        0xfffffffeU,
-        0xffffffffU,
+        124U, 125U, 999U, 1000U, 0x7fffffffU, 0xfffffffeU, 0xffffffffU,
     };
     for (unsigned i = 0U; i < sizeof(highs) / sizeof(highs[0]); ++i) {
         uint64_t prefix = (uint64_t) highs[i] << 32U;
