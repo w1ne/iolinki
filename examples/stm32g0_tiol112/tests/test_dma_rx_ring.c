@@ -21,8 +21,8 @@ int main(void)
     board_dma_rx_ring_reset(&ring);
     CHECK(board_dma_rx_ring_pop(&ring, data, 128U, 10U, &byte) == 0);
 
-    /* A stream spanning four circular reloads. Drain each hardware byte; this
-     * includes a wrap in each possible position of a four-byte M-sequence. */
+    /* Streams spanning repeated circular reloads. Verify byte order and that
+     * the immediately following empty poll does not change the timestamp. */
     for (uint32_t prefix = 0U; prefix < 4U; ++prefix) {
         board_dma_rx_ring_reset(&ring);
         for (uint32_t n = 1U; n <= 260U + prefix; ++n) {
@@ -30,7 +30,7 @@ int main(void)
             data[(n - 1U) & (BOARD_DMA_RX_SIZE - 1U)] = (uint8_t) (n ^ 0x5aU);
             if (position == 64U) CHECK(board_dma_rx_ring_event(&ring, true, false) == 0);
             if (position == 0U) CHECK(board_dma_rx_ring_event(&ring, false, true) == 0);
-            uint32_t remaining = position == 0U ? 128U : 128U - position;
+            uint32_t remaining = 128U - position;
             CHECK(board_dma_rx_ring_pop(&ring, data, remaining, n * 48U, &byte) == 1);
             CHECK(byte == (uint8_t) (n ^ 0x5aU));
             CHECK(ring.observed_us == n * 48U);
