@@ -83,6 +83,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Queued events and the lifecycle state are discarded on the transition to
   STARTUP (10.10.2: the queue is discarded when communication is interrupted or
   cancelled).
+- **Spec conformance follow-up: device context, access locks, reset and Data
+  Storage.** The ISDU engine reads the identification data and
+  DeviceAccessLocks from the device-local `iolink_device_info_ctx_t` bound by
+  `iolink_device_init()`; the process-wide singleton is only a fallback. The
+  locks are persisted in NVM, restored on startup and returned to the state of
+  delivery by the reset commands; a reset whose NVM commit fails answers
+  `0x80 0x00` instead of reporting a change a power cycle would undo.
+- Every reset discards an active Block Parameter transfer (Table 101
+  "Discard"), Application reset (0x81) requests a Data Storage upload, and
+  Back-to-box (0x83) stops communication after the bounded wait of 10.7.5. The
+  reset commands reset ErrorCount and the diagnosis as required by Table 101.
+- Data Storage downloads are validated completely before any parameter is
+  written; a rejected image is not readable through 0x0003, and the image and
+  checksum are rebuilt from the device's actual parameters after a failed
+  ParamDownloadEnd/ParamDownloadStore. ParamDownloadStore starts the upload and
+  the NVM record layout is published as the `IOLINK_NVM_*` macros.
+- ISDU negative responses are consistent: read-only objects answer
+  `0x80 0x23`, length errors `0x80 0x33`/`0x80 0x34`, an unimplemented index
+  `0x80 0x11` and an unsupported subindex `0x80 0x12`.
+  `IOLINK_ISDU_ERROR_IDX_NOT_AVAIL`, `_SERVICE_UNAVAIL`,
+  `_PARAM_LEN_OVERRUN` and `_APP_DEVICE` are added.
 
 ### Fixed
 - **Streaming M-sequence request framing (wire change).** Read requests now

@@ -73,7 +73,7 @@ The stack is configured during `iolink_init()` via the `iolink_config_t` structu
 ```c
 typedef struct {
     iolink_m_seq_type_t m_seq_type; /**< Type 0, 1_x, or 2_x */
-    uint8_t min_cycle_time;         /**< Encoded per spec */
+    uint8_t min_cycle_time;         /**< 0.1 ms units, encoded per Table B.3 */
     uint8_t pd_in_len;              /**< 0-32 bytes */
     uint8_t pd_out_len;             /**< 0-32 bytes */
 } iolink_config_t;

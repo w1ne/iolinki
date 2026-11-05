@@ -23,7 +23,8 @@ Initialize the IO-Link stack with a PHY implementation and protocol configuratio
 ```c
 typedef struct {
     iolink_m_seq_type_t m_seq_type; /**< M-sequence type support */
-    uint8_t min_cycle_time;         /**< Minimum cycle time (encoded per spec) */
+    uint8_t min_cycle_time;         /**< Minimum cycle time in 0.1 ms units (Table B.3
+                                         encoding is applied for page 1) */
     uint8_t pd_in_len;              /**< Process Data Input length (bytes) */
     uint8_t pd_out_len;             /**< Process Data Output length (bytes) */
 } iolink_config_t;
