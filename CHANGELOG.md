@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- STM32G0B1RE USART1 transport selection: the existing CMSIS IRQ/polled port,
+  CMSIS circular RX/normal TX DMA, and an optional ST HAL UART/DMA transport.
+  DMA receives bytes without waiting for UART IDLE and keeps TIOL112 EN asserted
+  through USART TC. Added overflow/error recovery, explicit transport counters,
+  a sanitized RX-ring regression and COM2/COM3 GCC artifact matrix. The HAL
+  option preserves the CMSIS clock/GPIO/TIM2 BSP and the synchronous PHY API.
 - **A.6.4 event lifecycle.** Error and Warning events now follow the
   appears/disappears pair (Figure A.24): the same EventCode may not appear again
   before its disappearance has been reported, a disappearance is not issued
