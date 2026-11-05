@@ -52,7 +52,9 @@ ReturningNULL retains cached PDin; the callback can set `*valid=false`.
 - The native IAR project exists, but structural project tests are not evidence
   of an IAR compiler run.
 - Busy is implemented while synchronous dispatch is pending. There is no
-  asynchronous application completion API or five-second ISDU service timeout.
+  asynchronous application completion API or five-second ISDU acknowledgment
+  timeout. That timeout concerns request reception to response beginning, not
+  the duration of the entire segmented transfer.
 - The five-record1KiB test defines its own application record scheme; actual
   products must specify record identity and cross-record snapshot consistency.
 

@@ -96,10 +96,13 @@ formula in `protocol_rig_main.c`. Configured minimum cycle times are 3ms for
 COM3 and 15ms for COM2; the Direct Parameter encoding rounds COM2 up to 15.2ms.
 The 34 application blocks per second are independent of the IO-Link cycle rate.
 A 232-byte ISDU read requires five request and 235 response OD1 cycles: at
-34 cycles/s that alone would exceed the five-second service timeout. The
-master must use a suitable faster cycle or smaller application records.
-The stack's asynchronous completion API and five-second timeout remain open
-work, as documented in the protocol rig README.
+34 cycles/s this is about 7.1s of transfer time. This is a throughput figure,
+not a five-second timeout violation: the ISDU acknowledgment interval ends at
+the **beginning** of the response, not after every response segment has been
+transferred (IO-Link V1.1.4, Tables 53 and 102). Choose cycle frequency and
+record size for the required latency. The stack's asynchronous completion API
+and acknowledgment-timeout handling remain open work, as documented in the
+protocol rig README.
 
 Its legacy send-completion watchdog is 20ms and is explicitly not tA;
 the external rig must measure the actual last-master-stop to first-device-start
