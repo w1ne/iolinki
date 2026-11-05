@@ -10,6 +10,9 @@
 #if (IOLINK_G0_SYSCLK_HZ != 16000000UL) && (IOLINK_G0_SYSCLK_HZ != 64000000UL)
 #error "IOLINK_G0_SYSCLK_HZ must be 16000000 or 64000000"
 #endif
+#ifndef IOLINK_G0_TIOL112_ENABLE_GUARD_US
+#define IOLINK_G0_TIOL112_ENABLE_GUARD_US 6U
+#endif
 
 rx_queue_t board_rx;
 volatile uint32_t board_tx_timeouts;
@@ -239,6 +242,10 @@ static int wait_status(uint32_t flag, uint64_t deadline)
 static int send_complete(void* user, const uint8_t* data, size_t len)
 {
     (void) user;
+    /* The PHY asserted EN before this callback. TI specifies a typical 4us
+     * enable delay, not a guaranteed maximum. This configurable 6us default
+     * includes timer quantization margin; validate it on the actual hardware. */
+    const uint64_t driver_ready_at = iolink_time_get_us() + IOLINK_G0_TIOL112_ENABLE_GUARD_US;
     /* Disable receiver throughout transmission; no local CQ echo can enter ISR. */
     USART1->CR1 &= ~(USART_CR1_RE | USART_CR1_RXNEIE_RXFNEIE | USART_CR1_PEIE);
     USART1->CR3 &= ~USART_CR3_EIE;
@@ -247,6 +254,8 @@ static int send_complete(void* user, const uint8_t* data, size_t len)
     int result = -1;
     while (USART1->ISR & USART_ISR_REACK) {
         if (iolink_time_get_us() >= deadline) goto finished;
+    }
+    while (iolink_time_get_us() < driver_ready_at) {
     }
     USART1->ICR = USART_ICR_TCCF;
     for (size_t i = 0; i < len; ++i) {

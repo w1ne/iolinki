@@ -105,6 +105,16 @@ Its legacy send-completion watchdog is 20ms and is explicitly not tA;
 the external rig must measure the actual last-master-stop to first-device-start
 gap. An OPERATE LED indicates state, not conformance.
 
+`IOLINK_G0_TIOL112_ENABLE_GUARD_US` defaults to 6us between entering the
+EN-asserted send callback and permitting the first UART data write. This guard
+is part of the measured tA path. TIOL112 specifies a **typical** 4us driver
+enable delay in datasheet section 6.7; it does not establish a guaranteed
+maximum. The 6us setting is an engineering assumption, including timer
+quantization margin, that requires validation across the actual operating
+conditions. A simulated 4us enable-delay scenario is not worst-case electrical
+certification. Override the setting deliberately when evaluating another
+measured bound.
+
 A successful cross-build proves compilation of this CMSIS/GCC reference. A
 simulator run must establish its own instruction/peripheral-model accuracy.
 Neither is an IAR build, a customer BSP sign-off, a measured electrical tA result,
