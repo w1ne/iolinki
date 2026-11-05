@@ -430,6 +430,16 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
         ctx->pd_out_seen = true; /* B.2.24: last PDout written to the application */
     }
 
+    const uint8_t* pd_in = ctx->pd_in;
+    if (ctx->pd_input_select != NULL) {
+        bool valid = ctx->pd_valid;
+        const uint8_t* selected = ctx->pd_input_select(
+            ctx->pd_input_select_user, ctx->pd_out, ctx->pd_out_len_current,
+            ctx->pd_in_len_current, &valid);
+        if (selected != NULL) pd_in = selected;
+        ctx->pd_valid = valid;
+    }
+
     uint8_t od_in[IOLINK_OD_MAX_SIZE] = {0};
     uint8_t od_out[IOLINK_OD_MAX_SIZE] = {0};
     if (!read && (od_w > 0U)) {
@@ -454,7 +464,7 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
         pos += od_w;
     }
     if (ctx->pd_in_len_current > 0U) {
-        memcpy(&resp[pos], ctx->pd_in, ctx->pd_in_len_current);
+        memcpy(&resp[pos], pd_in, ctx->pd_in_len_current);
         pos += ctx->pd_in_len_current;
     }
 
@@ -484,6 +494,11 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
                                      IOLINK_EVENT_TYPE_WARNING);
             }
         }
+    }
+    /* Preserve the published snapshot for legacy observers and ISDU PD reads.
+       This copy is after send, outside the request-to-first-TX critical path. */
+    if ((pd_in != ctx->pd_in) && (ctx->pd_in_len_current > 0U)) {
+        memcpy(ctx->pd_in, pd_in, ctx->pd_in_len_current);
     }
     ctx->last_response_us = iolink_time_get_us();
 }

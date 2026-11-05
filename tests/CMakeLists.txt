@@ -1,4 +1,8 @@
 find_package(PkgConfig QUIET)
+add_executable(test_protocol_rig ../validation/protocol_rig.c)
+target_compile_definitions(test_protocol_rig PRIVATE IOLINK_RIG_HOST_MAIN)
+target_link_libraries(test_protocol_rig iolinki)
+add_test(NAME test_protocol_rig COMMAND test_protocol_rig)
 add_executable(test_switching_sensor test_switching_sensor.c ../examples/switching_sensor/switching_sensor.c)
 target_include_directories(test_switching_sensor PRIVATE ../examples/switching_sensor)
 add_test(NAME test_switching_sensor COMMAND test_switching_sensor)

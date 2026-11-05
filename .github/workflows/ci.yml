@@ -7,6 +7,29 @@ on:
     branches: [ main, develop ]
 
 jobs:
+  protocol-rig:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run exact-frame protocol rig
+        run: bash validation/run_protocol_rig.sh | tee protocol-rig.log
+      - name: Run dependency-free upstream regressions
+        run: python3 validation/run_upstream_regressions.py | tee upstream-regressions.json
+      - name: Check rig with address and undefined-behavior sanitizers
+        run: |
+          cc -std=c99 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -DIOLINK_RIG_HOST_MAIN -Iinclude validation/protocol_rig.c src/{crc,frame,dll,isdu,events,params,data_storage,device_info,device,platform}.c -o /tmp/iolinki-protocol-rig
+          ASAN_OPTIONS=detect_leaks=0 /tmp/iolinki-protocol-rig | tee protocol-rig-sanitized.log
+      - name: Archive protocol evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: type2v-protocol-rig
+          if-no-files-found: error
+          path: |
+            protocol-rig.log
+            protocol-rig-sanitized.log
+            upstream-regressions.json
+
   esp32-example:
     runs-on: ubuntu-latest
     steps:

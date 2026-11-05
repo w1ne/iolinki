@@ -68,7 +68,9 @@ static void device_apply_stack_config(iolink_device_ctx_t* ctx)
 
     /* Table A.10: TYPE_1_2 carries two OD octets, TYPE_1_V eight, and
        TYPE_2_V the two-octet variant; the remaining types carry one. */
-    ctx->dll.od_len = iolink_mseq_od_len(ctx->dll.m_seq_type);
+    ctx->dll.od_len = ctx->stack_config.od_len != 0U
+                          ? ctx->stack_config.od_len
+                          : iolink_mseq_od_len(ctx->dll.m_seq_type);
 
     ctx->dll.pd_in_len_current = ctx->dll.pd_in_len;
     ctx->dll.pd_out_len_current = ctx->dll.pd_out_len;
@@ -85,6 +87,20 @@ int iolink_device_init(iolink_device_ctx_t* ctx, const iolink_device_config_t* c
 {
     if ((ctx == NULL) || (config == NULL)) {
         return -1;
+    }
+
+    if ((config->stack.pd_in_len > IOLINK_PD_IN_MAX_SIZE) ||
+        (config->stack.pd_out_len > IOLINK_PD_OUT_MAX_SIZE)) {
+        return -1;
+    }
+    if (config->stack.od_len != 0U) {
+        const uint8_t width = config->stack.od_len;
+        if (config->stack.m_seq_type == IOLINK_M_SEQ_TYPE_2_V) {
+            if ((width != 1U) && (width != 2U)) return -1;
+        }
+        else if (width != iolink_mseq_od_len((uint8_t) config->stack.m_seq_type)) {
+            return -1;
+        }
     }
 
     (void) memset(ctx, 0, sizeof(*ctx));
@@ -107,6 +123,8 @@ int iolink_device_init(iolink_device_ctx_t* ctx, const iolink_device_config_t* c
     ctx->dll.isdu.vendor_user = config->user;
     ctx->dll.state_cb = device_state_cb;
     ctx->dll.state_cb_user = ctx;
+    ctx->dll.pd_input_select = config->pd_input_select;
+    ctx->dll.pd_input_select_user = config->user;
     if (config->ds_storage != NULL) {
         iolink_ds_init(&ctx->dll.ds, config->ds_storage);
         ctx->dll.isdu.ds_ctx = &ctx->dll.ds;

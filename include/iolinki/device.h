@@ -73,6 +73,7 @@ typedef struct
         void* user, uint16_t index, uint8_t subindex, bool write, const uint8_t* input,
         size_t length, uint8_t* output,
         size_t* output_length); /**< Optional vendor ISDU callback; see isdu.h. */
+    iolink_pd_input_select_cb_t pd_input_select; /**< Optional pre-TX current-cycle PD selector. */
 } iolink_device_config_t;
 
 /**
