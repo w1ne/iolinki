@@ -20,8 +20,21 @@ static uint32_t reference_ms(uint32_t high, uint32_t low)
 
 int main(void)
 {
-    static const uint32_t lows[] = {0U, 1U, 295U, 296U, 703U, 704U, 999U, 1000U,
-                                      1001U, 4294966999U, 4294967000U, 0xfffffffeU, 0xffffffffU};
+    static const uint32_t lows[] = {
+        0U,
+        1U,
+        295U,
+        296U,
+        703U,
+        704U,
+        999U,
+        1000U,
+        1001U,
+        4294966999U,
+        4294967000U,
+        0xfffffffeU,
+        0xffffffffU,
+    };
     uint32_t epoch_ms = 0U;
     uint32_t remainder = 0U;
     /* 5000 timer wraps include 40 fractional-carry periods and five complete
@@ -41,8 +54,15 @@ int main(void)
         EQUAL(remainder, pending_remainder);
     }
 
-    static const uint32_t highs[] = {124U, 125U, 999U, 1000U, 0x7fffffffU, 0xfffffffeU,
-                                       0xffffffffU};
+    static const uint32_t highs[] = {
+        124U,
+        125U,
+        999U,
+        1000U,
+        0x7fffffffU,
+        0xfffffffeU,
+        0xffffffffU,
+    };
     for (unsigned i = 0U; i < sizeof(highs) / sizeof(highs[0]); ++i) {
         uint64_t prefix = (uint64_t) highs[i] << 32U;
         epoch_ms = (uint32_t) (prefix / 1000U);
@@ -52,8 +72,7 @@ int main(void)
                   reference_ms(highs[i], lows[j]));
         }
         board_time_advance_epoch(&epoch_ms, &remainder, highs[i] + 1U);
-        EQUAL(board_time_milliseconds(epoch_ms, remainder, 37U),
-              reference_ms(highs[i] + 1U, 37U));
+        EQUAL(board_time_milliseconds(epoch_ms, remainder, 37U), reference_ms(highs[i] + 1U, 37U));
     }
     printf("TIM2 millisecond timebase: %u exact-reference checks PASS\n", checks);
     return 0;
