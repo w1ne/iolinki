@@ -123,16 +123,10 @@ static int locks_nvm_write(uint16_t locks)
 static int locks_nvm_write_if_changed(uint16_t locks)
 {
     iolink_locks_nvm_t rec;
-    uint16_t current = 0U;
-    bool have_current;
 
-    have_current = (iolink_nvm_read(LOCKS_NVM_OFFSET, (uint8_t*) &rec, sizeof(rec)) == 0) &&
-                   (rec.magic == LOCKS_NVM_MAGIC);
-    if (have_current) {
-        current = rec.access_locks;
-        if (current == locks) {
-            return 0;
-        }
+    if ((iolink_nvm_read(LOCKS_NVM_OFFSET, (uint8_t*) &rec, sizeof(rec)) == 0) &&
+        (rec.magic == LOCKS_NVM_MAGIC) && (rec.access_locks == locks)) {
+        return 0;
     }
     return locks_nvm_write(locks);
 }
