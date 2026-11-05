@@ -69,8 +69,8 @@ static const uint8_t* select_block(void* user, const uint8_t* pdout, uint8_t out
 }
 
 static uint8_t image_service(void* user, uint16_t index, uint8_t subindex, bool write,
-                              const uint8_t* input, size_t length, uint8_t* output,
-                              size_t* output_length)
+                             const uint8_t* input, size_t length, uint8_t* output,
+                             size_t* output_length)
 {
     (void) user;
     (void) input;

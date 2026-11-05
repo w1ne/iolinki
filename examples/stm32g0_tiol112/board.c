@@ -96,8 +96,8 @@ void board_init(void)
     while (RCC->CR & RCC_CR_PLLRDY) {
     }
     /* HSI16 / M1 * N8 / R2 = 64MHz; M and R fields encode divisor minus one. */
-    RCC->PLLCFGR = RCC_PLLCFGR_PLLSRC_HSI | (8UL << RCC_PLLCFGR_PLLN_Pos) |
-                   RCC_PLLCFGR_PLLREN | (1UL << RCC_PLLCFGR_PLLR_Pos);
+    RCC->PLLCFGR = RCC_PLLCFGR_PLLSRC_HSI | (8UL << RCC_PLLCFGR_PLLN_Pos) | RCC_PLLCFGR_PLLREN |
+                   (1UL << RCC_PLLCFGR_PLLR_Pos);
     RCC->CR |= RCC_CR_PLLON;
     while (!(RCC->CR & RCC_CR_PLLRDY)) {
     }
