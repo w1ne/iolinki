@@ -60,8 +60,8 @@ typedef struct
  *         iolink_device_process call returns; NULL keeps the cached PD-in.
  */
 typedef const uint8_t* (*iolink_pd_input_select_cb_t)(void* user, const uint8_t* pd_out,
-                                                     uint8_t pd_out_len, uint8_t pd_in_len,
-                                                     bool* valid);
+                                                      uint8_t pd_out_len, uint8_t pd_in_len,
+                                                      bool* valid);
 
 /** @} */ /* end of iolinki_application */
 

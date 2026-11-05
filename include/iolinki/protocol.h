@@ -92,7 +92,7 @@
  */
 #define IOLINK_ISDU_SERVICE_READ 0x0BU  /**< ISDU read service. */
 #define IOLINK_ISDU_SERVICE_WRITE 0x03U /**< ISDU write service. */
-#define IOLINK_ISDU_DATA_MAX_SIZE 232U /**< Maximum application data in one ISDU record. */
+#define IOLINK_ISDU_DATA_MAX_SIZE 232U  /**< Maximum application data in one ISDU record. */
 /** @} */
 
 /**

@@ -1177,11 +1177,11 @@ static void build_direct_param_page1(iolink_isdu_ctx_t* ctx, uint8_t* page)
     (void) memset(page, 0, 16);
     /* 0x00 MasterCommand (W) and 0x01 MasterCycleTime default to 0. */
     page[0x02] = (info != NULL) ? iolink_cycle_time_encode((uint16_t) info->min_cycle_time)
-                                : 0U;                 /* MinCycleTime (Table B.3) */
+                                : 0U;                         /* MinCycleTime (Table B.3) */
     page[0x03] = direct_param_mseq_capability(m_seq, od_len); /* M-sequenceCapability */
-    page[0x04] = 0x11U;                               /* RevisionID = v1.1 */
-    page[0x05] = direct_param_encode_pd(pd_in);       /* ProcessDataIn */
-    page[0x06] = direct_param_encode_pd(pd_out);      /* ProcessDataOut */
+    page[0x04] = 0x11U;                                       /* RevisionID = v1.1 */
+    page[0x05] = direct_param_encode_pd(pd_in);               /* ProcessDataIn */
+    page[0x06] = direct_param_encode_pd(pd_out);              /* ProcessDataOut */
     if (info != NULL) {
         page[0x07] = (uint8_t) (info->vendor_id >> 8);            /* VendorID MSB */
         page[0x08] = (uint8_t) (info->vendor_id & 0xFFU);         /* VendorID LSB */

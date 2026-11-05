@@ -133,10 +133,10 @@ typedef struct
     iolink_isdu_ctx_t isdu;     /**< ISDU Service engine */
     iolink_ds_ctx_t ds;         /**< Data Storage engine */
 
-    iolink_dll_state_cb_t state_cb; /**< Optional state-change hook (set by core) */
-    void* state_cb_user;            /**< User pointer passed to state_cb */
+    iolink_dll_state_cb_t state_cb;              /**< Optional state-change hook (set by core) */
+    void* state_cb_user;                         /**< User pointer passed to state_cb */
     iolink_pd_input_select_cb_t pd_input_select; /**< Optional current-cycle PD selector. */
-    void* pd_input_select_user; /**< Application context for the PD selector. */
+    void* pd_input_select_user;                  /**< Application context for the PD selector. */
 } iolink_dll_ctx_t;
 
 /**

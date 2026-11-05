@@ -68,9 +68,8 @@ static void device_apply_stack_config(iolink_device_ctx_t* ctx)
 
     /* Table A.10: TYPE_1_2 carries two OD octets, TYPE_1_V eight, and
        TYPE_2_V the two-octet variant; the remaining types carry one. */
-    ctx->dll.od_len = ctx->stack_config.od_len != 0U
-                          ? ctx->stack_config.od_len
-                          : iolink_mseq_od_len(ctx->dll.m_seq_type);
+    const uint8_t configured_od = ctx->stack_config.od_len;
+    ctx->dll.od_len = configured_od != 0U ? configured_od : iolink_mseq_od_len(ctx->dll.m_seq_type);
 
     ctx->dll.pd_in_len_current = ctx->dll.pd_in_len;
     ctx->dll.pd_out_len_current = ctx->dll.pd_out_len;

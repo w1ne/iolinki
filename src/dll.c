@@ -433,9 +433,9 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
     const uint8_t* pd_in = ctx->pd_in;
     if (ctx->pd_input_select != NULL) {
         bool valid = ctx->pd_valid;
-        const uint8_t* selected = ctx->pd_input_select(
-            ctx->pd_input_select_user, ctx->pd_out, ctx->pd_out_len_current,
-            ctx->pd_in_len_current, &valid);
+        const uint8_t* selected =
+            ctx->pd_input_select(ctx->pd_input_select_user, ctx->pd_out, ctx->pd_out_len_current,
+                                 ctx->pd_in_len_current, &valid);
         if (selected != NULL) pd_in = selected;
         ctx->pd_valid = valid;
     }
