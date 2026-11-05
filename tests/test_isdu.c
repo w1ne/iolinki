@@ -291,11 +291,11 @@ static void test_system_cmd_resets_diagnostics(void** state)
     assert_int_equal(dll.events.count, 0U);
     assert_false(iolink_events_flag(&dll.events));
 
-    /* 0x82 clears active diagnosis through Event Disappears; 0x83 sets status
-       to zero and discards the diagnosis before communication is stopped. */
-    const uint8_t keep_event_commands[] = {IOLINK_CMD_RESTORE_FACTORY_SETTINGS,
-                                           IOLINK_CMD_BACK_TO_BOX};
-    for (size_t i = 0U; i < (sizeof(keep_event_commands) / sizeof(keep_event_commands[0])); i++) {
+    /* Both commands leave the diagnosis at "0" in the current event engine;
+       the MODE "disappears" pairing of Table 101 "Clear" belongs to the event
+       lifecycle follow-up. */
+    const uint8_t reset_commands[] = {IOLINK_CMD_RESTORE_FACTORY_SETTINGS, IOLINK_CMD_BACK_TO_BOX};
+    for (size_t i = 0U; i < (sizeof(reset_commands) / sizeof(reset_commands[0])); i++) {
         (void) memset(&dll, 0, sizeof(dll));
         iolink_events_init(&dll.events);
         dll.crc_errors = 3U;
@@ -307,7 +307,7 @@ static void test_system_cmd_resets_diagnostics(void** state)
         iolink_isdu_init(&ctx);
         ctx.dll_ctx = &dll;
         ctx.event_ctx = &dll.events;
-        const uint8_t cmd = keep_event_commands[i];
+        const uint8_t cmd = reset_commands[i];
         assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, &cmd, 1),
                          1);
         iolink_isdu_process(&ctx);
@@ -1542,6 +1542,13 @@ static void test_isdu_param_lock_uses_bound_device_info(void** state)
     iolink_isdu_process(&ctx);
     uint8_t resp[2];
     assert_int_equal(isdu_collect_response(&ctx, resp, sizeof(resp)), 0);
+
+    /* The write really happened: a test that only sees "no negative response"
+       could also pass on a path that silently drops the request. */
+    uint8_t tag[8];
+    const int tag_len = iolink_params_get(IOLINK_IDX_APPLICATION_TAG, 0x00U, tag, sizeof(tag));
+    assert_int_equal(tag_len, (int) sizeof(data));
+    assert_memory_equal(tag, data, sizeof(data));
 }
 
 /* Table B.14/B.2.22: writing a read-only object must produce a framed negative
@@ -1659,11 +1666,13 @@ static void test_isdu_reset_commands_restore_default_access_locks(void** state)
     for (size_t i = 0U; i < (sizeof(reset_to_default) / sizeof(reset_to_default[0])); i++) {
         iolink_isdu_ctx_t ctx;
         iolink_device_info_t info;
+        iolink_device_info_t cold;
         iolink_device_info_ctx_t info_ctx;
         iolink_params_ctx_t params;
 
         (void) memset(&info, 0, sizeof(info));
-        info.access_locks = IOLINK_LOCK_DS; /* state of delivery */
+        info.access_locks = IOLINK_LOCK_DS;    /* state of delivery */
+        (void) memset(&cold, 0, sizeof(cold)); /* power-on configuration: no locks */
 
         iolink_nvm_mock_cleanup();
         iolink_device_info_ctx_init(&info_ctx, &info);
@@ -1689,9 +1698,9 @@ static void test_isdu_reset_commands_restore_default_access_locks(void** state)
         assert_int_equal(isdu_collect_response(&ctx, resp, sizeof(resp)), 0);
         assert_int_equal(iolink_device_info_ctx_get_access_locks(&info_ctx), IOLINK_LOCK_DS);
 
-        /* The restored default is persisted: a power cycle must not resurrect
-           the previous lock value. */
-        iolink_device_info_ctx_init(&info_ctx, &info);
+        /* The restored default is persisted: re-init from a configuration
+           without locks, so only the NVM record can supply LOCK_DS. */
+        iolink_device_info_ctx_init(&info_ctx, &cold);
         iolink_params_ctx_init(&params, &info_ctx);
         assert_int_equal(iolink_device_info_ctx_get_access_locks(&info_ctx), IOLINK_LOCK_DS);
     }
@@ -1755,13 +1764,20 @@ static void test_isdu_access_locks_corrupt_nvm_record_ignored(void** state)
     iolink_params_ctx_t params;
     uint8_t garbage[8];
 
+    iolink_device_info_t info;
+
+    (void) memset(&info, 0, sizeof(info));
+    info.access_locks = IOLINK_LOCK_DS; /* configured state of delivery */
+
     (void) memset(garbage, 0xFF, sizeof(garbage));
     assert_int_equal(iolink_nvm_write(IOLINK_NVM_LOCKS_OFFSET, garbage, sizeof(garbage)), 0);
 
-    iolink_device_info_ctx_init(&info_ctx, NULL);
+    iolink_device_info_ctx_init(&info_ctx, &info);
     iolink_params_ctx_init(&params, &info_ctx);
 
-    assert_int_equal(iolink_device_info_ctx_get_access_locks(&info_ctx), 0U);
+    /* The corrupt record is rejected: the configured value survives instead of
+       being replaced by the garbage (which would be 0xFFFF here). */
+    assert_int_equal(iolink_device_info_ctx_get_access_locks(&info_ctx), IOLINK_LOCK_DS);
 }
 
 /* A failed persistent write must be reported and must not change the lock value. */
@@ -1961,9 +1977,15 @@ static void test_system_cmd_reset_discards_staged_download_image(void** state)
         iolink_ds_process(&ds);
         uint8_t tag[33];
         const int tag_len = iolink_params_get(IOLINK_IDX_APPLICATION_TAG, 0x00U, tag, sizeof(tag));
-        assert_true(tag_len >= 0);
-        if (tag_len > 0) {
-            assert_int_not_equal(tag[0], (uint8_t) 'X');
+        if (cmds[i] == IOLINK_CMD_DEVICE_RESET) {
+            /* Device reset keeps the parameter set: the default tag must still
+               be the one stored, never the staged "X". */
+            assert_true(tag_len > 0);
+            assert_int_equal(tag[0], (uint8_t) 'D');
+        }
+        else {
+            /* Restore factory settings / Back-to-box clear the tag. */
+            assert_int_equal(tag_len, 0);
         }
     }
 }
