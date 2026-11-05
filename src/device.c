@@ -96,6 +96,14 @@ int iolink_device_init(iolink_device_ctx_t* ctx, const iolink_device_config_t* c
         const uint8_t width = config->stack.od_len;
         if (config->stack.m_seq_type == IOLINK_M_SEQ_TYPE_2_V) {
             if ((width != 1U) && (width != 2U)) return -1;
+            if ((config->stack.pd_in_len == 0U) && (config->stack.pd_out_len == 0U)) {
+                return -1;
+            }
+            /* This OD1 variant advertises code4, not the short-PD code0 form. */
+            if ((width == 1U) && (config->stack.pd_in_len < 3U) &&
+                (config->stack.pd_out_len < 3U)) {
+                return -1;
+            }
         }
         else if (width != iolink_mseq_od_len((uint8_t) config->stack.m_seq_type)) {
             return -1;

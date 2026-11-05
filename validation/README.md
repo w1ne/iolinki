@@ -36,6 +36,8 @@ reply and records the published snapshot after synchronous transmission.
 
 Set `config.stack.od_len = 1` for the OD1 TYPE_2_V variant. Zero preserves the
 existing default. The selected OD width is reflected in M-sequenceCapability.
+Explicit TYPE_2_V widths require nonzero PD. OD1/code4 requires at least three
+PD octets in one direction; shorter OD1 forms requiring code0 are rejected.
 
 The callback must be bounded and nonblocking, must not re-enter the stack, and
 must keep its returned buffer valid until `iolink_device_process` returns.

@@ -10,7 +10,8 @@ The [ST STM32G0B1 datasheet](https://www.st.com/resource/en/datasheet/stm32g0b1r
 identifies the RE variant as 512KiB flash and lists USART1 TX/RX on PA9/PA10 AF1
 (table 13), and TIM2 as 32-bit. Linkers deliberately use the 128KiB SRAM region;
 the extra 16KiB requires repurposing parity storage. These settings assume reset
-entry, 16MHz HSI, and undivided AHB/APB. Do not enter from a bootloader with live
+entry and undivided AHB/APB. The default uses 16MHz HSI; an optional 64MHz PLL
+configuration is described below. Do not enter from a bootloader with live
 peripherals without adding a handover/deinitialization sequence.
 
 | STM32 pin | TIOL112 signal / application |
@@ -60,6 +61,46 @@ The `stm32g0-example` CI job uses that ST commit and CMSIS 5.9.0
 archives ELF, HEX and memory map. A local build with the same vendor revisions
 and Arm GCC 13.2.1 uses 13,984 bytes of text, 4 bytes of initialized data and
 6,736 bytes of BSS including the reserved stack. This is compilation evidence.
+
+## 64MHz protocol profile
+
+The default reference firmware remains at 16MHz. Select
+`IOLINK_G0_SYSCLK_HZ=64000000` to use HSI16 with PLL M=1, N=8, R=2. The BSP sets
+voltage range 1 and two Flash wait states before switching to PLLRCLK, then
+derives TIM2's 1MHz prescaler, UART BRR and TX timeout baud from
+`SystemCoreClock`. AHB and APB remain undivided. This uses CMSIS registers,
+without linking ST HAL. The clock parameters match ST's
+[NUCLEO-G0B1RE 64MHz example](https://github.com/STMicroelectronics/STM32CubeG0/blob/master/Projects/NUCLEO-G0B1RE/Examples/PWR/PWR_SLEEP/Src/main.c).
+
+For the real UART/TIOL112 protocol application, build:
+
+```sh
+IOLINK_G0_SYSCLK_HZ=64000000 IOLINK_G0_PROTOCOL_PROFILE=1 \
+  BUILD_DIR="$PWD/examples/stm32g0_tiol112/build-protocol64" \
+  bash examples/stm32g0_tiol112/build.sh
+```
+
+This selects `protocol_rig_main.c` and produces `protocol-rig-64mhz.elf`, `.hex`
+and `.map`. The application uses TYPE_2_V, PDout1, PDin32, OD1/code4, current-cycle
+prepared-buffer selection and an application-defined segmented ISDU record.
+COM3 is the default; `IOLINK_RIG_COM=2` selects COM2 for a separate build.
+It uses the actual board UART, RX ISR, TIOL112 driver and timer; it does not
+inject virtual PHY bytes or force the DLL to OPERATE. The master must perform
+the wake-up and startup sequence. The CI job archives this firmware separately
+as `stm32g0-tiol112-protocol-64mhz-gcc`.
+
+The immutable 1024-byte image is exposed read-only at indices 0x0100 through
+0x0104 as four 232-byte records and one 96-byte record. PDin byte 0 echoes the
+current selector. Remaining PDin bytes and the image use the deterministic
+formula in `protocol_rig_main.c`. The advertised minimum cycle time is 20ms.
+Its legacy send-completion watchdog is also 20ms and is explicitly not tA;
+the external rig must measure the actual last-master-stop to first-device-start
+gap. An OPERATE LED indicates state, not conformance.
+
+A successful cross-build proves compilation of this CMSIS/GCC reference. A
+simulator run must establish its own instruction/peripheral-model accuracy.
+Neither is an IAR build, a customer BSP sign-off, a measured electrical tA result,
+or a physical-master interoperability result.
 
 ## Native IAR EWARM project
 

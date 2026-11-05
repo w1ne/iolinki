@@ -121,6 +121,14 @@ static bool exact_profile(void)
     link.config.stack.od_len = 1U;
     link.config.stack.pd_in_len = 33U;
     CHECK(iolink_device_init(&dev, &link.config) < 0);
+    link.config.stack.pd_in_len = 2U;
+    CHECK(iolink_device_init(&dev, &link.config) < 0); /* OD1 short PD needs code0. */
+    link.config.stack.pd_in_len = 0U;
+    link.config.stack.pd_out_len = 3U;
+    CHECK(iolink_device_init(&dev, &link.config) == 0);
+    link.config.stack.od_len = 2U;
+    link.config.stack.pd_out_len = 0U;
+    CHECK(iolink_device_init(&dev, &link.config) < 0); /* TYPE_2_V requires PD. */
     return true;
 }
 

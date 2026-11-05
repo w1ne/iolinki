@@ -4,6 +4,13 @@
 #include "iolinki/platform.h"
 #include "iolinki/time_utils.h"
 
+#ifndef IOLINK_G0_SYSCLK_HZ
+#define IOLINK_G0_SYSCLK_HZ 16000000UL
+#endif
+#if (IOLINK_G0_SYSCLK_HZ != 16000000UL) && (IOLINK_G0_SYSCLK_HZ != 64000000UL)
+#error "IOLINK_G0_SYSCLK_HZ must be 16000000 or 64000000"
+#endif
+
 rx_queue_t board_rx;
 volatile uint32_t board_tx_timeouts;
 static volatile uint32_t timer_high;
@@ -72,6 +79,29 @@ void board_init(void)
     RCC->CFGR &= ~(RCC_CFGR_SW | RCC_CFGR_HPRE | RCC_CFGR_PPRE);
     while (RCC->CFGR & RCC_CFGR_SWS) {
     }
+#if IOLINK_G0_SYSCLK_HZ == 64000000UL
+    /* Range 1 and two Flash wait states before raising the CPU/bus clock. */
+    RCC->APBENR1 |= RCC_APBENR1_PWREN;
+    (void) RCC->APBENR1;
+    PWR->CR1 = (PWR->CR1 & ~PWR_CR1_VOS) | PWR_CR1_VOS_0;
+    while (PWR->SR2 & PWR_SR2_VOSF) {
+    }
+    FLASH->ACR = (FLASH->ACR & ~FLASH_ACR_LATENCY) | (2UL << FLASH_ACR_LATENCY_Pos);
+    while ((FLASH->ACR & FLASH_ACR_LATENCY) != (2UL << FLASH_ACR_LATENCY_Pos)) {
+    }
+    RCC->CR &= ~RCC_CR_PLLON;
+    while (RCC->CR & RCC_CR_PLLRDY) {
+    }
+    /* HSI16 / M1 * N8 / R2 = 64MHz; M and R fields encode divisor minus one. */
+    RCC->PLLCFGR = RCC_PLLCFGR_PLLSRC_HSI | (8UL << RCC_PLLCFGR_PLLN_Pos) |
+                   RCC_PLLCFGR_PLLREN | (1UL << RCC_PLLCFGR_PLLR_Pos);
+    RCC->CR |= RCC_CR_PLLON;
+    while (!(RCC->CR & RCC_CR_PLLRDY)) {
+    }
+    RCC->CFGR = (RCC->CFGR & ~RCC_CFGR_SW) | RCC_CFGR_SW_PLLRCLK;
+    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLLRCLK) {
+    }
+#endif
     SystemCoreClockUpdate();
     RCC->IOPENR |= RCC_IOPENR_GPIOAEN | RCC_IOPENR_GPIOBEN | RCC_IOPENR_GPIOCEN;
     RCC->APBENR2 |= RCC_APBENR2_SYSCFGEN;
@@ -80,7 +110,7 @@ void board_init(void)
     SYSCFG->CFGR1 |= SYSCFG_CFGR1_UCPD1_STROBE;
     RCC->APBENR1 |= RCC_APBENR1_TIM2EN;
     (void) RCC->APBENR1;
-    TIM2->PSC = 15U;
+    TIM2->PSC = SystemCoreClock / 1000000UL - 1U;
     TIM2->ARR = 0xffffffffU;
     TIM2->EGR = TIM_EGR_UG;
     TIM2->SR = 0;
@@ -160,11 +190,11 @@ static int configure(void* user, uint32_t baud)
     (void) user;
     if (baud != 4800U && baud != 38400U && baud != 230400U) return -1;
     USART1->CR1 = 0;
-    RCC->CCIPR &= ~RCC_CCIPR_USART1SEL;                  /* APB clock = 16MHz */
+    RCC->CCIPR &= ~RCC_CCIPR_USART1SEL;                  /* APB clock = core clock. */
     GPIOA->AFR[1] = (GPIOA->AFR[1] & ~0xff0UL) | 0x110U; /* PA9/10 AF1 */
     mode(GPIOA, 9, 2);
     mode(GPIOA, 10, 2);
-    USART1->BRR = (16000000UL + baud / 2U) / baud;
+    USART1->BRR = (SystemCoreClock + baud / 2U) / baud;
     USART1->CR2 = 0; /* one stop bit */
     USART1->CR3 = USART_CR3_EIE;
     USART1->ICR =
@@ -212,7 +242,7 @@ static int send_complete(void* user, const uint8_t* data, size_t len)
     /* Disable receiver throughout transmission; no local CQ echo can enter ISR. */
     USART1->CR1 &= ~(USART_CR1_RE | USART_CR1_RXNEIE_RXFNEIE | USART_CR1_PEIE);
     USART1->CR3 &= ~USART_CR3_EIE;
-    uint32_t baud = 16000000UL / USART1->BRR;
+    uint32_t baud = SystemCoreClock / USART1->BRR;
     uint64_t deadline = iolink_time_get_us() + ((uint64_t) len * 11000000ULL / baud) + 2000U;
     int result = -1;
     while (USART1->ISR & USART_ISR_REACK) {
