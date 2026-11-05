@@ -56,7 +56,8 @@ def verify_task3():
         print("Reading Index 0x0024 (Device Status)...")
         resp = master.read_isdu(index=0x0024, subindex=0x00)
         if resp:
-            print(f"✅ Index 0x0024 Response: {resp[0]} (0=OK, 3=Failure)")
+            print(f"✅ Index 0x0024 Response: {resp[0]} (Table B.13: 0=OK, 1=Maintenance, "
+                  f"2=Out-of-Spec, 3=Functional-Check, 4=Failure)")
         else:
             print("❌ Index 0x0024 Read failed")
 
