@@ -399,22 +399,22 @@ void iolink_isdu_od_write(iolink_isdu_ctx_t* ctx, uint8_t flowctrl, const uint8_
 
 void iolink_isdu_od_read(iolink_isdu_ctx_t* ctx, uint8_t flowctrl, uint8_t* od_out, uint8_t od_len)
 {
-    if ((ctx == NULL) || (od_out == NULL) || (od_len == 0U) ||
-        (od_len > IOLINK_OD_MAX_SIZE)) {
+    if (ctx == NULL) {
         return;
     }
-    for (uint8_t i = 0U; i < od_len; i++) {
-        od_out[i] = 0U;
-    }
-
-    if (flowctrl == IOLINK_FLOWCTRL_ABORT) {
+    if ((flowctrl == IOLINK_FLOWCTRL_ABORT) || (flowctrl == IOLINK_FLOWCTRL_IDLE) ||
+        (flowctrl == IOLINK_FLOWCTRL_IDLE2)) {
+        /* Control-only calls must reset the transport even without an OD buffer. */
         isdu_transport_reset(ctx);
+        if ((od_out != NULL) && (od_len <= IOLINK_OD_MAX_SIZE)) {
+            (void) memset(od_out, 0, od_len);
+        }
         return;
     }
-    if ((flowctrl == IOLINK_FLOWCTRL_IDLE) || (flowctrl == IOLINK_FLOWCTRL_IDLE2)) {
-        isdu_transport_reset(ctx);
+    if ((od_out == NULL) || (od_len == 0U) || (od_len > IOLINK_OD_MAX_SIZE)) {
         return;
     }
+    (void) memset(od_out, 0, od_len);
 
     if (flowctrl == IOLINK_FLOWCTRL_START) {
         /* Start of response read. If a service is being executed and the

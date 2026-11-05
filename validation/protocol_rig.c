@@ -366,6 +366,16 @@ static bool busy_abort_and_bad_count(void)
     iolink_isdu_od_read(&ctx, IOLINK_FLOWCTRL_ABORT, &reply, 1U);
     iolink_isdu_process(&ctx);
     CHECK(ctx.state == ISDU_STATE_IDLE && vendor.calls == 1U);
+    const uint8_t controls[] = {
+        IOLINK_FLOWCTRL_ABORT, IOLINK_FLOWCTRL_IDLE, IOLINK_FLOWCTRL_IDLE2
+    };
+    for (size_t i = 0U; i < sizeof(controls); ++i) {
+        rig_isdu_read_request(&ctx, 0x0100U, 0U);
+        CHECK(ctx.state == ISDU_STATE_SERVICE_EXECUTE);
+        iolink_isdu_od_read(&ctx, controls[i], NULL, 0U);
+        iolink_isdu_process(&ctx);
+        CHECK(ctx.state == ISDU_STATE_IDLE && vendor.calls == 1U);
+    }
     const uint8_t bad[] = {0xB5U, 1U, 0U, 0U, 0U};
     rig_isdu_feed(&ctx, bad, sizeof(bad), false);
     iolink_isdu_process(&ctx);
