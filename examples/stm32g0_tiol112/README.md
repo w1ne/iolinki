@@ -92,8 +92,16 @@ as `stm32g0-tiol112-protocol-64mhz-gcc`.
 The immutable 1024-byte image is exposed read-only at indices 0x0100 through
 0x0104 as four 232-byte records and one 96-byte record. PDin byte 0 echoes the
 current selector. Remaining PDin bytes and the image use the deterministic
-formula in `protocol_rig_main.c`. The advertised minimum cycle time is 20ms.
-Its legacy send-completion watchdog is also 20ms and is explicitly not tA;
+formula in `protocol_rig_main.c`. Configured minimum cycle times are 3ms for
+COM3 and 15ms for COM2; the Direct Parameter encoding rounds COM2 up to 15.2ms.
+The 34 application blocks per second are independent of the IO-Link cycle rate.
+A 232-byte ISDU read requires five request and 235 response OD1 cycles: at
+34 cycles/s that alone would exceed the five-second service timeout. The
+master must use a suitable faster cycle or smaller application records.
+The stack's asynchronous completion API and five-second timeout remain open
+work, as documented in the protocol rig README.
+
+Its legacy send-completion watchdog is 20ms and is explicitly not tA;
 the external rig must measure the actual last-master-stop to first-device-start
 gap. An OPERATE LED indicates state, not conformance.
 

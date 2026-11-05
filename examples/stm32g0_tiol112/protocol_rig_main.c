@@ -12,8 +12,10 @@
 #endif
 #if IOLINK_RIG_COM == 3
 #define RIG_BAUD IOLINK_BAUDRATE_COM3
+#define RIG_MIN_CYCLE 30U
 #elif IOLINK_RIG_COM == 2
 #define RIG_BAUD IOLINK_BAUDRATE_COM2
+#define RIG_MIN_CYCLE 150U
 #else
 #error "The evaluation profile supports IOLINK_RIG_COM=2 or 3"
 #endif
@@ -43,7 +45,7 @@ static const iolink_device_info_t identity = {
     .firmware_revision = "1",
     .vendor_id = 1234,
     .device_id = 5678,
-    .min_cycle_time = 200, /* API units 100us; DPP encoder advertises 20ms. */
+    .min_cycle_time = RIG_MIN_CYCLE, /* API units 100us; DPP encoding rounds up. */
     .revision_id = 0x11,
 };
 
@@ -111,7 +113,7 @@ int main(void)
     config.stack.pd_in_len = 32U;
     config.stack.pd_out_len = 1U;
     config.stack.od_len = 1U;
-    config.stack.min_cycle_time = 200;
+    config.stack.min_cycle_time = RIG_MIN_CYCLE;
     config.pd_input_select = select_block;
     config.vendor_service = image_service;
     protocol_init_error = iolink_device_init(&protocol_device, &config);
