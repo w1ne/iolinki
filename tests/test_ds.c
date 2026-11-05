@@ -283,6 +283,7 @@ static void test_ds_rejected_image_not_synchronised_next_cycle(void** state)
     assert_true(iolink_ds_build_image(&ds) > 0);
 
     const uint16_t device_checksum = ds.current_checksum;
+    const size_t device_len = ds.image_len;
     const uint16_t master_checksum = (uint16_t) (device_checksum ^ 0x1234U);
 
     ds.state = IOLINK_DS_STATE_DOWNLOADING;
@@ -308,12 +309,14 @@ static void test_ds_rejected_image_not_synchronised_next_cycle(void** state)
     const uint8_t* img = iolink_ds_get_image(&ds, &len);
     assert_non_null(img);
     /* The served image is the Device's own set, not the rejected 4-octet one. */
-    assert_int_equal(len, (size_t) (img == ds.image ? ds.image_len : len));
-    assert_int_not_equal(len, 4U);
+    assert_int_equal(len, device_len);
+    assert_int_equal(img[1], IOLINK_IDX_APPLICATION_TAG);
+    assert_int_equal(img[3], 10U); /* "DefaultTag" */
+    assert_int_equal(img[4], (uint8_t) 'D');
 }
 
-/* ParamBreak aborts a block transfer: the staged Master image must not remain
- * readable through 0x0003 (Table 98 rule 6 / Table 101 "Discard"). */
+/* ParamBreak aborts a block transfer without changing the parameter settings
+ * (10.3.5): the staged Master image must not remain readable through 0x0003. */
 static void test_ds_param_break_discards_staged_image(void** state)
 {
     (void) state;
@@ -342,8 +345,9 @@ static void test_ds_param_break_discards_staged_image(void** state)
     assert_non_null(img);
     assert_int_equal(len, device_len); /* not the staged 5-octet image */
     assert_int_equal(img[1], IOLINK_IDX_APPLICATION_TAG);
-    assert_true(img[3] > 0U); /* the Device's default tag is served */
+    assert_int_equal(img[3], 10U); /* the Device's "DefaultTag" is served */
     assert_int_equal(img[4], (uint8_t) 'D');
+    assert_int_equal(ds.current_checksum, iolink_ds_calc_checksum(img, len));
 }
 
 static void test_ds_param_round_trip(void** state)

@@ -252,7 +252,7 @@ static void test_dll_back_to_box_stops_after_three_cycles(void** state)
 
     /* Two further Master cycles are still answered: count the actual replies,
        not only the countdown field. */
-    const unsigned sends = iolink_phy_mock_get_send_count();
+    const uint32_t sends = iolink_phy_mock_get_send_count();
     type1_1_read_frame(&dev.ctx);
     assert_int_equal(iolink_phy_mock_get_send_count(), sends + 1U);
     assert_int_equal(dev.ctx.dll.back_to_box_cycles, 2);

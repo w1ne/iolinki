@@ -32,7 +32,7 @@ uint8_t g_rx_buf[1024];
 static int g_mock_wakeup = 0;
 static uint8_t g_mock_cq_state = 0U;
 static uint32_t g_mock_send_delay_us = 0U;
-static unsigned g_mock_send_count = 0U;
+static uint32_t g_mock_send_count = 0U;
 /* Strong deterministic test storage. The library's weak unsupported defaults
  * can otherwise satisfy archive references before the Linux backend is loaded. */
 static uint8_t g_nvm_mock[4096];
@@ -403,7 +403,7 @@ int isdu_collect_response(iolink_isdu_ctx_t* ctx, uint8_t* buffer, size_t buffer
     return (int) idx;
 }
 
-unsigned iolink_phy_mock_get_send_count(void)
+uint32_t iolink_phy_mock_get_send_count(void)
 {
     return g_mock_send_count;
 }

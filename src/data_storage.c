@@ -343,9 +343,9 @@ int iolink_ds_abort(iolink_ds_ctx_t* ctx)
         return -1;
     }
 
-    /* An aborted transfer must not leave the staged Master image readable
-       through 0x0003: fall back to the Device's own parameters (Table 98
-       rule 6). */
+    /* 10.3.5: ParamBreak aborts the transfer without changing the parameter
+       settings, so the staged Master image must not stay readable through
+       0x0003. Fall back to the Device's own parameters. */
     return iolink_ds_discard(ctx);
 }
 
