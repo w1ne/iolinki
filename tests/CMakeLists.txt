@@ -1,4 +1,7 @@
 find_package(PkgConfig QUIET)
+add_executable(test_stm32g0_timebase ../examples/stm32g0_tiol112/tests/test_timebase.c)
+target_include_directories(test_stm32g0_timebase PRIVATE ../examples/stm32g0_tiol112)
+add_test(NAME test_stm32g0_timebase COMMAND test_stm32g0_timebase)
 add_executable(test_stm32g0_dma_rx_ring ../examples/stm32g0_tiol112/dma_rx_ring.c ../examples/stm32g0_tiol112/tests/test_dma_rx_ring.c)
 target_include_directories(test_stm32g0_dma_rx_ring PRIVATE ../examples/stm32g0_tiol112)
 add_test(NAME test_stm32g0_dma_rx_ring COMMAND test_stm32g0_dma_rx_ring)

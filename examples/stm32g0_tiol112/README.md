@@ -284,7 +284,12 @@ WAKE is latched by EXTI and consumed atomically. Critical sections nest and
 restore prior PRIMASK.
 
 TIM2 counts microseconds and its overflow ISR extends timestamps to 64 bits. A
-pending wrap is handled atomically when reading. Interrupts must not remain
+pending wrap is handled atomically when reading. The millisecond API maintains
+the exact whole-millisecond epoch and fractional microsecond carry, avoiding a
+64-bit division in every protocol poll. Its result retains the original 32-bit
+millisecond wrap semantics; a focused regression compares timer-wrap, pending
+overflow and long-uptime cases with the original 64-bit calculation.
+Interrupts must not remain
 masked for an entire timer period (about 71 minutes). Protocol processing spins
 without a millisecond sleep; application sampling alone runs at 10ms cadence.
 This example deliberately implements **no persistence**: both NVM hooks return

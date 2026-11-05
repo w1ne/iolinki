@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "board.h"
+#include "timebase.h"
 #include "stm32g0xx.h"
 #include "iolinki/platform.h"
 #include "iolinki/time_utils.h"
@@ -17,6 +18,8 @@
 rx_queue_t board_rx;
 volatile uint32_t board_tx_timeouts;
 static volatile uint32_t timer_high;
+static volatile uint32_t timer_epoch_ms;
+static volatile uint32_t timer_epoch_remainder_us;
 static volatile uint8_t wake_pending;
 static uint32_t critical_depth, saved_primask;
 static uint32_t tx_octet_timeout_us;
@@ -36,10 +39,19 @@ void iolink_critical_exit(void)
 }
 void TIM2_IRQHandler(void)
 {
+    /* Keep all epoch fields coherent even for a higher-priority reader. */
+    uint32_t mask = __get_PRIMASK();
+    __disable_irq();
     if (TIM2->SR & TIM_SR_UIF) {
         TIM2->SR = ~TIM_SR_UIF;
         ++timer_high;
+        uint32_t milliseconds = timer_epoch_ms;
+        uint32_t remainder = timer_epoch_remainder_us;
+        board_time_advance_epoch(&milliseconds, &remainder, timer_high);
+        timer_epoch_ms = milliseconds;
+        timer_epoch_remainder_us = remainder;
     }
+    __set_PRIMASK(mask);
 }
 uint64_t iolink_time_get_us(void)
 {
@@ -56,7 +68,20 @@ uint64_t iolink_time_get_us(void)
 }
 uint32_t iolink_time_get_ms(void)
 {
-    return (uint32_t) (iolink_time_get_us() / 1000U);
+    uint32_t mask = __get_PRIMASK();
+    __disable_irq();
+    uint32_t milliseconds = timer_epoch_ms;
+    uint32_t remainder = timer_epoch_remainder_us;
+    uint32_t high = timer_high;
+    uint32_t low = TIM2->CNT;
+    /* Account locally for an unserviced wrap and reread the post-wrap count,
+     * just like get_us. The ISR later commits the same epoch, not an extra one. */
+    if (TIM2->SR & TIM_SR_UIF) {
+        board_time_advance_epoch(&milliseconds, &remainder, high + 1U);
+        low = TIM2->CNT;
+    }
+    __set_PRIMASK(mask);
+    return board_time_milliseconds(milliseconds, remainder, low);
 }
 int iolink_nvm_read(uint32_t offset, uint8_t* data, size_t len)
 {

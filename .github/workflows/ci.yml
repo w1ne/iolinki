@@ -190,6 +190,10 @@ jobs:
         run: |
           cc -std=c99 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -Iexamples/stm32g0_tiol112 examples/stm32g0_tiol112/dma_rx_ring.c examples/stm32g0_tiol112/tests/test_dma_rx_ring.c -o /tmp/dma-rx-ring-test
           ASAN_OPTIONS=detect_leaks=0 /tmp/dma-rx-ring-test
+      - name: Check exact TIM2 millisecond conversion and wrap with sanitizers
+        run: |
+          cc -std=c99 -O2 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -Iexamples/stm32g0_tiol112 examples/stm32g0_tiol112/tests/test_timebase.c -o /tmp/timebase-test
+          ASAN_OPTIONS=detect_leaks=0 /tmp/timebase-test
       - name: Cross-build exact IRQ, CMSIS DMA and HAL DMA COM2/COM3 profiles
         env:
           STM32_CMSIS_ROOT: ${{ github.workspace }}/vendor/cmsis-device-g0

@@ -27,6 +27,8 @@ cases = [
         'examples/stm32g0_tiol112/rx_queue.c'], ['-Iexamples/stm32g0_tiol112']),
     ('test_dma_rx_ring', ['examples/stm32g0_tiol112/tests/test_dma_rx_ring.c',
         'examples/stm32g0_tiol112/dma_rx_ring.c'], ['-Iexamples/stm32g0_tiol112']),
+    ('test_stm32g0_timebase', ['examples/stm32g0_tiol112/tests/test_timebase.c'],
+        ['-Iexamples/stm32g0_tiol112']),
     ('test_esp32_tx_guard', ['examples/esp32_l6362a/test_tx_guard.c',
         'examples/esp32_l6362a/main/tx_guard.c', 'examples/esp32_l6362a/main/rx_guard.c'],
         ['-Iexamples/esp32_l6362a/main']),
