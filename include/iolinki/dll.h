@@ -125,8 +125,12 @@ typedef struct
     uint8_t sio_fallback_threshold; /**< Fallback threshold to enter SIO mode (default 3) */
 
     /* Timing Statistics */
-    uint64_t last_response_us; /**< Microsecond timestamp of last response */
-    uint32_t response_time_us; /**< Measured stack response time (t2) */
+    uint64_t last_response_us;        /**< Microsecond timestamp of last response */
+    uint32_t response_time_us;        /**< Measured stack response time (t2) */
+    uint8_t back_to_box_cycles;       /**< Master cycles remaining before communication stop */
+    bool back_to_box_armed;           /**< Back-to-box cycle countdown is active */
+    uint64_t back_to_box_deadline_us; /**< Upper bound for the communication stop */
+    bool communication_disabled;      /**< Back-to-box disabled communication */
 
     /* Sub-modules */
     iolink_events_ctx_t events; /**< Diagnostic Events engine */
@@ -253,13 +257,27 @@ void iolink_dll_get_stats(const iolink_dll_ctx_t* ctx, iolink_dll_stats_t* out_s
  *
  * Clears the counters behind ErrorCount (0x0020) and discards the event queue,
  * the Event flag and the Table 58 event memory, so DeviceStatus (0x0024) and
- * DetailedDeviceStatus (0x0025) start from "0" again. Called for the Device
- * reset, Restore factory settings and Back-to-box SystemCommands; an
- * Application reset leaves the diagnosis untouched (Table 101).
+ * DetailedDeviceStatus (0x0025) start from "0" again. This is the "0" of the
+ * Device reset SystemCommand (0x80); an Application reset leaves the diagnosis
+ * untouched.
  *
  * @param ctx DLL context
  */
 void iolink_dll_reset_diagnostics(iolink_dll_ctx_t* ctx);
+
+/**
+ * @brief Reset only the ErrorCount counters (B.2.20/Table 101)
+ *
+ * Clears the CRC, framing, timeout and timing counters behind ErrorCount
+ * (0x0020) and leaves the event queue, the Event flag and the event memory
+ * untouched. Used by Restore factory settings (0x82) and Back-to-box (0x83),
+ * which both reset ErrorCount (Table 101). 0x82 additionally withdraws active
+ * Events with "event disappears" ("Clear"), while 0x83 sets the diagnosis to
+ * "0" and disables communication.
+ *
+ * @param ctx DLL context
+ */
+void iolink_dll_reset_error_counters(iolink_dll_ctx_t* ctx);
 
 /**
  * @brief Enable/disable timing enforcement (t_ren / t_cycle)

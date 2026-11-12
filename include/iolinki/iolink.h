@@ -69,7 +69,8 @@ static inline uint8_t iolink_mseq_od_len(uint8_t m_seq_type)
 typedef struct
 {
     iolink_m_seq_type_t m_seq_type; /**< Primary M-sequence type supported by device */
-    uint8_t min_cycle_time;         /**< Minimum cycle time in 0.1ms units (e.g. 20 = 2.0ms) */
+    uint8_t min_cycle_time;         /**< Minimum cycle time in 0.1 ms units (20 = 2.0 ms),
+                                         encoded per Table B.3 in Direct Parameter page 1 */
     uint8_t pd_in_len;              /**< Process Data Input length (Device to Master) in bytes */
     uint8_t pd_out_len;             /**< Process Data Output length (Master to Device) in bytes */
     uint32_t t_pd_us;               /**< Power-on delay (t_pd) in microseconds */

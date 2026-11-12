@@ -153,45 +153,24 @@ synthetic clocks are not wire-timing measurements.
 - [ ] **Mandatory ISDU Indices**:
     - [x] 0x0000: Direct Parameter Page 1 (read, packed identification/communication page)
     - [x] 0x0001: Direct Parameter Page 2 (read/write, device-specific)
-    - [x] 0x0002: System Command
-        - [x] Subcommand 0x80: Device Reset (dispatched via iolink_set_reset_handler)
-        - [x] Subcommand 0x81: Application Reset (dispatched via iolink_set_reset_handler)
-        - [x] Subcommand 0x82: Restore Factory Settings
-        - [x] Subcommand 0x83: Restore Application Defaults
-        - [ ] Subcommand 0x84: Set Communication Mode (handled by DLL; no-op here)
-        - [x] Subcommand 0x95: Parameter Upload to Master
-        - [x] Subcommand 0x96: Parameter Download from Master
-        - [x] Subcommand 0x97: Parameter Break
-    - [ ] 0x0003: Master Command (optional)
-    - [ ] 0x0004: Master Cycle Time
-    - [ ] 0x0005: Min Cycle Time
-    - [ ] 0x0006: M-sequence Capability
-    - [ ] 0x0007: Revision ID
-    - [ ] 0x0008: Process Data In
-    - [ ] 0x0009: Process Data Out
-    - [x] 0x000A: Vendor ID (16-bit)
-    - [x] 0x000B: Device ID (32-bit)
-    - [x] 0x000C: Device Access Locks (Parameterization, DS, UI, Communication)
-    - [x] 0x000D: Profile Characteristic (16-bit)
-    - [ ] 0x000E: PDIn Descriptor
-    - [ ] 0x000F: PDOut Descriptor
-    - [x] 0x0010: Vendor Name
-    - [x] 0x0011: Vendor Text
-    - [x] 0x0012: Product Name
-    - [x] 0x0013: Product ID
-    - [x] 0x0014: Product Text
-    - [x] 0x0015: Serial Number
-    - [x] 0x0016: Hardware Revision
-    - [x] 0x0017: Firmware Revision
-    - [x] 0x0018: Application-specific Tag
-    - [x] 0x0019: Function Tag
-    - [x] 0x001A: Location Tag
-    - [x] 0x001B: Device Status
-    - [x] 0x001C: Detailed Device Status
-    - [x] 0x001D: Process Data Input Descriptor
-    - [ ] 0x001E: Process Data Output Descriptor
-    - [x] 0x0024: Min Cycle Time
-    - [ ] 0x0025-0x0028: Alternate Identification (Vendor/Product Name/Text)
+    - [x] 0x0002: System Command (Table B.9: 0x80 Device Reset, 0x81 Application
+      Reset, 0x82 Restore Factory Settings, 0x83 Back-to-box, 0x01-0x06
+      parameter transfer)
+    - [ ] 0x0003: DataStorageIndex (B.10 subindices 01-05 are not implemented;
+      the stack serves the serialized image through subindex 0)
+    - [x] 0x000C: Device Access Locks (Parameter, DS, local parameterization,
+      local UI)
+    - [x] 0x000D: Profile Characteristic
+    - [x] 0x0010-0x0017: identification strings (vendor, product, serial,
+      hardware/firmware revision)
+    - [x] 0x0018-0x001A: Application/Function/Location tag (writable, DS-backed)
+    - [x] 0x001B: Product URI (optional)
+    - [x] 0x0020: ErrorCount (2 octets)
+    - [x] 0x0024: DeviceStatus (1 octet)
+    - [x] 0x0025: DetailedDeviceStatus (Table B.14, subindex 0 only)
+    - [x] 0x0028: ProcessDataInput descriptor
+    - [x] 0x0040-0x00FE Preferred and 0x0100+ Extended indices reach the vendor
+      callback when one is registered
 
 ### 2.3 Advanced V1.1 Features
 - [x] **Data Storage (DS)**:
@@ -263,9 +242,10 @@ synthetic clocks are not wire-timing measurements.
 **Goal:** Close all gaps identified in compliance analysis to achieve certification readiness.
 
 ### 5.1 Mandatory Commands (High Priority)
-- [ ] Complete System Command handlers (0x0002 remaining: 0x80-0x84, 0x95-0x97)
-- [ ] Complete remaining mandatory ID indices (0x0019, 0x001A, 0x001C-0x001E)
-- [x] Implement Device Access Locks (Index 0x000C)
+- [x] Complete mandatory System Command handlers (0x80-0x83, 0x01-0x06)
+- [x] Complete mandatory ID indices (see 2.2)
+- [x] Implement Device Access Locks (Index 0x000C), restored to the state of
+  delivery by 0x81/0x82/0x83 (Table 101) and persisted across power cycles
 
 ### 5.2 Protocol Completion (High Priority)
 - [x] Implement M-sequence Type 1_x (8-bit OD variants)

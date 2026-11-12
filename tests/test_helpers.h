@@ -49,6 +49,7 @@ extern const iolink_phy_api_t g_phy_mock;
 /* Helper to setup mock expectations */
 void setup_mock_phy(void);
 void iolink_phy_mock_reset(void);
+uint32_t iolink_phy_mock_get_send_count(void);
 void iolink_phy_mock_set_wakeup(int detected);
 uint8_t iolink_phy_mock_get_cq_state(void);
 void iolink_phy_mock_set_send_delay_us(uint32_t delay_us);
@@ -71,7 +72,8 @@ uint8_t* iolink_ds_mock_get_buf(void);
 
 /* Mock NVM Cleanup */
 void iolink_nvm_mock_cleanup(void);
-
+/* Make subsequent iolink_nvm_write() calls fail (storage-error injection). */
+void iolink_nvm_mock_fail_writes(bool fail);
 /* ISDU V1.1.5 Interleaved Format Helpers */
 #include "iolinki/isdu.h"
 
