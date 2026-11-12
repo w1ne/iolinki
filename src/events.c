@@ -353,12 +353,17 @@ void iolink_events_process(iolink_events_ctx_t* ctx)
     }
 
     iolink_critical_enter();
-    const uint32_t now = iolink_time_get_ms();
+    uint32_t now = 0U;
+    bool have_now = false;
     bool queued = false;
     for (uint8_t i = 0U; i < IOLINK_EVENT_PENDING_MAX; i++) {
         iolink_event_pending_t* p = &ctx->pending[i];
         if (!p->active) {
             continue;
+        }
+        if (!have_now) {
+            now = iolink_time_get_ms();
+            have_now = true;
         }
         if (p->present && !p->reported) {
             /* Deferred appearance: the 1 s spacing has elapsed. */

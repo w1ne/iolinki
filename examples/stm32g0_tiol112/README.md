@@ -10,7 +10,8 @@ The [ST STM32G0B1 datasheet](https://www.st.com/resource/en/datasheet/stm32g0b1r
 identifies the RE variant as 512KiB flash and lists USART1 TX/RX on PA9/PA10 AF1
 (table 13), and TIM2 as 32-bit. Linkers deliberately use the 128KiB SRAM region;
 the extra 16KiB requires repurposing parity storage. These settings assume reset
-entry, 16MHz HSI, and undivided AHB/APB. Do not enter from a bootloader with live
+entry and undivided AHB/APB. The default uses 16MHz HSI; an optional 64MHz PLL
+configuration is described below. Do not enter from a bootloader with live
 peripherals without adding a handover/deinitialization sequence.
 
 | STM32 pin | TIOL112 signal / application |
@@ -57,9 +58,218 @@ platform stubs, or approximate bare-metal time implementation is linked.
 
 The `stm32g0-example` CI job uses that ST commit and CMSIS 5.9.0
 (`61e36449f53c25ef7825c40f7dd93685736f457f`), builds the complete firmware and
-archives ELF, HEX and memory map. A local build with the same vendor revisions
+archives ELF, HEX and memory map. The original IRQ reference build with the same vendor revisions
 and Arm GCC 13.2.1 uses 13,984 bytes of text, 4 bytes of initialized data and
-6,736 bytes of BSS including the reserved stack. This is compilation evidence.
+6,736 bytes of BSS including the reserved stack. Those historical sizes precede
+the selectable DMA transports; use the current artifact's map and manifest for
+its actual size. This is compilation evidence.
+
+## Selectable UART transports
+
+`IOLINK_G0_UART_BACKEND` selects one real USART1 transport:
+
+| Value | Transport | RX | TX |
+| --- | --- | --- | --- |
+| `0` (default) | CMSIS registers | RXNE IRQ and bounded software queue | Polled UART, waits for TC |
+| `1` | CMSIS DMA | DMA1 channel 1, circular byte buffer | DMA1 channel 2, normal byte transfer, USART TC IRQ |
+| `2` | ST HAL UART/DMA | `HAL_UART_Receive_DMA`, circular mode | `HAL_UART_Transmit_DMA`, DMA IRQ followed by USART TC IRQ |
+
+All three retain the existing **synchronous** `uart_send_complete` contract.
+DMA moves the data, but the foreground waits with a bounded deadline until the
+USART finishes or the transfer is aborted. This is not a nonblocking PHY API
+and does not claim zero CPU use. The caller's TX buffer remains valid throughout
+that call. DMA TC only means the last byte reached TDR; it never releases EN.
+USART TC, or a failed-transfer UART disable, precedes EN and buffer release.
+
+Both DMA ports use DMAMUX requests 50 (USART1 RX) and 51 (USART1 TX), channel
+IRQs 9 and 10, and byte memory/peripheral alignment. UART remains 8 data bits,
+even parity and one stop bit: ST's UART configuration is **9-bit word length
+including parity**, not nine payload bits. RX/TX are separate PA10/PA9 pins;
+UART half-duplex mode is not enabled.
+
+RX exposes CNDTR producer progress directly to the stack's frame parser. It
+does not wait for UART IDLE or a half/full buffer interrupt, which would delay
+short IO-Link requests. The 128-byte circular buffer reserves one slot and
+rejects an unread full lap. HT/TC bookkeeping plus a rechecked CNDTR snapshot
+handles reload races even though DMA continues while CPU interrupts are masked.
+Simultaneously sticky HT+TC flags are treated as ambiguous overflow rather than
+guessing how many laps elapsed. This intentionally also rejects some long IRQ
+latency cases. RX errors discard the ring and return an error to the parser
+before rearming. RX is paused through every reply to suppress local echo, then
+flushed and rearmed after EN release. A no-response stream is needed to exercise
+real circular wrapping; successful short exchanges reset the ring each reply.
+
+The port follows STM32G0B1 [ES0548 section 2.4.1](https://www.st.com/resource/en/errata_sheet/es0548-stm32g0b1xbxcxe-device-errata-stmicroelectronics.pdf):
+global DMA flags are cleared only after disabling the channel. Active circular
+RX uses individual HT/TC flag clears. No DMAMUX synchronization or request
+generator is enabled.
+
+For the HAL UART/DMA option, supply ST's unmodified
+[HAL v1.4.7](https://github.com/STMicroelectronics/stm32g0xx-hal-driver/tree/a0cf8a8b96183fdcc2e3b1cf0bcf0825f27bd0c9):
+
+```sh
+git clone https://github.com/STMicroelectronics/stm32g0xx-hal-driver.git /tmp/stm32g0xx-hal-driver
+git -C /tmp/stm32g0xx-hal-driver checkout a0cf8a8b96183fdcc2e3b1cf0bcf0825f27bd0c9
+export STM32_HAL_ROOT=/tmp/stm32g0xx-hal-driver
+IOLINK_G0_UART_BACKEND=2 IOLINK_G0_OPTIMIZATION=2 IOLINK_G0_SYSCLK_HZ=64000000 \
+  IOLINK_G0_PROTOCOL_PROFILE=1 IOLINK_RIG_TIMING_ENFORCE=1 \
+  BUILD_DIR="$PWD/build-hal-dma-com3" bash examples/stm32g0_tiol112/build.sh
+```
+
+Use `IOLINK_G0_UART_BACKEND=1` for the CMSIS DMA port; it needs no HAL tree.
+Select `IOLINK_G0_OPTIMIZATION=2` for the production performance profile. The
+reference default remains `s` (`-Os`); the explicit `2` setting uses GCC `-O2`.
+Compiler optimization is part of the timing configuration, not a relaxation of
+the IO-Link deadline or the 6us transceiver guard. A bounded `-Os` HAL run at
+64MHz exceeded COM3's 43.403us maximum; do not treat a successful size-optimized
+build as timing acceptance. Qualify each exact ELF/compiler/options combination.
+`IOLINK_RIG_COM=2` selects the separate COM2 protocol image. Give each profile
+its own `BUILD_DIR`. The optional HAL transport uses actual vendor UART/DMA
+initialization, transfer, IRQ and abort APIs. The existing BSP still owns clock,
+GPIO, TIOL112 pins and TIM2. `HAL_GetTick` uses the extended TIM2 time in
+milliseconds; no `HAL_Init`, SysTick reconfiguration or HAL clock/GPIO setup is
+performed. The pinned HAL and device v1.4.5 revision are the pair in CubeG0
+v1.6.3; CMSIS Core 5.9 is a separately selected newer core dependency.
+
+The `stm32g0-uart-backends` CI job cross-builds all three transports for both
+COM2 and COM3 at 64MHz with internal DLL checks enabled. The four DMA profiles
+use `-O2`; the IRQ comparison profiles retain `-Os`. Artifacts include
+compiler/input hashes, the explicit optimization setting, and an ELF-hash-bound
+DWARF counter layout. The
+`board_uart_backend` symbol records 0/1/2; `board_dma_stats` records consumed DMA
+RX bytes, half/full events, rearms, overflows, TX starts, DMA completions, USART
+completions, aborts and errors. These are observations, not a verification badge.
+Compile results and host ring tests do not establish CQ timing, hardware error
+behavior, IAR compilation or physical-master interoperability; each exact ELF
+requires its own runtime evidence.
+
+### Recorded GCC DMA results
+
+The four exact GCC 13.2.1/newlib images built from
+[`0a3f1b0138b815fff610c6e02960eb5ef84e80f9`](https://github.com/w1ne/iolinki/commit/0a3f1b0138b815fff610c6e02960eb5ef84e80f9)
+pass the native LabWired matrix with `-O2`, 64MHz, timing enforcement enabled,
+and the unchanged 6us EN guard. The model source was
+[`055dd261b57292a5c467add05696409c45465b6f`](https://github.com/w1ne/labwired-core/commit/055dd261b57292a5c467add05696409c45465b6f).
+The [compact evidence record](../../validation/stm32g0-dma-gcc-evidence.json)
+contains the four ELF, layout, input-manifest and raw-report hashes, compiler
+and vendor pins, counters, and separate COM3 recovery/one-action identities.
+
+| Transport | Mode | Observed cyclic C/Q tA (us) | Allowed tA (us) |
+| --- | --- | ---: | ---: |
+| CMSIS DMA | COM3 | 25.285078–38.144453 | 4.340278–43.402778 |
+| HAL UART/DMA | COM3 | 27.238203–39.191328 | 4.340278–43.402778 |
+| CMSIS DMA | COM2 | 30.507299–41.022924 | 26.041667–260.416667 |
+| HAL UART/DMA | COM2 | 32.022924–43.054174 | 26.041667–260.416667 |
+
+Each image passed 100 READ, 100 WRITE and eight application-cadence exchanges:
+208 cyclic / 211 total replies, 6,656 current-selector PD bytes, and 6,977 UART
+reply characters. The model observed 734 RX and 6,977 TX DMA bus transfers;
+TX-start, DMA-TC and USART-TC firmware counters each equal 211. Device byte gaps
+and UART/DMA/timing errors were zero. STARTUP/PREOPERATE bounds and invalid-CKT
+silence also passed; the negative control deliberately increments the DLL's
+CRC and framing diagnostics.
+
+Separate same-instance COM3 runs for both transports passed a 132-byte circular
+RX lap, damaged final-character parity/framing rejection, and a real DMA bus
+error followed by correct PD32 recovery. The circular test uses the existing
+legacy transition command and is a transport diagnostic. The one-action lab
+fixture also passed with both exact COM3 images. These fault tests do not cover
+COM2 or every interrupt-masking phase.
+
+This evidence uses an ideal supply, fixed post-PLL 64MHz and an instruction-cycle
+model that is not calibrated silicon WCET. The 4us transceiver enable/disable
+scenario is typical, and the 6us guard remains an engineering assumption.
+Physical wake current detection, IAR 9.70, the customer's BSP, Beckhoff and
+electrical/conformance acceptance remain unvalidated. Bulk ISDU protocol tests
+are separate host evidence, not a measured wire-throughput result. Later host
+test formatting and evidence documentation leave every firmware compiler input
+byte-identical; the manifests retain the original compiled-source identity.
+
+## 64MHz protocol profile
+
+The default reference firmware remains at 16MHz. Select
+`IOLINK_G0_SYSCLK_HZ=64000000` to use HSI16 with PLL M=1, N=8, R=2. The BSP sets
+voltage range 1 and two Flash wait states before switching to PLLRCLK, then
+derives TIM2's 1MHz prescaler, UART BRR and TX timeout baud from
+`SystemCoreClock`. AHB and APB remain undivided. Clock setup uses CMSIS registers
+in every transport. Backends 0 and 1 do not link ST HAL. The clock parameters match ST's
+[NUCLEO-G0B1RE 64MHz example](https://github.com/STMicroelectronics/STM32CubeG0/blob/master/Projects/NUCLEO-G0B1RE/Examples/PWR/PWR_SLEEP/Src/main.c).
+
+For the real UART/TIOL112 protocol application, build:
+
+```sh
+IOLINK_G0_SYSCLK_HZ=64000000 IOLINK_G0_PROTOCOL_PROFILE=1 \
+  BUILD_DIR="$PWD/examples/stm32g0_tiol112/build-protocol64" \
+  bash examples/stm32g0_tiol112/build.sh
+```
+
+This selects `protocol_rig_main.c` and produces `protocol-rig-64mhz.elf`, `.hex`
+and `.map`. The application uses TYPE_2_V, PDout1, PDin32, OD1/code4, current-cycle
+prepared-buffer selection and an application-defined segmented ISDU record.
+COM3 is the default; `IOLINK_RIG_COM=2` selects COM2 for a separate build.
+It uses the actual board UART, selected RX transport, TIOL112 driver and timer; it does not
+inject virtual PHY bytes or force the DLL to OPERATE. The master must perform
+the wake-up and startup sequence. The CI job archives this firmware separately
+as `stm32g0-tiol112-protocol-64mhz-gcc`.
+
+The immutable 1024-byte image is exposed read-only at indices 0x0100 through
+0x0104 as four 232-byte records and one 96-byte record. PDin byte 0 echoes the
+current selector. Remaining PDin bytes and the image use the deterministic
+formula in `protocol_rig_main.c`. Configured minimum cycle times are 3ms for
+COM3 and 15ms for COM2; the Direct Parameter encoding rounds COM2 up to 15.2ms.
+The 34 application blocks per second are independent of the IO-Link cycle rate.
+A 232-byte ISDU read requires five request and 235 response OD1 cycles: at
+34 cycles/s this is about 7.1s of transfer time. This is a throughput figure,
+not a five-second timeout violation: the ISDU acknowledgment interval ends at
+the **beginning** of the response, not after every response segment has been
+transferred (IO-Link V1.1.4, Tables 53 and 102). Choose cycle frequency and
+record size for the required latency. The acknowledgment watchdog belongs to
+the master. Device applications must make the first non-Busy response available
+within that window. The stack uses synchronous application handlers and has no
+general deferred completion/cancellation API, as documented in the protocol
+rig README.
+
+The profile explicitly defaults `IOLINK_RIG_TIMING_ENFORCE=0`. Internal DLL
+timing checks are disabled in that build; setting a response-time limit does
+not enable them. Build a separate image with `IOLINK_RIG_TIMING_ENFORCE=1` to
+evaluate the internal inter-byte, cycle and completion checks. The CI 64MHz
+protocol artifact explicitly selects this enabled option. The exported
+`rig_timing_enforced` symbol records the selected state. The legacy completion
+threshold is 20ms and applies only when internal checks are enabled; it is not
+tA. The external rig must independently measure the actual last-master-stop to
+first-device-start gap and byte gaps in either build. Receive-pop timestamps
+are not pin timestamps, so internal checks need their own integration result.
+An OPERATE LED indicates state, not conformance.
+
+The internal cycle monitor applies MinCycleTime only in OPERATE and compares
+observed first-byte dequeue timestamps, separately from its legacy
+complete-request-to-end-TX duration. STARTUP/PREOPERATE retain their distinct
+recovery rules. Queue observation can jitter, so the external wire oracle is
+still required even when internal checks are enabled.
+
+A separate board-local minimum response floor starts at the last valid RX IRQ
+observation, or observed DMA producer progress for the DMA ports. It waits for
+`ceil(1.5 * Tbit) + 1us` before permitting the first TDR write,
+using wrapping TIM2 arithmetic; this covers the remaining half stop bit and the
+minimum one-bit response interval, with timer quantization margin. Baud-derived
+values are cached during UART configuration. This floor is independent of the
+TIOL112 enable guard below; neither is a substitute for measuring CQ edges on
+the actual hardware. No new receive-timestamp PHY API is introduced.
+
+`IOLINK_G0_TIOL112_ENABLE_GUARD_US` defaults to 6us between entering the
+EN-asserted send callback and permitting the first UART data write. This guard
+is part of the measured tA path. TIOL112 specifies a **typical** 4us driver
+enable delay in datasheet section 6.7; it does not establish a guaranteed
+maximum. The 6us setting is an engineering assumption, including timer
+quantization margin, that requires validation across the actual operating
+conditions. A simulated 4us enable-delay scenario is not worst-case electrical
+certification. Override the setting deliberately when evaluating another
+measured bound.
+
+A successful cross-build proves compilation of this CMSIS/GCC reference. A
+simulator run must establish its own instruction/peripheral-model accuracy.
+Neither is an IAR build, a customer BSP sign-off, a measured electrical tA result,
+or a physical-master interoperability result.
 
 ## Native IAR EWARM project
 
@@ -77,6 +287,10 @@ this environment has no EWARM executable/license. Confirm compiler, debugger,
 probe and device settings on the installed EWARM version before flashing.
 Some Arduino/PlatformIO vendor distributions omit `Source/Templates/iar`; use
 the complete ST component package for EWARM, with the matching IAR startup file.
+The reference project keeps backend 0 by default and includes the new transport
+sources so that its baseline remains structurally complete. The optional HAL
+sources and include path are configured by the GCC build above; no HAL-specific
+EWARM project or EWARM 9.70 compilation result is supplied.
 
 ## Flashing and validation
 
@@ -99,10 +313,10 @@ this target example.
 
 USART uses 8 data bits, even parity and one stop bit: STM32 M0 selects the nine-bit
 word containing eight payload bits plus parity, M1 and PS stay clear. COM1/2/3
-baud divisors derive from 16MHz. Actual HSI tolerance, UART polarity, master timing
+baud divisors derive from the selected 16MHz or 64MHz clock. Actual HSI tolerance, UART polarity, master timing
 and transceiver turnaround must be measured on hardware.
 
-The ISR buffers RX in a 127-byte usable queue. Parity/framing/noise/overrun and
+The default backend's ISR buffers RX in a 127-byte usable queue. Parity/framing/noise/overrun and
 queue overflow increment debugger-visible `board_rx.errors`/`overflows`; receive
 returns -1 and flushes the damaged buffer rather than silently using lost data.
 TX disables RX to suppress local echo, waits for TC after the final stop bit, and
@@ -112,7 +326,12 @@ WAKE is latched by EXTI and consumed atomically. Critical sections nest and
 restore prior PRIMASK.
 
 TIM2 counts microseconds and its overflow ISR extends timestamps to 64 bits. A
-pending wrap is handled atomically when reading. Interrupts must not remain
+pending wrap is handled atomically when reading. The millisecond API maintains
+the exact whole-millisecond epoch and fractional microsecond carry, avoiding a
+64-bit division in every protocol poll. Its result retains the original 32-bit
+millisecond wrap semantics; a focused regression compares timer-wrap, pending
+overflow and long-uptime cases with the original 64-bit calculation.
+Interrupts must not remain
 masked for an entire timer period (about 71 minutes). Protocol processing spins
 without a millisecond sleep; application sampling alone runs at 10ms cadence.
 This example deliberately implements **no persistence**: both NVM hooks return
@@ -138,7 +357,8 @@ GCC compile/link and queue tests do not prove electrical signaling, wake-up,
 master interoperability, response-time compliance, or hardware operation. No
 physical board/master or native IAR execution was available for this example.
 
-Local verification used Arm GNU GCC 13.2.1, ST CMSIS device headers reporting
+The original reference-port verification used Arm GNU GCC 13.2.1, ST CMSIS device headers reporting
 1.4.4, and CMSIS core headers reporting 6.1.0 (PlatformIO framework-cmsis package
-2.60300.0). Those are the tested installed revisions, not a claim that all vendor
-versions or the illustrative fetch commands above have been verified.
+2.60300.0). Those revisions describe the original IRQ-port build. The recorded
+DMA evaluation above uses separately pinned device v1.4.5, HAL v1.4.7 and CMSIS
+Core 5.9 inputs, with exact compiler and input hashes in its artifacts.

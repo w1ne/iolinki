@@ -12,7 +12,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 
 - [x] PHY bring-up essentials: `phy_generic`, C/Q control, wake-up detection, SIO/SDCI switching.
 - [x] DLL robustness: Awaiting Comm + ESTAB_COM + Fallback states, retry logic, error counters.
-- [x] Timing enforcement: `t_ren`, `t_cycle`, `t_dwu` compliance and reporting.
+- [x] Portable timing monitors and reporting for `t_ren`, `t_cycle`, `t_dwu`; wire response-time evidence has the separate scope below.
 - [x] On-Request Data (OD): negotiation + status/events content for real parameterization.
 - [x] Conformance tests: Wake-up timing path, ESTAB_COM transitions, CRC fallback recovery (36 total tests).
 
@@ -58,19 +58,60 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [x] OD content definition (status, events).
     - [x] OD consistency mechanism.
 - [x] **Timing Control**:
-    - [x] Abstract timer interface for `t_A` enforcement.
+    - [x] Abstract timer interface for portable DLL timing observations (receive/dequeue timestamps).
     - [x] Mock timer for deterministic unit testing.
     - [x] Checksum calculation and verification (V1.1 CRC).
     - [x] **CRC Frame**: 6-bit CRC for M-sequence Type 2_x.
-    - [x] `t_ren` (Device response time) enforcement (max 230μs @ COM3).
-    - [x] `t_cycle` validation.
-    - [ ] `t_byte`, `t_bit`: Inter-byte and bit timing.
+    - [x] Legacy `t_ren` send-completion watchdog and counters; this is not wire `t_A`.
+    - [x] `t_cycle` validation between valid OPERATE request starts.
+    - [ ] Physical-target qualification of inter-byte (`t_byte`) and bit timing (`t_bit`).
     - [x] `t_dwu`: Wake-up delay (80μs).
     - [ ] `t_pd`: Power-on delay.
 - [ ] **Frame Retry Logic**: Automatic retransmission on CRC errors.
 - [ ] **Frame Synchronization**: Bit-level synchronization.
 - [x] **Error Counters**: Track CRC, timeout, framing errors.
 - [ ] **Communication Quality Metrics**: Link quality and error rate tracking.
+
+#### Response-time scope and recorded evidence
+
+IO-Link `t_A` is the gap at C/Q from the end of the last master stop bit to the
+first device start bit. The requirement is `1 T_BIT <= t_A <= 10 T_BIT`
+([Interface Specification V1.1.4, A.3.5](https://io-link.com/fileadmin/user_upload/Downloads/Package_2024/IOL-Interface-Spec_10002_V114_Jun24.pdf#page=240)).
+At COM3 (230.4 kbit/s), this is **4.340–43.403 us**. The previous 230 us roadmap
+claim was incorrect for COM3 `t_A`.
+
+The STM32G0 reference separately implements a baud-derived response-start floor
+from the last RX interrupt observation and a configurable EN-to-first-TDR guard
+(6 us by default). The floor protects the minimum response delay; the guard
+allows PHY enable time. The [TIOL112 switching characteristics](https://www.ti.com/lit/ds/symlink/tiol112.pdf#page=8)
+give 4 us as a typical enable time, so the 6 us guard is an engineering
+assumption pending hardware validation. Neither mechanism
+guarantees the maximum `t_A` under arbitrary application or interrupt load.
+The native LabWired oracle checks both bounds at modeled C/Q on every reply,
+including startup; portable DLL dequeue timestamps cannot replace that check.
+
+The legacy `response_time_us`/`t_ren` metric ends when `phy->send` returns. In the
+G0 adapter that is UART TC, after the entire reply, so its completion threshold
+must not be interpreted as a first-start-bit deadline. The protocol rig uses a
+separate 20 ms completion limit. Manual builds default timing enforcement to 0;
+the CI protocol artifact and recorded images below explicitly use
+`IOLINK_RIG_TIMING_ENFORCE=1`.
+
+Recorded native runs use STM32G0B1RE at a fixed 64 MHz operating point, TIOL112,
+and TYPE_2_V with PDout1/PDin32/OD1:
+
+| Image / mode | OPERATE replies checked | Recorded cyclic C/Q `t_A` |
+|---|---:|---:|
+| GCC/newlib, COM3 | 4 READ + 4 WRITE + 8 application-cadence replies | 29.738203–39.816328 us |
+| Clang/LLD, COM3 | 100 READ + 100 WRITE + 8 application-cadence replies | 28.003828–41.300703 us |
+| Clang/LLD, COM2 | 100 READ + 100 WRITE + 8 application-cadence replies | 29.132299–31.679174 us |
+
+The [source and exact ELF identities in PR49](https://github.com/w1ne/iolinki/pull/49)
+keep the GCC source `807f9ced` separate from the Clang source `10e8196e` and their
+different run lengths. These are model results with configured PHY delays,
+ideal MCU VDD and uncalibrated silicon/Flash wait-state execution costs.
+GCC COM2, IAR 9.70, physical-master interoperability and hardware worst-case
+timing remain unverified. A source merge does not change those evidence limits.
 
 ### 1.4 Virtual Test Environment
 - [x] **Virtual IO-Link Master**: Python-based virtual Master with pty UART.
@@ -94,11 +135,23 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [x] Basic segmentation and reassembly.
     - [x] Basic Read/Write services.
     - [x] **Segmentation Control**: First/Last/Middle segment handling.
-    - [ ] **Flow Control**: Busy/Retry mechanisms.
+    - [x] **Transport Flow Control**: Pending-dispatch Busy (`0x01`), duplicate request COUNT handling, response COUNT replay (including the final segment), COUNT wrap and ABORT reset.
+    - [ ] **Deferred Application Services**: General asynchronous completion/cancellation API; the vendor-service callback remains synchronous.
+    - [x] **Record Boundaries**: 232 application bytes per read/write request; larger images require multiple records.
     - [x] **16-bit Index Support**: Support full 16-bit index.
     - [ ] **Write Verification**: Readback after write.
-- [x] **Mandatory ISDU Indices**:
-    - [x] 0x0000: Direct Parameter Page 1 (read, Table B.1)
+
+The master's five-second ISDU acknowledgment watchdog (Interface Specification
+V1.1.4, Tables 53 and 102) ends when the first non-Busy response begins, not when
+every response segment has transferred.
+Applications must provide that response within the master's window. Supported
+Busy/retry transport cases do not establish general deferred application
+completion. See the [protocol regression scope](../validation/README.md) and
+[separate hosted fixture](../validation/labwired-protocol/README.md); their
+synthetic clocks are not wire-timing measurements.
+
+- [ ] **Mandatory ISDU Indices**:
+    - [x] 0x0000: Direct Parameter Page 1 (read, packed identification/communication page)
     - [x] 0x0001: Direct Parameter Page 2 (read/write, device-specific)
     - [x] 0x0002: System Command (Table B.9: 0x80 Device Reset, 0x81 Application
       Reset, 0x82 Restore Factory Settings, 0x83 Back-to-box, 0x01-0x06
@@ -164,7 +217,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 - [x] **Virtual Conformance Testing**:
     - [x] Automated integration test suite.
     - [x] Protocol sequence verification (Startup -> Operate).
-- [x] **Timing Analysis**: Virtual timing verification for `t_A` compliance.
+- [x] **Timing Analysis**: Native C/Q `t_A` assertions for the pinned evaluation images and run lengths documented above.
 
 ### 3.2 IODD & Tooling
 - [x] **IODD Generator**: Python script to generate XML from JSON/C metadata.
@@ -203,7 +256,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 
 ### 5.3 Robustness & Standards (Medium Priority)
 - [ ] Map Standard Event Codes (0x1xxx-0x8xxx ranges)
-- [x] Implement timing enforcement (t_ren response time)
+- [x] Implement completion-duration and OPERATE cycle monitors; wire `t_A` has the separate response-time scope above.
 - [ ] Add frame retry logic for communication errors
 - [x] Implement error counters and reporting
 
@@ -235,6 +288,11 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
 
 ### 6.3 Hardware Abstraction
 - [ ] **DMA Support**: Extend PHY API for DMA-based transfers (zero-copy).
+- The STM32G0B1RE example now supplies selectable CMSIS DMA and optional ST HAL
+  UART/DMA transports behind the existing synchronous PHY contract. These move
+  UART bytes through DMA and wait for USART TC before releasing TIOL112 EN.
+  A portable asynchronous/zero-copy PHY API remains separate work; this example
+  does not introduce one. See its README and exact-ELF validation evidence.
 - [ ] **IRQ Mode**: Add interrupt-driven receive mode to PHY abstraction.
 - [ ] **GPIO Control**: Abstract C/Q line control for PHY implementations.
 - [ ] **Timer Abstraction**: Formalize timer requirements beyond time_utils.

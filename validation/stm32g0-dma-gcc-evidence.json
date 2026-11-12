@@ -1,0 +1,784 @@
+{
+  "schema": "iolinki.stm32g0.uart-dma-recorded-evidence.v1",
+  "scope": "Recorded native digital simulation of exact GCC images; not a hardware, IAR or IO-Link certification result.",
+  "firmware": {
+    "source_commit": "0a3f1b0138b815fff610c6e02960eb5ef84e80f9",
+    "source_tree": "db316a4fbca832033b0b429ff2cefb92384288b9",
+    "target": "STM32G0B1RE",
+    "sysclk_hz": 64000000,
+    "optimization": "-O2",
+    "compiler": "arm-none-eabi-gcc (15:13.2.rel1-2) 13.2.1 20231009",
+    "compiler_lane": "GCC/newlib CI",
+    "internal_dll_timing_enforcement": true,
+    "tiol112_enable_guard_us": 6,
+    "vendor_commits": {
+      "st_device": "f576c24e123edf3332988ecd49512c0f35f85186",
+      "cmsis_core": "2b7495b8535bdcb306dac29b9ded4cfb679d7e5c",
+      "st_hal": "a0cf8a8b96183fdcc2e3b1cf0bcf0825f27bd0c9"
+    },
+    "ci_run": 42093139406,
+    "ci_job": 127476144209,
+    "artifact_id": 13447150426,
+    "artifact_name": "stm32g0-uart-backends-gcc",
+    "artifact_zip_sha256": "56e9aa149bfe9056593d0aa078d1ddacc39c43db17a3ba5716196828a8e2b037",
+    "artifact_url": "https://github.com/w1ne/iolinki/actions/runs/42093139406/artifacts/13447150426",
+    "later_source_changes": "Host-test formatting and this evidence documentation do not alter any firmware compiler input. ELF manifests retain the compiled source identity above."
+  },
+  "model": {
+    "core_commit": "055dd261b57292a5c467add05696409c45465b6f",
+    "core_tree": "4d8a984258637d222038b4463ef6b3a0795e20aa",
+    "features": [
+      "event-scheduler"
+    ],
+    "matrix_runner_sha256": "0e1a20a12f9986faf8e55aa5d2d7a91d749c545e1fa3589e704f8361219ec8d4",
+    "power_model": "ideal_vdd",
+    "source_changed_during_run": false,
+    "manifest_changed_during_run": false,
+    "limits_checked": {
+      "ta_min_tbit": 1,
+      "ta_max_tbit": 10,
+      "device_byte_gap_max_tbit": 3
+    }
+  },
+  "full_matrix": {
+    "passed": true,
+    "source_summary_sha256": "1d027afb22789a749310bf74ae37494957c15d364e20dae0ac26547b84031eb8",
+    "input_manifest_sha256": "e2db5b6276a13847906eaeca687625fc43a3bd45b6379378d70a8663d9b8dcb1",
+    "cases": [
+      {
+        "id": "cmsis-dma-com3-gcc-o2",
+        "backend": 1,
+        "com_mode": 3,
+        "baud": 230400,
+        "passed": true,
+        "elf_sha256": "baf23c06abdcc5da8c75d9da3a7f4c874d10890ac26cd8226f599aee0342b05e",
+        "layout_sha256": "1ddf11537c0e036c9cdad3934d29803e6445b06295aedbdba20c3e4150f2d53e",
+        "input_manifest_sha256": "7d5610519a1da5b3fcc8f9026dc15315b07f78aefad03a04679f825a5655756b",
+        "raw_report_file": "cmsis-dma-com3-gcc-o2.json",
+        "raw_report_sha256": "a8a1d8410c37c9d33868df2e274e0a6c957b7008cf950d36c05ee70cff67ff40",
+        "cyclic_ta_us": [
+          25.285078,
+          38.144453
+        ],
+        "startup_ta_us": 21.222578,
+        "preoperate_ta_us": [
+          21.160078,
+          22.191328
+        ],
+        "read_exchanges": 100,
+        "write_exchanges": 100,
+        "application_cadence_exchanges": 8,
+        "application_cadence_period_us": 29412,
+        "cyclic_replies": 208,
+        "checksum_validated_replies": 211,
+        "pd_bytes_checked": 6656,
+        "uart_reply_characters": 6977,
+        "reply_byte_gap_max_tbit": 0.0,
+        "uart_receive_integrity": {
+          "framing_errors": 0,
+          "parity_errors": 0,
+          "received_reply_characters": 6977
+        },
+        "dma_rx_bus_transfers": 734,
+        "dma_tx_bus_transfers": 6977,
+        "firmware_stats": {
+          "dma_errors": 0,
+          "rx_bytes": 734,
+          "rx_half_events": 0,
+          "rx_overruns": 0,
+          "rx_rearms": 211,
+          "rx_wraps": 0,
+          "tx_aborts": 0,
+          "tx_dma_completed": 211,
+          "tx_started": 211,
+          "tx_uart_completed": 211,
+          "uart_errors": 0
+        },
+        "dll_final": {
+          "dll.crc_errors": 1,
+          "dll.enforce_timing": 1,
+          "dll.framing_errors": 1,
+          "dll.min_cycle_time_us": 3000,
+          "dll.t_byte_violations": 0,
+          "dll.t_cycle_violations": 0,
+          "dll.t_ren_limit_us": 20000,
+          "dll.t_ren_violations": 0,
+          "dll.timeout_errors": 0,
+          "dll.timing_errors": 0
+        },
+        "negative_controls": [
+          {
+            "case": "invalid_ckt_no_response",
+            "cq_reply_characters": 0,
+            "master_request_start_cycle": 831156,
+            "master_request_start_ps": 12986812500,
+            "observation_us_after_request": 5000,
+            "passed": true,
+            "phase": "OPERATE",
+            "reply": [],
+            "request": [
+              128,
+              130,
+              107
+            ]
+          }
+        ],
+        "firmware_memory_bytes": {
+          "text": 22796,
+          "data": 4,
+          "bss": 16496
+        },
+        "verified_repository_compiler_inputs": 43
+      },
+      {
+        "id": "hal-dma-com3-gcc-o2",
+        "backend": 2,
+        "com_mode": 3,
+        "baud": 230400,
+        "passed": true,
+        "elf_sha256": "fd82220515a5f29ca1ed8f3ec423c834d5818194957983856399e3160dc73910",
+        "layout_sha256": "74a11df1f77fb8709cc40cd22bc5b501eeeaab4b8975295d63f6fe645ee884ee",
+        "input_manifest_sha256": "0ee3a57ae79ec5a1c6be094a109b8796333b7c3d6c2a4e34b0fe1ff3db09a392",
+        "raw_report_file": "hal-dma-com3-gcc-o2.json",
+        "raw_report_sha256": "7c48a95f862d1c1010550292dd5a60fcdbb0e6452cb7b2082a71c506483cb8b3",
+        "cyclic_ta_us": [
+          27.238203,
+          39.191328
+        ],
+        "startup_ta_us": 29.066328,
+        "preoperate_ta_us": [
+          29.128828,
+          20.331953
+        ],
+        "read_exchanges": 100,
+        "write_exchanges": 100,
+        "application_cadence_exchanges": 8,
+        "application_cadence_period_us": 29412,
+        "cyclic_replies": 208,
+        "checksum_validated_replies": 211,
+        "pd_bytes_checked": 6656,
+        "uart_reply_characters": 6977,
+        "reply_byte_gap_max_tbit": 0.0,
+        "uart_receive_integrity": {
+          "framing_errors": 0,
+          "parity_errors": 0,
+          "received_reply_characters": 6977
+        },
+        "dma_rx_bus_transfers": 734,
+        "dma_tx_bus_transfers": 6977,
+        "firmware_stats": {
+          "dma_errors": 0,
+          "rx_bytes": 734,
+          "rx_half_events": 0,
+          "rx_overruns": 0,
+          "rx_rearms": 211,
+          "rx_wraps": 0,
+          "tx_aborts": 0,
+          "tx_dma_completed": 211,
+          "tx_started": 211,
+          "tx_uart_completed": 211,
+          "uart_errors": 0
+        },
+        "dll_final": {
+          "dll.crc_errors": 1,
+          "dll.enforce_timing": 1,
+          "dll.framing_errors": 1,
+          "dll.min_cycle_time_us": 3000,
+          "dll.t_byte_violations": 0,
+          "dll.t_cycle_violations": 0,
+          "dll.t_ren_limit_us": 20000,
+          "dll.t_ren_violations": 0,
+          "dll.timeout_errors": 0,
+          "dll.timing_errors": 0
+        },
+        "negative_controls": [
+          {
+            "case": "invalid_ckt_no_response",
+            "cq_reply_characters": 0,
+            "master_request_start_cycle": 831156,
+            "master_request_start_ps": 12986812500,
+            "observation_us_after_request": 5000,
+            "passed": true,
+            "phase": "OPERATE",
+            "reply": [],
+            "request": [
+              128,
+              130,
+              107
+            ]
+          }
+        ],
+        "firmware_memory_bytes": {
+          "text": 27952,
+          "data": 4,
+          "bss": 16840
+        },
+        "verified_repository_compiler_inputs": 44
+      },
+      {
+        "id": "cmsis-dma-com2-gcc-o2",
+        "backend": 1,
+        "com_mode": 2,
+        "baud": 38400,
+        "passed": true,
+        "elf_sha256": "595544079b0b23d7b06566da179b64e266aea9e0baf12e13de3fcc6df5a4202f",
+        "layout_sha256": "a6913ea9f7a1feb2489f09e4aff558085adbe625f0d2fba04a64f1213ed78815",
+        "input_manifest_sha256": "4141482e5f4b1bd3670ce3656ab5c810e1b3bdebe0434fd9a82391c7dcc95e9f",
+        "raw_report_file": "cmsis-dma-com2-gcc-o2.json",
+        "raw_report_sha256": "78acce7545d35740b099a2741264e714e5cb825826e18787dbfd9a4f81906d8c",
+        "cyclic_ta_us": [
+          30.507299,
+          41.022924
+        ],
+        "startup_ta_us": 42.210424,
+        "preoperate_ta_us": [
+          38.022924,
+          39.397924
+        ],
+        "read_exchanges": 100,
+        "write_exchanges": 100,
+        "application_cadence_exchanges": 8,
+        "application_cadence_period_us": 29412,
+        "cyclic_replies": 208,
+        "checksum_validated_replies": 211,
+        "pd_bytes_checked": 6656,
+        "uart_reply_characters": 6977,
+        "reply_byte_gap_max_tbit": 0.0,
+        "uart_receive_integrity": {
+          "framing_errors": 0,
+          "parity_errors": 0,
+          "received_reply_characters": 6977
+        },
+        "dma_rx_bus_transfers": 734,
+        "dma_tx_bus_transfers": 6977,
+        "firmware_stats": {
+          "dma_errors": 0,
+          "rx_bytes": 734,
+          "rx_half_events": 0,
+          "rx_overruns": 0,
+          "rx_rearms": 211,
+          "rx_wraps": 0,
+          "tx_aborts": 0,
+          "tx_dma_completed": 211,
+          "tx_started": 211,
+          "tx_uart_completed": 211,
+          "uart_errors": 0
+        },
+        "dll_final": {
+          "dll.crc_errors": 1,
+          "dll.enforce_timing": 1,
+          "dll.framing_errors": 1,
+          "dll.min_cycle_time_us": 15000,
+          "dll.t_byte_violations": 0,
+          "dll.t_cycle_violations": 0,
+          "dll.t_ren_limit_us": 20000,
+          "dll.t_ren_violations": 0,
+          "dll.timeout_errors": 0,
+          "dll.timing_errors": 0
+        },
+        "negative_controls": [
+          {
+            "case": "invalid_ckt_no_response",
+            "cq_reply_characters": 0,
+            "master_request_start_cycle": 1889734,
+            "master_request_start_ps": 29527093750,
+            "observation_us_after_request": 5000,
+            "passed": true,
+            "phase": "OPERATE",
+            "reply": [],
+            "request": [
+              128,
+              130,
+              107
+            ]
+          }
+        ],
+        "firmware_memory_bytes": {
+          "text": 22796,
+          "data": 4,
+          "bss": 16496
+        },
+        "verified_repository_compiler_inputs": 43
+      },
+      {
+        "id": "hal-dma-com2-gcc-o2",
+        "backend": 2,
+        "com_mode": 2,
+        "baud": 38400,
+        "passed": true,
+        "elf_sha256": "01e836fe5daaf2d51d893c93137b61095b4b3d0730b82d52032ec1d9bf5c7dd2",
+        "layout_sha256": "7308c0f3ead11e83debd6d6abb270f391282ac5f0e624b920d84f1f35c5e560a",
+        "input_manifest_sha256": "dec91915fe6c012ea2435a1a446ea891d12cf0ecc4738a3c2c046214f9af582e",
+        "raw_report_file": "hal-dma-com2-gcc-o2.json",
+        "raw_report_sha256": "584090a1f7fc4cc65734ce35263a1ede7af0241d4c7047088df25d83b276dd31",
+        "cyclic_ta_us": [
+          32.022924,
+          43.054174
+        ],
+        "startup_ta_us": 45.288549,
+        "preoperate_ta_us": [
+          40.101049,
+          36.444799
+        ],
+        "read_exchanges": 100,
+        "write_exchanges": 100,
+        "application_cadence_exchanges": 8,
+        "application_cadence_period_us": 29412,
+        "cyclic_replies": 208,
+        "checksum_validated_replies": 211,
+        "pd_bytes_checked": 6656,
+        "uart_reply_characters": 6977,
+        "reply_byte_gap_max_tbit": 0.0,
+        "uart_receive_integrity": {
+          "framing_errors": 0,
+          "parity_errors": 0,
+          "received_reply_characters": 6977
+        },
+        "dma_rx_bus_transfers": 734,
+        "dma_tx_bus_transfers": 6977,
+        "firmware_stats": {
+          "dma_errors": 0,
+          "rx_bytes": 734,
+          "rx_half_events": 0,
+          "rx_overruns": 0,
+          "rx_rearms": 211,
+          "rx_wraps": 0,
+          "tx_aborts": 0,
+          "tx_dma_completed": 211,
+          "tx_started": 211,
+          "tx_uart_completed": 211,
+          "uart_errors": 0
+        },
+        "dll_final": {
+          "dll.crc_errors": 1,
+          "dll.enforce_timing": 1,
+          "dll.framing_errors": 1,
+          "dll.min_cycle_time_us": 15000,
+          "dll.t_byte_violations": 0,
+          "dll.t_cycle_violations": 0,
+          "dll.t_ren_limit_us": 20000,
+          "dll.t_ren_violations": 0,
+          "dll.timeout_errors": 0,
+          "dll.timing_errors": 0
+        },
+        "negative_controls": [
+          {
+            "case": "invalid_ckt_no_response",
+            "cq_reply_characters": 0,
+            "master_request_start_cycle": 1889734,
+            "master_request_start_ps": 29527093750,
+            "observation_us_after_request": 5000,
+            "passed": true,
+            "phase": "OPERATE",
+            "reply": [],
+            "request": [
+              128,
+              130,
+              107
+            ]
+          }
+        ],
+        "firmware_memory_bytes": {
+          "text": 27952,
+          "data": 4,
+          "bss": 16840
+        },
+        "verified_repository_compiler_inputs": 44
+      }
+    ]
+  },
+  "com3_recovery": {
+    "source_record_sha256": "9aca6121c56ecfec8c7e6d6a752e29fc1a1f9c7f48f2799d0f6910f7e55e7c33",
+    "schema": "labwired.iolink.dma-recovery-evidence.v1",
+    "core_commit": "055dd261b57292a5c467add05696409c45465b6f",
+    "core_tree": "4d8a984258637d222038b4463ef6b3a0795e20aa",
+    "core_features": [
+      "event-scheduler"
+    ],
+    "same_machine": true,
+    "firmware_reset_or_forced_dll_state": false,
+    "coverage": [
+      "132-byte circular DMA RX and parser-consumption diagnostic before DeviceOperate",
+      "Complete checksum-valid request with parity error only on final selector character: silence and recovery",
+      "Complete checksum-valid request with invalid stop framing only on final selector character: silence and recovery",
+      "Real DMA bus-write error at injected CMAR 0x70000000: TE IRQ and recovery",
+      "Current-selector PD32, checksum and external C/Q timing on each recovery reply"
+    ],
+    "limits": [
+      "This is native digital waveform simulation, not connected silicon or IO-Link conformance certification.",
+      "The circular-wrap stimulus uses the existing legacy 0x0F transition path; it is a transport diagnostic.",
+      "These fault injections were exercised at COM3; COM2 clean timing is covered separately by the four-image matrix.",
+      "The run does not exhaustively phase-sweep faults through every PRIMASK critical section.",
+      "Ideal VDD, fixed post-PLL 64MHz and stated TIOL112 propagation/typical-enable assumptions remain in effect.",
+      "Analog noise, power transients, DMA2 and full DMAMUX arbitration are outside this evidence."
+    ],
+    "records": [
+      {
+        "backend": 1,
+        "com_mode": 3,
+        "compiler": "arm-none-eabi-gcc (15:13.2.rel1-2) 13.2.1 20231009",
+        "compiler_lane": "GCC/newlib CI",
+        "optimization": "-O2",
+        "source_commit": "0a3f1b0138b815fff610c6e02960eb5ef84e80f9",
+        "source_tree": "db316a4fbca832033b0b429ff2cefb92384288b9",
+        "artifact_id": 13447150426,
+        "run_id": 42093139406,
+        "elf_sha256": "baf23c06abdcc5da8c75d9da3a7f4c874d10890ac26cd8226f599aee0342b05e",
+        "layout_sha256": "1ddf11537c0e036c9cdad3934d29803e6445b06295aedbdba20c3e4150f2d53e",
+        "manifest_sha256": "7d5610519a1da5b3fcc8f9026dc15315b07f78aefad03a04679f825a5655756b",
+        "raw_report_sha256": "b2b7ff12fe3a45062b5b858d9c361982851e0ceaa233445c835d8476a74296b1",
+        "cyclic_ta_us": [
+          27.660078,
+          37.660078
+        ],
+        "cases": [
+          {
+            "case": "circular_wrap",
+            "passed": true,
+            "rx_bus_copy_delta": 132,
+            "firmware_stats_delta": {
+              "rx_bytes": 132,
+              "rx_half_events": 1,
+              "rx_wraps": 1
+            },
+            "unexpected_reply_characters": 0,
+            "scope": "legacy-transition transport diagnostic, not IO-Link conformance",
+            "phase": "PREOPERATE_ESTAB_COM"
+          },
+          {
+            "case": "parity",
+            "passed": true,
+            "rx_bus_copy_delta": 2,
+            "firmware_stats_delta": {
+              "rx_bytes": 2,
+              "rx_rearms": 1,
+              "uart_errors": 1
+            },
+            "unexpected_reply_characters": 0,
+            "valid_reply": {
+              "ta_us": 29.363203,
+              "byte_gap_max_tbit": 0.0,
+              "pd_payload_bytes_checked": 32,
+              "uart_receive_integrity": {
+                "framing_errors": 0,
+                "parity_errors": 0,
+                "received_reply_characters": 34
+              },
+              "request_hex": "808091",
+              "reply_hex": "0091b3a4d9cafff0e5170a3d302356497c6c61968bb8ada2d7c5f8efe211043b2e11"
+            }
+          },
+          {
+            "case": "framing",
+            "passed": true,
+            "rx_bus_copy_delta": 2,
+            "firmware_stats_delta": {
+              "rx_bytes": 2,
+              "rx_rearms": 1,
+              "uart_errors": 1
+            },
+            "unexpected_reply_characters": 0,
+            "valid_reply": {
+              "ta_us": 28.675703,
+              "byte_gap_max_tbit": 0.0,
+              "pd_payload_bytes_checked": 32,
+              "uart_receive_integrity": {
+                "framing_errors": 0,
+                "parity_errors": 0,
+                "received_reply_characters": 34
+              },
+              "request_hex": "80809e",
+              "reply_hex": "009eeff8c5d6232c390b16616c7f4a55a0b0bd8a97e4f1fecbd924333e0d18677205"
+            }
+          },
+          {
+            "case": "dma_bus_error",
+            "passed": true,
+            "rx_bus_copy_delta": 0,
+            "firmware_stats_delta": {
+              "dma_errors": 1,
+              "rx_rearms": 1
+            },
+            "unexpected_reply_characters": 0,
+            "valid_reply": {
+              "ta_us": 27.816328,
+              "byte_gap_max_tbit": 0.0,
+              "pd_payload_bytes_checked": 32,
+              "uart_receive_integrity": {
+                "framing_errors": 0,
+                "parity_errors": 0,
+                "received_reply_characters": 34
+              },
+              "request_hex": "80b3ab",
+              "reply_hex": "00ab1b0cf1e2d7d8cdbfa295988b7e615444493e2310050affedd0c7cab9ac938624"
+            }
+          }
+        ],
+        "firmware_stats_final": {
+          "dma_errors": 1,
+          "rx_bytes": 186,
+          "rx_half_events": 1,
+          "rx_overruns": 0,
+          "rx_rearms": 19,
+          "rx_wraps": 1,
+          "tx_aborts": 0,
+          "tx_dma_completed": 16,
+          "tx_started": 16,
+          "tx_uart_completed": 16,
+          "uart_errors": 2
+        },
+        "dll_final": {
+          "dll.crc_errors": 1,
+          "dll.enforce_timing": 1,
+          "dll.framing_errors": 4,
+          "dll.min_cycle_time_us": 3000,
+          "dll.t_byte_violations": 0,
+          "dll.t_cycle_violations": 0,
+          "dll.t_ren_limit_us": 20000,
+          "dll.t_ren_violations": 0,
+          "dll.timeout_errors": 0,
+          "dll.timing_errors": 0
+        },
+        "fidelity_gaps": [
+          {
+            "address": "0x70000000",
+            "count": 1,
+            "detail": "write",
+            "first_pc": "0x0",
+            "kind": "unmapped_mmio"
+          },
+          {
+            "address": "0x0",
+            "count": 1,
+            "detail": "no power net drives the MCU (board.power.vdd_volts is not routed); VDD assumed an ideal rail, so power-on and brown-out reset are not simulated",
+            "first_pc": "0x0",
+            "kind": "unpowered_rail_assumed"
+          }
+        ],
+        "intentional_dma_bus_fault": {
+          "access": "write",
+          "address": "0x70000000",
+          "count": 1,
+          "source": "explicit RX DMA CMAR fault injection; retained in fidelity_gaps"
+        },
+        "raw_report_file": "dma-1-com3-0a3f1b01-gcc-recovery.json"
+      },
+      {
+        "backend": 2,
+        "com_mode": 3,
+        "compiler": "arm-none-eabi-gcc (15:13.2.rel1-2) 13.2.1 20231009",
+        "compiler_lane": "GCC/newlib CI",
+        "optimization": "-O2",
+        "source_commit": "0a3f1b0138b815fff610c6e02960eb5ef84e80f9",
+        "source_tree": "db316a4fbca832033b0b429ff2cefb92384288b9",
+        "artifact_id": 13447150426,
+        "run_id": 42093139406,
+        "elf_sha256": "fd82220515a5f29ca1ed8f3ec423c834d5818194957983856399e3160dc73910",
+        "layout_sha256": "74a11df1f77fb8709cc40cd22bc5b501eeeaab4b8975295d63f6fe645ee884ee",
+        "manifest_sha256": "0ee3a57ae79ec5a1c6be094a109b8796333b7c3d6c2a4e34b0fe1ff3db09a392",
+        "raw_report_sha256": "256c3ecb4759b5112c05872e15067491e8a9c8fa8ea59cd80f8c8909ad455756",
+        "cyclic_ta_us": [
+          30.019453,
+          38.081953
+        ],
+        "cases": [
+          {
+            "case": "circular_wrap",
+            "passed": true,
+            "rx_bus_copy_delta": 132,
+            "firmware_stats_delta": {
+              "rx_bytes": 132,
+              "rx_half_events": 1,
+              "rx_wraps": 1
+            },
+            "unexpected_reply_characters": 0,
+            "scope": "legacy-transition transport diagnostic, not IO-Link conformance",
+            "phase": "PREOPERATE_ESTAB_COM"
+          },
+          {
+            "case": "parity",
+            "passed": true,
+            "rx_bus_copy_delta": 2,
+            "firmware_stats_delta": {
+              "rx_bytes": 2,
+              "rx_rearms": 1,
+              "uart_errors": 1
+            },
+            "unexpected_reply_characters": 0,
+            "valid_reply": {
+              "ta_us": 37.441328,
+              "byte_gap_max_tbit": 0.0,
+              "pd_payload_bytes_checked": 32,
+              "uart_receive_integrity": {
+                "framing_errors": 0,
+                "parity_errors": 0,
+                "received_reply_characters": 34
+              },
+              "request_hex": "808091",
+              "reply_hex": "0091b3a4d9cafff0e5170a3d302356497c6c61968bb8ada2d7c5f8efe211043b2e11"
+            }
+          },
+          {
+            "case": "framing",
+            "passed": true,
+            "rx_bus_copy_delta": 2,
+            "firmware_stats_delta": {
+              "rx_bytes": 2,
+              "rx_rearms": 1,
+              "uart_errors": 1
+            },
+            "unexpected_reply_characters": 0,
+            "valid_reply": {
+              "ta_us": 34.175703,
+              "byte_gap_max_tbit": 0.0,
+              "pd_payload_bytes_checked": 32,
+              "uart_receive_integrity": {
+                "framing_errors": 0,
+                "parity_errors": 0,
+                "received_reply_characters": 34
+              },
+              "request_hex": "80809e",
+              "reply_hex": "009eeff8c5d6232c390b16616c7f4a55a0b0bd8a97e4f1fecbd924333e0d18677205"
+            }
+          },
+          {
+            "case": "dma_bus_error",
+            "passed": true,
+            "rx_bus_copy_delta": 0,
+            "firmware_stats_delta": {
+              "dma_errors": 1,
+              "rx_rearms": 1
+            },
+            "unexpected_reply_characters": 0,
+            "valid_reply": {
+              "ta_us": 33.956953,
+              "byte_gap_max_tbit": 0.0,
+              "pd_payload_bytes_checked": 32,
+              "uart_receive_integrity": {
+                "framing_errors": 0,
+                "parity_errors": 0,
+                "received_reply_characters": 34
+              },
+              "request_hex": "80b3ab",
+              "reply_hex": "00ab1b0cf1e2d7d8cdbfa295988b7e615444493e2310050affedd0c7cab9ac938624"
+            }
+          }
+        ],
+        "firmware_stats_final": {
+          "dma_errors": 1,
+          "rx_bytes": 186,
+          "rx_half_events": 1,
+          "rx_overruns": 0,
+          "rx_rearms": 19,
+          "rx_wraps": 1,
+          "tx_aborts": 0,
+          "tx_dma_completed": 16,
+          "tx_started": 16,
+          "tx_uart_completed": 16,
+          "uart_errors": 2
+        },
+        "dll_final": {
+          "dll.crc_errors": 1,
+          "dll.enforce_timing": 1,
+          "dll.framing_errors": 4,
+          "dll.min_cycle_time_us": 3000,
+          "dll.t_byte_violations": 0,
+          "dll.t_cycle_violations": 0,
+          "dll.t_ren_limit_us": 20000,
+          "dll.t_ren_violations": 0,
+          "dll.timeout_errors": 0,
+          "dll.timing_errors": 0
+        },
+        "fidelity_gaps": [
+          {
+            "address": "0x70000000",
+            "count": 1,
+            "detail": "write",
+            "first_pc": "0x0",
+            "kind": "unmapped_mmio"
+          },
+          {
+            "address": "0x0",
+            "count": 1,
+            "detail": "no power net drives the MCU (board.power.vdd_volts is not routed); VDD assumed an ideal rail, so power-on and brown-out reset are not simulated",
+            "first_pc": "0x0",
+            "kind": "unpowered_rail_assumed"
+          }
+        ],
+        "intentional_dma_bus_fault": {
+          "access": "write",
+          "address": "0x70000000",
+          "count": 1,
+          "source": "explicit RX DMA CMAR fault injection; retained in fidelity_gaps"
+        },
+        "raw_report_file": "dma-2-com3-0a3f1b01-gcc-recovery.json"
+      }
+    ]
+  },
+  "com3_one_action": {
+    "source_summary_sha256": "b6f3b808192b7454626fe59dfb6aaffbf205a584b09fe35c0ca752a22a5f1e2c",
+    "records": [
+      {
+        "backend": 1,
+        "com_mode": 3,
+        "returncode": 0,
+        "elf_sha256": "baf23c06abdcc5da8c75d9da3a7f4c874d10890ac26cd8226f599aee0342b05e",
+        "source_commit": "0a3f1b0138b815fff610c6e02960eb5ef84e80f9",
+        "compiler": "arm-none-eabi-gcc (15:13.2.rel1-2) 13.2.1 20231009",
+        "core_commit": "055dd261b57292a5c467add05696409c45465b6f",
+        "core_tree": "4d8a984258637d222038b4463ef6b3a0795e20aa",
+        "core_features": [
+          "event-scheduler"
+        ],
+        "log_sha256": "cd67069b518f800d477e42187858586ecdee09719ad528374e24ac5cf00c26bd",
+        "log_file": "dma-1-com3-0a3f1b01-gcc-one-action.log",
+        "passed": true,
+        "tests_passed": 1,
+        "tests_ignored": 0,
+        "cycles": 2630000,
+        "assertions": [
+          "Actual ELF startup through the same one-action event-scheduler fixture",
+          "Current selectors 7 and 9, all 32 PD bytes",
+          "TYPE_2_V READ34 and WRITE33 with checksums"
+        ]
+      },
+      {
+        "backend": 2,
+        "com_mode": 3,
+        "returncode": 0,
+        "elf_sha256": "fd82220515a5f29ca1ed8f3ec423c834d5818194957983856399e3160dc73910",
+        "source_commit": "0a3f1b0138b815fff610c6e02960eb5ef84e80f9",
+        "compiler": "arm-none-eabi-gcc (15:13.2.rel1-2) 13.2.1 20231009",
+        "core_commit": "055dd261b57292a5c467add05696409c45465b6f",
+        "core_tree": "4d8a984258637d222038b4463ef6b3a0795e20aa",
+        "core_features": [
+          "event-scheduler"
+        ],
+        "log_sha256": "d8f99b9b87f8b4afd57e0132bf0e2f31417ecba3911c1f72f39a9eb99a506bc0",
+        "log_file": "dma-2-com3-0a3f1b01-gcc-one-action.log",
+        "passed": true,
+        "tests_passed": 1,
+        "tests_ignored": 0,
+        "cycles": 2630000,
+        "assertions": [
+          "Actual ELF startup through the same one-action event-scheduler fixture",
+          "Current selectors 7 and 9, all 32 PD bytes",
+          "TYPE_2_V READ34 and WRITE33 with checksums"
+        ]
+      }
+    ]
+  },
+  "limits": [
+    "Cortex-M instruction-cycle model is not calibrated silicon WCET",
+    "64MHz uses a fixed post-PLL operating timebase; clock transitions not timed",
+    "TI propagation uses configured datasheet maxima; enable/disable4us are configurable typical scenarios, not maximum guarantees",
+    "WAKE is a GPIO stimulus, not physical current-pulse detection",
+    "No IAR/Beckhoff/electrical conformance claim",
+    "Fault injections are COM3 only, not exhaustive PRIMASK-phase sweeps; full clean timing covers COM2 separately.",
+    "The 132-byte circular-wrap stimulus uses the existing legacy 0x0F transition path and is a transport diagnostic, not an IO-Link conformance claim.",
+    "The existing PHY send contract remains synchronous; DMA is not a nonblocking or CPU-free API.",
+    "HAL covers UART/DMA transport only; clock/GPIO/TIM2 retain the CMSIS BSP.",
+    "The 20 ms internal response-completion watchdog is not the external C/Q first-start tA assertion.",
+    "Bulk ISDU behavior is separately covered by the host protocol fixture; no bulk ISDU wire-throughput measurement is asserted here."
+  ]
+}

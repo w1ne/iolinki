@@ -58,6 +58,10 @@ static void device_apply_stack_config(iolink_device_ctx_t* ctx)
     ctx->dll.pd_in_len = ctx->stack_config.pd_in_len;
     ctx->dll.pd_out_len = ctx->stack_config.pd_out_len;
     ctx->dll.min_cycle_time_us = (uint32_t) ctx->stack_config.min_cycle_time * 100U;
+    if (ctx->stack_config.min_cycle_time != 0U) {
+        /* Advertise the explicit stack limit through this device's DPP identity. */
+        ctx->device_info.defaults.min_cycle_time = ctx->stack_config.min_cycle_time;
+    }
     ctx->dll.t_pd_delay_us = ctx->stack_config.t_pd_us;
     if (ctx->dll.t_pd_delay_us > 0U) {
         ctx->dll.t_pd_deadline_us = iolink_time_get_us() + (uint64_t) ctx->dll.t_pd_delay_us;
@@ -68,7 +72,8 @@ static void device_apply_stack_config(iolink_device_ctx_t* ctx)
 
     /* Table A.10: TYPE_1_2 carries two OD octets, TYPE_1_V eight, and
        TYPE_2_V the two-octet variant; the remaining types carry one. */
-    ctx->dll.od_len = iolink_mseq_od_len(ctx->dll.m_seq_type);
+    const uint8_t configured_od = ctx->stack_config.od_len;
+    ctx->dll.od_len = configured_od != 0U ? configured_od : iolink_mseq_od_len(ctx->dll.m_seq_type);
 
     ctx->dll.pd_in_len_current = ctx->dll.pd_in_len;
     ctx->dll.pd_out_len_current = ctx->dll.pd_out_len;
@@ -85,6 +90,28 @@ int iolink_device_init(iolink_device_ctx_t* ctx, const iolink_device_config_t* c
 {
     if ((ctx == NULL) || (config == NULL)) {
         return -1;
+    }
+
+    if ((config->stack.pd_in_len > IOLINK_PD_IN_MAX_SIZE) ||
+        (config->stack.pd_out_len > IOLINK_PD_OUT_MAX_SIZE)) {
+        return -1;
+    }
+    if (config->stack.od_len != 0U) {
+        const uint8_t width = config->stack.od_len;
+        if (config->stack.m_seq_type == IOLINK_M_SEQ_TYPE_2_V) {
+            if ((width != 1U) && (width != 2U)) return -1;
+            if ((config->stack.pd_in_len == 0U) && (config->stack.pd_out_len == 0U)) {
+                return -1;
+            }
+            /* This OD1 variant advertises code4, not the short-PD code0 form. */
+            if ((width == 1U) && (config->stack.pd_in_len < 3U) &&
+                (config->stack.pd_out_len < 3U)) {
+                return -1;
+            }
+        }
+        else if (width != iolink_mseq_od_len((uint8_t) config->stack.m_seq_type)) {
+            return -1;
+        }
     }
 
     (void) memset(ctx, 0, sizeof(*ctx));
@@ -114,6 +141,8 @@ int iolink_device_init(iolink_device_ctx_t* ctx, const iolink_device_config_t* c
     ctx->dll.isdu.vendor_user = config->user;
     ctx->dll.state_cb = device_state_cb;
     ctx->dll.state_cb_user = ctx;
+    ctx->dll.pd_input_select = config->pd_input_select;
+    ctx->dll.pd_input_select_user = config->user;
     if (config->ds_storage != NULL) {
         iolink_ds_init(&ctx->dll.ds, config->ds_storage);
         ctx->dll.isdu.ds_ctx = &ctx->dll.ds;

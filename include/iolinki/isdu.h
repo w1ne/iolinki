@@ -92,6 +92,10 @@ typedef struct
     bool flowctrl_seen;    /**< A FlowCTRL has been received since START */
     bool repeat_pending;   /**< Last FlowCTRL repeated: ignore the payload */
     uint8_t error_code;    /**< IO-Link ISDU Error Code (0x80XX) */
+    uint8_t last_read_od[IOLINK_OD_MAX_SIZE]; /**< Cached response for one COUNT retry. */
+    uint8_t last_read_od_len;                 /**< Width of the cached response segment. */
+    uint8_t last_read_flowctrl;               /**< FlowCTRL that produced the cached segment. */
+    bool read_cache_valid; /**< Cache is usable, including the final response segment. */
 
     /* Pointers to external dependencies */
     /* Optional application service for device-specific indices 0x0040-0x00FE

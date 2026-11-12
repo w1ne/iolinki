@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include "iolinki/phy.h"
 #include "iolinki/config.h"
+#include "iolinki/application.h"
 
 /**
  * @file dll.h
@@ -93,7 +94,7 @@ typedef struct
     uint8_t req_len;               /**< Expected length of current frame type */
     uint64_t last_frame_us;        /**< Microsecond timestamp of last frame start */
     uint64_t last_byte_us;         /**< Microsecond timestamp of last received byte */
-    uint64_t last_cycle_start_us;  /**< Microsecond timestamp of last cycle start */
+    uint64_t last_cycle_start_us;  /**< Complete-request timestamp for legacy response metric. */
     uint32_t t_byte_limit_us;      /**< Inter-byte timeout limit in microseconds */
     uint64_t wakeup_deadline_us;   /**< Earliest time to accept frames after wake-up */
     uint64_t t_pd_deadline_us;     /**< Earliest time to accept frames after power-on */
@@ -136,8 +137,14 @@ typedef struct
     iolink_isdu_ctx_t isdu;     /**< ISDU Service engine */
     iolink_ds_ctx_t ds;         /**< Data Storage engine */
 
-    iolink_dll_state_cb_t state_cb; /**< Optional state-change hook (set by core) */
-    void* state_cb_user;            /**< User pointer passed to state_cb */
+    iolink_dll_state_cb_t state_cb;              /**< Optional state-change hook (set by core) */
+    void* state_cb_user;                         /**< User pointer passed to state_cb */
+    iolink_pd_input_select_cb_t pd_input_select; /**< Optional current-cycle PD selector. */
+    void* pd_input_select_user;                  /**< Application context for the PD selector. */
+
+    /** First-byte dequeue observation; not a physical pin timestamp. */
+    uint64_t last_operate_start_us;
+    bool have_operate_start;
 } iolink_dll_ctx_t;
 
 /**
