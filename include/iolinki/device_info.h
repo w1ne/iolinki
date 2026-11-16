@@ -44,10 +44,10 @@ typedef struct
     const char* application_tag;   /**< Application tag string (Index 0x0018, optional). */
 
     /* Device IDs (Mandatory Indices) */
-    uint16_t vendor_id;              /**< Vendor ID (Index 0x000A). */
-    uint32_t device_id;              /**< Device ID (Index 0x000B). */
+    uint16_t vendor_id;              /**< Vendor ID (Direct Parameter page 1, 0x07-0x08). */
+    uint32_t device_id;              /**< Device ID (Direct Parameter page 1, 0x09-0x0B). */
     uint16_t function_id;            /**< Function ID (Index 0x001C). */
-    uint16_t profile_characteristic; /**< Profile characteristic (Index 0x000D). */
+    uint16_t profile_characteristic; /**< ProfileIdentifier (Index 0x000D); 0 = no profile. */
 
     /* System Info */
     uint8_t min_cycle_time;          /**< Minimum cycle time in 100us units (Index 0x0024). */
@@ -57,6 +57,9 @@ typedef struct
 
     /* Access Control */
     uint16_t access_locks; /**< Device access locks bitmask (Index 0x000C). */
+
+    /* Profile identification (conditional, Common Profile) */
+    const char* product_uri; /**< ProductURI (Index 0x001B, max 100 octets); NULL = absent. */
 } iolink_device_info_t;
 
 /**

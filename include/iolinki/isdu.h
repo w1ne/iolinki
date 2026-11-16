@@ -116,6 +116,11 @@ typedef struct
     /* System Command Flags */
     bool reset_pending;     /**< Device reset requested (0x80) */
     bool app_reset_pending; /**< Application reset requested (0x81) */
+
+    /** ErrorCount (Index 0x0020, B.2.20): application errors since power-on or
+     *  reset. The application maintains the value; Restore factory settings
+     *  clears it (10.7.4). */
+    uint16_t error_count;
 } iolink_isdu_ctx_t;
 
 /**
