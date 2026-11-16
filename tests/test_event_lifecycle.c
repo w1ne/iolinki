@@ -397,8 +397,8 @@ static void test_condition_table_full(void** state)
     iolink_events_init(&ctx);
 
     for (uint16_t i = 0U; i < IOLINK_EVENT_CONDITION_SLOTS; i++) {
-        assert_true(iolink_event_appear_at(&ctx, (uint16_t) (0x8D00U + i),
-                                           IOLINK_EVENT_TYPE_WARNING, 0U));
+        assert_true(
+            iolink_event_appear_at(&ctx, (uint16_t) (0x8D00U + i), IOLINK_EVENT_TYPE_WARNING, 0U));
     }
     assert_false(iolink_event_appear_at(&ctx, 0x8DFFU, IOLINK_EVENT_TYPE_ERROR, 0U));
     assert_int_equal(iolink_events_dropped(&ctx), 1U);
@@ -453,7 +453,7 @@ static void test_detailed_status_no_stale_and_bounded(void** state)
     uint8_t buf[16];
     (void) memset(buf, 0xA5, sizeof(buf));
     assert_int_equal(iolink_events_get_detailed_status(&ctx, buf, sizeof(buf)), 9U);
-    const uint8_t all[9] = {Q_APPEAR_ERR, 0x77U, 0x00U, Q_APPEAR_WARN, 0x8CU,
+    const uint8_t all[9] = {Q_APPEAR_ERR, 0x77U,        0x00U, Q_APPEAR_WARN, 0x8CU,
                             0x10U,        Q_APPEAR_ERR, 0x50U, 0x00U};
     assert_memory_equal(buf, all, sizeof(all));
 
@@ -561,8 +561,8 @@ static void test_null_context(void** state)
     assert_int_equal(iolink_events_get_detailed_status(NULL, buf, sizeof(buf)), 0U);
     assert_int_equal(iolink_events_dropped(NULL), 0U);
     assert_null(iolink_device_get_events_ctx(NULL));
-    assert_false(iolink_event_appear(iolink_device_get_events_ctx(NULL), 0x7700U,
-                                     IOLINK_EVENT_TYPE_ERROR));
+    assert_false(
+        iolink_event_appear(iolink_device_get_events_ctx(NULL), 0x7700U, IOLINK_EVENT_TYPE_ERROR));
 
     iolink_events_ctx_t ctx;
     iolink_events_init(&ctx);
@@ -644,8 +644,8 @@ int main(void)
                                         check_lock),
         cmocka_unit_test_setup_teardown(test_time_zero, reset_lock, check_lock),
         cmocka_unit_test_setup_teardown(test_time_rollover, reset_lock, check_lock),
-        cmocka_unit_test_setup_teardown(test_memory_freeze_and_exact_ack_with_priority,
-                                        reset_lock, check_lock),
+        cmocka_unit_test_setup_teardown(test_memory_freeze_and_exact_ack_with_priority, reset_lock,
+                                        check_lock),
         cmocka_unit_test_setup_teardown(test_disappear_while_frozen_survives_ack, reset_lock,
                                         check_lock),
         cmocka_unit_test_setup_teardown(test_queue_full_policy, reset_lock, check_lock),
@@ -657,8 +657,8 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_startup_reset, reset_lock, check_lock),
         cmocka_unit_test_setup_teardown(test_null_context, reset_lock, check_lock),
         cmocka_unit_test_setup_teardown(test_dropped_counter_saturates, reset_lock, check_lock),
-        cmocka_unit_test_setup_teardown(test_dll_services_deferred_clear_and_startup,
-                                        reset_lock, check_lock),
+        cmocka_unit_test_setup_teardown(test_dll_services_deferred_clear_and_startup, reset_lock,
+                                        check_lock),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

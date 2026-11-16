@@ -789,16 +789,16 @@ static void test_ds_factory_reset_and_access_locks(void** state)
 
     /* Index 0x000C through the generic parameter API. */
     const uint8_t locks_be[2] = {0x00U, (uint8_t) (IOLINK_LOCK_DS | IOLINK_LOCK_PARAM)};
-    assert_int_equal(iolink_params_ctx_set(&dev.params, IOLINK_IDX_DEVICE_ACCESS_LOCKS, 0U,
-                                           locks_be, 2U, true),
-                     0);
-    assert_int_equal(iolink_params_ctx_get(&dev.params, IOLINK_IDX_DEVICE_ACCESS_LOCKS, 0U, buf,
-                                           sizeof(buf)),
-                     2);
+    assert_int_equal(
+        iolink_params_ctx_set(&dev.params, IOLINK_IDX_DEVICE_ACCESS_LOCKS, 0U, locks_be, 2U, true),
+        0);
+    assert_int_equal(
+        iolink_params_ctx_get(&dev.params, IOLINK_IDX_DEVICE_ACCESS_LOCKS, 0U, buf, sizeof(buf)),
+        2);
     assert_memory_equal(buf, locks_be, 2U);
-    assert_int_equal(iolink_params_ctx_set(&dev.params, IOLINK_IDX_DEVICE_ACCESS_LOCKS, 0U,
-                                           locks_be, 1U, true),
-                     -1);
+    assert_int_equal(
+        iolink_params_ctx_set(&dev.params, IOLINK_IDX_DEVICE_ACCESS_LOCKS, 0U, locks_be, 1U, true),
+        -1);
     dev_set_tags(&dev, "A", "F", "L", true);
 
     ds_dev_t again;
@@ -884,9 +884,9 @@ static void test_params_nvm_layout_and_range(void** state)
 
     /* Offset whose record would wrap the 32-bit address space is refused. */
     assert_int_equal(iolink_params_ctx_init_at(&params, &info, 0xFFFFFFF0U), -1);
-    assert_int_equal(iolink_params_ctx_set(&params, IOLINK_IDX_FUNCTION_TAG, 0U,
-                                           (const uint8_t*) "X", 1U, true),
-                     -1);
+    assert_int_equal(
+        iolink_params_ctx_set(&params, IOLINK_IDX_FUNCTION_TAG, 0U, (const uint8_t*) "X", 1U, true),
+        -1);
     assert_int_equal(iolink_params_ctx_set(&params, IOLINK_IDX_FUNCTION_TAG, 0U,
                                            (const uint8_t*) "X", 1U, false),
                      0);

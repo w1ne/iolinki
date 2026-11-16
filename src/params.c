@@ -479,8 +479,7 @@ int iolink_params_ctx_factory_reset_checked(iolink_params_ctx_t* ctx)
         return -1;
     }
     factory_candidate(ctx, &candidate);
-    if (params_write_nvm(&candidate, ctx->device_info != NULL,
-                         factory_locks(ctx)) != 0) {
+    if (params_write_nvm(&candidate, ctx->device_info != NULL, factory_locks(ctx)) != 0) {
         return -1;
     }
     factory_apply(ctx, &candidate);
@@ -498,8 +497,7 @@ void iolink_params_ctx_factory_reset(iolink_params_ctx_t* ctx)
      * retain the reset. Integrators cannot infer persistence from this call;
      * use iolink_params_ctx_factory_reset_checked() to get the result. */
     factory_candidate(ctx, &candidate);
-    (void) params_write_nvm(&candidate, ctx->device_info != NULL,
-                            factory_locks(ctx));
+    (void) params_write_nvm(&candidate, ctx->device_info != NULL, factory_locks(ctx));
     factory_apply(ctx, &candidate);
 }
 

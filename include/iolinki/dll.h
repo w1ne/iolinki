@@ -237,8 +237,7 @@ uint8_t iolink_dll_get_last_valid_pd_in(const iolink_dll_ctx_t* ctx, uint8_t* ou
  * @param max_len Size of @p out
  * @return Octets copied; 0 if no valid PDout was received yet or @p out is too small
  */
-uint8_t iolink_dll_get_last_valid_pd_out(const iolink_dll_ctx_t* ctx, uint8_t* out,
-                                         size_t max_len);
+uint8_t iolink_dll_get_last_valid_pd_out(const iolink_dll_ctx_t* ctx, uint8_t* out, size_t max_len);
 
 /**
  * @brief Stop and disable communication until re-initialization (10.7.5).

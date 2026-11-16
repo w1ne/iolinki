@@ -1061,8 +1061,7 @@ uint8_t iolink_dll_get_last_valid_pd_in(const iolink_dll_ctx_t* ctx, uint8_t* ou
     return ctx->pd_in_last_valid_len;
 }
 
-uint8_t iolink_dll_get_last_valid_pd_out(const iolink_dll_ctx_t* ctx, uint8_t* out,
-                                         size_t max_len)
+uint8_t iolink_dll_get_last_valid_pd_out(const iolink_dll_ctx_t* ctx, uint8_t* out, size_t max_len)
 {
     if ((ctx == NULL) || (out == NULL) || (ctx->pd_out_last_valid_len == 0U) ||
         (ctx->pd_out_last_valid_len > max_len)) {

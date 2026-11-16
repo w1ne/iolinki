@@ -76,10 +76,10 @@
  * @name State_Property coding (Index 0x0003 Subindex 2, Table B.10)
  * @{
  */
-#define IOLINK_DS_STATE_PROPERTY_INACTIVE 0x00U /**< Bits 1-2 = 0b00: Inactive. */
-#define IOLINK_DS_STATE_PROPERTY_UPLOAD 0x02U   /**< Bits 1-2 = 0b01: Upload. */
-#define IOLINK_DS_STATE_PROPERTY_DOWNLOAD 0x04U /**< Bits 1-2 = 0b10: Download. */
-#define IOLINK_DS_STATE_PROPERTY_LOCKED 0x06U   /**< Bits 1-2 = 0b11: Data Storage locked. */
+#define IOLINK_DS_STATE_PROPERTY_INACTIVE 0x00U    /**< Bits 1-2 = 0b00: Inactive. */
+#define IOLINK_DS_STATE_PROPERTY_UPLOAD 0x02U      /**< Bits 1-2 = 0b01: Upload. */
+#define IOLINK_DS_STATE_PROPERTY_DOWNLOAD 0x04U    /**< Bits 1-2 = 0b10: Download. */
+#define IOLINK_DS_STATE_PROPERTY_LOCKED 0x06U      /**< Bits 1-2 = 0b11: Data Storage locked. */
 #define IOLINK_DS_STATE_PROPERTY_UPLOAD_FLAG 0x80U /**< Bit 7: DS_UPLOAD_FLAG. */
 /** @} */
 

@@ -65,9 +65,9 @@
 #define IOLINK_FLOWCTRL_COUNT_MASK 0x0FU /**< COUNT M-sequence counter mask. */
 
 /** @brief MasterCommand value written to Direct Parameter page address 0x00 (Table B.2). */
-#define IOLINK_CMD_FALLBACK 0x5AU       /**< Transition to SIO (T_FBD, Table 43). */
-#define IOLINK_CMD_DEVICE_OPERATE 0x99U /**< Switch to OPERATE; PDOUTINVALID (Table 55). */
-#define IOLINK_CMD_PD_OUTPUT_OPERATE 0x98U /**< ProcessDataOutputOperate: PDOUTVALID (Table 55). */
+#define IOLINK_CMD_FALLBACK 0x5AU          /**< Transition to SIO (T_FBD, Table 43). */
+#define IOLINK_CMD_DEVICE_OPERATE 0x99U    /**< Switch to OPERATE; PDOUTINVALID (Table 55). */
+#define IOLINK_CMD_PD_OUTPUT_OPERATE 0x98U /**< PD output valid (Table 55). */
 /** @} */
 
 /**
@@ -101,42 +101,42 @@
  * page 1 (Index 0x0000, Table B.1 addresses 0x07 to 0x0B).
  * @{
  */
-#define IOLINK_IDX_DIRECT_PARAMETERS_1 0x0000U     /**< Direct Parameter page 1 (R, M). */
-#define IOLINK_IDX_DIRECT_PARAMETERS_2 0x0001U     /**< Direct Parameter page 2 (R/W, M). */
-#define IOLINK_IDX_SYSTEM_COMMAND 0x0002U          /**< SystemCommand (W, C, B.2.2). */
-#define IOLINK_IDX_DATA_STORAGE 0x0003U            /**< DataStorageIndex (R/W, M, B.2.3). */
-#define IOLINK_DS_SUBIDX_COMMAND 0x01U        /**< 0x0003/1 DS_Command (W, Table B.10). */
-#define IOLINK_DS_SUBIDX_STATE_PROPERTY 0x02U /**< 0x0003/2 State_Property (R). */
-#define IOLINK_DS_SUBIDX_STORAGE_SIZE 0x03U   /**< 0x0003/3 Data_Storage_Size (R, U32). */
-#define IOLINK_DS_SUBIDX_PARAM_CHECKSUM 0x04U /**< 0x0003/4 Parameter_Checksum (R, U32). */
-#define IOLINK_DS_SUBIDX_INDEX_LIST 0x05U     /**< 0x0003/5 Index_List (R, Table B.11). */
-#define IOLINK_IDX_DEVICE_ACCESS_LOCKS 0x000CU     /**< Device Access Locks (R/W, O, B.2.4). */
-#define IOLINK_IDX_PROFILE_CHARACTERISTIC 0x000DU  /**< ProfileCharacteristic (R, C, B.2.5). */
-#define IOLINK_IDX_PD_INPUT_DESCRIPTOR 0x000EU     /**< PDInputDescriptor (R, C, B.2.6). */
-#define IOLINK_IDX_PD_OUTPUT_DESCRIPTOR 0x000FU    /**< PDOutputDescriptor (R, C, B.2.7). */
-#define IOLINK_IDX_VENDOR_NAME 0x0010U             /**< VendorName (R, M, max 64). */
-#define IOLINK_IDX_VENDOR_TEXT 0x0011U             /**< VendorText (R, O, max 64). */
-#define IOLINK_IDX_PRODUCT_NAME 0x0012U            /**< ProductName (R, M, max 64). */
-#define IOLINK_IDX_PRODUCT_ID 0x0013U              /**< ProductID (R, O, max 64). */
-#define IOLINK_IDX_PRODUCT_TEXT 0x0014U            /**< ProductText (R, O, max 64). */
-#define IOLINK_IDX_SERIAL_NUMBER 0x0015U           /**< SerialNumber (R, O, max 16). */
-#define IOLINK_IDX_HARDWARE_REVISION 0x0016U       /**< HardwareRevision (R, O, max 64). */
-#define IOLINK_IDX_FIRMWARE_REVISION 0x0017U       /**< FirmwareRevision (R, O, max 64). */
-#define IOLINK_IDX_APPLICATION_TAG 0x0018U         /**< ApplicationSpecificTag (R/W, O). */
-#define IOLINK_IDX_FUNCTION_TAG 0x0019U            /**< FunctionTag (R/W, C). */
-#define IOLINK_IDX_LOCATION_TAG 0x001AU            /**< LocationTag (R/W, C). */
-#define IOLINK_IDX_PRODUCT_URI 0x001BU             /**< ProductURI (R, C, max 100). */
-#define IOLINK_IDX_ERROR_COUNT 0x0020U             /**< ErrorCount (R, O, 2 octets). */
-#define IOLINK_IDX_DEVICE_STATUS 0x0024U           /**< DeviceStatus (R, O, 1 octet). */
-#define IOLINK_IDX_DETAILED_DEVICE_STATUS 0x0025U  /**< DetailedDeviceStatus (R, O). */
-#define IOLINK_IDX_PROCESS_DATA_INPUT 0x0028U      /**< ProcessDataInput: last valid PDin (R, O). */
-#define IOLINK_IDX_PROCESS_DATA_OUTPUT 0x0029U     /**< ProcessDataOutput: last valid PDout (R, O). */
-#define IOLINK_IDX_OFFSET_TIME 0x0030U             /**< OffsetTime (R/W, O, B.2.25). */
-#define IOLINK_IDX_ERROR_STATS 0x0040U /**< Vendor-specific error statistics (0x0040+). */
+#define IOLINK_IDX_DIRECT_PARAMETERS_1 0x0000U    /**< Direct Parameter page 1 (R, M). */
+#define IOLINK_IDX_DIRECT_PARAMETERS_2 0x0001U    /**< Direct Parameter page 2 (R/W, M). */
+#define IOLINK_IDX_SYSTEM_COMMAND 0x0002U         /**< SystemCommand (W, C, B.2.2). */
+#define IOLINK_IDX_DATA_STORAGE 0x0003U           /**< DataStorageIndex (R/W, M, B.2.3). */
+#define IOLINK_DS_SUBIDX_COMMAND 0x01U            /**< 0x0003/1 DS_Command (W, Table B.10). */
+#define IOLINK_DS_SUBIDX_STATE_PROPERTY 0x02U     /**< 0x0003/2 State_Property (R). */
+#define IOLINK_DS_SUBIDX_STORAGE_SIZE 0x03U       /**< 0x0003/3 Data_Storage_Size (R, U32). */
+#define IOLINK_DS_SUBIDX_PARAM_CHECKSUM 0x04U     /**< 0x0003/4 Parameter_Checksum (R, U32). */
+#define IOLINK_DS_SUBIDX_INDEX_LIST 0x05U         /**< 0x0003/5 Index_List (R, Table B.11). */
+#define IOLINK_IDX_DEVICE_ACCESS_LOCKS 0x000CU    /**< Device Access Locks (R/W, O, B.2.4). */
+#define IOLINK_IDX_PROFILE_CHARACTERISTIC 0x000DU /**< ProfileCharacteristic (R, C, B.2.5). */
+#define IOLINK_IDX_PD_INPUT_DESCRIPTOR 0x000EU    /**< PDInputDescriptor (R, C, B.2.6). */
+#define IOLINK_IDX_PD_OUTPUT_DESCRIPTOR 0x000FU   /**< PDOutputDescriptor (R, C, B.2.7). */
+#define IOLINK_IDX_VENDOR_NAME 0x0010U            /**< VendorName (R, M, max 64). */
+#define IOLINK_IDX_VENDOR_TEXT 0x0011U            /**< VendorText (R, O, max 64). */
+#define IOLINK_IDX_PRODUCT_NAME 0x0012U           /**< ProductName (R, M, max 64). */
+#define IOLINK_IDX_PRODUCT_ID 0x0013U             /**< ProductID (R, O, max 64). */
+#define IOLINK_IDX_PRODUCT_TEXT 0x0014U           /**< ProductText (R, O, max 64). */
+#define IOLINK_IDX_SERIAL_NUMBER 0x0015U          /**< SerialNumber (R, O, max 16). */
+#define IOLINK_IDX_HARDWARE_REVISION 0x0016U      /**< HardwareRevision (R, O, max 64). */
+#define IOLINK_IDX_FIRMWARE_REVISION 0x0017U      /**< FirmwareRevision (R, O, max 64). */
+#define IOLINK_IDX_APPLICATION_TAG 0x0018U        /**< ApplicationSpecificTag (R/W, O). */
+#define IOLINK_IDX_FUNCTION_TAG 0x0019U           /**< FunctionTag (R/W, C). */
+#define IOLINK_IDX_LOCATION_TAG 0x001AU           /**< LocationTag (R/W, C). */
+#define IOLINK_IDX_PRODUCT_URI 0x001BU            /**< ProductURI (R, C, max 100). */
+#define IOLINK_IDX_ERROR_COUNT 0x0020U            /**< ErrorCount (R, O, 2 octets). */
+#define IOLINK_IDX_DEVICE_STATUS 0x0024U          /**< DeviceStatus (R, O, 1 octet). */
+#define IOLINK_IDX_DETAILED_DEVICE_STATUS 0x0025U /**< DetailedDeviceStatus (R, O). */
+#define IOLINK_IDX_PROCESS_DATA_INPUT 0x0028U     /**< ProcessDataInput: last valid PDin (R, O). */
+#define IOLINK_IDX_PROCESS_DATA_OUTPUT 0x0029U /**< ProcessDataOutput: last valid PDout (R, O). */
+#define IOLINK_IDX_OFFSET_TIME 0x0030U         /**< OffsetTime (R/W, O, B.2.25). */
+#define IOLINK_IDX_ERROR_STATS 0x0040U         /**< Vendor-specific error statistics (0x0040+). */
 
-#define IOLINK_STRING_MAX_LEN 64U         /**< Max StringT length of identification objects. */
-#define IOLINK_SERIAL_NUMBER_MAX_LEN 16U  /**< Max StringT length of SerialNumber (B.2.13). */
-#define IOLINK_PRODUCT_URI_MAX_LEN 100U   /**< Max StringT length of ProductURI (B.2.19). */
+#define IOLINK_STRING_MAX_LEN 64U        /**< Max StringT length of identification objects. */
+#define IOLINK_SERIAL_NUMBER_MAX_LEN 16U /**< Max StringT length of SerialNumber (B.2.13). */
+#define IOLINK_PRODUCT_URI_MAX_LEN 100U  /**< Max StringT length of ProductURI (B.2.19). */
 /** @} */
 
 /**
@@ -181,15 +181,15 @@
 #define IOLINK_ISDU_ERROR_INDEX_NOT_AVAIL 0x11U    /**< IDX_NOTAVAIL (C.2.3), explicit name. */
 #define IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL 0x12U /**< SUBIDX_NOTAVAIL (C.2.4). */
 #define IOLINK_ISDU_ERROR_SERV_TEMP_UNAVAIL 0x20U  /**< SERV_NOTAVAIL: state-dependent (C.2.5). */
-#define IOLINK_ISDU_ERROR_NOT_ACCESSIBLE 0x23U     /**< IDX_NOT_ACCESSIBLE: access denied (C.2.8). */
+#define IOLINK_ISDU_ERROR_NOT_ACCESSIBLE 0x23U /**< IDX_NOT_ACCESSIBLE: access denied (C.2.8). */
 #define IOLINK_ISDU_ERROR_FUNCTION_NOT_AVAIL \
-    0x35U                                       /**< Command function not available (Table C.1). */
+    0x35U /**< Command function not available (Table C.1). */
 #define IOLINK_ISDU_ERROR_FUNC_TEMP_UNAVAIL 0x36U /**< FUNC_UNAVAILTEMP (C.2.15). */
 /** @brief Legacy name. 0x30 is PAR_VALOUTOFRNG in Table C.1, not a busy code. */
 #define IOLINK_ISDU_ERROR_BUSY 0x30U
-#define IOLINK_ISDU_ERROR_VALUE_OUT_OF_RANGE 0x30U  /**< PAR_VALOUTOFRNG (C.2.9). */
-#define IOLINK_ISDU_ERROR_LENGTH_OVERRUN 0x33U      /**< VAL_LENOVRRUN (C.2.12). */
-#define IOLINK_ISDU_ERROR_LENGTH_UNDERRUN 0x34U     /**< VAL_LENUNDRUN (C.2.13). */
+#define IOLINK_ISDU_ERROR_VALUE_OUT_OF_RANGE 0x30U /**< PAR_VALOUTOFRNG (C.2.9). */
+#define IOLINK_ISDU_ERROR_LENGTH_OVERRUN 0x33U     /**< VAL_LENOVRRUN (C.2.12). */
+#define IOLINK_ISDU_ERROR_LENGTH_UNDERRUN 0x34U    /**< VAL_LENUNDRUN (C.2.13). */
 #define IOLINK_ISDU_ERROR_WRITE_PROTECTED 0x23U    /**< Access denied, Table C.1. */
 #define IOLINK_ISDU_ERROR_PARAM_SET_INVALID 0x40U  /**< PAR_SETINVALID (C.2.16). */
 #define IOLINK_ISDU_ERROR_PARAM_INCONSISTENT 0x41U /**< PAR_SETINCONSIST (C.2.17, Table 98). */

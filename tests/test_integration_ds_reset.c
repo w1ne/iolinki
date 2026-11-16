@@ -423,13 +423,12 @@ static void dev_start(bool with_handler)
 static void go_operate(void)
 {
     const uint8_t dev_operate = IOLINK_CMD_DEVICE_OPERATE;
-    assert_int_equal(master_msg(IOLINK_MC_CHANNEL_PAGE, IOLINK_MSEQ_TYPE_0, &dev_operate, 1U),
-                     1U);
+    assert_int_equal(master_msg(IOLINK_MC_CHANNEL_PAGE, IOLINK_MSEQ_TYPE_0, &dev_operate, 1U), 1U);
     assert_int_equal(iolink_device_get_state(&g_dev), IOLINK_DLL_STATE_ESTAB_COM);
     /* The first Type 2_2 message moves ESTAB_COM -> OPERATE. */
-    assert_int_equal(master_msg(IOLINK_MC_RW_MASK | IOLINK_MC_CHANNEL_PROCESS, IOLINK_MSEQ_TYPE_2,
-                                g_pdout, 2U),
-                     4U);
+    assert_int_equal(
+        master_msg(IOLINK_MC_RW_MASK | IOLINK_MC_CHANNEL_PROCESS, IOLINK_MSEQ_TYPE_2, g_pdout, 2U),
+        4U);
     assert_true(in_operate());
 }
 
@@ -475,8 +474,8 @@ static void test_block_download_stages_and_commits_atomically(void** state)
     assert_int_equal(write_tag(IOLINK_IDX_FUNCTION_TAG, "FUN-OLD"), 0);
     expect_nvm_tag(IOLINK_IDX_APPLICATION_TAG, "APP-OLD");
     uint8_t cs_before[4];
-    assert_int_equal(isdu_read(IOLINK_IDX_DATA_STORAGE, IOLINK_DS_SUBIDX_PARAM_CHECKSUM,
-                               cs_before, sizeof(cs_before)),
+    assert_int_equal(isdu_read(IOLINK_IDX_DATA_STORAGE, IOLINK_DS_SUBIDX_PARAM_CHECKSUM, cs_before,
+                               sizeof(cs_before)),
                      4);
 
     assert_int_equal(sys_cmd(IOLINK_CMD_PARAM_DOWNLOAD_START), 0);
@@ -509,8 +508,8 @@ static void test_block_download_stages_and_commits_atomically(void** state)
     expect_nvm_tag(IOLINK_IDX_APPLICATION_TAG, "APP-NEW");
     expect_nvm_tag(IOLINK_IDX_FUNCTION_TAG, "FUN-NEW");
     uint8_t cs_after[4];
-    assert_int_equal(isdu_read(IOLINK_IDX_DATA_STORAGE, IOLINK_DS_SUBIDX_PARAM_CHECKSUM,
-                               cs_after, sizeof(cs_after)),
+    assert_int_equal(isdu_read(IOLINK_IDX_DATA_STORAGE, IOLINK_DS_SUBIDX_PARAM_CHECKSUM, cs_after,
+                               sizeof(cs_after)),
                      4);
     assert_memory_not_equal(cs_before, cs_after, 4U);
     /* ParamDownloadEnd alone raises no Data Storage upload request. */
@@ -610,18 +609,17 @@ static void test_download_store_raises_ds_upload_request(void** state)
 
     /* Table B.10/B.11 read objects. */
     uint8_t buf[32];
-    assert_int_equal(isdu_read(IOLINK_IDX_DATA_STORAGE, IOLINK_DS_SUBIDX_STORAGE_SIZE, buf,
-                               sizeof(buf)),
-                     4);
-    const uint32_t size = ((uint32_t) buf[0] << 24) | ((uint32_t) buf[1] << 16) |
-                          ((uint32_t) buf[2] << 8) | buf[3];
+    assert_int_equal(
+        isdu_read(IOLINK_IDX_DATA_STORAGE, IOLINK_DS_SUBIDX_STORAGE_SIZE, buf, sizeof(buf)), 4);
+    const uint32_t size =
+        ((uint32_t) buf[0] << 24) | ((uint32_t) buf[1] << 16) | ((uint32_t) buf[2] << 8) | buf[3];
     assert_int_equal(size, iolink_ds_storage_size());
     assert_true(size <= 2048U);
     const uint8_t index_list[] = {0x00U, 0x18U, 0x00U, 0x00U, 0x19U, 0x00U,
                                   0x00U, 0x1AU, 0x00U, 0x00U, 0x00U};
-    assert_int_equal(isdu_read(IOLINK_IDX_DATA_STORAGE, IOLINK_DS_SUBIDX_INDEX_LIST, buf,
-                               sizeof(buf)),
-                     (int) sizeof(index_list));
+    assert_int_equal(
+        isdu_read(IOLINK_IDX_DATA_STORAGE, IOLINK_DS_SUBIDX_INDEX_LIST, buf, sizeof(buf)),
+        (int) sizeof(index_list));
     assert_memory_equal(buf, index_list, sizeof(index_list));
     assert_int_equal(isdu_read(IOLINK_IDX_DATA_STORAGE, 6U, buf, sizeof(buf)), -0x8012);
     const uint8_t two[2] = {0U, 0U};
@@ -921,8 +919,7 @@ static void test_process_data_last_valid_over_frames(void** state)
     /* PDOUTINVALID (0x99 in OPERATE): later PDout does not replace the
        snapshot; the last valid data is returned. */
     const uint8_t invalid_cmd = IOLINK_CMD_DEVICE_OPERATE;
-    assert_int_equal(master_msg(IOLINK_MC_CHANNEL_PAGE, IOLINK_MSEQ_TYPE_0, &invalid_cmd, 1U),
-                     1U);
+    assert_int_equal(master_msg(IOLINK_MC_CHANNEL_PAGE, IOLINK_MSEQ_TYPE_0, &invalid_cmd, 1U), 1U);
     assert_false(g_dev.dll.pd_out_valid);
     assert_true(in_operate());
     g_pdout[0] = 0x55U;
@@ -964,8 +961,7 @@ static void test_process_data_last_valid_over_frames(void** state)
     assert_int_equal(isdu_read(IOLINK_IDX_PROCESS_DATA_INPUT, 0U, buf, sizeof(buf)), 2);
     assert_int_equal(buf[0], 0xA1U);
     assert_int_equal(buf[1], 0xB2U);
-    assert_int_equal(iolink_device_pd_input_update(&g_dev, in_ok, IOLINK_PD_IN_MAX_SIZE + 1U,
-                                                   true),
+    assert_int_equal(iolink_device_pd_input_update(&g_dev, in_ok, IOLINK_PD_IN_MAX_SIZE + 1U, true),
                      -1);
 
     /* Communication loss: validity resets, the snapshot stays. */

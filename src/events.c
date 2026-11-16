@@ -22,8 +22,8 @@
 #include <string.h>
 
 /* qflags bits. */
-#define EVQ_PRESENTED 0x01U /* Shown in the frozen event memory */
-#define EVQ_LIFECYCLE 0x02U /* Queued by the appear/disappear dispatcher */
+#define EVQ_PRESENTED 0x01U      /* Shown in the frozen event memory */
+#define EVQ_LIFECYCLE 0x02U      /* Queued by the appear/disappear dispatcher */
 #define EVQ_STATUS_CLEARED 0x04U /* Excluded from DeviceStatus after a factory reset */
 
 /* iolink_event_cond_t state. */
@@ -32,10 +32,10 @@
 #define COND_RECENT 2U /* Inactive; kept only for the repeat-interval check */
 
 /* iolink_event_cond_t flags. */
-#define COND_APPEAR_SENT 0x01U    /* "appears" queued, "disappears" not yet */
-#define COND_CLEAR_REQ 0x02U      /* Clear requested, "disappears" deferred */
-#define COND_HAS_APPEAR 0x04U     /* appear_ms is valid and within the repeat window */
-#define COND_HAS_DISAPPEAR 0x08U  /* disappear_ms is valid and within the repeat window */
+#define COND_APPEAR_SENT 0x01U   /* "appears" queued, "disappears" not yet */
+#define COND_CLEAR_REQ 0x02U     /* Clear requested, "disappears" deferred */
+#define COND_HAS_APPEAR 0x04U    /* appear_ms is valid and within the repeat window */
+#define COND_HAS_DISAPPEAR 0x08U /* disappear_ms is valid and within the repeat window */
 
 void iolink_events_init(iolink_events_ctx_t* ctx)
 {
@@ -489,8 +489,7 @@ static void cond_try_appear(iolink_events_ctx_t* ctx, iolink_event_cond_t* c, ui
 }
 
 /** @brief Queue "disappears" for a cleared condition when allowed. Caller holds lock. */
-static void cond_try_disappear(iolink_events_ctx_t* ctx, iolink_event_cond_t* c,
-                               uint32_t now_ms)
+static void cond_try_disappear(iolink_events_ctx_t* ctx, iolink_event_cond_t* c, uint32_t now_ms)
 {
     if (((c->flags & COND_HAS_APPEAR) != 0U) &&
         (elapsed_ms(now_ms, c->appear_ms) < (uint32_t) IOLINK_EVENT_MIN_APPEAR_MS)) {
@@ -583,8 +582,8 @@ bool iolink_event_notify_at(iolink_events_ctx_t* ctx, uint16_t code, uint32_t no
     }
     if ((c != NULL) && (c->state != COND_ACTIVE) &&
         cond_repeat_ok(c, COND_HAS_APPEAR, c->appear_ms, now_ms)) {
-        if (queue_push(ctx, code, IOLINK_EVENT_TYPE_NOTIFICATION, IOLINK_EVENT_MODE_SINGLE_SHOT,
-                       0U, true)) {
+        if (queue_push(ctx, code, IOLINK_EVENT_TYPE_NOTIFICATION, IOLINK_EVENT_MODE_SINGLE_SHOT, 0U,
+                       true)) {
             c->code = code;
             c->type = (uint8_t) IOLINK_EVENT_TYPE_NOTIFICATION;
             c->state = COND_RECENT;

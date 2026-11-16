@@ -106,10 +106,10 @@ typedef struct
  */
 typedef enum
 {
-    IOLINK_RESET_DEVICE = 0,           /**< System Command 0x80 (Device Reset) */
-    IOLINK_RESET_APPLICATION = 1,      /**< System Command 0x81 (Application Reset) */
-    IOLINK_RESET_RESTORE_FACTORY = 2,  /**< System Command 0x82: reset application parameters */
-    IOLINK_RESET_BACK_TO_BOX = 3       /**< System Command 0x83: disable outputs, stop */
+    IOLINK_RESET_DEVICE = 0,          /**< System Command 0x80 (Device Reset) */
+    IOLINK_RESET_APPLICATION = 1,     /**< System Command 0x81 (Application Reset) */
+    IOLINK_RESET_RESTORE_FACTORY = 2, /**< System Command 0x82: reset application parameters */
+    IOLINK_RESET_BACK_TO_BOX = 3      /**< System Command 0x83: disable outputs, stop */
 } iolink_reset_type_t;
 
 /**

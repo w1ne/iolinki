@@ -629,8 +629,8 @@ static void handle_tag(iolink_isdu_ctx_t* ctx, uint16_t index)
     }
     if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
         iolink_ds_ctx_t* ds = (iolink_ds_ctx_t*) ctx->ds_ctx;
-        const bool in_download = (ds != NULL) && iolink_ds_download_open(ds) &&
-                                 iolink_ds_is_ds_param(index, 0U);
+        const bool in_download =
+            (ds != NULL) && iolink_ds_download_open(ds) && iolink_ds_is_ds_param(index, 0U);
 
         if (isdu_param_write_locked(ctx)) {
             isdu_reply_error(ctx, IOLINK_ISDU_ERROR_NOT_ACCESSIBLE);
@@ -722,10 +722,9 @@ static void handle_process_data(iolink_isdu_ctx_t* ctx, bool input)
     }
 
     iolink_critical_enter();
-    const uint8_t n = input ? iolink_dll_get_last_valid_pd_in(dll, ctx->response_buf,
-                                                              sizeof(ctx->response_buf))
-                            : iolink_dll_get_last_valid_pd_out(dll, ctx->response_buf,
-                                                               sizeof(ctx->response_buf));
+    const uint8_t n =
+        input ? iolink_dll_get_last_valid_pd_in(dll, ctx->response_buf, sizeof(ctx->response_buf))
+              : iolink_dll_get_last_valid_pd_out(dll, ctx->response_buf, sizeof(ctx->response_buf));
     iolink_critical_exit();
 
     if (n == 0U) {
@@ -779,8 +778,7 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
                                          false);
             break;
         case IOLINK_IDX_PRODUCT_URI:
-            handle_identification_string(ctx, info->product_uri, IOLINK_PRODUCT_URI_MAX_LEN,
-                                         false);
+            handle_identification_string(ctx, info->product_uri, IOLINK_PRODUCT_URI_MAX_LEN, false);
             break;
         case IOLINK_IDX_APPLICATION_TAG:
         case IOLINK_IDX_FUNCTION_TAG:
@@ -904,8 +902,8 @@ static void handle_param_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
                 isdu_reply_error(ctx, IOLINK_ISDU_ERROR_FUNC_TEMP_UNAVAIL);
                 return;
             }
-            const int ret = iolink_ds_handle_command(ds, IOLINK_CMD_PARAM_DOWNLOAD_STORE,
-                                                     block_locks);
+            const int ret =
+                iolink_ds_handle_command(ds, IOLINK_CMD_PARAM_DOWNLOAD_STORE, block_locks);
             if (ret != IOLINK_DS_OK) {
                 /* Table 98 rule 7: no Data Storage upload request. */
                 isdu_reply_ds_result(ctx, ds, ret);
@@ -1104,8 +1102,8 @@ static void handle_detailed_device_status(iolink_isdu_ctx_t* ctx)
 
     const size_t capacity = sizeof(ctx->response_buf);
     const uint16_t limit = (capacity > UINT16_MAX) ? UINT16_MAX : (uint16_t) capacity;
-    const size_t count = iolink_events_get_detailed_status(
-        (iolink_events_ctx_t*) ctx->event_ctx, ctx->response_buf, limit);
+    const size_t count = iolink_events_get_detailed_status((iolink_events_ctx_t*) ctx->event_ctx,
+                                                           ctx->response_buf, limit);
     isdu_reply_data(ctx, count);
 }
 

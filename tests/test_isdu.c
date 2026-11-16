@@ -680,8 +680,7 @@ static void test_isdu_device_id_three_octets(void** state)
     for (uint8_t i = 0U; i < 3U; i++) {
         iolink_isdu_init(&ctx);
         assert_int_equal(
-            isdu_send_read_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_1, (uint8_t) (0x0AU + i)),
-            1);
+            isdu_send_read_request(&ctx, IOLINK_IDX_DIRECT_PARAMETERS_1, (uint8_t) (0x0AU + i)), 1);
         iolink_isdu_process(&ctx);
         uint8_t data[2];
         assert_int_equal(isdu_collect_response(&ctx, data, sizeof(data)), 1);
@@ -849,8 +848,8 @@ static void test_system_cmd_reserved_values_rejected(void** state)
     iolink_ds_init(&ds, NULL);
 
     const uint8_t tag[] = "KeepTag";
-    assert_int_equal(iolink_params_set(IOLINK_IDX_APPLICATION_TAG, 0U, tag, sizeof(tag) - 1U, false),
-                     0);
+    assert_int_equal(
+        iolink_params_set(IOLINK_IDX_APPLICATION_TAG, 0U, tag, sizeof(tag) - 1U, false), 0);
 
     for (size_t i = 0U; i < sizeof(refused); i++) {
         iolink_isdu_init(&ctx);
@@ -977,8 +976,8 @@ static void test_system_cmd_block_param_sequences(void** state)
     const uint8_t ds_dn_start = IOLINK_DS_COMMAND_DOWNLOAD_START;
     iolink_isdu_init(&ctx);
     ctx.ds_ctx = &ds;
-    len = isdu_run_write(&ctx, IOLINK_IDX_DATA_STORAGE, IOLINK_DS_SUBIDX_COMMAND, &ds_dn_start,
-                         1U, resp, sizeof(resp));
+    len = isdu_run_write(&ctx, IOLINK_IDX_DATA_STORAGE, IOLINK_DS_SUBIDX_COMMAND, &ds_dn_start, 1U,
+                         resp, sizeof(resp));
     assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_NOT_ACCESSIBLE);
     assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
     iolink_isdu_init(&ctx);
@@ -1160,8 +1159,8 @@ static void test_isdu_conditional_profile_objects(void** state)
     assert_int_equal(resp[0], 0x40U);
     assert_int_equal(resp[1], 0x00U);
     const uint8_t pid[2] = {0x00U, 0x01U};
-    len = isdu_run_write(&ctx, IOLINK_IDX_PROFILE_CHARACTERISTIC, 0x00, pid, 2U, resp,
-                         sizeof(resp));
+    len =
+        isdu_run_write(&ctx, IOLINK_IDX_PROFILE_CHARACTERISTIC, 0x00, pid, 2U, resp, sizeof(resp));
     assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_NOT_ACCESSIBLE);
     len = isdu_run_read(&ctx, IOLINK_IDX_PROFILE_CHARACTERISTIC, 0x01, resp, sizeof(resp));
     assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
@@ -1229,8 +1228,7 @@ static void test_isdu_status_objects_read_only(void** state)
     const uint8_t w = 0x00U;
     len = isdu_run_write(&ctx, IOLINK_IDX_DEVICE_STATUS, 0x00, &w, 1U, resp, sizeof(resp));
     assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_NOT_ACCESSIBLE);
-    len = isdu_run_write(&ctx, IOLINK_IDX_DETAILED_DEVICE_STATUS, 0x00, &w, 1U, resp,
-                         sizeof(resp));
+    len = isdu_run_write(&ctx, IOLINK_IDX_DETAILED_DEVICE_STATUS, 0x00, &w, 1U, resp, sizeof(resp));
     assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_NOT_ACCESSIBLE);
     len = isdu_run_read(&ctx, IOLINK_IDX_DETAILED_DEVICE_STATUS, 0x01, resp, sizeof(resp));
     assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
@@ -1482,19 +1480,30 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_isdu_direct_parameters_page2, test_setup,
                                         test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_data_storage_round_trip, test_setup,
-                                        test_teardown),        cmocka_unit_test_setup_teardown(test_system_cmd_codes_table_b9, test_setup, test_teardown),
-        cmocka_unit_test_setup_teardown(test_system_cmd_reserved_values_rejected, test_setup, test_teardown),
-        cmocka_unit_test_setup_teardown(test_system_cmd_length_and_subindex, test_setup, test_teardown),
-        cmocka_unit_test_setup_teardown(test_system_cmd_param_without_ds, test_setup, test_teardown),
-        cmocka_unit_test_setup_teardown(test_system_cmd_block_param_sequences, test_setup, test_teardown),
-        cmocka_unit_test_setup_teardown(test_system_cmd_param_download_store, test_setup, test_teardown),
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_system_cmd_codes_table_b9, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_system_cmd_reserved_values_rejected, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_system_cmd_length_and_subindex, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_system_cmd_param_without_ds, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_system_cmd_block_param_sequences, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_system_cmd_param_download_store, test_setup,
+                                        test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_error_count, test_setup, test_teardown),
-        cmocka_unit_test_setup_teardown(test_isdu_conditional_profile_objects, test_setup, test_teardown),
-        cmocka_unit_test_setup_teardown(test_isdu_identification_access_rules, test_setup, test_teardown),
-        cmocka_unit_test_setup_teardown(test_isdu_status_objects_read_only, test_setup, test_teardown),
-        cmocka_unit_test_setup_teardown(test_isdu_process_data_input_guards, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_conditional_profile_objects, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_identification_access_rules, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_status_objects_read_only, test_setup,
+                                        test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_process_data_input_guards, test_setup,
+                                        test_teardown),
         cmocka_unit_test_setup_teardown(test_isdu_process_data_output, test_setup, test_teardown),
-        cmocka_unit_test_setup_teardown(test_isdu_wire_conformance_frames, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_isdu_wire_conformance_frames, test_setup,
+                                        test_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
