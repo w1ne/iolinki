@@ -84,6 +84,9 @@ class VirtualMaster:
         self.cycle_time_ms = 10  # Default cycle time
         self.phy_mode = "SDCI"  # Default PHY mode
         self.baudrate = "COM2"  # Default baudrate (38.4 kbit/s)
+        # ErrorType (0x80xx, Table C.1) of the last negative ISDU response,
+        # None after a positive response or when no response was received.
+        self.last_isdu_error: Optional[int] = None
 
     def get_device_tty(self) -> str:
         """Get the TTY path for connecting the Device."""
@@ -295,6 +298,7 @@ class VirtualMaster:
         print(
             f"[Master] ISDU Read request: Index=0x{index:04X}, Subindex=0x{subindex:02X}"
         )
+        self.last_isdu_error = None
         request = self.generator.build_isdu_read_request(index, subindex)
         if not self._isdu_send_request(request):
             return None
@@ -310,6 +314,7 @@ class VirtualMaster:
                 f"[Master] ISDU negative response: "
                 f"code=0x{framed[1]:02X} add=0x{framed[2]:02X}"
             )
+            self.last_isdu_error = (framed[1] << 8) | framed[2]
             return None
         if service != 0xD:
             print(f"[Master] ISDU unexpected response service 0x{service:X}")
@@ -524,6 +529,7 @@ class VirtualMaster:
         print(
             f"[Master] ISDU Write request: Index=0x{index:04X}, Subindex=0x{subindex:02X}, Data={data.hex()}"
         )
+        self.last_isdu_error = None
         request = self.generator.build_isdu_write_request(index, subindex, data)
         if not self._isdu_send_request(request):
             return False
@@ -539,6 +545,7 @@ class VirtualMaster:
                 f"[Master] ISDU write negative response: "
                 f"code=0x{framed[1]:02X} add=0x{framed[2]:02X}"
             )
+            self.last_isdu_error = (framed[1] << 8) | framed[2]
             return False
         if service != 0x5:
             print(f"[Master] ISDU write unexpected response service 0x{service:X}")
@@ -546,6 +553,35 @@ class VirtualMaster:
 
         print("[Master] ISDU write confirmed")
         return True
+
+    def read_direct_param_page1(self) -> Optional[bytes]:
+        """Read Direct Parameter page 1 (16 octets, Table B.1) through ISDU index 0x0000."""
+        page = self.read_isdu(0x0000, 0x00)
+        if page is None or len(page) < 16:
+            return None
+        return page
+
+    def read_vendor_id(self) -> Optional[int]:
+        """VendorID from Direct Parameter page 1 octets 0x07-0x08.
+
+        V1.1.5 Table B.8 reserves ISDU indices 0x0004-0x000B, so VendorID is
+        not read from index 0x000A.
+        """
+        page = self.read_direct_param_page1()
+        if page is None:
+            return None
+        return (page[0x07] << 8) | page[0x08]
+
+    def read_device_id(self) -> Optional[int]:
+        """DeviceID (24 bit) from Direct Parameter page 1 octets 0x09-0x0B.
+
+        V1.1.5 Table B.8 reserves ISDU indices 0x0004-0x000B, so DeviceID is
+        not read from index 0x000B.
+        """
+        page = self.read_direct_param_page1()
+        if page is None:
+            return None
+        return (page[0x09] << 16) | (page[0x0A] << 8) | page[0x0B]
 
     def close(self) -> None:
         """Close the virtual Master."""

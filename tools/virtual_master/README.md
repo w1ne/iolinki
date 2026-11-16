@@ -86,8 +86,9 @@ response = master.run_cycle(
 )
 print(f"PD_In: {response.pd.hex()}")
 
-# Read ISDU (Vendor ID)
-vendor_id = master.read_isdu(0x000A)
+# Read Vendor ID from Direct Parameter page 1 (ISDU index 0x0000).
+# V1.1.5 Table B.8 reserves indices 0x0004-0x000B.
+vendor_id = master.read_vendor_id()
 ```
 
 ### Type 2_2 Example (PD + ISDU, 2-byte OD)
