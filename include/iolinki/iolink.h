@@ -69,8 +69,8 @@ static inline uint8_t iolink_mseq_od_len(uint8_t m_seq_type)
  */
 static inline uint8_t iolink_cycle_time_encode(uint16_t ticks)
 {
-    if (ticks == 0U) return 0U;             /* no declared minimum */
-    if (ticks <= 3U) return 4U;              /* minimum 0.4 ms */
+    if (ticks == 0U) return 0U; /* no declared minimum */
+    if (ticks <= 3U) return 4U; /* minimum 0.4 ms */
     if (ticks <= 63U) return (uint8_t) ticks;
 
     if (ticks <= 316U) {
