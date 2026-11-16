@@ -116,6 +116,17 @@ uint16_t iolink_device_info_ctx_get_access_locks(const iolink_device_info_ctx_t*
 void iolink_device_info_ctx_set_access_locks(iolink_device_info_ctx_t* ctx, uint16_t locks);
 
 /**
+ * @brief Get the factory-default device access locks of a context.
+ *
+ * Returns the value from the configured identity bound at init (or the built-in
+ * default identity), independent of later runtime changes.
+ *
+ * @param ctx Device-info context.
+ * @return Factory-default 16-bit access locks value, 0 if @p ctx is NULL.
+ */
+uint16_t iolink_device_info_ctx_get_factory_access_locks(const iolink_device_info_ctx_t* ctx);
+
+/**
  * @brief Initialize device information
  * @param info Pointer to device info structure
  */
@@ -146,6 +157,12 @@ uint16_t iolink_device_info_get_access_locks(void);
  * @param locks 16-bit access locks value
  */
 void iolink_device_info_set_access_locks(uint16_t locks);
+
+/**
+ * @brief Get the factory-default Device Access Locks of the singleton context.
+ * @return Access locks value of the identity passed to iolink_device_info_init().
+ */
+uint16_t iolink_device_info_get_factory_access_locks(void);
 
 /** @} */ /* end of iolinki_device_info */
 

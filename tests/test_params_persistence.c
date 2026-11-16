@@ -77,5 +77,40 @@ int main(void)
         assert(iolink_params_ctx_get(&params, indices[tag], 0, retained, sizeof(retained)) == 11);
         assert(memcmp(retained, "replacement", 11) == 0);
     }
+
+    /* Checked factory reset: a failed NVM write reports failure and keeps RAM. */
+    iolink_device_info_ctx_set_access_locks(&info, IOLINK_LOCK_DS);
+    write_result = -1;
+    int prior_writes = writes;
+    assert(iolink_params_ctx_factory_reset_checked(&params) == -1);
+    assert(writes == prior_writes + 1);
+    uint8_t probe[32];
+    assert(iolink_params_ctx_get(&params, IOLINK_IDX_LOCATION_TAG, 0, probe, sizeof(probe)) == 11);
+    assert(iolink_params_ctx_get_access_locks(&params) == IOLINK_LOCK_DS);
+
+    /* Access locks: a failed persistent write keeps the old value. */
+    assert(iolink_params_ctx_set_access_locks(&params, IOLINK_LOCK_PARAM, true) == -1);
+    assert(iolink_params_ctx_get_access_locks(&params) == IOLINK_LOCK_DS);
+    assert(iolink_params_ctx_set_access_locks(&params, IOLINK_LOCK_PARAM, false) == 0);
+    assert(iolink_params_ctx_get_access_locks(&params) == IOLINK_LOCK_PARAM);
+
+    /* Successful checked factory reset: empty tags, default (unlocked) locks. */
+    write_result = 0;
+    assert(iolink_params_ctx_factory_reset_checked(&params) == 0);
+    assert(iolink_params_ctx_get(&params, IOLINK_IDX_LOCATION_TAG, 0, probe, sizeof(probe)) == 0);
+    assert(iolink_params_ctx_get(&params, IOLINK_IDX_APPLICATION_TAG, 0, probe, sizeof(probe)) ==
+           0);
+    assert(iolink_params_ctx_get_access_locks(&params) == 0U);
+
+    /* Legacy void reset still resets RAM when storage fails (documented). */
+    assert(iolink_params_ctx_set(&params, IOLINK_IDX_FUNCTION_TAG, 0, (const uint8_t*) "original",
+                                 8, false) == 0);
+    write_result = -1;
+    iolink_params_ctx_factory_reset(&params);
+    assert(iolink_params_ctx_get(&params, IOLINK_IDX_FUNCTION_TAG, 0, probe, sizeof(probe)) == 0);
+
+    /* Unreadable NVM: init reports defaults. */
+    iolink_params_ctx_t fresh;
+    assert(iolink_params_ctx_init_at(&fresh, &info, 0U) == 1);
     puts("Persistent tag failures preserve RAM/device info; volatile writes still work");
 }

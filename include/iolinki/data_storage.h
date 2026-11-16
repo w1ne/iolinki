@@ -37,6 +37,31 @@
 #endif
 
 /**
+ * @brief Layout version of the serialized DS image record format above.
+ *
+ * The on-wire image (DS_Data, index 0x0003) carries no header, so the Master
+ * checksum covers only the records. The version is stored in the header of
+ * the backend record written by @ref iolink_ds_save.
+ */
+#define IOLINK_DS_IMAGE_LAYOUT_VERSION 1U
+
+/** @brief Size of the header that @ref iolink_ds_save writes before the image. */
+#define IOLINK_DS_STORE_HEADER_SIZE 8U
+
+/**
+ * @name Data Storage return codes
+ * @{
+ */
+#define IOLINK_DS_OK 0                   /**< Success. */
+#define IOLINK_DS_ERR_INVALID (-1)       /**< Bad argument, bad state or rejected image. */
+#define IOLINK_DS_ERR_STORAGE (-2)       /**< NVM/storage backend missing or failed. */
+#define IOLINK_DS_CMD_BUSY (-1)          /**< handle_command: state does not allow command. */
+#define IOLINK_DS_CMD_DENIED (-2)        /**< handle_command: blocked by DeviceAccessLocks. */
+#define IOLINK_DS_CMD_UNKNOWN (-3)       /**< handle_command: unsupported command. */
+#define IOLINK_DS_CMD_COMMIT_FAILED (-4) /**< handle_command: download commit/store failed. */
+/** @} */
+
+/**
  * @brief DS engine states
  */
 /**
@@ -101,8 +126,13 @@ typedef struct
     iolink_params_ctx_t* params_ctx;        /**< Device-local writable parameter context */
     uint16_t current_checksum;              /**< Last calculated local parameter checksum */
     uint16_t master_checksum;               /**< Most recent checksum verified by Master */
-    uint8_t image[IOLINK_DS_IMAGE_MAX];     /**< Serialized parameter image (DS_Data 0x0003) */
+    uint8_t image[IOLINK_DS_IMAGE_MAX];     /**< Last valid snapshot of actual parameters */
     size_t image_len;                       /**< Valid bytes in @ref image */
+    uint8_t staged[IOLINK_DS_IMAGE_MAX];    /**< Validated download image, not yet applied */
+    size_t staged_len;                      /**< Valid bytes in @ref staged */
+    bool staged_valid;                      /**< True if @ref staged holds a validated image */
+    bool upload_requested;                  /**< Set by ParamDownloadStore; cleared by upload end */
+    int last_result;                        /**< Result of the last download commit */
 } iolink_ds_ctx_t;
 
 /**
@@ -170,6 +200,9 @@ int iolink_ds_start_download(iolink_ds_ctx_t* ctx);
 /**
  * @brief Abort any in-progress DS upload/download and return to idle.
  *
+ * Discards a staged download image. Live parameters and the last valid image
+ * are not changed.
+ *
  * @param ctx DS context
  * @return int 0 on success
  */
@@ -178,10 +211,25 @@ int iolink_ds_abort(iolink_ds_ctx_t* ctx);
 /**
  * @brief Handle standard DS System Command
  *
+ * - ParamDownloadStart: discards staging and opens a download session.
+ * - ParamDownloadEnd: applies a staged image (if any) with one parameter commit,
+ *   then rebuilds image and checksum from the actual parameters.
+ * - ParamDownloadStore: as ParamDownloadEnd, then sets @ref
+ *   iolink_ds_ctx_t::upload_requested and, if storage hooks are bound, stores
+ *   the image with @ref iolink_ds_save. Also valid outside a session.
+ * - ParamUploadStart/End: snapshot for upload / end of upload.
+ * - ParamBreak: discards staging, live parameters unchanged.
+ *
+ * Download commands are refused while the DS bit of @p access_locks is set.
+ * A failed commit leaves live parameters and the last valid image unchanged.
+ * A failed DS-backend store after a successful commit returns -4 although the
+ * parameters are already committed: the two steps are not one transaction.
+ *
  * @param ctx DS context
- * @param cmd System Command (0x05-0x08)
+ * @param cmd System Command (0x05-0x09, 0x97)
  * @param access_locks Current Access Lock state (Index 0x000C)
- * @return int 0: Success, -1: Busy, -2: Access Denied, -3: Unknown
+ * @return int 0: Success, -1: Busy, -2: Access Denied, -3: Unknown,
+ *         -4: Download commit or store failed
  */
 int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_locks);
 
@@ -197,20 +245,84 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
 int iolink_ds_build_image(iolink_ds_ctx_t* ctx);
 
 /**
+ * @brief Check a complete image without side effects.
+ *
+ * Rejects: empty image, length above @ref IOLINK_DS_IMAGE_MAX, truncated
+ * header or data, an index/subindex outside the DS parameter set, duplicate
+ * records, a value longer than the parameter maximum, and invalid values
+ * (tags: embedded NUL octets).
+ *
+ * @param data Serialized image bytes
+ * @param len  Number of image bytes
+ * @return int 0 if the image is valid, @ref IOLINK_DS_ERR_INVALID otherwise.
+ */
+int iolink_ds_validate_image(const uint8_t* data, size_t len);
+
+/**
  * @brief Apply a parameter image received from the Master (restore).
  *
- * Parses the serialized records and writes each parameter back through the
- * parameter manager (persisting to NVM). Updates @ref iolink_ds_ctx_t::current_checksum.
+ * Validates the whole image first (@ref iolink_ds_validate_image). Only a
+ * valid image is staged into a copy of the parameters and committed with one
+ * NVM write. On success, image and checksum are rebuilt from the actual
+ * parameters. On any failure, live parameters, @ref iolink_ds_ctx_t::image
+ * and @ref iolink_ds_ctx_t::current_checksum are unchanged.
+ *
+ * The commit is one iolink_nvm_write() call. This module does not guarantee
+ * that the NVM backend writes it atomically.
  *
  * @param ctx DS context
  * @param data Serialized image bytes
  * @param len  Number of image bytes
- * @return int 0 on success, negative if the image is malformed or rejected.
+ * @return int 0 on success, @ref IOLINK_DS_ERR_INVALID if the image is
+ *         rejected, @ref IOLINK_DS_ERR_STORAGE if NVM is missing or failed.
  */
 int iolink_ds_apply_image(iolink_ds_ctx_t* ctx, const uint8_t* data, size_t len);
 
 /**
- * @brief Get the current serialized parameter image (building it on demand).
+ * @brief Stage a download image for the next ParamDownloadEnd/Store.
+ *
+ * Allowed only in a download session (DOWNLOAD_REQ or DOWNLOADING). The image
+ * is validated completely. A rejected image also discards any earlier staged
+ * image, so ParamDownloadEnd cannot apply stale data.
+ *
+ * @param ctx DS context
+ * @param data Serialized image bytes
+ * @param len  Number of image bytes
+ * @return int 0 if staged, @ref IOLINK_DS_ERR_INVALID otherwise.
+ */
+int iolink_ds_stage_image(iolink_ds_ctx_t* ctx, const uint8_t* data, size_t len);
+
+/**
+ * @brief Store the current image in the DS storage backend.
+ *
+ * Record: ['D']['S'][layout version][0][len(2, BE)][checksum(2, BE)][image].
+ * Calls erase() first if the hook exists.
+ *
+ * @param ctx DS context
+ * @return int 0 on success, @ref IOLINK_DS_ERR_STORAGE if no storage hooks
+ *         are bound or a hook fails, @ref IOLINK_DS_ERR_INVALID on bad argument.
+ */
+int iolink_ds_save(iolink_ds_ctx_t* ctx);
+
+/**
+ * @brief Read and verify the image stored by @ref iolink_ds_save.
+ *
+ * Does not change live parameters or the context image.
+ *
+ * @param ctx      DS context
+ * @param out      Destination buffer
+ * @param max_len  Size of @p out
+ * @param out_len  [out] Image length
+ * @return int 0 on success, @ref IOLINK_DS_ERR_STORAGE if storage is missing
+ *         or fails, @ref IOLINK_DS_ERR_INVALID if the record is corrupt or
+ *         does not fit @p out.
+ */
+int iolink_ds_load(const iolink_ds_ctx_t* ctx, uint8_t* out, size_t max_len, size_t* out_len);
+
+/**
+ * @brief Get the serialized image of the actual parameters (rebuilt on each call).
+ *
+ * Never returns a staged or rejected download image.
  *
  * @param ctx DS context
  * @param out_len [out] Receives the image length in bytes

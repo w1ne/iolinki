@@ -121,6 +121,17 @@ void iolink_device_info_ctx_set_access_locks(iolink_device_info_ctx_t* ctx, uint
     ctx->defaults.access_locks = locks;
 }
 
+uint16_t iolink_device_info_ctx_get_factory_access_locks(const iolink_device_info_ctx_t* ctx)
+{
+    if (ctx == NULL) {
+        return 0U;
+    }
+    if (ctx->configured != NULL) {
+        return ctx->configured->access_locks;
+    }
+    return k_default_info.access_locks;
+}
+
 /** @brief Lazily initialize and return the process-wide legacy device-info context. */
 static iolink_device_info_ctx_t* legacy_device_info_ctx(void)
 {
@@ -155,4 +166,9 @@ uint16_t iolink_device_info_get_access_locks(void)
 void iolink_device_info_set_access_locks(uint16_t locks)
 {
     iolink_device_info_ctx_set_access_locks(legacy_device_info_ctx(), locks);
+}
+
+uint16_t iolink_device_info_get_factory_access_locks(void)
+{
+    return iolink_device_info_ctx_get_factory_access_locks(legacy_device_info_ctx());
 }
