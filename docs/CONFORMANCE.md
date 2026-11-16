@@ -2,7 +2,7 @@
 
 ## Overview
 
-iolinki includes a comprehensive conformance test suite that validates compliance with the IO-Link V1.1.5 specification. The suite consists of **49 automated test cases** across 7 categories, executed via the Virtual IO-Link Master. It targets Package 2025 (V1.1.5, October 2025), the latest published package; the wire was re-verified against the V1.1.5 figures in v2.2.0. Package 2026 (D1.1.6) is in public review and will be tracked when ratified.
+iolinki includes a comprehensive conformance test suite that validates compliance with the IO-Link V1.1.5 specification. The suite consists of **51 automated test cases** across 7 categories, executed via the Virtual IO-Link Master. It targets Package 2025 (V1.1.5, October 2025), the latest published package; the wire was re-verified against the V1.1.5 figures in v2.2.0. Package 2026 (D1.1.6) is in public review and will be tracked when ratified.
 
 ## Test Coverage Summary
 
@@ -11,11 +11,11 @@ iolinki includes a comprehensive conformance test suite that validates complianc
 | State Machine | 7 | DLL transitions, ESTAB_COM, fallback behavior |
 | Timing Requirements | 5 | Cycle times, response delays, wake-up timing |
 | ISDU Protocol | 13 | All mandatory indices + error handling |
-| System Commands | 9 | Reset, factory restore, Data Storage upload/download |
+| System Commands | 11 | Table B.9 values, resets, Block Parameterization, DS upload flag |
 | Error Injection | 7 | Recovery, robustness, edge cases |
 | PD / Events / SIO | 3 | Process Data, event signalling, SIO fallback |
 | Performance | 5 | Sustained operation, stress testing |
-| **Total** | **49** | **IO-Link V1.1.5 Device Specification** |
+| **Total** | **51** | **IO-Link V1.1.5 Device Specification** |
 
 ## Test Suites
 
@@ -170,7 +170,7 @@ python3 tools/virtual_master/test_conformance_performance.py
 | 0x0017 | Firmware Revision | ✅ Tested |
 | 0x0018 | Application Tag | ✅ Tested (R/W + Persistence) |
 | 0x000C | Device Access Locks | ✅ Tested |
-| 0x000D | Profile Characteristic | ✅ Tested |
+| 0x000D | Profile Characteristic (conditional) | ✅ Tested |
 | 0x0024 | Device Status | ✅ Tested |
 
 ### IO-Link V1.1.5 Specification Cross-Reference
@@ -187,7 +187,7 @@ The following table maps our conformance tests to specific sections of the **IO-
 | Concurrent ISDU/PD | 8.1.3 | ISDU must work during PD exchange | `test_06_isdu_during_operate` |
 | ISDU Indices 0x0010-0x0018 | 8.2.1 | Mandatory device identification parameters | `test_01` through `test_09` (ISDU suite) |
 | Device Access Locks | 8.2.1.30 | Index 0x000C must be readable | `test_10_device_access_locks_0x000C` |
-| Profile Characteristic | 8.2.1.36 | Index 0x000D must indicate device profile | `test_11_profile_characteristic_0x000D` |
+| Profile Characteristic | B.2.5 | Index 0x000D is conditional: IDX_NOTAVAIL without a profile | `test_11_profile_characteristic_0x000D` |
 | Device Status | 8.2.1 | Index 0x0024 must be readable | `test_12_device_status_0x0024` |
 | ISDU Segmentation | 8.1.2 | Support for multi-frame ISDU transfers | `test_05_boundary_condition_max_isdu_size` |
 | Timing Requirements | 6.2.2, Table 12 | Cycle time and response delay limits | All timing tests |
@@ -214,17 +214,26 @@ graph TD
 
 ## Success Criteria
 
-For iolinki to be considered **IO-Link V1.1.5 conformant**, all 49 test cases must pass:
+For iolinki to be considered **IO-Link V1.1.5 conformant**, all 51 test cases must pass:
 
 - **State Machine**: All 7 tests pass
 - **Timing**: All 5 tests pass
 - **ISDU Protocol**: All 13 tests pass
-- **System Commands**: All 9 tests pass
+- **System Commands**: All 11 tests pass
 - **Error Injection**: All 7 tests pass
 - **PD / Events / SIO**: All 3 tests pass
 - **Performance**: All 5 tests pass
 
-**Current Status**: ✅ All 49 tests passing
+**Current Status**: not re-run as one suite after the 2026-11-16 SystemCommand,
+Data Storage and reset changes. Verified on 2026-11-16 against
+`examples/host_demo` over the virtual PTY (no physical transceiver):
+`test_conformance_system_commands.py` 11/11 and `test_conformance_isdu.py`
+13/13. The other suites were not re-run in that change.
+
+The System Commands suite expects the replies of `host_demo`, which registers
+no reset handler: 0x80, 0x81 and 0x83 answer 0x8035 (the stack does not
+acknowledge a command it cannot execute), 0x82 answers (+). The positive paths
+of 0x80/0x81/0x83 are covered by `tests/test_integration_ds_reset.c`.
 
 ---
 

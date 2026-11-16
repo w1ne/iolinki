@@ -102,34 +102,51 @@ uint64_t iolink_time_get_us(void) {
 }
 ```
 
-### 3. Data Storage (Optional)
+### 3. Non-volatile Memory and Data Storage
 
-Implement persistent storage for Device parameters.
+Parameters (tags, DeviceAccessLocks) are stored through the platform NVM
+functions. Implement them for persistent devices:
 
-**Interface**:
 ```c
-typedef struct {
-    int (*load)(uint8_t *data, uint16_t *len);
-    int (*store)(const uint8_t *data, uint16_t len);
-} iolink_ds_storage_api_t;
+int iolink_nvm_read(uint32_t offset, uint8_t *data, size_t len);
+int iolink_nvm_write(uint32_t offset, const uint8_t *data, size_t len); /* 0 = success */
 ```
 
-**Example** (EEPROM):
+A failed `iolink_nvm_write()` is reported to the Master (0x8000) and leaves
+the previous values active. Restore factory settings and Back-to-box need a
+working NVM write.
+
+The Data Storage backend is optional. It keeps an extra copy of the DS image:
+
 ```c
-static int eeprom_load(uint8_t *data, uint16_t *len) {
-    *len = EEPROM_Read(IOLINK_DS_ADDR, data, IOLINK_DS_MAX_SIZE);
-    return 0;
+typedef struct {
+    int (*read)(uint32_t addr, uint8_t *buf, size_t len);
+    int (*write)(uint32_t addr, const uint8_t *buf, size_t len);
+    int (*erase)(uint32_t addr, size_t len); /* optional, may be NULL */
+} iolink_ds_storage_api_t;
+
+static int eeprom_read(uint32_t addr, uint8_t *buf, size_t len) {
+    return EEPROM_Read(IOLINK_DS_ADDR + addr, buf, len) == len ? 0 : -1;
 }
 
-static int eeprom_store(const uint8_t *data, uint16_t len) {
-    return EEPROM_Write(IOLINK_DS_ADDR, data, len);
+static int eeprom_write(uint32_t addr, const uint8_t *buf, size_t len) {
+    return EEPROM_Write(IOLINK_DS_ADDR + addr, buf, len) == len ? 0 : -1;
 }
 
 const iolink_ds_storage_api_t g_storage_eeprom = {
-    .load = eeprom_load,
-    .store = eeprom_store
+    .read = eeprom_read,
+    .write = eeprom_write,
+    .erase = NULL,
 };
 ```
+
+### 4. Reset Handler
+
+Register `iolink_device_set_reset_handler()` if the device supports Device
+reset (0x80), Application reset (0x81) or Back-to-box (0x83). Without a
+handler the stack refuses these commands with 0x8035. For Back-to-box the
+handler must disable all output drivers; the stack then stops communication
+until the next `iolink_device_init()`.
 
 ## CMake Integration
 

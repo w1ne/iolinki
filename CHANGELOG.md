@@ -16,8 +16,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   variants take an explicit wrap-safe millisecond time.
 - `iolink_events_startup_reset()`: the DLL discards queued Events and the
   Event flag on entry to STARTUP; active conditions are reported again.
+- DataStorageIndex 0x0003 Subindex 1-5 (Table B.10): DS_Command,
+  State_Property, Data_Storage_Size, Parameter_Checksum and Index_List.
+  Subindex 0 keeps the device-specific serialized image.
+- Block Parameterization staging: in a download session (ParamDownloadStart
+  or DS_DownloadStart) tag writes and 0x0003 image writes are checked and
+  staged; End/Store commits them with one checked NVM write.
+  New `iolink_ds_stage_param()`, `iolink_ds_handle_ds_command()`,
+  `iolink_ds_download_open()`, `iolink_ds_upload_open()`,
+  `iolink_ds_state_property()`, `iolink_ds_storage_size()`,
+  `iolink_ds_index_list()`.
+- MasterCommand 0x98 (PDOUTVALID) / 0x99 (PDOUTINVALID) handling in OPERATE
+  and last valid Process Data snapshots: `iolink_dll_publish_pd_in()`,
+  `iolink_dll_get_last_valid_pd_in()`, `iolink_dll_get_last_valid_pd_out()`.
+- Back-to-box communication stop: `iolink_dll_disable_communication()`.
+- `iolink_events_clear_status()` for Restore factory settings (Table 101).
+- `iolink_params_ctx_reset_access_locks()`.
+- Reset types `IOLINK_RESET_RESTORE_FACTORY` and `IOLINK_RESET_BACK_TO_BOX`;
+  ISDU reset service hook `iolink_isdu_ctx_t.system_reset`.
+- Device-level integration test `tests/test_integration_ds_reset.c`.
+
+### Changed
+- **Behavior change:** SystemCommands 0x80, 0x81 and 0x83 answer 0x8035
+  FUNC_NOTAVAIL when no reset handler is registered, instead of a positive
+  response without action. 0x81 runs the handler before the response; 0x80
+  and 0x83 run after the response was read and 3 more M-sequences
+  (10.7.2, 10.7.5).
+- **Behavior change:** `iolink_ds_process()` no longer commits or closes a
+  session; it only moves REQ to the active state. The DLL now calls it every
+  cycle. A communication restart (STARTUP) breaks an open session.
+- **Behavior change:** ProcessDataOutput 0x0029 returns the last PDout
+  received after MasterCommand 0x98, not the current buffer in OPERATE.
+  ProcessDataInput 0x0028 returns the last PDin published as valid.
+- The Data Storage access lock refuses writes to 0x0003 (0x8023) and no
+  longer blocks Block Parameterization (B.2.4). The Parameter (write) lock
+  now refuses single parameter writes except inside a DS download.
+- DeviceAccessLocks 0x000C over ISDU are device-local and non-volatile;
+  reserved bits (0x8030), wrong length (0x8033/0x8034) and NVM failure
+  (0x8000) are refused without change.
+- Python virtual master: `last_isdu_error`, `read_vendor_id()`,
+  `read_device_id()`. Conformance scripts use Table B.9 values and read
+  VendorID/DeviceID from Direct Parameter page 1.
 
 ### Fixed
+- `IOLINK_ISDU_ERROR_PARAM_INCONSISTENT` is 0x41 (PAR_SETINCONSIST, C.2.17);
+  it was 0x40 (PAR_SETINVALID, now `IOLINK_ISDU_ERROR_PARAM_SET_INVALID`).
+- A rejected write in a download session makes End/Store fail with 0x8041
+  and keeps the previous set (Table 98 rules 4 and 7); previously End
+  reported success.
+- ParamDownloadStore passes 0x05 to the DS engine (backend store and
+  DS_UPLOAD_FLAG) and raises DS_UPLOAD_REQ as a single-shot Notification only
+  after a successful commit. A failed commit answers 0x8041 (invalid set) or
+  0x8000 (NVM failure) instead of 0x8035.
+- Restore factory settings uses the checked reset: an NVM failure answers
+  0x8000 and changes nothing; success also clears Events, DeviceStatus,
+  DetailedDeviceStatus, ErrorCount and the DS upload request.
+- A tag write rejected by NVM answers 0x8000 (APP_DEV), not 0x8011.
 - Event memory confirmation removes exactly the Events shown in the frozen
   memory; Events that arrive while frozen are kept. The memory lists Errors
   before Warnings. A full queue no longer evicts presented entries.

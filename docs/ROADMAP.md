@@ -153,55 +153,41 @@ synthetic clocks are not wire-timing measurements.
 - [ ] **Mandatory ISDU Indices**:
     - [x] 0x0000: Direct Parameter Page 1 (read, packed identification/communication page)
     - [x] 0x0001: Direct Parameter Page 2 (read/write, device-specific)
-    - [x] 0x0002: System Command
-        - [x] Subcommand 0x80: Device Reset (dispatched via iolink_set_reset_handler)
-        - [x] Subcommand 0x81: Application Reset (dispatched via iolink_set_reset_handler)
-        - [x] Subcommand 0x82: Restore Factory Settings
-        - [x] Subcommand 0x83: Restore Application Defaults
-        - [ ] Subcommand 0x84: Set Communication Mode (handled by DLL; no-op here)
-        - [x] Subcommand 0x95: Parameter Upload to Master
-        - [x] Subcommand 0x96: Parameter Download from Master
-        - [x] Subcommand 0x97: Parameter Break
-    - [ ] 0x0003: Master Command (optional)
-    - [ ] 0x0004: Master Cycle Time
-    - [ ] 0x0005: Min Cycle Time
-    - [ ] 0x0006: M-sequence Capability
-    - [ ] 0x0007: Revision ID
-    - [ ] 0x0008: Process Data In
-    - [ ] 0x0009: Process Data Out
-    - [x] 0x000A: Vendor ID (16-bit)
-    - [x] 0x000B: Device ID (32-bit)
-    - [x] 0x000C: Device Access Locks (Parameterization, DS, UI, Communication)
-    - [x] 0x000D: Profile Characteristic (16-bit)
-    - [ ] 0x000E: PDIn Descriptor
-    - [ ] 0x000F: PDOut Descriptor
-    - [x] 0x0010: Vendor Name
-    - [x] 0x0011: Vendor Text
-    - [x] 0x0012: Product Name
-    - [x] 0x0013: Product ID
-    - [x] 0x0014: Product Text
-    - [x] 0x0015: Serial Number
-    - [x] 0x0016: Hardware Revision
-    - [x] 0x0017: Firmware Revision
-    - [x] 0x0018: Application-specific Tag
-    - [x] 0x0019: Function Tag
-    - [x] 0x001A: Location Tag
-    - [x] 0x001B: Device Status
-    - [x] 0x001C: Detailed Device Status
-    - [x] 0x001D: Process Data Input Descriptor
-    - [ ] 0x001E: Process Data Output Descriptor
-    - [x] 0x0024: Min Cycle Time
-    - [ ] 0x0025-0x0028: Alternate Identification (Vendor/Product Name/Text)
+    - [x] 0x0002: SystemCommand (Table B.9)
+        - [x] 0x01-0x06: ParamUploadStart/End, ParamDownloadStart/End,
+              ParamDownloadStore, ParamBreak (staged block, one checked commit)
+        - [x] 0x80: Device reset (needs a reset handler; runs after the response and 3 M-sequences)
+        - [x] 0x81: Application reset (needs a reset handler; locks default, DS upload request)
+        - [x] 0x82: Restore factory settings (checked NVM; clears ErrorCount, Events, DeviceStatus)
+        - [x] 0x83: Back-to-box (needs a reset handler; communication stop until re-init)
+        - Former 0x84 and 0x95-0x97 are reserved in V1.1.5 and answer 0x8035.
+    - [x] 0x0003: DataStorageIndex (Table B.10 Subindex 1-5; Subindex 0 = device-specific image)
+    - 0x0004-0x000B: reserved (Table B.8). VendorID/DeviceID are read through
+      Direct Parameter page 1 (index 0x0000), not 0x000A/0x000B.
+    - [x] 0x000C: DeviceAccessLocks (device-local, non-volatile, reserved bits refused)
+    - [x] 0x000D: ProfileCharacteristic (conditional)
+    - [ ] 0x000E: PDInputDescriptor
+    - [ ] 0x000F: PDOutputDescriptor
+    - [x] 0x0010-0x0017: identification strings
+    - [x] 0x0018-0x001A: ApplicationSpecificTag, FunctionTag, LocationTag
+    - [x] 0x001B: ProductURI (conditional)
+    - [x] 0x0020: ErrorCount
+    - [x] 0x0024: DeviceStatus
+    - [x] 0x0025: DetailedDeviceStatus
+    - [x] 0x0028: ProcessDataInput (last valid PDin)
+    - [x] 0x0029: ProcessDataOutput (last valid PDout after PDOUTVALID)
 
 ### 2.3 Advanced V1.1 Features
 - [x] **Data Storage (DS)**:
     - [x] Implement parameter checksum generation.
     - [x] "Upload/Download" state machine for automatic parameter server.
-    - [x] Real parameter serialization/restore over DS_Data index 0x0003.
+    - [x] Real parameter serialization/restore over DS_Data index 0x0003 (Subindex 0, device-specific).
+    - [x] Table B.10 objects: DS_Command, State_Property, Data_Storage_Size, Parameter_Checksum, Index_List.
     - [x] Integration with Device Access Locks (0x000C).
-    - [x] DS Commands: Upload Start/End, Download Start/End.
+    - [x] DS Commands: Upload Start/End, Download Start/End, Break.
+    - [ ] DS_UPLOAD_FLAG stored in non-volatile memory (10.4.2); currently RAM only.
     - [x] Checksum mismatch recovery (device re-serializes actual params; mismatch re-triggers download).
-- [ ] **Block Parameterization**: Efficient bulk data transfer.
+- [x] **Block Parameterization**: SystemCommand 0x01-0x06 with staged writes and one checked commit.
 - [x] **Events**: Diagnostic event queue and transmission logic.
     - [x] **Standard Event Codes** (V1.1.5 Annex D Table D.1 constants + iolink_event_classify):
         - [x] 0x1xxx: Device events (general malfunction)
@@ -263,7 +249,7 @@ synthetic clocks are not wire-timing measurements.
 **Goal:** Close all gaps identified in compliance analysis to achieve certification readiness.
 
 ### 5.1 Mandatory Commands (High Priority)
-- [ ] Complete System Command handlers (0x0002 remaining: 0x80-0x84, 0x95-0x97)
+- [x] Align SystemCommand handlers with Table B.9 (0x01-0x06, 0x80-0x83)
 - [ ] Complete remaining mandatory ID indices (0x0019, 0x001A, 0x001C-0x001E)
 - [x] Implement Device Access Locks (Index 0x000C)
 
