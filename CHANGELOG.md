@@ -7,7 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Event Dispatcher lifecycle (V1.1.5 10.10.2): `iolink_event_appear()`,
+  `iolink_event_disappear()` (explicit clear, deferred until 50 ms after
+  "appears"), single-shot `iolink_event_notify()`, `iolink_events_process()`
+  (called by `iolink_dll_process()`), a 1 s repeat interval per EventCode and
+  EventQualifier, and a saturating `iolink_events_dropped()` counter. `_at`
+  variants take an explicit wrap-safe millisecond time.
+- `iolink_events_startup_reset()`: the DLL discards queued Events and the
+  Event flag on entry to STARTUP; active conditions are reported again.
+
 ### Fixed
+- Event memory confirmation removes exactly the Events shown in the frozen
+  memory; Events that arrive while frozen are kept. The memory lists Errors
+  before Warnings. A full queue no longer evicts presented entries.
+- DeviceStatus (0x0024) follows Table B.13: Error reports 4 (Failure), not 3.
+  `IOLINK_DEVICE_STATUS_FAILURE` is now 4 and
+  `IOLINK_DEVICE_STATUS_FUNCTIONAL_CHECK` (3) was added.
+- DetailedDeviceStatus (0x0025) lists active "appears" Warnings/Errors only;
+  cleared conditions and Notifications are not listed.
+- Default `IOLINK_EVENT_QUEUE_SIZE` raised from 4 to 8 so the six event memory
+  slots can be filled.
 - **Streaming M-sequence request framing (wire change).** Read requests now
   carry no On-request Data octets: a typed read is `MC + CKT + PD-out`, while a
   write is `MC + CKT + PD-out + OD`. Type 0 write requests on the page,

@@ -675,8 +675,10 @@ static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
             return;
 
         case IOLINK_IDX_DEVICE_STATUS:
+            /* Table B.13: 0 OK, 1 maintenance, 2 out-of-spec, 3 functional
+               check, 4 failure. */
             ctx->response_buf[0] =
-                iolink_events_get_highest_severity((iolink_events_ctx_t*) ctx->event_ctx);
+                iolink_events_get_device_status((iolink_events_ctx_t*) ctx->event_ctx);
             ctx->response_len = 1U;
             ctx->response_idx = 0U;
             ctx->state = ISDU_STATE_RESPONSE_READY;
@@ -835,7 +837,8 @@ static void handle_access_locks(iolink_isdu_ctx_t* ctx)
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
-/** @brief Serve DetailedDeviceStatus: encode up to 8 queued events as qualifier+code triplets. */
+/** @brief Serve DetailedDeviceStatus (Table B.14): one [EventQualifier]
+ *  [EventCode MSB][EventCode LSB] record per pending "appears" Warning/Error. */
 static void handle_detailed_device_status(iolink_isdu_ctx_t* ctx)
 {
     if (ctx->header.type != IOLINK_ISDU_SERVICE_TYPE_READ) {
@@ -850,46 +853,13 @@ static void handle_detailed_device_status(iolink_isdu_ctx_t* ctx)
         return;
     }
 
-    iolink_critical_enter();
-    iolink_events_ctx_t* event_ctx = (iolink_events_ctx_t*) ctx->event_ctx;
-    uint8_t count = event_ctx->count;
-    if (count > 8U) count = 8U; /* Limit to 8 events in response */
-
-    for (uint8_t i = 0U; i < count; i++) {
-        /* Calculate index in FIFO */
-        uint8_t idx = (uint8_t) ((event_ctx->head + i) % IOLINK_EVENT_QUEUE_SIZE);
-        const iolink_event_t* ev = &event_ctx->queue[idx];
-
-        /* EventQualifier byte per IO-Link V1.1.5 (Figure A.24):
-         *   MODE     (bits 7-6): 11 = event appears
-         *   TYPE     (bits 5-4): 01 notification, 10 warning, 11 error
-         *   SOURCE   (bit  3)  : 0 = device (Table A.18)
-         *   INSTANCE (bits 2-0): 4 = Application (Table A.17)
-         */
-        uint8_t qualifier = 0xC0U; /* MODE = event appears */
-        switch (ev->type) {
-            case IOLINK_EVENT_TYPE_NOTIFICATION:
-                qualifier |= (0x01U << 4);
-                break;
-            case IOLINK_EVENT_TYPE_WARNING:
-                qualifier |= (0x02U << 4);
-                break;
-            case IOLINK_EVENT_TYPE_ERROR:
-                qualifier |= (0x03U << 4);
-                break;
-            default:
-                break;
-        }
-        qualifier |= 0x04U; /* INSTANCE = Application */
-
-        ctx->response_buf[i * 3U] = qualifier;
-        ctx->response_buf[i * 3U + 1U] = (uint8_t) (ev->code >> 8);
-        ctx->response_buf[i * 3U + 2U] = (uint8_t) (ev->code & 0xFF);
-    }
-    ctx->response_len = (uint8_t) (count * 3U);
+    /* The events API takes its own lock and never writes past the bound. */
+    const size_t buf_size = sizeof(ctx->response_buf);
+    const uint16_t cap = (buf_size > UINT16_MAX) ? (uint16_t) UINT16_MAX : (uint16_t) buf_size;
+    ctx->response_len = iolink_events_get_detailed_status((iolink_events_ctx_t*) ctx->event_ctx,
+                                                          ctx->response_buf, cap);
     ctx->response_idx = 0U;
     ctx->state = ISDU_STATE_RESPONSE_READY;
-    iolink_critical_exit();
 }
 
 /** @brief Append a 32-bit value to a buffer in big-endian order, advancing the index. */

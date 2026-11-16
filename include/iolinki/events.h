@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "iolinki/config.h"
+#include "iolinki/protocol.h"
 
 /**
  * @file events.h
@@ -33,6 +34,24 @@ typedef enum
     IOLINK_EVENT_TYPE_WARNING = 1U,      /**< Potential issue, operation continues */
     IOLINK_EVENT_TYPE_ERROR = 2U         /**< Critical failure, operation might be degraded */
 } iolink_event_type_t;
+
+/**
+ * @brief EventQualifier MODE (A.6.4, Figure A.24, bits 7-6).
+ *
+ * 10.10.2: Errors and Warnings use "appears"/"disappears", Notifications use
+ * "single shot". The value 0 is reserved on the wire; the stack treats it as
+ * "appears" so that legacy zero-initialized records keep their old encoding.
+ */
+typedef enum
+{
+    IOLINK_EVENT_MODE_LEGACY = 0U,      /**< Legacy record, encoded as "appears" */
+    IOLINK_EVENT_MODE_SINGLE_SHOT = 1U, /**< Event single shot */
+    IOLINK_EVENT_MODE_DISAPPEARS = 2U,  /**< Event disappears */
+    IOLINK_EVENT_MODE_APPEARS = 3U      /**< Event appears */
+} iolink_event_mode_t;
+
+/** @brief Number of event memory slots (Table 58). */
+#define IOLINK_EVENT_MEMORY_SLOTS 6U
 
 /*
  * Device vendor-specific communication events.
@@ -104,7 +123,24 @@ typedef struct
 {
     uint16_t code;            /**< 16-bit IO-Link EventCode (per spec or device-specific) */
     iolink_event_type_t type; /**< Severity level */
+    iolink_event_mode_t mode; /**< EventQualifier MODE (0 = legacy "appears") */
 } iolink_event_t;
+
+/**
+ * @brief Tracked appear/disappear condition or recent single-shot code.
+ *
+ * Internal to the event dispatcher. Timestamps are only meaningful while the
+ * matching IOLINK_EVENT_COND_HAS_* flag is set, so time 0 is a valid instant.
+ */
+typedef struct
+{
+    uint16_t code;         /**< EventCode */
+    uint8_t type;          /**< iolink_event_type_t */
+    uint8_t state;         /**< Free, active or recently reported */
+    uint8_t flags;         /**< Appear sent, clear requested, timestamp valid */
+    uint32_t appear_ms;    /**< Time of the last "appears"/"single shot" report */
+    uint32_t disappear_ms; /**< Time of the last "disappears" report */
+} iolink_event_cond_t;
 
 /**
  * @brief Events Engine Context
@@ -123,6 +159,13 @@ typedef struct
     uint8_t memory[19]; /**< Event memory image (0x00-0x12) */
     bool frozen;        /**< Memory frozen while the Event flag is set (Table 60) */
     bool flag;          /**< Event flag (CKS bit 7) */
+
+    /* Per queue entry: presented in the frozen memory / owned by a condition. */
+    uint8_t qflags[IOLINK_EVENT_QUEUE_SIZE];
+
+    /* 10.10.2 Event Dispatcher: appear/disappear conditions and rate limits. */
+    iolink_event_cond_t conds[IOLINK_EVENT_CONDITION_SLOTS];
+    uint32_t dropped; /**< Events lost or suppressed (saturates at UINT32_MAX) */
 } iolink_events_ctx_t;
 
 /**
@@ -137,8 +180,11 @@ void iolink_events_init(iolink_events_ctx_t* ctx);
 /**
  * @brief Trigger a new diagnostic event
  *
- * Adds an event to the internal queue. If the queue is full, the newest event
- * is typically dropped or the oldest overwritten (depending on implementation).
+ * Adds an event to the internal queue (legacy API, encoded with MODE
+ * "appears"). If the queue is full, the oldest entry that is not shown in the
+ * frozen event memory and not owned by an appear/disappear condition is
+ * dropped; if no such entry exists, the new event is dropped. Each drop
+ * increments iolink_events_dropped().
  *
  * @param ctx Event context
  * @param code 16-bit IO-Link EventCode
@@ -181,10 +227,11 @@ uint8_t iolink_events_memory_read(iolink_events_ctx_t* ctx, uint8_t addr);
 /**
  * @brief Write one octet of the Table 58 event memory (diagnosis channel).
  *
- * A write to address 0 (StatusCode) confirms the event readout: the Event flag
- * is cleared and the memory is released/marked invalid and rebuilt from any
- * events that remain queued (Table 60 T5). Writes to other addresses are
- * ignored.
+ * A write to address 0 (StatusCode) confirms the event readout: exactly the
+ * events shown in the frozen memory are removed, the Event flag is cleared
+ * and the memory is rebuilt from the events that remain queued, including
+ * events that arrived while the memory was frozen (Table 60 T5). Writes to
+ * other addresses are ignored.
  *
  * @param ctx Event context
  * @param addr Event memory address
@@ -246,6 +293,138 @@ uint8_t iolink_events_get_all(iolink_events_ctx_t* ctx, iolink_event_t* out_even
  * @return iolink_event_type_t Spec EventType
  */
 iolink_event_type_t iolink_event_classify(uint16_t code);
+
+/**
+ * @brief Report that an Error or Warning condition appears (10.10.2).
+ *
+ * The condition stays active, and counts in DeviceStatus and
+ * DetailedDeviceStatus, until iolink_event_disappear_at() is called and the
+ * "disappears" Event has been queued. A repeated call for an active code is
+ * disregarded (one root cause, one Event). The "appears" Event is queued at
+ * once, unless the same code reported "appears" less than
+ * IOLINK_EVENT_REPEAT_MS ago or the queue is full; then
+ * iolink_events_process_at() queues it later.
+ *
+ * @param ctx Event context (NULL is ignored)
+ * @param code EventCode
+ * @param type IOLINK_EVENT_TYPE_WARNING or IOLINK_EVENT_TYPE_ERROR
+ * @param now_ms Current time in ms (free-running, wrap-around safe)
+ * @return true if the condition is active, false if rejected
+ */
+bool iolink_event_appear_at(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_type_t type,
+                            uint32_t now_ms);
+
+/**
+ * @brief Request the end of an active condition (explicit clear, 10.10.2).
+ *
+ * The "disappears" Event is queued at once if the "appears" Event was queued
+ * at least IOLINK_EVENT_MIN_APPEAR_MS ago and the rate limit allows it.
+ * Otherwise the clear is deferred to iolink_events_process_at() and the
+ * condition stays active until then. If the "appears" Event was never queued,
+ * the condition is withdrawn without any Event and counted as dropped.
+ *
+ * @param ctx Event context (NULL is ignored)
+ * @param code EventCode of an active condition
+ * @param now_ms Current time in ms
+ * @return true if a matching active condition was found
+ */
+bool iolink_event_disappear_at(iolink_events_ctx_t* ctx, uint16_t code, uint32_t now_ms);
+
+/**
+ * @brief Queue a single-shot Notification (10.10.2).
+ *
+ * The same code is not reported more often than once per
+ * IOLINK_EVENT_REPEAT_MS; a suppressed or unqueued Notification increments
+ * the dropped counter.
+ *
+ * @param ctx Event context (NULL is ignored)
+ * @param code EventCode
+ * @param now_ms Current time in ms
+ * @return true if the Event was queued
+ */
+bool iolink_event_notify_at(iolink_events_ctx_t* ctx, uint16_t code, uint32_t now_ms);
+
+/**
+ * @brief Service deferred "appears"/"disappears" Events and expire rate limits.
+ *
+ * Call periodically. iolink_dll_process() calls it for the device context.
+ *
+ * @param ctx Event context (NULL is ignored)
+ * @param now_ms Current time in ms
+ */
+void iolink_events_process_at(iolink_events_ctx_t* ctx, uint32_t now_ms);
+
+/** @brief iolink_event_appear_at() with iolink_time_get_ms(). */
+bool iolink_event_appear(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_type_t type);
+
+/** @brief iolink_event_disappear_at() with iolink_time_get_ms(). */
+bool iolink_event_disappear(iolink_events_ctx_t* ctx, uint16_t code);
+
+/** @brief iolink_event_notify_at() with iolink_time_get_ms(). */
+bool iolink_event_notify(iolink_events_ctx_t* ctx, uint16_t code);
+
+/** @brief iolink_events_process_at() with iolink_time_get_ms(). */
+void iolink_events_process(iolink_events_ctx_t* ctx);
+
+/**
+ * @brief Discard queued Events after a communication interruption (10.10.2).
+ *
+ * Clears the queue, the event memory and the Event flag. Active conditions
+ * stay active; their "appears" Event is reported again by
+ * iolink_events_process_at(). A deferred clear whose "appears" Event was not
+ * yet reported is withdrawn. The DLL calls this on entry to STARTUP.
+ *
+ * @param ctx Event context (NULL is ignored)
+ */
+void iolink_events_startup_reset(iolink_events_ctx_t* ctx);
+
+/**
+ * @brief DeviceStatus (Index 0x0024, Table B.13) from pending Events.
+ *
+ * Ranks active conditions and queued legacy Warnings/Errors by Table B.13
+ * priority: Failure (4) > Functional check (3) > Maintenance (1) >
+ * Out-of-specification (2) > OK (0). Notifications do not change the status.
+ *
+ * @param ctx Event context (NULL gives 0)
+ * @return DeviceStatus value 0-4
+ */
+uint8_t iolink_events_get_device_status(iolink_events_ctx_t* ctx);
+
+/**
+ * @brief DeviceStatus class of one Warning/Error EventCode (Table B.13).
+ *
+ * Error: Failure. Warning: Maintenance for 0x8C40-0x8C42, Functional check
+ * for 0x8C01 (simulation active), else Out-of-specification. Notification: OK.
+ *
+ * @param code EventCode
+ * @param type EventType
+ * @return DeviceStatus value 0-4
+ */
+uint8_t iolink_event_device_status(uint16_t code, iolink_event_type_t type);
+
+/**
+ * @brief Encode DetailedDeviceStatus (Index 0x0025, Table B.14).
+ *
+ * Writes one 3-octet record [EventQualifier][EventCode MSB][EventCode LSB]
+ * per pending Warning/Error with MODE "appears": active conditions first,
+ * then queued legacy Events. Cleared conditions are not listed. Only whole
+ * records that fit in @p capacity are written.
+ *
+ * @param ctx Event context (NULL gives 0)
+ * @param out Output buffer
+ * @param capacity Size of @p out in octets
+ * @return Number of octets written (a multiple of 3)
+ */
+uint16_t iolink_events_get_detailed_status(iolink_events_ctx_t* ctx, uint8_t* out,
+                                           uint16_t capacity);
+
+/**
+ * @brief Number of Events lost to overflow or suppressed by the rate limit.
+ *
+ * @param ctx Event context (NULL gives 0)
+ * @return Saturating dropped-event counter
+ */
+uint32_t iolink_events_dropped(const iolink_events_ctx_t* ctx);
 
 /** @} */ /* end of iolinki_events */
 

@@ -209,10 +209,12 @@
  * @ingroup iolinki_protocol
  * @{
  */
-#define IOLINK_DEVICE_STATUS_OK 0x00U          /**< Device operating normally. */
-#define IOLINK_DEVICE_STATUS_MAINTENANCE 0x01U /**< Maintenance required. */
-#define IOLINK_DEVICE_STATUS_OUT_OF_SPEC 0x02U /**< Out of specification. */
-#define IOLINK_DEVICE_STATUS_FAILURE 0x03U     /**< Functional failure. */
+/* DeviceStatus values, Index 0x0024 (Table B.13). */
+#define IOLINK_DEVICE_STATUS_OK 0x00U               /**< Device operating properly. */
+#define IOLINK_DEVICE_STATUS_MAINTENANCE 0x01U      /**< Maintenance required. */
+#define IOLINK_DEVICE_STATUS_OUT_OF_SPEC 0x02U      /**< Out of specification. */
+#define IOLINK_DEVICE_STATUS_FUNCTIONAL_CHECK 0x03U /**< Functional check. */
+#define IOLINK_DEVICE_STATUS_FAILURE 0x04U          /**< Failure. */
 /** @} */
 
 #endif /* IOLINK_PROTOCOL_H */

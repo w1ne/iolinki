@@ -215,6 +215,33 @@ iolink_event_trigger(0x5012, IOLINK_EVENT_TYPE_WARNING);
 bool iolink_events_pending(void);
 ```
 
+### Event Lifecycle (V1.1.5 10.10.2)
+
+```c
+iolink_events_ctx_t* ev = iolink_device_get_events_ctx(&device);
+
+/* Error/Warning: "appears" now, "disappears" on explicit clear. */
+iolink_event_appear(ev, IOLINK_EVENTCODE_SHORT_CIRCUIT, IOLINK_EVENT_TYPE_ERROR);
+iolink_event_disappear(ev, IOLINK_EVENTCODE_SHORT_CIRCUIT);
+
+/* Notification: single shot. */
+iolink_event_notify(ev, IOLINK_EVENTCODE_NO_MALFUNCTION);
+```
+
+- A clear less than `IOLINK_EVENT_MIN_APPEAR_MS` (50 ms) after "appears" is
+  deferred; the condition stays active until "disappears" is queued.
+- The same EventCode and EventQualifier is not reported more than once per
+  `IOLINK_EVENT_REPEAT_MS` (1000 ms). Suppressed or lost Events increment
+  `iolink_events_dropped()`.
+- `iolink_dll_process()` calls `iolink_events_process()` to queue deferred
+  Events. The `_at` variants take an explicit millisecond time; elapsed time
+  is computed with wrap-around-safe unsigned subtraction.
+- DeviceStatus (0x0024) and DetailedDeviceStatus (0x0025) report the active
+  conditions (Table B.13, Table B.14).
+- On entry to STARTUP the DLL calls `iolink_events_startup_reset()`: queued
+  Events and the Event flag are discarded, active conditions are reported
+  again.
+
 ## Data Storage API
 
 ### Initialization

@@ -43,11 +43,42 @@
 
 /**
  * @brief Size of the diagnostic Event Queue.
- * Start small for resource constrained devices.
- * Default: 4
+ * Sized to fill the six Table 58 event memory slots with headroom.
+ * Default: 8
  */
 #ifndef IOLINK_EVENT_QUEUE_SIZE
-#define IOLINK_EVENT_QUEUE_SIZE 4U
+#define IOLINK_EVENT_QUEUE_SIZE 8U
+#endif
+
+/**
+ * @brief Tracked appear/disappear conditions and rate-limited single-shot codes.
+ * Bounds the DetailedDeviceStatus list (Table B.14 allows up to 64 entries).
+ * Default: 8
+ */
+#ifndef IOLINK_EVENT_CONDITION_SLOTS
+#define IOLINK_EVENT_CONDITION_SLOTS 8U
+#endif
+
+/**
+ * @brief Minimum time between "appears" and "disappears" (10.10.2, 50 ms).
+ */
+#ifndef IOLINK_EVENT_MIN_APPEAR_MS
+#define IOLINK_EVENT_MIN_APPEAR_MS 50U
+#endif
+
+/**
+ * @brief Minimum repeat interval for the same EventCode and EventQualifier
+ * (10.10.2, 1 s).
+ */
+#ifndef IOLINK_EVENT_REPEAT_MS
+#define IOLINK_EVENT_REPEAT_MS 1000U
+#endif
+
+#if (IOLINK_EVENT_QUEUE_SIZE < 1) || (IOLINK_EVENT_QUEUE_SIZE > 255)
+#error "IOLINK_EVENT_QUEUE_SIZE must be 1..255"
+#endif
+#if (IOLINK_EVENT_CONDITION_SLOTS < 1) || (IOLINK_EVENT_CONDITION_SLOTS > 64)
+#error "IOLINK_EVENT_CONDITION_SLOTS must be 1..64"
 #endif
 
 /* -------------------------------------------------------------------------

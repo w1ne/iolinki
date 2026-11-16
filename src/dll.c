@@ -39,6 +39,8 @@ static void dll_set_state(iolink_dll_ctx_t* ctx, iolink_dll_state_t new_state)
     if (ctx->state != new_state) {
         ctx->state = new_state;
         if (new_state != IOLINK_DLL_STATE_OPERATE) ctx->have_operate_start = false;
+        /* 10.10.2: queued Events are discarded when communication restarts. */
+        if (new_state == IOLINK_DLL_STATE_STARTUP) iolink_events_startup_reset(&ctx->events);
         if (ctx->state_cb != NULL) {
             ctx->state_cb(ctx->state_cb_user, new_state);
         }
@@ -628,6 +630,8 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     dll_poll_diagnostics(ctx);
 
     uint32_t now_ms = iolink_time_get_ms();
+    /* Deferred "appears"/"disappears" Events and repeat-interval expiry. */
+    iolink_events_process_at(&ctx->events, now_ms);
     uint64_t now_ms64 = 0U;
     if ((ctx->dsio_deadline_ms != 0U) || (ctx->fallback_deadline_ms != 0U)) {
         now_ms64 = iolink_time_get_us() / 1000U;
