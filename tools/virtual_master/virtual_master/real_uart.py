@@ -20,26 +20,30 @@ Allows the Virtual Master to communicate with a physical Device over a serial po
 class RealUART:
     """Real UART wrapper using pyserial."""
 
-    def __init__(self, port: str, baudrate: int = 38400):
+    def __init__(self, port: str, baudrate: int = 38400, parity: str = "none"):
         """
         Initialize Real UART.
 
         Args:
             port: Serial port path (e.g., '/dev/ttyACM0')
             baudrate: Initial baudrate
+            parity: "even" for IO-Link 8E1, or "none" for legacy 8N1 links
         """
+        if parity not in ("even", "none"):
+            raise ValueError("parity must be even or none")
         self.port = port
         self.baudrate = baudrate
+        self.parity = parity
         self.ser = serial.Serial(
             port=self.port,
             baudrate=self.baudrate,
-            parity=serial.PARITY_NONE,
+            parity=serial.PARITY_EVEN if parity == "even" else serial.PARITY_NONE,
             stopbits=serial.STOPBITS_ONE,
             bytesize=serial.EIGHTBITS,
             timeout=0,  # Non-blocking read
-            write_timeout=0,  # Non-blocking write attempt
+            write_timeout=0.5,  # Do not silently drop part of a frame
         )
-        print(f"[RealUART] Opened {self.port} at {self.baudrate} baud")
+        print(f"[RealUART] Opened {self.port} at {self.baudrate} baud, 8{'E' if parity == 'even' else 'N'}1")
 
     def get_device_tty(self) -> str:
         """
@@ -52,11 +56,13 @@ class RealUART:
 
     def send_byte(self, byte: int) -> None:
         """Send a single byte."""
-        self.ser.write(bytes([byte]))
+        self.send_bytes(bytes([byte]))
 
     def send_bytes(self, data: bytes) -> None:
         """Send multiple bytes."""
-        self.ser.write(data)
+        sent = self.ser.write(data)
+        if sent != len(data):
+            raise OSError(f"USB-UART short write: {sent}/{len(data)} bytes")
 
     def recv_byte(self, timeout_ms: int = 1000) -> Optional[int]:
         """Receive a single byte with timeout."""
