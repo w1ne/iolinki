@@ -712,8 +712,8 @@ static void handle_process_data(iolink_isdu_ctx_t* ctx, bool input)
         iolink_dll_get_pd_length(dll, &pd_in_len, &pd_out_len);
     }
     size_t len = input ? pd_in_len : pd_out_len;
-    const size_t max_len = input ? sizeof(dll->pd_in) : sizeof(dll->pd_out);
-    if ((dll == NULL) || (len == 0U) || (len > max_len)) {
+    if ((dll == NULL) || (len == 0U) || (input && (len > sizeof(dll->pd_in))) ||
+        (!input && (len > sizeof(dll->pd_out)))) {
         isdu_reply_error(ctx, IOLINK_ISDU_ERROR_INDEX_NOT_AVAIL);
         return;
     }
