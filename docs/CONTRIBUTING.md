@@ -1,5 +1,18 @@
 # Contributing to iolinki
 
+## Licensing of external contributions
+
+iolinki is dual-licensed. **Future external contributions may be used in GPLv3
+releases and in paid commercial/proprietary iolinki products, including
+commercial licence sales.** Contributors keep copyright. The rights and
+representations required for both distribution channels are in
+[Contributor Terms](CONTRIBUTOR_TERMS.md).
+
+External pull requests require explicit acceptance of those terms using the
+pull-request checkboxes. They do not apply retroactively to past contributions.
+Do not submit third-party code unless you have the authority to grant the same
+rights for commercial licensing. The GPLv3 licence remains unrestricted.
+
 ## Getting Started
 
 1.  **Clone the repository**:
