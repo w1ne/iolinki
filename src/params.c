@@ -463,6 +463,14 @@ static void factory_apply(iolink_params_ctx_t* ctx, const iolink_params_ctx_t* c
     legacy_mirror(ctx, true, ctx->device_info != NULL, locks);
 }
 
+int iolink_params_ctx_reset_access_locks(iolink_params_ctx_t* ctx)
+{
+    if (ctx == NULL) {
+        return -1;
+    }
+    return iolink_params_ctx_set_access_locks(ctx, factory_locks(ctx), true);
+}
+
 int iolink_params_ctx_factory_reset_checked(iolink_params_ctx_t* ctx)
 {
     iolink_params_ctx_t candidate;

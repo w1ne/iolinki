@@ -59,18 +59,44 @@ static void test_ds_state_transitions(void** state)
     iolink_ds_ctx_t ds;
     iolink_ds_init(&ds, NULL);
 
+    /* Corrected expectation: iolink_ds_process() only moves REQ to the
+       active state. The session stays open across any number of device
+       cycles and is closed only by End/Store/Break (10.3.5, Table 100). */
+
+    /* Idle stays idle. */
+    iolink_ds_process(&ds);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
+
     /* 1. Trigger Download (Master has newer data) */
     iolink_ds_check(&ds, 0xABCD);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_DOWNLOAD_REQ);
     iolink_ds_process(&ds); /* Req -> Downloading */
     assert_int_equal(ds.state, IOLINK_DS_STATE_DOWNLOADING);
-    iolink_ds_process(&ds); /* Downloading -> Idle */
+    for (int i = 0; i < 100; i++) {
+        iolink_ds_process(&ds); /* No accidental commit or cancel */
+    }
+    assert_int_equal(ds.state, IOLINK_DS_STATE_DOWNLOADING);
+    assert_int_equal(iolink_ds_handle_command(&ds, IOLINK_CMD_PARAM_DOWNLOAD_END, 0U), 0);
     assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
 
     /* 2. Trigger Upload (Master has 0x0000 - empty) */
     iolink_ds_check(&ds, 0x0000);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_UPLOAD_REQ);
     iolink_ds_process(&ds); /* Req -> Uploading */
     assert_int_equal(ds.state, IOLINK_DS_STATE_UPLOADING);
-    iolink_ds_process(&ds); /* Uploading -> Idle */
+    for (int i = 0; i < 100; i++) {
+        iolink_ds_process(&ds);
+    }
+    assert_int_equal(ds.state, IOLINK_DS_STATE_UPLOADING);
+    assert_int_equal(iolink_ds_handle_command(&ds, IOLINK_CMD_PARAM_UPLOAD_END, 0U), 0);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
+
+    /* 3. Break closes an active session without changes. */
+    iolink_ds_check(&ds, 0xABCD);
+    iolink_ds_process(&ds);
+    assert_int_equal(iolink_ds_handle_command(&ds, IOLINK_CMD_PARAM_BREAK, 0U), 0);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
+    iolink_ds_process(&ds);
     assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
 }
 
@@ -529,10 +555,21 @@ static void test_ds_rejected_stage_discards_previous(void** state)
     assert_int_equal(iolink_ds_stage_image(&dev.ds, bad, nb), IOLINK_DS_ERR_INVALID);
     assert_false(dev.ds.staged_valid);
 
-    /* End without a valid staged image keeps parameters and checksum. */
-    assert_int_equal(iolink_ds_handle_command(&dev.ds, IOLINK_CMD_PARAM_DOWNLOAD_END, 0U), 0);
+    /* Corrected expectation (Table 98 rules 4 and 7): a rejected write makes
+       the downloaded set invalid. End answers negatively, the previous set
+       stays active, the checksum is unchanged and the session is closed. */
+    assert_int_equal(iolink_ds_handle_command(&dev.ds, IOLINK_CMD_PARAM_DOWNLOAD_END, 0U),
+                     IOLINK_DS_CMD_COMMIT_FAILED);
+    assert_int_equal(dev.ds.last_result, IOLINK_DS_ERR_INVALID);
+    assert_int_equal(dev.ds.state, IOLINK_DS_STATE_IDLE);
     assert_tags(&dev, "A0", "F0", "L0");
     assert_int_equal(dev.ds.current_checksum, cs);
+
+    /* A new session starts clean: a valid image then commits. */
+    assert_int_equal(iolink_ds_handle_command(&dev.ds, IOLINK_CMD_PARAM_DOWNLOAD_START, 0U), 0);
+    assert_int_equal(iolink_ds_stage_image(&dev.ds, good, ng), 0);
+    assert_int_equal(iolink_ds_handle_command(&dev.ds, IOLINK_CMD_PARAM_DOWNLOAD_END, 0U), 0);
+    assert_tags(&dev, "A1", "F0", "L0");
 }
 
 static void test_ds_break_discards_staging(void** state)

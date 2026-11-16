@@ -139,6 +139,16 @@ typedef struct
     /** First-byte dequeue observation; not a physical pin timestamp. */
     uint64_t last_operate_start_us;
     bool have_operate_start;
+
+    /* B.2.23/B.2.24: last valid Process Data (0 length = no valid data yet). */
+    uint8_t pd_in_last_valid[IOLINK_PD_IN_MAX_SIZE];   /**< Last valid PDin from the application */
+    uint8_t pd_out_last_valid[IOLINK_PD_OUT_MAX_SIZE]; /**< Last valid PDout from the Master */
+    uint8_t pd_in_last_valid_len;                      /**< Octets in pd_in_last_valid */
+    uint8_t pd_out_last_valid_len;                     /**< Octets in pd_out_last_valid */
+    bool pd_out_valid; /**< PDOUTVALID: MasterCommand 0x98 seen in this OPERATE session */
+
+    uint32_t mseq_count; /**< Accepted master M-sequences (wraps at 2^32) */
+    bool comm_disabled;  /**< Communication stopped until re-initialization (Back-to-box) */
 } iolink_dll_ctx_t;
 
 /**
@@ -187,6 +197,60 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx);
  * @return int 0 on success, negative on range error
  */
 int iolink_dll_set_pd_length(iolink_dll_ctx_t* ctx, uint8_t pd_in_len, uint8_t pd_out_len);
+
+/**
+ * @brief Publish input Process Data from the application.
+ *
+ * Copies @p data into the PDin buffer, sets the runtime PDin length and the
+ * PD validity flag. Valid data also becomes the ProcessDataInput snapshot
+ * (Index 0x0028, B.2.23); invalid data of the same length keeps the previous
+ * snapshot. The caller provides mutual exclusion against iolink_dll_process().
+ *
+ * @param ctx DLL context
+ * @param data PDin octets
+ * @param len Number of octets (at most IOLINK_PD_IN_MAX_SIZE)
+ * @param valid PD validity (false sets the CKS "PD invalid" flag)
+ * @return 0 on success, -1 on invalid argument
+ */
+int iolink_dll_publish_pd_in(iolink_dll_ctx_t* ctx, const uint8_t* data, uint8_t len, bool valid);
+
+/**
+ * @brief Copy the last valid input Process Data (Index 0x0028, B.2.23).
+ *
+ * @param ctx DLL context
+ * @param out Output buffer
+ * @param max_len Size of @p out
+ * @return Octets copied; 0 if no valid PDin was published yet or @p out is too small
+ */
+uint8_t iolink_dll_get_last_valid_pd_in(const iolink_dll_ctx_t* ctx, uint8_t* out, size_t max_len);
+
+/**
+ * @brief Copy the last valid output Process Data (Index 0x0029, B.2.24).
+ *
+ * PDout is valid only after the Master sent ProcessDataOutputOperate (0x98,
+ * PDOUTVALID, Table 55) in the current OPERATE session. DeviceOperate (0x99,
+ * PDOUTINVALID) and any exit from OPERATE reset the validity; the snapshot of
+ * the last valid PDout is kept until the PDout length changes.
+ *
+ * @param ctx DLL context
+ * @param out Output buffer
+ * @param max_len Size of @p out
+ * @return Octets copied; 0 if no valid PDout was received yet or @p out is too small
+ */
+uint8_t iolink_dll_get_last_valid_pd_out(const iolink_dll_ctx_t* ctx, uint8_t* out,
+                                         size_t max_len);
+
+/**
+ * @brief Stop and disable communication until re-initialization (10.7.5).
+ *
+ * Sets the PHY to IOLINK_PHY_MODE_INACTIVE (if the PHY supports set_mode) and
+ * ignores every received octet afterwards. Only iolink_dll_init() (power
+ * cycle) restores communication. Whether the C/Q driver is physically
+ * disabled depends on the PHY driver.
+ *
+ * @param ctx DLL context
+ */
+void iolink_dll_disable_communication(iolink_dll_ctx_t* ctx);
 
 /**
  * @brief Get current PD lengths

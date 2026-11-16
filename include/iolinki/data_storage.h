@@ -62,12 +62,36 @@
 /** @} */
 
 /**
- * @brief DS engine states
+ * @name DS_Command values (Index 0x0003 Subindex 1, Table B.10)
+ * @{
  */
+#define IOLINK_DS_COMMAND_UPLOAD_START 0x01U   /**< DS_UploadStart. */
+#define IOLINK_DS_COMMAND_UPLOAD_END 0x02U     /**< DS_UploadEnd. */
+#define IOLINK_DS_COMMAND_DOWNLOAD_START 0x03U /**< DS_DownloadStart. */
+#define IOLINK_DS_COMMAND_DOWNLOAD_END 0x04U   /**< DS_DownloadEnd. */
+#define IOLINK_DS_COMMAND_BREAK 0x05U          /**< DS_Break. */
+/** @} */
+
+/**
+ * @name State_Property coding (Index 0x0003 Subindex 2, Table B.10)
+ * @{
+ */
+#define IOLINK_DS_STATE_PROPERTY_INACTIVE 0x00U /**< Bits 1-2 = 0b00: Inactive. */
+#define IOLINK_DS_STATE_PROPERTY_UPLOAD 0x02U   /**< Bits 1-2 = 0b01: Upload. */
+#define IOLINK_DS_STATE_PROPERTY_DOWNLOAD 0x04U /**< Bits 1-2 = 0b10: Download. */
+#define IOLINK_DS_STATE_PROPERTY_LOCKED 0x06U   /**< Bits 1-2 = 0b11: Data Storage locked. */
+#define IOLINK_DS_STATE_PROPERTY_UPLOAD_FLAG 0x80U /**< Bit 7: DS_UPLOAD_FLAG. */
+/** @} */
+
 /**
  * @brief Data Storage (DS) Engine States
  *
- * Manages the transition between idle, uploading, and downloading states.
+ * A session is opened in a REQ state by a Start command (or by
+ * @ref iolink_ds_check). @ref iolink_ds_process moves REQ to the matching
+ * active state (UPLOADING/DOWNLOADING). Both the REQ and the active state
+ * stay open until an End, Store or Break command, @ref iolink_ds_abort, or a
+ * communication restart closes the session. @ref iolink_ds_process never
+ * closes a session.
  */
 typedef enum
 {
@@ -128,10 +152,11 @@ typedef struct
     uint16_t master_checksum;               /**< Most recent checksum verified by Master */
     uint8_t image[IOLINK_DS_IMAGE_MAX];     /**< Last valid snapshot of actual parameters */
     size_t image_len;                       /**< Valid bytes in @ref image */
-    uint8_t staged[IOLINK_DS_IMAGE_MAX];    /**< Validated download image, not yet applied */
-    size_t staged_len;                      /**< Valid bytes in @ref staged */
-    bool staged_valid;                      /**< True if @ref staged holds a validated image */
-    bool upload_requested;                  /**< Set by ParamDownloadStore; cleared by upload end */
+    iolink_params_ctx_t candidate;          /**< Download staging copy, not yet applied */
+    bool staged_valid;                      /**< True if @ref candidate holds staged changes */
+    bool session_invalid;                   /**< A staged write in this download was rejected */
+    bool ds_command_session;                /**< Session opened by DS_Command (0x0003/1) */
+    bool upload_requested;                  /**< DS_UPLOAD_FLAG (Table B.10 State_Property bit 7) */
     int last_result;                        /**< Result of the last download commit */
 } iolink_ds_ctx_t;
 
@@ -165,7 +190,9 @@ uint16_t iolink_ds_calc_checksum(const uint8_t* data, size_t len);
 /**
  * @brief Process Data Storage engine logic
  *
- * Handles state transitions and background synchronization tasks.
+ * Moves UPLOAD_REQ to UPLOADING and DOWNLOAD_REQ to DOWNLOADING. It does not
+ * close, commit or cancel a session, so it is safe to call on every device
+ * cycle. iolink_dll_process() calls it for the device context.
  *
  * @param ctx DS context to process
  */
@@ -182,7 +209,7 @@ void iolink_ds_process(iolink_ds_ctx_t* ctx);
 void iolink_ds_check(iolink_ds_ctx_t* ctx, uint16_t master_checksum);
 
 /**
- * @brief Start parameter upload to Master (System Command 0x95)
+ * @brief Start parameter upload to Master (opens an upload session)
  *
  * @param ctx DS context
  * @return int 0 on success, negative if DS not initialized
@@ -190,7 +217,7 @@ void iolink_ds_check(iolink_ds_ctx_t* ctx, uint16_t master_checksum);
 int iolink_ds_start_upload(iolink_ds_ctx_t* ctx);
 
 /**
- * @brief Start parameter download from Master (System Command 0x96)
+ * @brief Start parameter download from Master (opens a download session)
  *
  * @param ctx DS context
  * @return int 0 on success, negative if DS not initialized
@@ -209,29 +236,107 @@ int iolink_ds_start_download(iolink_ds_ctx_t* ctx);
 int iolink_ds_abort(iolink_ds_ctx_t* ctx);
 
 /**
- * @brief Handle standard DS System Command
+ * @brief Handle a Block Parameterization SystemCommand (Table B.9, 0x01-0x06)
  *
- * - ParamDownloadStart: discards staging and opens a download session.
- * - ParamDownloadEnd: applies a staged image (if any) with one parameter commit,
- *   then rebuilds image and checksum from the actual parameters.
- * - ParamDownloadStore: as ParamDownloadEnd, then sets @ref
+ * - ParamDownloadStart (0x03): discards staging and opens a download session.
+ * - ParamDownloadEnd (0x04): if a staged write was rejected in this session,
+ *   fails without changes (Table 98 rule 4/7). Otherwise commits all staged
+ *   changes with one parameter commit, then rebuilds image and checksum from
+ *   the actual parameters. Outside a session it only rebuilds the image.
+ * - ParamDownloadStore (0x05): as ParamDownloadEnd, then sets @ref
  *   iolink_ds_ctx_t::upload_requested and, if storage hooks are bound, stores
  *   the image with @ref iolink_ds_save. Also valid outside a session.
- * - ParamUploadStart/End: snapshot for upload / end of upload.
- * - ParamBreak: discards staging, live parameters unchanged.
+ * - ParamUploadStart/End (0x01/0x02): snapshot for upload / end of upload.
+ * - ParamBreak (0x06): discards staging, live parameters unchanged.
  *
  * Download commands are refused while the DS bit of @p access_locks is set.
- * A failed commit leaves live parameters and the last valid image unchanged.
+ * The ISDU layer passes the locks without the DS bit, because B.2.4 limits
+ * the Data Storage lock to the DataStorageIndex.
+ * A failed commit leaves live parameters and the last valid image unchanged
+ * (@ref iolink_ds_ctx_t::last_result tells a rejected set from an NVM error).
  * A failed DS-backend store after a successful commit returns -4 although the
  * parameters are already committed: the two steps are not one transaction.
  *
  * @param ctx DS context
- * @param cmd System Command (0x05-0x09, 0x97)
+ * @param cmd SystemCommand (IOLINK_CMD_PARAM_*)
  * @param access_locks Current Access Lock state (Index 0x000C)
  * @return int 0: Success, -1: Busy, -2: Access Denied, -3: Unknown,
  *         -4: Download commit or store failed
  */
 int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_locks);
+
+/**
+ * @brief Handle a DS_Command (Index 0x0003 Subindex 1, Table B.10, Table 100).
+ *
+ * - DS_UploadStart / DS_DownloadStart: open a session (only from IDLE).
+ * - DS_UploadEnd: close the upload session, clear DS_UPLOAD_FLAG (T9).
+ * - DS_DownloadEnd: commit as ParamDownloadEnd; on success clear
+ *   DS_UPLOAD_FLAG (T9). On failure the flag and parameters are unchanged.
+ * - DS_Break: discard staging and close any session (T10).
+ *
+ * The caller checks the Data Storage access lock (Table 100 DSLocked_1).
+ *
+ * @param ctx DS context
+ * @param ds_cmd DS_Command value (IOLINK_DS_COMMAND_*)
+ * @return int 0: Success, -1: state does not permit the command,
+ *         -3: reserved value, -4: commit failed (see last_result)
+ */
+int iolink_ds_handle_ds_command(iolink_ds_ctx_t* ctx, uint8_t ds_cmd);
+
+/**
+ * @brief Stage one parameter write inside an open download session.
+ *
+ * Validates the value into the session copy only (Table 98 rules 1-3). A
+ * rejected value marks the session invalid, so the next End/Store fails
+ * without changes (rule 4).
+ *
+ * @param ctx DS context
+ * @param index ISDU index
+ * @param subindex ISDU subindex
+ * @param data Value octets
+ * @param len Value length
+ * @return int 0 if staged, @ref IOLINK_DS_ERR_INVALID otherwise.
+ */
+int iolink_ds_stage_param(iolink_ds_ctx_t* ctx, uint16_t index, uint8_t subindex,
+                          const uint8_t* data, size_t len);
+
+/** @brief True while a download session (REQ or active) is open. */
+bool iolink_ds_download_open(const iolink_ds_ctx_t* ctx);
+
+/** @brief True while an upload session (REQ or active) is open. */
+bool iolink_ds_upload_open(const iolink_ds_ctx_t* ctx);
+
+/** @brief True if @p index/@p subindex is in the DS parameter set. */
+bool iolink_ds_is_ds_param(uint16_t index, uint8_t subindex);
+
+/**
+ * @brief State_Property octet (Index 0x0003 Subindex 2, Table B.10).
+ *
+ * @param ctx DS context
+ * @param access_locks DeviceAccessLocks; the DS bit reports "locked"
+ * @return uint8_t State_Property value
+ */
+uint8_t iolink_ds_state_property(const iolink_ds_ctx_t* ctx, uint16_t access_locks);
+
+/**
+ * @brief Data_Storage_Size (Index 0x0003 Subindex 3, Table B.10).
+ *
+ * Octets for all DS parameters at maximum length, including the structural
+ * information (Index, Subindex, Length) of each record.
+ */
+uint32_t iolink_ds_storage_size(void);
+
+/**
+ * @brief Encode the Index_List (Index 0x0003 Subindex 5, Table B.11).
+ *
+ * Writes one [Index MSB][Index LSB][Subindex] entry per DS parameter and the
+ * Termination_Marker 0x0000.
+ *
+ * @param out Output buffer
+ * @param max_len Size of @p out
+ * @return size_t Octets written, 0 if @p out is too small
+ */
+size_t iolink_ds_index_list(uint8_t* out, size_t max_len);
 
 /**
  * @brief Serialize the device's DS-backed parameters into the image buffer.
@@ -282,8 +387,9 @@ int iolink_ds_apply_image(iolink_ds_ctx_t* ctx, const uint8_t* data, size_t len)
  * @brief Stage a download image for the next ParamDownloadEnd/Store.
  *
  * Allowed only in a download session (DOWNLOAD_REQ or DOWNLOADING). The image
- * is validated completely. A rejected image also discards any earlier staged
- * image, so ParamDownloadEnd cannot apply stale data.
+ * is validated completely and its records are staged into the session copy.
+ * A rejected image discards everything staged before and marks the session
+ * invalid, so the next End/Store fails and cannot apply stale data.
  *
  * @param ctx DS context
  * @param data Serialized image bytes

@@ -24,6 +24,7 @@
 /* qflags bits. */
 #define EVQ_PRESENTED 0x01U /* Shown in the frozen event memory */
 #define EVQ_LIFECYCLE 0x02U /* Queued by the appear/disappear dispatcher */
+#define EVQ_STATUS_CLEARED 0x04U /* Excluded from DeviceStatus after a factory reset */
 
 /* iolink_event_cond_t state. */
 #define COND_FREE 0U
@@ -692,6 +693,52 @@ void iolink_events_startup_reset(iolink_events_ctx_t* ctx)
     iolink_critical_exit();
 }
 
+void iolink_events_clear_status_at(iolink_events_ctx_t* ctx, uint32_t now_ms)
+{
+    if (ctx == NULL) {
+        return;
+    }
+
+    iolink_critical_enter();
+    /* Table 101 "Clear": every active condition is sent with "disappears".
+       The minimum appear duration and repeat interval do not delay this
+       explicit reset. A condition whose "appears" was never queued is
+       withdrawn without an Event. */
+    for (uint8_t i = 0U; i < IOLINK_EVENT_CONDITION_SLOTS; i++) {
+        iolink_event_cond_t* c = &ctx->conds[i];
+        if (c->state != COND_ACTIVE) {
+            continue;
+        }
+        if ((c->flags & COND_APPEAR_SENT) != 0U) {
+            if (queue_push(ctx, c->code, (iolink_event_type_t) c->type,
+                           IOLINK_EVENT_MODE_DISAPPEARS, EVQ_LIFECYCLE, true)) {
+                c->flags = (uint8_t) ((c->flags & COND_HAS_APPEAR) | COND_HAS_DISAPPEAR);
+                c->disappear_ms = now_ms;
+            }
+            else {
+                count_dropped(ctx);
+                c->flags &= (uint8_t) (COND_HAS_APPEAR | COND_HAS_DISAPPEAR);
+            }
+        }
+        else {
+            count_dropped(ctx);
+            c->flags &= (uint8_t) (COND_HAS_APPEAR | COND_HAS_DISAPPEAR);
+        }
+        c->state = COND_RECENT;
+    }
+    /* Queued legacy Warnings/Errors stay deliverable ("pending Events can be
+       resent") but no longer count in DeviceStatus/DetailedDeviceStatus. */
+    for (uint8_t i = 0U; i < ctx->count; i++) {
+        ctx->qflags[queue_slot(ctx, i)] |= EVQ_STATUS_CLEARED;
+    }
+    iolink_critical_exit();
+}
+
+void iolink_events_clear_status(iolink_events_ctx_t* ctx)
+{
+    iolink_events_clear_status_at(ctx, iolink_time_get_ms());
+}
+
 uint8_t iolink_event_device_status(uint16_t code, iolink_event_type_t type)
 {
     if (type == IOLINK_EVENT_TYPE_ERROR) {
@@ -723,7 +770,7 @@ static uint8_t device_status_rank(uint8_t status)
 static bool queue_entry_is_legacy_status(const iolink_events_ctx_t* ctx, uint8_t idx)
 {
     const iolink_event_t* ev = &ctx->queue[idx];
-    return ((ctx->qflags[idx] & EVQ_LIFECYCLE) == 0U) &&
+    return ((ctx->qflags[idx] & (EVQ_LIFECYCLE | EVQ_STATUS_CLEARED)) == 0U) &&
            ((ev->mode == IOLINK_EVENT_MODE_LEGACY) || (ev->mode == IOLINK_EVENT_MODE_APPEARS)) &&
            ((ev->type == IOLINK_EVENT_TYPE_WARNING) || (ev->type == IOLINK_EVENT_TYPE_ERROR));
 }

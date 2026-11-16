@@ -42,6 +42,33 @@ static int test_teardown(void** state)
     return 0;
 }
 
+/* Reset service stub (isdu.h system_reset): records queries and executions. */
+static int g_reset_queries;
+static int g_reset_execs;
+static uint8_t g_reset_last_exec;
+
+static int stub_system_reset(void* user, uint8_t cmd, bool execute)
+{
+    (void) user;
+    if (execute) {
+        g_reset_execs++;
+        g_reset_last_exec = cmd;
+    }
+    else {
+        g_reset_queries++;
+    }
+    return 0;
+}
+
+static void install_reset_stub(iolink_isdu_ctx_t* ctx)
+{
+    g_reset_queries = 0;
+    g_reset_execs = 0;
+    g_reset_last_exec = 0U;
+    ctx->system_reset = stub_system_reset;
+    ctx->system_reset_user = NULL;
+}
+
 static void test_isdu_vendor_name_read(void** state)
 {
     (void) state;
@@ -195,14 +222,29 @@ static void test_system_cmd_device_reset(void** state)
     iolink_params_init();
     iolink_isdu_init(&ctx);
 
-    /* Write 0x80 to Index 0x0002 */
+    /* Without a reset service the command cannot be executed: FUNC_NOTAVAIL
+       and no pending reset (10.7.2, Table 99). */
     uint8_t cmd_data[] = {IOLINK_CMD_DEVICE_RESET};
+    assert_int_equal(isdu_send_write_request(&ctx, 0x0002, 0x00, cmd_data, 1), 1);
+    iolink_isdu_process(&ctx);
+    assert_false(ctx.reset_pending);
+    uint8_t neg[2];
+    assert_int_equal(isdu_collect_response(&ctx, neg, sizeof(neg)), 2);
+    assert_int_equal(neg[0], 0x80U);
+    assert_int_equal(neg[1], IOLINK_ISDU_ERROR_FUNCTION_NOT_AVAIL);
+
+    /* With a reset service: Write 0x80 to Index 0x0002 */
+    iolink_isdu_init(&ctx);
+    install_reset_stub(&ctx);
     assert_int_equal(isdu_send_write_request(&ctx, 0x0002, 0x00, cmd_data, 1), 1);
 
     iolink_isdu_process(&ctx);
 
-    /* Verify reset flag is set */
+    /* Verify reset flag is set; the warm start itself is deferred until the
+       response was read (device layer), so nothing executed yet. */
     assert_true(ctx.reset_pending);
+    assert_int_equal(g_reset_queries, 1);
+    assert_int_equal(g_reset_execs, 0);
 
     /* Verify success response (empty) */
     uint8_t resp_buf[1];
@@ -217,14 +259,27 @@ static void test_system_cmd_application_reset(void** state)
     iolink_params_init();
     iolink_isdu_init(&ctx);
 
-    /* Write 0x81 to Index 0x0002 */
+    /* Without a reset service: FUNC_NOTAVAIL, nothing executed. */
     uint8_t cmd_data[] = {IOLINK_CMD_APPLICATION_RESET};
+    assert_int_equal(isdu_send_write_request(&ctx, 0x0002, 0x00, cmd_data, 1), 1);
+    iolink_isdu_process(&ctx);
+    assert_false(ctx.app_reset_pending);
+    uint8_t neg[2];
+    assert_int_equal(isdu_collect_response(&ctx, neg, sizeof(neg)), 2);
+    assert_int_equal(neg[0], 0x80U);
+    assert_int_equal(neg[1], IOLINK_ISDU_ERROR_FUNCTION_NOT_AVAIL);
+
+    /* With a reset service: Write 0x81 to Index 0x0002 */
+    iolink_isdu_init(&ctx);
+    install_reset_stub(&ctx);
     assert_int_equal(isdu_send_write_request(&ctx, 0x0002, 0x00, cmd_data, 1), 1);
 
     iolink_isdu_process(&ctx);
 
-    /* Verify app reset flag is set */
+    /* Verify the application reset ran before the response (10.7.3). */
     assert_true(ctx.app_reset_pending);
+    assert_int_equal(g_reset_execs, 1);
+    assert_int_equal(g_reset_last_exec, IOLINK_CMD_APPLICATION_RESET);
 
     /* Verify success response */
     uint8_t resp_buf[1];
@@ -447,10 +502,8 @@ static void test_isdu_pdin_descriptor_read(void** state)
     iolink_isdu_init(&ctx);
 
     assert_int_equal(iolink_dll_set_pd_length(&dll, 3, 0), 0);
-    dll.pd_in[0] = 0xA1U;
-    dll.pd_in[1] = 0xB2U;
-    dll.pd_in[2] = 0xC3U;
-    dll.pd_valid = true;
+    const uint8_t pdin[3] = {0xA1U, 0xB2U, 0xC3U};
+    assert_int_equal(iolink_dll_publish_pd_in(&dll, pdin, 3U, true), 0);
     ctx.dll_ctx = &dll;
 
     assert_int_equal(isdu_send_read_request(&ctx, IOLINK_IDX_PROCESS_DATA_INPUT, 0x00), 1);
@@ -684,6 +737,7 @@ static void test_isdu_system_command_read_only_write(void** state)
 
     /* A write to 0x0002 still executes the command. */
     iolink_isdu_init(&ctx);
+    install_reset_stub(&ctx);
     uint8_t cmd_data[] = {IOLINK_CMD_DEVICE_RESET};
     assert_int_equal(isdu_send_write_request(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0x00, cmd_data, 1),
                      1);
@@ -768,6 +822,13 @@ static void test_system_cmd_codes_table_b9(void** state)
     assert_int_equal(IOLINK_CMD_APPLICATION_RESET, 0x81U);
     assert_int_equal(IOLINK_CMD_RESTORE_FACTORY_SETTINGS, 0x82U);
     assert_int_equal(IOLINK_CMD_BACK_TO_BOX, 0x83U);
+    /* Table C.1: PAR_SETINVALID 0x8040, PAR_SETINCONSIST 0x8041 (Table 98 rule 7). */
+    assert_int_equal(IOLINK_ISDU_ERROR_PARAM_SET_INVALID, 0x40U);
+    assert_int_equal(IOLINK_ISDU_ERROR_PARAM_INCONSISTENT, 0x41U);
+    /* Table B.10 DataStorageIndex subindices and Table 55 control code. */
+    assert_int_equal(IOLINK_DS_SUBIDX_COMMAND, 1U);
+    assert_int_equal(IOLINK_DS_SUBIDX_INDEX_LIST, 5U);
+    assert_int_equal(IOLINK_CMD_PD_OUTPUT_OPERATE, 0x98U);
     assert_int_equal(IOLINK_IDX_PRODUCT_URI, 0x001BU);
     assert_int_equal(IOLINK_IDX_PROCESS_DATA_INPUT, 0x0028U);
     assert_int_equal(IOLINK_IDX_PROCESS_DATA_OUTPUT, 0x0029U);
@@ -908,12 +969,27 @@ static void test_system_cmd_block_param_sequences(void** state)
         isdu_run_write(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0, &dn_end, 1U, resp, sizeof(resp)), 0);
     assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
 
-    /* Download block under a Data Storage lock: refused, state unchanged. */
+    /* Data Storage lock (B.2.4): it applies to the DataStorageIndex only.
+       Corrected expectation: Block Parameterization stays available, while a
+       DS_Command write to 0x0003 is refused with "access denied" (0x8023)
+       and leaves the DS state unchanged. */
     iolink_device_info_set_access_locks(IOLINK_LOCK_DS);
+    const uint8_t ds_dn_start = IOLINK_DS_COMMAND_DOWNLOAD_START;
     iolink_isdu_init(&ctx);
     ctx.ds_ctx = &ds;
-    len = isdu_run_write(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0, &dn_start, 1U, resp, sizeof(resp));
-    assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_FUNC_TEMP_UNAVAIL);
+    len = isdu_run_write(&ctx, IOLINK_IDX_DATA_STORAGE, IOLINK_DS_SUBIDX_COMMAND, &ds_dn_start,
+                         1U, resp, sizeof(resp));
+    assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_NOT_ACCESSIBLE);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
+    iolink_isdu_init(&ctx);
+    ctx.ds_ctx = &ds;
+    assert_int_equal(
+        isdu_run_write(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0, &dn_start, 1U, resp, sizeof(resp)), 0);
+    assert_int_equal(ds.state, IOLINK_DS_STATE_DOWNLOAD_REQ);
+    iolink_isdu_init(&ctx);
+    ctx.ds_ctx = &ds;
+    assert_int_equal(
+        isdu_run_write(&ctx, IOLINK_IDX_SYSTEM_COMMAND, 0, &dn_end, 1U, resp, sizeof(resp)), 0);
     assert_int_equal(ds.state, IOLINK_DS_STATE_IDLE);
     iolink_device_info_set_access_locks(0U);
 
@@ -1166,13 +1242,15 @@ static void test_isdu_status_objects_read_only(void** state)
     assert_int_equal(ctx.state, ISDU_STATE_RESPONSE_READY);
 }
 
-/* ProcessDataInput 0x0028: validity, zero length, missing DLL, Subindex. */
+/* ProcessDataInput 0x0028 (B.2.23): last valid PDin. Covers no DLL, zero
+ * length, invalid-before-valid, valid-then-invalid, length change and
+ * Subindex/write guards. */
 static void test_isdu_process_data_input_guards(void** state)
 {
     (void) state;
     iolink_isdu_ctx_t ctx;
     iolink_dll_ctx_t dll;
-    uint8_t resp[8];
+    uint8_t resp[IOLINK_PD_IN_MAX_SIZE + 2U];
     int len;
     (void) memset(&dll, 0, sizeof(dll));
     iolink_device_info_init(NULL);
@@ -1188,23 +1266,68 @@ static void test_isdu_process_data_input_guards(void** state)
     len = isdu_run_read(&ctx, IOLINK_IDX_PROCESS_DATA_INPUT, 0x00, resp, sizeof(resp));
     assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_INDEX_NOT_AVAIL);
 
+    /* Invalid before any valid data: no last valid data exists. */
     assert_int_equal(iolink_dll_set_pd_length(&dll, 2, 0), 0);
-    dll.pd_in[0] = 0x5AU;
-    dll.pd_in[1] = 0xA5U;
-    dll.pd_valid = false;
+    const uint8_t first[2] = {0x5AU, 0xA5U};
+    assert_int_equal(iolink_dll_publish_pd_in(&dll, first, 2U, false), 0);
     len = isdu_run_read(&ctx, IOLINK_IDX_PROCESS_DATA_INPUT, 0x00, resp, sizeof(resp));
     assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_SERV_TEMP_UNAVAIL);
 
-    dll.pd_valid = true;
+    /* Valid data becomes the snapshot. */
+    assert_int_equal(iolink_dll_publish_pd_in(&dll, first, 2U, true), 0);
     len = isdu_run_read(&ctx, IOLINK_IDX_PROCESS_DATA_INPUT, 0x01, resp, sizeof(resp));
     assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
     len = isdu_run_read(&ctx, IOLINK_IDX_PROCESS_DATA_INPUT, 0x00, resp, sizeof(resp));
     assert_int_equal(len, 2);
     assert_int_equal(resp[0], 0x5AU);
     assert_int_equal(resp[1], 0xA5U);
+
+    /* Valid then invalid: the last valid data is kept, not the current data. */
+    const uint8_t bad[2] = {0xEEU, 0xEEU};
+    assert_int_equal(iolink_dll_publish_pd_in(&dll, bad, 2U, false), 0);
+    assert_false(dll.pd_valid);
+    len = isdu_run_read(&ctx, IOLINK_IDX_PROCESS_DATA_INPUT, 0x00, resp, sizeof(resp));
+    assert_int_equal(len, 2);
+    assert_int_equal(resp[0], 0x5AU);
+    assert_int_equal(resp[1], 0xA5U);
+
+    /* A newer valid value replaces the snapshot. */
+    const uint8_t second[2] = {0x01U, 0x02U};
+    assert_int_equal(iolink_dll_publish_pd_in(&dll, second, 2U, true), 0);
+    len = isdu_run_read(&ctx, IOLINK_IDX_PROCESS_DATA_INPUT, 0x00, resp, sizeof(resp));
+    assert_int_equal(len, 2);
+    assert_int_equal(resp[0], 0x01U);
+    assert_int_equal(resp[1], 0x02U);
+
+    /* Write is refused, snapshot unchanged. */
+    len = isdu_run_write(&ctx, IOLINK_IDX_PROCESS_DATA_INPUT, 0x00, bad, 1U, resp, sizeof(resp));
+    assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_NOT_ACCESSIBLE);
+
+    /* Buffer boundary: the full IOLINK_PD_IN_MAX_SIZE structure round-trips. */
+    uint8_t full[IOLINK_PD_IN_MAX_SIZE];
+    for (size_t i = 0U; i < sizeof(full); i++) {
+        full[i] = (uint8_t) (0x80U + i);
+    }
+    assert_int_equal(iolink_dll_publish_pd_in(&dll, full, (uint8_t) sizeof(full), true), 0);
+    len = isdu_run_read(&ctx, IOLINK_IDX_PROCESS_DATA_INPUT, 0x00, resp, sizeof(resp));
+    assert_int_equal(len, (int) sizeof(full));
+    assert_memory_equal(resp, full, sizeof(full));
+    assert_int_equal(iolink_dll_publish_pd_in(&dll, full, IOLINK_PD_IN_MAX_SIZE + 1U, true), -1);
+    uint8_t small[2];
+    assert_int_equal(iolink_dll_get_last_valid_pd_in(&dll, small, sizeof(small)), 0U);
+
+    /* A changed PD structure drops the old snapshot. */
+    assert_int_equal(iolink_dll_set_pd_length(&dll, 4, 0), 0);
+    len = isdu_run_read(&ctx, IOLINK_IDX_PROCESS_DATA_INPUT, 0x00, resp, sizeof(resp));
+    assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_SERV_TEMP_UNAVAIL);
+    assert_int_equal(iolink_dll_publish_pd_in(&dll, bad, 2U, false), 0);
+    len = isdu_run_read(&ctx, IOLINK_IDX_PROCESS_DATA_INPUT, 0x00, resp, sizeof(resp));
+    assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_SERV_TEMP_UNAVAIL);
 }
 
-/* ProcessDataOutput 0x0029: content only in OPERATE; read-only. */
+/* ProcessDataOutput 0x0029 (B.2.24): last valid PDout is only taken from
+ * accepted M-sequences after PDOUTVALID; read-only. The DLL-level capture is
+ * covered in test_integration_ds_reset.c; here the snapshot API is used. */
 static void test_isdu_process_data_output(void** state)
 {
     (void) state;
@@ -1223,15 +1346,22 @@ static void test_isdu_process_data_output(void** state)
     len = isdu_run_read(&ctx, IOLINK_IDX_PROCESS_DATA_OUTPUT, 0x00, resp, sizeof(resp));
     assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_INDEX_NOT_AVAIL);
 
+    /* Corrected expectation: the current OPERATE state alone does not make
+       the PDout buffer valid. Before the first valid PDout: SERV_NOTAVAIL. */
     assert_int_equal(iolink_dll_set_pd_length(&dll, 1, 3), 0);
     dll.pd_out[0] = 0x01U;
     dll.pd_out[1] = 0x02U;
     dll.pd_out[2] = 0x03U;
-    dll.state = IOLINK_DLL_STATE_PREOPERATE;
+    dll.state = IOLINK_DLL_STATE_OPERATE;
     len = isdu_run_read(&ctx, IOLINK_IDX_PROCESS_DATA_OUTPUT, 0x00, resp, sizeof(resp));
     assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_SERV_TEMP_UNAVAIL);
 
-    dll.state = IOLINK_DLL_STATE_OPERATE;
+    /* A captured snapshot is served even outside OPERATE. */
+    dll.pd_out_last_valid[0] = 0x01U;
+    dll.pd_out_last_valid[1] = 0x02U;
+    dll.pd_out_last_valid[2] = 0x03U;
+    dll.pd_out_last_valid_len = 3U;
+    dll.state = IOLINK_DLL_STATE_PREOPERATE;
     len = isdu_run_read(&ctx, IOLINK_IDX_PROCESS_DATA_OUTPUT, 0x00, resp, sizeof(resp));
     assert_int_equal(len, 3);
     assert_int_equal(resp[0], 0x01U);
@@ -1241,9 +1371,14 @@ static void test_isdu_process_data_output(void** state)
     const uint8_t w = 0xEEU;
     len = isdu_run_write(&ctx, IOLINK_IDX_PROCESS_DATA_OUTPUT, 0x00, &w, 1U, resp, sizeof(resp));
     assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_NOT_ACCESSIBLE);
-    assert_int_equal(dll.pd_out[0], 0x01U);
+    assert_int_equal(dll.pd_out_last_valid[0], 0x01U);
     len = isdu_run_read(&ctx, IOLINK_IDX_PROCESS_DATA_OUTPUT, 0x03, resp, sizeof(resp));
     assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
+
+    /* A changed PDout length drops the snapshot. */
+    assert_int_equal(iolink_dll_set_pd_length(&dll, 1, 2), 0);
+    len = isdu_run_read(&ctx, IOLINK_IDX_PROCESS_DATA_OUTPUT, 0x00, resp, sizeof(resp));
+    assert_isdu_error(resp, len, IOLINK_ISDU_ERROR_SERV_TEMP_UNAVAIL);
 }
 
 /* Wire level: transport one request octet per message (START, COUNT 1, 2..)
@@ -1285,6 +1420,7 @@ static void test_isdu_wire_conformance_frames(void** state)
 
     /* Write SystemCommand 0x81: Write Response (+) 0x52, CHKPDU 0x52. */
     iolink_isdu_init(&ctx);
+    install_reset_stub(&ctx);
     const uint8_t ar_req[] = {0x14U, 0x02U, 0x81U, (uint8_t) (0x14U ^ 0x02U ^ 0x81U)};
     wire_exchange(&ctx, ar_req, sizeof(ar_req), resp, 2U);
     assert_int_equal(resp[0], 0x52U);
@@ -1295,9 +1431,8 @@ static void test_isdu_wire_conformance_frames(void** state)
     iolink_isdu_init(&ctx);
     ctx.dll_ctx = &dll;
     assert_int_equal(iolink_dll_set_pd_length(&dll, 2, 0), 0);
-    dll.pd_in[0] = 0x12U;
-    dll.pd_in[1] = 0x34U;
-    dll.pd_valid = true;
+    const uint8_t pdin[2] = {0x12U, 0x34U};
+    assert_int_equal(iolink_dll_publish_pd_in(&dll, pdin, 2U, true), 0);
     const uint8_t pd_req[] = {0x93U, 0x28U, (uint8_t) (0x93U ^ 0x28U)};
     const uint8_t pd_rsp[] = {0xD4U, 0x12U, 0x34U, (uint8_t) (0xD4U ^ 0x12U ^ 0x34U)};
     wire_exchange(&ctx, pd_req, sizeof(pd_req), resp, sizeof(pd_rsp));

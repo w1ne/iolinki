@@ -106,14 +106,30 @@ typedef struct
  */
 typedef enum
 {
-    IOLINK_RESET_DEVICE = 0,     /**< System Command 0x80 (Device Reset) */
-    IOLINK_RESET_APPLICATION = 1 /**< System Command 0x81 (Application Reset) */
+    IOLINK_RESET_DEVICE = 0,           /**< System Command 0x80 (Device Reset) */
+    IOLINK_RESET_APPLICATION = 1,      /**< System Command 0x81 (Application Reset) */
+    IOLINK_RESET_RESTORE_FACTORY = 2,  /**< System Command 0x82: reset application parameters */
+    IOLINK_RESET_BACK_TO_BOX = 3       /**< System Command 0x83: disable outputs, stop */
 } iolink_reset_type_t;
 
 /**
  * @brief Application callback invoked when the Master requests a reset.
  *
- * @param type IOLINK_RESET_DEVICE or IOLINK_RESET_APPLICATION
+ * - IOLINK_RESET_APPLICATION: called before the ISDU response (10.7.3); set
+ *   the technology specific parameters to their defaults.
+ * - IOLINK_RESET_RESTORE_FACTORY: called before the ISDU response, after the
+ *   stack has restored its own parameters (10.7.4); reset application
+ *   parameters.
+ * - IOLINK_RESET_DEVICE: called after the ISDU response was read and at least
+ *   3 further M-sequences (10.7.2); perform the warm start.
+ * - IOLINK_RESET_BACK_TO_BOX: called after the ISDU response was read and at
+ *   least 3 further M-sequences (10.7.5); disable all output drivers. The
+ *   stack then stops communication until the next power cycle.
+ *
+ * If no handler is registered, SystemCommands 0x80, 0x81 and 0x83 are refused
+ * with FUNC_NOTAVAIL.
+ *
+ * @param type Reset request type
  */
 typedef void (*iolink_reset_handler_t)(iolink_reset_type_t type);
 

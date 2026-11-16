@@ -38,9 +38,19 @@ static void dll_set_state(iolink_dll_ctx_t* ctx, iolink_dll_state_t new_state)
 {
     if (ctx->state != new_state) {
         ctx->state = new_state;
-        if (new_state != IOLINK_DLL_STATE_OPERATE) ctx->have_operate_start = false;
-        /* 10.10.2: queued Events are discarded when communication restarts. */
-        if (new_state == IOLINK_DLL_STATE_STARTUP) iolink_events_startup_reset(&ctx->events);
+        if (new_state != IOLINK_DLL_STATE_OPERATE) {
+            ctx->have_operate_start = false;
+            /* 10.2: after an interruption the actuator waits for a new
+               ProcessDataOutputOperate before PDout is valid again. */
+            ctx->pd_out_valid = false;
+        }
+        if (new_state == IOLINK_DLL_STATE_STARTUP) {
+            /* 10.10.2: queued Events are discarded when communication restarts. */
+            iolink_events_startup_reset(&ctx->events);
+            /* Table 100 TransmissionBreak (DL_Mode INACTIVE): an open DS or
+               block parameter session is discarded without changes. */
+            (void) iolink_ds_abort(&ctx->ds);
+        }
         if (ctx->state_cb != NULL) {
             ctx->state_cb(ctx->state_cb_user, new_state);
         }
@@ -327,12 +337,29 @@ static bool dll_dispatch_od(iolink_dll_ctx_t* ctx, uint8_t mc, const uint8_t* od
 
     if (channel == IOLINK_MC_CHANNEL_PAGE) {
         /* 7.3.5.3: Direct Parameter page read/write. A read returns the page
-           octet at the address; unimplemented addresses return 0, writes are
-           ignored (A.1.2). MasterCommand at address 0 is handled by the
-           PREOPERATE branch. */
+           octet at the address; unimplemented addresses return 0, other
+           writes are ignored (A.1.2). The transition MasterCommands at
+           address 0 are handled by the PREOPERATE branch. */
         if (((mc & IOLINK_MC_RW_MASK) != 0U) && (od_len > 0U)) {
             od_out[0] = iolink_isdu_direct_param_page1_octet(&ctx->isdu,
                                                              (uint8_t) (mc & IOLINK_MC_ADDR_MASK));
+        }
+        else if (((mc & IOLINK_MC_ADDR_MASK) == 0x00U) && (od_len > 0U) &&
+                 ((ctx->state == IOLINK_DLL_STATE_OPERATE) ||
+                  (ctx->state == IOLINK_DLL_STATE_ESTAB_COM))) {
+            /* Table 55, 7.3.7: PDOUTVALID / PDOUTINVALID control codes. */
+            if (od_in[0] == IOLINK_CMD_PD_OUTPUT_OPERATE) {
+                ctx->pd_out_valid = true;
+            }
+            else if (od_in[0] == IOLINK_CMD_DEVICE_OPERATE) {
+                ctx->pd_out_valid = false;
+            }
+            else {
+                /* Other MasterCommands: no PDout validity change. */
+            }
+        }
+        else {
+            /* Write to another page address: ignored. */
         }
         return true;
     }
@@ -472,6 +499,13 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
         }
     }
 
+    /* B.2.24: keep the PDout of every accepted M-sequence while the Master
+       declares it valid (PDOUTVALID). The frame that carries 0x98 counts. */
+    if (ctx->pd_out_valid && (ctx->pd_out_len_current > 0U)) {
+        (void) memcpy(ctx->pd_out_last_valid, ctx->pd_out, ctx->pd_out_len_current);
+        ctx->pd_out_last_valid_len = ctx->pd_out_len_current;
+    }
+
     /* Figures A.9/A.10/A.13/A.14: the reply to a READ M-sequence is
        [OD octets][PD-in octets] CKS; the reply to a WRITE M-sequence carries no
        OD and is [PD-in octets] CKS. CKS carries the Event flag (bit 7), the
@@ -519,6 +553,12 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
        This copy is after send, outside the request-to-first-TX critical path. */
     if ((pd_in != ctx->pd_in) && (ctx->pd_in_len_current > 0U)) {
         memcpy(ctx->pd_in, pd_in, ctx->pd_in_len_current);
+    }
+    /* B.2.23: PDin selected for this cycle and marked valid becomes the
+       ProcessDataInput snapshot; invalid data keeps the previous one. */
+    if ((ctx->pd_input_select != NULL) && ctx->pd_valid && (ctx->pd_in_len_current > 0U)) {
+        memcpy(ctx->pd_in_last_valid, ctx->pd_in, ctx->pd_in_len_current);
+        ctx->pd_in_last_valid_len = ctx->pd_in_len_current;
     }
     ctx->last_response_us = iolink_time_get_us();
 }
@@ -624,8 +664,17 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
         return;
     }
 
+    if (ctx->comm_disabled) {
+        /* Back-to-box: no response until the next power cycle (10.7.5). */
+        (void) dll_drain_rx(ctx);
+        return;
+    }
+
     /* Process acyclic ISDU state machine */
     iolink_isdu_process(&ctx->isdu);
+
+    /* Data Storage REQ -> active transitions; never closes a session. */
+    iolink_ds_process(&ctx->ds);
 
     dll_poll_diagnostics(ctx);
 
@@ -799,6 +848,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             const bool type_ok = dll_type_allowed(ctx, ctx->frame_buf);
 
             if (crc_ok && type_ok) {
+                ctx->mseq_count++;
                 bool was_establishing = (ctx->state == IOLINK_DLL_STATE_AWAITING_COMM) ||
                                         (ctx->state == IOLINK_DLL_STATE_STARTUP);
                 if (was_establishing) {
@@ -964,9 +1014,76 @@ int iolink_dll_set_pd_length(iolink_dll_ctx_t* ctx, uint8_t pd_in_len, uint8_t p
     if ((ctx == NULL) || (pd_in_len > IOLINK_PD_IN_MAX_SIZE) ||
         (pd_out_len > IOLINK_PD_OUT_MAX_SIZE))
         return -1;
+    /* A changed PD structure makes the old snapshot unrepresentative. */
+    if (pd_in_len != ctx->pd_in_len_current) {
+        ctx->pd_in_last_valid_len = 0U;
+    }
+    if (pd_out_len != ctx->pd_out_len_current) {
+        ctx->pd_out_last_valid_len = 0U;
+    }
     ctx->pd_in_len_current = pd_in_len;
     ctx->pd_out_len_current = pd_out_len;
     return 0;
+}
+
+int iolink_dll_publish_pd_in(iolink_dll_ctx_t* ctx, const uint8_t* data, uint8_t len, bool valid)
+{
+    if ((ctx == NULL) || !iolink_buf_is_valid(data, len) || (len > IOLINK_PD_IN_MAX_SIZE)) {
+        return -1;
+    }
+    if (len > 0U) {
+        (void) memcpy(ctx->pd_in, data, len);
+    }
+    ctx->pd_in_len = len;
+    ctx->pd_in_len_current = len;
+    ctx->pd_valid = valid;
+    if (valid && (len > 0U)) {
+        (void) memcpy(ctx->pd_in_last_valid, data, len);
+        ctx->pd_in_last_valid_len = len;
+    }
+    else if (len != ctx->pd_in_last_valid_len) {
+        /* Invalid data of another structure: no matching last valid data. */
+        ctx->pd_in_last_valid_len = 0U;
+    }
+    else {
+        /* Invalid data: keep the last valid snapshot. */
+    }
+    return 0;
+}
+
+uint8_t iolink_dll_get_last_valid_pd_in(const iolink_dll_ctx_t* ctx, uint8_t* out, size_t max_len)
+{
+    if ((ctx == NULL) || (out == NULL) || (ctx->pd_in_last_valid_len == 0U) ||
+        (ctx->pd_in_last_valid_len > max_len)) {
+        return 0U;
+    }
+    (void) memcpy(out, ctx->pd_in_last_valid, ctx->pd_in_last_valid_len);
+    return ctx->pd_in_last_valid_len;
+}
+
+uint8_t iolink_dll_get_last_valid_pd_out(const iolink_dll_ctx_t* ctx, uint8_t* out,
+                                         size_t max_len)
+{
+    if ((ctx == NULL) || (out == NULL) || (ctx->pd_out_last_valid_len == 0U) ||
+        (ctx->pd_out_last_valid_len > max_len)) {
+        return 0U;
+    }
+    (void) memcpy(out, ctx->pd_out_last_valid, ctx->pd_out_last_valid_len);
+    return ctx->pd_out_last_valid_len;
+}
+
+void iolink_dll_disable_communication(iolink_dll_ctx_t* ctx)
+{
+    if (ctx == NULL) {
+        return;
+    }
+    ctx->comm_disabled = true;
+    ctx->frame_index = 0U;
+    ctx->pd_out_valid = false;
+    if ((ctx->phy != NULL) && (ctx->phy->set_mode != NULL)) {
+        ctx->phy->set_mode(ctx->phy->user, IOLINK_PHY_MODE_INACTIVE);
+    }
+    ctx->phy_mode = IOLINK_PHY_MODE_INACTIVE;
 }
 
 void iolink_dll_get_pd_length(const iolink_dll_ctx_t* ctx, uint8_t* pd_in_len, uint8_t* pd_out_len)

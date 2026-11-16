@@ -150,6 +150,17 @@ void iolink_params_ctx_factory_reset(iolink_params_ctx_t* ctx);
 int iolink_params_ctx_factory_reset_checked(iolink_params_ctx_t* ctx);
 
 /**
+ * @brief Set DeviceAccessLocks to the configured factory default and store it.
+ *
+ * Used by Application reset (Table 101: Access locks "Default"). RAM changes
+ * only if the NVM write succeeds.
+ *
+ * @param ctx Parameter manager context.
+ * @return 0 on success, negative on invalid argument or NVM failure.
+ */
+int iolink_params_ctx_reset_access_locks(iolink_params_ctx_t* ctx);
+
+/**
  * @brief Validate one parameter write into a staging copy only.
  *
  * Changes only the fields of @p staged. Never writes NVM and never touches the

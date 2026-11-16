@@ -48,13 +48,15 @@ int main(void)
         assert(memcmp(result, replacement, 11) == 0);
     }
     /* Real byte transport must produce Write Response (-), not the old 52 52
-     * positive acknowledgement, when persistent tag storage rejects the write. */
+     * positive acknowledgement, when persistent tag storage rejects the write.
+     * Corrected AdditionalCode: the index exists and the value is valid, so
+     * the NVM failure is APP_DEV 0x8000, not IDX_NOTAVAIL 0x8011 (Table C.1). */
     const uint8_t requests[3][4] = {
         {0x14U, 0x18U, 0x78U, 0x74U}, /* ApplicationTag "x" */
         {0x14U, 0x19U, 0x78U, 0x75U}, /* FunctionTag "x" */
         {0x14U, 0x1AU, 0x78U, 0x76U}, /* LocationTag "x" */
     };
-    const uint8_t expected[] = {0x44U, 0x80U, 0x11U, 0xD5U};
+    const uint8_t expected[] = {0x44U, 0x80U, 0x00U, 0xC4U};
     for (unsigned tag = 0; tag < 3; ++tag) {
         iolink_isdu_ctx_t isdu;
         iolink_isdu_init(&isdu);

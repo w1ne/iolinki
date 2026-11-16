@@ -70,11 +70,31 @@ static iolink_params_ctx_t* ds_params(const iolink_ds_ctx_t* ctx)
     return iolink_params_get_legacy_ctx();
 }
 
-/** @brief Discard a staged download image. */
+/** @brief Discard staged download data and the session flags. */
 static void ds_discard_staging(iolink_ds_ctx_t* ctx)
 {
     ctx->staged_valid = false;
-    ctx->staged_len = 0U;
+    ctx->session_invalid = false;
+    ctx->ds_command_session = false;
+}
+
+/** @brief Restart the session copy from the live parameters. */
+static void ds_reset_candidate(iolink_ds_ctx_t* ctx)
+{
+    ctx->candidate = *ds_params(ctx);
+    ctx->staged_valid = false;
+}
+
+bool iolink_ds_download_open(const iolink_ds_ctx_t* ctx)
+{
+    return (ctx != NULL) && ((ctx->state == IOLINK_DS_STATE_DOWNLOAD_REQ) ||
+                             (ctx->state == IOLINK_DS_STATE_DOWNLOADING));
+}
+
+bool iolink_ds_upload_open(const iolink_ds_ctx_t* ctx)
+{
+    return (ctx != NULL) && ((ctx->state == IOLINK_DS_STATE_UPLOAD_REQ) ||
+                             (ctx->state == IOLINK_DS_STATE_UPLOADING));
 }
 
 /** @brief Position of (index, subindex) in the DS set, or -1 if not a DS parameter. */
@@ -86,6 +106,59 @@ static int ds_param_slot(uint16_t index, uint8_t subindex)
         }
     }
     return -1;
+}
+
+bool iolink_ds_is_ds_param(uint16_t index, uint8_t subindex)
+{
+    return ds_param_slot(index, subindex) >= 0;
+}
+
+uint32_t iolink_ds_storage_size(void)
+{
+    return (uint32_t) DS_IMAGE_REQUIRED;
+}
+
+size_t iolink_ds_index_list(uint8_t* out, size_t max_len)
+{
+    const size_t need = (DS_PARAM_COUNT * 3U) + 2U;
+    if ((out == NULL) || (max_len < need)) {
+        return 0U;
+    }
+    size_t pos = 0U;
+    for (size_t i = 0U; i < DS_PARAM_COUNT; ++i) {
+        out[pos] = (uint8_t) (k_ds_params[i].index >> 8);
+        out[pos + 1U] = (uint8_t) (k_ds_params[i].index & 0xFFU);
+        out[pos + 2U] = k_ds_params[i].subindex;
+        pos += 3U;
+    }
+    out[pos] = 0U; /* Termination_Marker 0x0000: end of Index_List */
+    out[pos + 1U] = 0U;
+    return need;
+}
+
+uint8_t iolink_ds_state_property(const iolink_ds_ctx_t* ctx, uint16_t access_locks)
+{
+    uint8_t prop = IOLINK_DS_STATE_PROPERTY_INACTIVE;
+
+    if (ctx == NULL) {
+        return prop;
+    }
+    if ((access_locks & IOLINK_LOCK_DS) != 0U) {
+        prop = IOLINK_DS_STATE_PROPERTY_LOCKED;
+    }
+    else if (iolink_ds_upload_open(ctx)) {
+        prop = IOLINK_DS_STATE_PROPERTY_UPLOAD;
+    }
+    else if (iolink_ds_download_open(ctx)) {
+        prop = IOLINK_DS_STATE_PROPERTY_DOWNLOAD;
+    }
+    else {
+        /* Inactive */
+    }
+    if (ctx->upload_requested) {
+        prop |= IOLINK_DS_STATE_PROPERTY_UPLOAD_FLAG;
+    }
+    return prop;
 }
 
 uint16_t iolink_ds_calc_checksum(const uint8_t* data, size_t len)
@@ -228,21 +301,59 @@ int iolink_ds_apply_image(iolink_ds_ctx_t* ctx, const uint8_t* data, size_t len)
     return IOLINK_DS_OK;
 }
 
+/** @brief Reject a staged write: drop staged data, keep the session open but invalid. */
+static int ds_reject_stage(iolink_ds_ctx_t* ctx)
+{
+    ds_reset_candidate(ctx);
+    ctx->session_invalid = true;
+    return IOLINK_DS_ERR_INVALID;
+}
+
 int iolink_ds_stage_image(iolink_ds_ctx_t* ctx, const uint8_t* data, size_t len)
 {
-    if (ctx == NULL) {
-        return IOLINK_DS_ERR_INVALID;
-    }
-    if ((ctx->state != IOLINK_DS_STATE_DOWNLOAD_REQ) &&
-        (ctx->state != IOLINK_DS_STATE_DOWNLOADING)) {
+    if ((ctx == NULL) || !iolink_ds_download_open(ctx)) {
         return IOLINK_DS_ERR_INVALID;
     }
     if (iolink_ds_validate_image(data, len) != IOLINK_DS_OK) {
-        ds_discard_staging(ctx);
+        return ds_reject_stage(ctx);
+    }
+    /* Stage into a scratch copy so a late record failure leaves no partial data. */
+    iolink_params_ctx_t next = ctx->candidate;
+    size_t pos = 0U;
+    while (pos < len) {
+        uint16_t index = (uint16_t) (((uint16_t) data[pos] << 8) | (uint16_t) data[pos + 1U]);
+        uint8_t subindex = data[pos + 2U];
+        size_t rlen = (size_t) data[pos + 3U];
+        if (iolink_params_ctx_stage(&next, index, subindex, &data[pos + DS_RECORD_HEADER], rlen) !=
+            0) {
+            return ds_reject_stage(ctx);
+        }
+        pos += DS_RECORD_HEADER + rlen;
+    }
+    ctx->candidate = next;
+    ctx->staged_valid = true;
+    ctx->state = IOLINK_DS_STATE_DOWNLOADING;
+    return IOLINK_DS_OK;
+}
+
+int iolink_ds_stage_param(iolink_ds_ctx_t* ctx, uint16_t index, uint8_t subindex,
+                          const uint8_t* data, size_t len)
+{
+    if ((ctx == NULL) || !iolink_ds_download_open(ctx)) {
         return IOLINK_DS_ERR_INVALID;
     }
-    (void) memcpy(ctx->staged, data, len);
-    ctx->staged_len = len;
+    int slot = ds_param_slot(index, subindex);
+    if ((slot < 0) || !iolink_buf_is_valid(data, len) ||
+        (len > (size_t) k_ds_params[slot].max_len) || ((len > 0U) && !ds_value_valid(data, len))) {
+        ctx->session_invalid = true;
+        return IOLINK_DS_ERR_INVALID;
+    }
+    iolink_params_ctx_t next = ctx->candidate;
+    if (iolink_params_ctx_stage(&next, index, subindex, data, len) != 0) {
+        ctx->session_invalid = true;
+        return IOLINK_DS_ERR_INVALID;
+    }
+    ctx->candidate = next;
     ctx->staged_valid = true;
     ctx->state = IOLINK_DS_STATE_DOWNLOADING;
     return IOLINK_DS_OK;
@@ -359,6 +470,8 @@ void iolink_ds_check(iolink_ds_ctx_t* ctx, uint16_t master_checksum)
     }
     else if (master_checksum != ctx->current_checksum) {
         /* Checksum mismatch -> Download request (Update device) */
+        ds_discard_staging(ctx);
+        ds_reset_candidate(ctx);
         ctx->state = IOLINK_DS_STATE_DOWNLOAD_REQ;
     }
 }
@@ -372,8 +485,22 @@ static int ds_finish_download(iolink_ds_ctx_t* ctx, bool store)
 {
     int res = IOLINK_DS_OK;
 
-    if (ctx->staged_valid) {
-        res = iolink_ds_apply_image(ctx, ctx->staged, ctx->staged_len);
+    if (ctx->session_invalid) {
+        /* Table 98 rule 4/7: a rejected write invalidates the whole set; the
+           previous set stays active and no upload request is raised. */
+        res = IOLINK_DS_ERR_INVALID;
+    }
+    else if (ctx->staged_valid) {
+        /* One NVM write for the whole staged set; RAM changes only on success. */
+        if (iolink_params_ctx_commit(ds_params(ctx), &ctx->candidate, true) != 0) {
+            res = IOLINK_DS_ERR_STORAGE;
+        }
+        else if (iolink_ds_build_image(ctx) < 0) {
+            res = IOLINK_DS_ERR_INVALID;
+        }
+        else {
+            /* Committed */
+        }
     }
     else if (iolink_ds_build_image(ctx) < 0) {
         /* No staged image: parameters may have been written individually. */
@@ -400,25 +527,22 @@ void iolink_ds_process(iolink_ds_ctx_t* ctx)
 
     switch (ctx->state) {
         case IOLINK_DS_STATE_UPLOAD_REQ:
-            /* Master has no data -> snapshot the current parameters for upload. */
+            /* REQ -> active: snapshot the current parameters for upload. The
+               session stays open until End or Break. */
             (void) iolink_ds_build_image(ctx);
             ctx->state = IOLINK_DS_STATE_UPLOADING;
             break;
 
-        case IOLINK_DS_STATE_UPLOADING:
-            ctx->state = IOLINK_DS_STATE_IDLE;
-            break;
-
         case IOLINK_DS_STATE_DOWNLOAD_REQ:
-            /* Master indicated a mismatch -> Device will receive parameters. */
+            /* REQ -> active. Staged data is committed only by End/Store. */
             ctx->state = IOLINK_DS_STATE_DOWNLOADING;
             break;
 
+        case IOLINK_DS_STATE_IDLE:
+        case IOLINK_DS_STATE_UPLOADING:
         case IOLINK_DS_STATE_DOWNLOADING:
-            /* Commit a staged image if present; otherwise only refresh the
-               checksum from actual parameters. Never adopt the Master checksum
-               without data, so a failed download is visible at the next check. */
-            (void) ds_finish_download(ctx, false);
+        case IOLINK_DS_STATE_LOCKED:
+            /* Stable states: never close, commit or cancel a session here. */
             break;
 
         default:
@@ -456,6 +580,7 @@ int iolink_ds_start_download(iolink_ds_ctx_t* ctx)
 
     /* Discard stale staging; keep the last valid image of actual parameters. */
     ds_discard_staging(ctx);
+    ds_reset_candidate(ctx);
     ctx->state = IOLINK_DS_STATE_DOWNLOAD_REQ;
     return IOLINK_DS_OK;
 }
@@ -486,17 +611,19 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
     }
 
     switch (cmd) {
-        case IOLINK_CMD_PARAM_UPLOAD_START: /* 0x07 */
+        case IOLINK_CMD_PARAM_UPLOAD_START: /* 0x01 */
             if (ctx->state != IOLINK_DS_STATE_IDLE) {
                 return IOLINK_DS_CMD_BUSY;
             }
             if (iolink_ds_build_image(ctx) < 0) {
+                ctx->last_result = IOLINK_DS_ERR_INVALID;
                 return IOLINK_DS_CMD_COMMIT_FAILED;
             }
+            ds_discard_staging(ctx);
             ctx->state = IOLINK_DS_STATE_UPLOAD_REQ;
             break;
 
-        case IOLINK_CMD_PARAM_UPLOAD_END: /* 0x08 */
+        case IOLINK_CMD_PARAM_UPLOAD_END: /* 0x02 */
             if ((ctx->state == IOLINK_DS_STATE_UPLOADING) ||
                 (ctx->state == IOLINK_DS_STATE_UPLOAD_REQ)) {
                 ctx->state = IOLINK_DS_STATE_IDLE;
@@ -504,21 +631,19 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
             }
             break;
 
-        case IOLINK_CMD_PARAM_DOWNLOAD_START: /* 0x05 */
+        case IOLINK_CMD_PARAM_DOWNLOAD_START: /* 0x03 */
             return iolink_ds_start_download(ctx);
 
-        case IOLINK_CMD_PARAM_DOWNLOAD_END: /* 0x06 */
-            if ((ctx->state == IOLINK_DS_STATE_DOWNLOAD_REQ) ||
-                (ctx->state == IOLINK_DS_STATE_DOWNLOADING)) {
+        case IOLINK_CMD_PARAM_DOWNLOAD_END: /* 0x04 */
+            if (iolink_ds_download_open(ctx)) {
                 if (ds_finish_download(ctx, false) != IOLINK_DS_OK) {
                     return IOLINK_DS_CMD_COMMIT_FAILED;
                 }
             }
             break;
 
-        case IOLINK_CMD_PARAM_DOWNLOAD_STORE: /* 0x09 */
-            if ((ctx->state == IOLINK_DS_STATE_UPLOAD_REQ) ||
-                (ctx->state == IOLINK_DS_STATE_UPLOADING)) {
+        case IOLINK_CMD_PARAM_DOWNLOAD_STORE: /* 0x05 */
+            if (iolink_ds_upload_open(ctx)) {
                 return IOLINK_DS_CMD_BUSY;
             }
             if (ds_finish_download(ctx, true) != IOLINK_DS_OK) {
@@ -526,7 +651,7 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
             }
             break;
 
-        case IOLINK_CMD_PARAM_BREAK: /* 0x97 */
+        case IOLINK_CMD_PARAM_BREAK: /* 0x06 */
             return iolink_ds_abort(ctx);
 
         default:
@@ -534,4 +659,58 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
     }
 
     return IOLINK_DS_OK;
+}
+
+int iolink_ds_handle_ds_command(iolink_ds_ctx_t* ctx, uint8_t ds_cmd)
+{
+    if (ctx == NULL) {
+        return IOLINK_DS_CMD_BUSY;
+    }
+
+    switch (ds_cmd) {
+        case IOLINK_DS_COMMAND_UPLOAD_START:
+            if (ctx->state != IOLINK_DS_STATE_IDLE) {
+                return IOLINK_DS_CMD_BUSY;
+            }
+            if (iolink_ds_build_image(ctx) < 0) {
+                return IOLINK_DS_CMD_COMMIT_FAILED;
+            }
+            ds_discard_staging(ctx);
+            ctx->ds_command_session = true;
+            ctx->state = IOLINK_DS_STATE_UPLOAD_REQ;
+            return IOLINK_DS_OK;
+
+        case IOLINK_DS_COMMAND_UPLOAD_END:
+            if (!iolink_ds_upload_open(ctx)) {
+                return IOLINK_DS_CMD_BUSY;
+            }
+            ds_discard_staging(ctx);
+            ctx->upload_requested = false; /* Table 100 T9 */
+            ctx->state = IOLINK_DS_STATE_IDLE;
+            return IOLINK_DS_OK;
+
+        case IOLINK_DS_COMMAND_DOWNLOAD_START: {
+            int res = iolink_ds_start_download(ctx);
+            if (res == IOLINK_DS_OK) {
+                ctx->ds_command_session = true;
+            }
+            return res;
+        }
+
+        case IOLINK_DS_COMMAND_DOWNLOAD_END:
+            if (!iolink_ds_download_open(ctx)) {
+                return IOLINK_DS_CMD_BUSY;
+            }
+            if (ds_finish_download(ctx, false) != IOLINK_DS_OK) {
+                return IOLINK_DS_CMD_COMMIT_FAILED;
+            }
+            ctx->upload_requested = false; /* Table 100 T9 */
+            return IOLINK_DS_OK;
+
+        case IOLINK_DS_COMMAND_BREAK:
+            return iolink_ds_abort(ctx); /* Table 100 T10 */
+
+        default:
+            return IOLINK_DS_CMD_UNKNOWN;
+    }
 }

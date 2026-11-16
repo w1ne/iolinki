@@ -379,6 +379,23 @@ void iolink_events_process(iolink_events_ctx_t* ctx);
 void iolink_events_startup_reset(iolink_events_ctx_t* ctx);
 
 /**
+ * @brief Clear Diagnosis and status for Restore factory settings (Table 101).
+ *
+ * Every active appear/disappear condition reports "disappears" at once
+ * (without the minimum appear duration) and becomes inactive. A condition
+ * whose "appears" was never queued is withdrawn and counted as dropped.
+ * Queued legacy Warnings/Errors stay in the queue for delivery but no longer
+ * count in DeviceStatus (0x0024) and DetailedDeviceStatus (0x0025).
+ *
+ * @param ctx Event context (NULL is ignored)
+ * @param now_ms Current time in ms
+ */
+void iolink_events_clear_status_at(iolink_events_ctx_t* ctx, uint32_t now_ms);
+
+/** @brief iolink_events_clear_status_at() with iolink_time_get_ms(). */
+void iolink_events_clear_status(iolink_events_ctx_t* ctx);
+
+/**
  * @brief DeviceStatus (Index 0x0024, Table B.13) from pending Events.
  *
  * Ranks active conditions and queued legacy Warnings/Errors by Table B.13

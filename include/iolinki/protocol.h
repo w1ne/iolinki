@@ -66,7 +66,8 @@
 
 /** @brief MasterCommand value written to Direct Parameter page address 0x00 (Table B.2). */
 #define IOLINK_CMD_FALLBACK 0x5AU       /**< Transition to SIO (T_FBD, Table 43). */
-#define IOLINK_CMD_DEVICE_OPERATE 0x99U /**< Switch to OPERATE. */
+#define IOLINK_CMD_DEVICE_OPERATE 0x99U /**< Switch to OPERATE; PDOUTINVALID (Table 55). */
+#define IOLINK_CMD_PD_OUTPUT_OPERATE 0x98U /**< ProcessDataOutputOperate: PDOUTVALID (Table 55). */
 /** @} */
 
 /**
@@ -104,6 +105,11 @@
 #define IOLINK_IDX_DIRECT_PARAMETERS_2 0x0001U     /**< Direct Parameter page 2 (R/W, M). */
 #define IOLINK_IDX_SYSTEM_COMMAND 0x0002U          /**< SystemCommand (W, C, B.2.2). */
 #define IOLINK_IDX_DATA_STORAGE 0x0003U            /**< DataStorageIndex (R/W, M, B.2.3). */
+#define IOLINK_DS_SUBIDX_COMMAND 0x01U        /**< 0x0003/1 DS_Command (W, Table B.10). */
+#define IOLINK_DS_SUBIDX_STATE_PROPERTY 0x02U /**< 0x0003/2 State_Property (R). */
+#define IOLINK_DS_SUBIDX_STORAGE_SIZE 0x03U   /**< 0x0003/3 Data_Storage_Size (R, U32). */
+#define IOLINK_DS_SUBIDX_PARAM_CHECKSUM 0x04U /**< 0x0003/4 Parameter_Checksum (R, U32). */
+#define IOLINK_DS_SUBIDX_INDEX_LIST 0x05U     /**< 0x0003/5 Index_List (R, Table B.11). */
 #define IOLINK_IDX_DEVICE_ACCESS_LOCKS 0x000CU     /**< Device Access Locks (R/W, O, B.2.4). */
 #define IOLINK_IDX_PROFILE_CHARACTERISTIC 0x000DU  /**< ProfileCharacteristic (R, C, B.2.5). */
 #define IOLINK_IDX_PD_INPUT_DESCRIPTOR 0x000EU     /**< PDInputDescriptor (R, C, B.2.6). */
@@ -185,7 +191,8 @@
 #define IOLINK_ISDU_ERROR_LENGTH_OVERRUN 0x33U      /**< VAL_LENOVRRUN (C.2.12). */
 #define IOLINK_ISDU_ERROR_LENGTH_UNDERRUN 0x34U     /**< VAL_LENUNDRUN (C.2.13). */
 #define IOLINK_ISDU_ERROR_WRITE_PROTECTED 0x23U    /**< Access denied, Table C.1. */
-#define IOLINK_ISDU_ERROR_PARAM_INCONSISTENT 0x40U /**< Parameter set inconsistent. */
+#define IOLINK_ISDU_ERROR_PARAM_SET_INVALID 0x40U  /**< PAR_SETINVALID (C.2.16). */
+#define IOLINK_ISDU_ERROR_PARAM_INCONSISTENT 0x41U /**< PAR_SETINCONSIST (C.2.17, Table 98). */
 #define IOLINK_ISDU_ERROR_SEGMENTATION 0x81U       /**< Segmentation error. */
 /** @} */
 
