@@ -160,21 +160,29 @@ class TestISDUConformance(unittest.TestCase):
         print(f"[PASS] Device Access Locks: 0x{locks:04X}")
 
     def test_11_profile_characteristic_0x000D(self):
-        """Test conditional index 0x000D: Profile Characteristic"""
+        """Test conditional index 0x000D: ProfileCharacteristic (Table B.8 "C").
+
+        A device without a profile answers IDX_NOTAVAIL (0x8011); a profiled
+        device returns a list of 16-bit ProfileIdentifiers (B.2.5).
+        """
         print("\n[TEST] ISDU Index 0x000D: Profile Characteristic")
 
-        # B.2.5: ProfileCharacteristic is conditional on the associated Profile.
-        # The reference device implements no profile (profile_characteristic is
-        # 0), so the object is unavailable and the answer is 0x80 0x11. The
-        # readable ArrayT path is covered by the C unit tests (tests/test_isdu.c).
-        response, error = self.master.read_isdu_ex(index=0x000D, subindex=0x00)
-        self.assertIsNone(
-            response,
-            "Profile Characteristic must be unavailable for a device without a profile",
+        response = self.master.read_isdu(index=0x000D, subindex=0x00)
+        if response is None:
+            self.assertEqual(
+                self.master.last_isdu_error,
+                0x8011,
+                "A device without a profile must answer IDX_NOTAVAIL 0x8011",
+            )
+            print("[PASS] Profile Characteristic not provided (IDX_NOTAVAIL)")
+            return
+        self.assertGreaterEqual(
+            len(response), 2, "Profile Characteristic should be at least 2 bytes"
         )
-        self.assertEqual(error, 0x8011, "no profile -> IDX_NOTAVAIL (0x8011)")
+        self.assertEqual(len(response) % 2, 0, "ProfileIdentifiers are 16 bit each")
 
-        print("[PASS] Profile Characteristic: 0x8011 (no profile implemented)")
+        profile_id = int.from_bytes(response[:2], byteorder="big")
+        print(f"[PASS] Profile Characteristic: 0x{profile_id:04X}")
 
     def test_12_device_status_0x0024(self):
         """Test optional index 0x0024: DeviceStatus (Table B.8, 1 octet)"""

@@ -108,12 +108,12 @@ cd build && ctest --output-on-failure
 
 ## IO-Link V1.1.5 Conformance
 
-iolinki includes **49 automated conformance tests** validating compliance with the IO-Link V1.1.5 specification. The suite targets Package 2025 (V1.1.5, October 2025), the latest published package; the wire was re-verified against the V1.1.5 figures (A.9/A.10/A.13/A.14) in v2.2.0. Package 2026 (D1.1.6) is in public review until 17 December 2026 and will be tracked when ratified. Coverage by category:
+iolinki includes **51 automated conformance tests** validating compliance with the IO-Link V1.1.5 specification. The suite targets Package 2025 (V1.1.5, October 2025), the latest published package; the wire was re-verified against the V1.1.5 figures (A.9/A.10/A.13/A.14) in v2.2.0. Package 2026 (D1.1.6) is in public review until 17 December 2026 and will be tracked when ratified. Coverage by category:
 
 - ✅ **State Machine**: DLL transitions, ESTAB_COM, fallback behavior (7 tests)
 - ✅ **Timing**: Cycle times, response delays, wake-up timing (5 tests)
 - ✅ **ISDU Protocol**: All mandatory indices + error handling (13 tests)
-- ✅ **System Commands**: Reset, factory restore, Data Storage upload/download (9 tests)
+- ✅ **System Commands**: Table B.9 values, resets, Block Parameterization, DS upload flag (11 tests; re-run 2026-11-16 on the virtual PTY, see docs/CONFORMANCE.md)
 - ✅ **Error Injection**: Recovery, robustness, edge cases (7 tests)
 - ✅ **PD / Events / SIO**: Process Data, event signalling, SIO fallback (3 tests)
 - ✅ **Performance**: Sustained operation, stress testing (5 tests)

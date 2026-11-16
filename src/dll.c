@@ -9,7 +9,6 @@
 #include "iolinki/dll.h"
 #include "iolinki/crc.h"
 #include "iolinki/iolink.h"
-#include "iolinki/platform.h"
 #include "iolinki/protocol.h"
 #include "iolinki/time_utils.h"
 #include "iolinki/utils.h"
@@ -29,8 +28,6 @@
 
 #define DLL_LOG(...)
 
-static void dll_disable_communication(iolink_dll_ctx_t* ctx);
-
 /**
  * @brief Centralised state transition.
  *
@@ -41,11 +38,18 @@ static void dll_set_state(iolink_dll_ctx_t* ctx, iolink_dll_state_t new_state)
 {
     if (ctx->state != new_state) {
         ctx->state = new_state;
-        if (new_state != IOLINK_DLL_STATE_OPERATE) ctx->have_operate_start = false;
+        if (new_state != IOLINK_DLL_STATE_OPERATE) {
+            ctx->have_operate_start = false;
+            /* 10.2: after an interruption the actuator waits for a new
+               ProcessDataOutputOperate before PDout is valid again. */
+            ctx->pd_out_valid = false;
+        }
         if (new_state == IOLINK_DLL_STATE_STARTUP) {
-            /* A.6.4: queued events are discarded when communication is
-               interrupted or cancelled. */
-            iolink_events_reset(&ctx->events);
+            /* 10.10.2: queued Events are discarded when communication restarts. */
+            iolink_events_startup_reset(&ctx->events);
+            /* Table 100 TransmissionBreak (DL_Mode INACTIVE): an open DS or
+               block parameter session is discarded without changes. */
+            (void) iolink_ds_abort(&ctx->ds);
         }
         if (ctx->state_cb != NULL) {
             ctx->state_cb(ctx->state_cb_user, new_state);
@@ -211,13 +215,6 @@ static void dll_enter_fallback(iolink_dll_ctx_t* ctx)
         return;
     }
 
-    /* 10.7.5: Back-to-box disables communication until the next power cycle;
-       a fallback to SIO must not resurrect the link. */
-    if (ctx->back_to_box_armed) {
-        dll_disable_communication(ctx);
-        return;
-    }
-
     ctx->fallback_count++;
     ctx->total_retries++;
 
@@ -340,12 +337,29 @@ static bool dll_dispatch_od(iolink_dll_ctx_t* ctx, uint8_t mc, const uint8_t* od
 
     if (channel == IOLINK_MC_CHANNEL_PAGE) {
         /* 7.3.5.3: Direct Parameter page read/write. A read returns the page
-           octet at the address; unimplemented addresses return 0, writes are
-           ignored (A.1.2). MasterCommand at address 0 is handled by the
-           PREOPERATE branch. */
+           octet at the address; unimplemented addresses return 0, other
+           writes are ignored (A.1.2). The transition MasterCommands at
+           address 0 are handled by the PREOPERATE branch. */
         if (((mc & IOLINK_MC_RW_MASK) != 0U) && (od_len > 0U)) {
             od_out[0] = iolink_isdu_direct_param_page1_octet(&ctx->isdu,
                                                              (uint8_t) (mc & IOLINK_MC_ADDR_MASK));
+        }
+        else if (((mc & IOLINK_MC_ADDR_MASK) == 0x00U) && (od_len > 0U) &&
+                 ((ctx->state == IOLINK_DLL_STATE_OPERATE) ||
+                  (ctx->state == IOLINK_DLL_STATE_ESTAB_COM))) {
+            /* Table 55, 7.3.7: PDOUTVALID / PDOUTINVALID control codes. */
+            if (od_in[0] == IOLINK_CMD_PD_OUTPUT_OPERATE) {
+                ctx->pd_out_valid = true;
+            }
+            else if (od_in[0] == IOLINK_CMD_DEVICE_OPERATE) {
+                ctx->pd_out_valid = false;
+            }
+            else {
+                /* Other MasterCommands: no PDout validity change. */
+            }
+        }
+        else {
+            /* Write to another page address: ignored. */
         }
         return true;
     }
@@ -382,50 +396,6 @@ static bool dll_dispatch_od(iolink_dll_ctx_t* ctx, uint8_t mc, const uint8_t* od
     (void) od_in;
     (void) ctx;
     return false;
-}
-
-/**
- * @brief Arm the Back-to-box communication stop after a response was sent.
- *
- * 10.7.5: the ISDU response goes out first, then the Device waits at least
- * three Master cycles before it stops and disables communication. The
- * countdown advances on every valid Master frame; a deadline bounds the wait so
- * a Master that stops polling still gets the Device disabled.
- */
-static void dll_arm_back_to_box_stop(iolink_dll_ctx_t* ctx)
-{
-    if (!ctx->isdu.back_to_box_pending) {
-        return;
-    }
-    /* 10.7.5 counts from the last ISDU response octet: wait until the staged
-       response has been read out completely. */
-    if ((ctx->isdu.resp_total != 0U) && (ctx->isdu.resp_idx < ctx->isdu.resp_total)) {
-        return;
-    }
-    ctx->isdu.back_to_box_pending = false;
-    ctx->back_to_box_cycles = 3U;
-    ctx->back_to_box_armed = true;
-    /* Watchdog: the MasterCycle time is not tracked by this stack and is always
-       >= MinCycleTime, so 3 x MinCycleTime is the lower bound; a 1 s ceiling
-       keeps a Master that stops polling from leaving the link enabled. */
-    uint64_t watchdog_us =
-        (ctx->min_cycle_time_us > 0U) ? (3ULL * (uint64_t) ctx->min_cycle_time_us) : 0ULL;
-    if (watchdog_us < 1000000ULL) {
-        watchdog_us = 1000000ULL;
-    }
-    ctx->back_to_box_deadline_us = iolink_time_get_us() + watchdog_us;
-}
-
-/** @brief Stop and disable communication until the next power cycle (10.7.5). */
-static void dll_disable_communication(iolink_dll_ctx_t* ctx)
-{
-    if (ctx->phy->set_mode != NULL) {
-        ctx->phy->set_mode(ctx->phy->user, IOLINK_PHY_MODE_INACTIVE);
-    }
-    ctx->phy_mode = IOLINK_PHY_MODE_INACTIVE;
-    ctx->communication_disabled = true;
-    ctx->back_to_box_armed = false;
-    dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
 }
 
 /** @brief Process a 2-octet Type-0 request through ISDU and send the OD response. */
@@ -465,7 +435,6 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
         }
     }
     ctx->last_response_us = iolink_time_get_us();
-    dll_arm_back_to_box_stop(ctx);
 }
 
 /** @brief Process a 3-octet Type-0 OD WRITE (MC, CKT, OD) and reply with CKS only (Figure A.5). */
@@ -488,7 +457,6 @@ static void dll_handle_type0_od_write(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t
         ctx->phy->send(ctx->phy->user, resp, 1);
     }
     ctx->last_response_us = iolink_time_get_us();
-    dll_arm_back_to_box_stop(ctx);
 }
 
 /** @brief Process a Type-1/Type-2 OPERATE frame (PD+OD) and build the response, enforcing t_REN. */
@@ -504,7 +472,6 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
 
     if (ctx->pd_out_len_current > 0U) {
         memcpy(ctx->pd_out, &ctx->frame_buf[pd_offset], ctx->pd_out_len_current);
-        ctx->pd_out_seen = true; /* B.2.24: last PDout written to the application */
     }
 
     const uint8_t* pd_in = ctx->pd_in;
@@ -530,6 +497,13 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
         for (uint16_t i = 0; i < od_w; i++) {
             od_out[i] = 0U;
         }
+    }
+
+    /* B.2.24: keep the PDout of every accepted M-sequence while the Master
+       declares it valid (PDOUTVALID). The frame that carries 0x98 counts. */
+    if (ctx->pd_out_valid && (ctx->pd_out_len_current > 0U)) {
+        (void) memcpy(ctx->pd_out_last_valid, ctx->pd_out, ctx->pd_out_len_current);
+        ctx->pd_out_last_valid_len = ctx->pd_out_len_current;
     }
 
     /* Figures A.9/A.10/A.13/A.14: the reply to a READ M-sequence is
@@ -580,8 +554,13 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
     if ((pd_in != ctx->pd_in) && (ctx->pd_in_len_current > 0U)) {
         memcpy(ctx->pd_in, pd_in, ctx->pd_in_len_current);
     }
+    /* B.2.23: PDin selected for this cycle and marked valid becomes the
+       ProcessDataInput snapshot; invalid data keeps the previous one. */
+    if ((ctx->pd_input_select != NULL) && ctx->pd_valid && (ctx->pd_in_len_current > 0U)) {
+        memcpy(ctx->pd_in_last_valid, ctx->pd_in, ctx->pd_in_len_current);
+        ctx->pd_in_last_valid_len = ctx->pd_in_len_current;
+    }
     ctx->last_response_us = iolink_time_get_us();
-    dll_arm_back_to_box_stop(ctx);
 }
 
 /** @brief Poll PHY voltage and short-circuit status and raise events on faults. */
@@ -685,27 +664,23 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
         return;
     }
 
-    if (ctx->communication_disabled) {
+    if (ctx->comm_disabled) {
+        /* Back-to-box: no response until the next power cycle (10.7.5). */
+        (void) dll_drain_rx(ctx);
         return;
     }
-    if (ctx->back_to_box_armed && (iolink_time_get_us() >= ctx->back_to_box_deadline_us)) {
-        /* 10.7.5: the wait after the response is bounded, so a Master that stops
-           polling cannot keep the Device communicating. */
-        dll_disable_communication(ctx);
-        return;
-    }
-
-    /* A.6.4/10.10.2: service the deferred appears/disappears transitions. The
-       Event Dispatcher owns this flow, so applications do not have to remember
-       to call iolink_events_process() themselves. */
-    iolink_events_process(&ctx->events);
 
     /* Process acyclic ISDU state machine */
     iolink_isdu_process(&ctx->isdu);
 
+    /* Data Storage REQ -> active transitions; never closes a session. */
+    iolink_ds_process(&ctx->ds);
+
     dll_poll_diagnostics(ctx);
 
     uint32_t now_ms = iolink_time_get_ms();
+    /* Deferred "appears"/"disappears" Events and repeat-interval expiry. */
+    iolink_events_process_at(&ctx->events, now_ms);
     uint64_t now_ms64 = 0U;
     if ((ctx->dsio_deadline_ms != 0U) || (ctx->fallback_deadline_ms != 0U)) {
         now_ms64 = iolink_time_get_us() / 1000U;
@@ -873,15 +848,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             const bool type_ok = dll_type_allowed(ctx, ctx->frame_buf);
 
             if (crc_ok && type_ok) {
-                if (ctx->back_to_box_armed) {
-                    if (ctx->back_to_box_cycles > 0U) {
-                        ctx->back_to_box_cycles--;
-                    }
-                    if (ctx->back_to_box_cycles == 0U) {
-                        dll_disable_communication(ctx);
-                        return;
-                    }
-                }
+                ctx->mseq_count++;
                 bool was_establishing = (ctx->state == IOLINK_DLL_STATE_AWAITING_COMM) ||
                                         (ctx->state == IOLINK_DLL_STATE_STARTUP);
                 if (was_establishing) {
@@ -1047,9 +1014,75 @@ int iolink_dll_set_pd_length(iolink_dll_ctx_t* ctx, uint8_t pd_in_len, uint8_t p
     if ((ctx == NULL) || (pd_in_len > IOLINK_PD_IN_MAX_SIZE) ||
         (pd_out_len > IOLINK_PD_OUT_MAX_SIZE))
         return -1;
+    /* A changed PD structure makes the old snapshot unrepresentative. */
+    if (pd_in_len != ctx->pd_in_len_current) {
+        ctx->pd_in_last_valid_len = 0U;
+    }
+    if (pd_out_len != ctx->pd_out_len_current) {
+        ctx->pd_out_last_valid_len = 0U;
+    }
     ctx->pd_in_len_current = pd_in_len;
     ctx->pd_out_len_current = pd_out_len;
     return 0;
+}
+
+int iolink_dll_publish_pd_in(iolink_dll_ctx_t* ctx, const uint8_t* data, uint8_t len, bool valid)
+{
+    if ((ctx == NULL) || !iolink_buf_is_valid(data, len) || (len > IOLINK_PD_IN_MAX_SIZE)) {
+        return -1;
+    }
+    if (len > 0U) {
+        (void) memcpy(ctx->pd_in, data, len);
+    }
+    ctx->pd_in_len = len;
+    ctx->pd_in_len_current = len;
+    ctx->pd_valid = valid;
+    if (valid && (len > 0U)) {
+        (void) memcpy(ctx->pd_in_last_valid, data, len);
+        ctx->pd_in_last_valid_len = len;
+    }
+    else if (len != ctx->pd_in_last_valid_len) {
+        /* Invalid data of another structure: no matching last valid data. */
+        ctx->pd_in_last_valid_len = 0U;
+    }
+    else {
+        /* Invalid data: keep the last valid snapshot. */
+    }
+    return 0;
+}
+
+uint8_t iolink_dll_get_last_valid_pd_in(const iolink_dll_ctx_t* ctx, uint8_t* out, size_t max_len)
+{
+    if ((ctx == NULL) || (out == NULL) || (ctx->pd_in_last_valid_len == 0U) ||
+        (ctx->pd_in_last_valid_len > max_len)) {
+        return 0U;
+    }
+    (void) memcpy(out, ctx->pd_in_last_valid, ctx->pd_in_last_valid_len);
+    return ctx->pd_in_last_valid_len;
+}
+
+uint8_t iolink_dll_get_last_valid_pd_out(const iolink_dll_ctx_t* ctx, uint8_t* out, size_t max_len)
+{
+    if ((ctx == NULL) || (out == NULL) || (ctx->pd_out_last_valid_len == 0U) ||
+        (ctx->pd_out_last_valid_len > max_len)) {
+        return 0U;
+    }
+    (void) memcpy(out, ctx->pd_out_last_valid, ctx->pd_out_last_valid_len);
+    return ctx->pd_out_last_valid_len;
+}
+
+void iolink_dll_disable_communication(iolink_dll_ctx_t* ctx)
+{
+    if (ctx == NULL) {
+        return;
+    }
+    ctx->comm_disabled = true;
+    ctx->frame_index = 0U;
+    ctx->pd_out_valid = false;
+    if ((ctx->phy != NULL) && (ctx->phy->set_mode != NULL)) {
+        ctx->phy->set_mode(ctx->phy->user, IOLINK_PHY_MODE_INACTIVE);
+    }
+    ctx->phy_mode = IOLINK_PHY_MODE_INACTIVE;
 }
 
 void iolink_dll_get_pd_length(const iolink_dll_ctx_t* ctx, uint8_t* pd_in_len, uint8_t* pd_out_len)
@@ -1089,38 +1122,6 @@ void iolink_dll_get_stats(const iolink_dll_ctx_t* ctx, iolink_dll_stats_t* out_s
     out_stats->total_retries = ctx->total_retries;
     out_stats->voltage_faults = ctx->voltage_faults;
     out_stats->short_circuits = ctx->short_circuits;
-}
-
-static void dll_clear_error_counters_locked(iolink_dll_ctx_t* ctx)
-{
-    ctx->crc_errors = 0U;
-    ctx->timeout_errors = 0U;
-    ctx->framing_errors = 0U;
-    ctx->timing_errors = 0U;
-}
-
-void iolink_dll_reset_error_counters(iolink_dll_ctx_t* ctx)
-{
-    if (ctx == NULL) return;
-
-    /* B.2.20: ErrorCount counts errors since power-on or reset. */
-    iolink_critical_enter();
-    dll_clear_error_counters_locked(ctx);
-    iolink_critical_exit();
-}
-
-void iolink_dll_reset_diagnostics(iolink_dll_ctx_t* ctx)
-{
-    if (ctx == NULL) return;
-
-    /* Table 101 "0": Device reset clears the diagnosis and status along with
-       ErrorCount. The event engine owns DeviceStatus and
-       DetailedDeviceStatus, so re-initialise it under the same critical
-       section that guards the counters against an ISR-triggered event. */
-    iolink_critical_enter();
-    iolink_events_init(&ctx->events);
-    dll_clear_error_counters_locked(ctx);
-    iolink_critical_exit();
 }
 
 void iolink_dll_set_timing_enforcement(iolink_dll_ctx_t* ctx, bool enable)

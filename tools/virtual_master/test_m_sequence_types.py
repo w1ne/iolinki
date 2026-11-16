@@ -68,11 +68,12 @@ def test_type_1_2():
     master.go_to_operate()
     time.sleep(0.1)
 
-    print("\nReading ISDU Index 0x0010 (Vendor Name)...")
-    vendor_name_data = master.read_isdu(0x0010)
+    # V1.1.5 Table B.8 reserves index 0x000A: read Direct Parameter page 1.
+    print("\nReading Vendor ID (Direct Parameter page 1 via ISDU 0x0000)...")
+    vendor_id = master.read_vendor_id()
 
-    if vendor_name_data:
-        print(f"✅ Vendor Name: {vendor_name_data.decode(errors='replace')}")
+    if vendor_id is not None:
+        print(f"✅ Vendor ID: 0x{vendor_id:04X}")
     else:
         print("❌ ISDU read failed")
         return False
@@ -136,17 +137,12 @@ def test_type_2_2():
     master.go_to_operate()
     time.sleep(0.1)
 
-    print("\nReading ISDU Index 0x000B (Device ID)...")
-    device_id_data = master.read_isdu(0x000B)
+    # V1.1.5 Table B.8 reserves index 0x000B: read Direct Parameter page 1.
+    print("\nReading Device ID (Direct Parameter page 1 via ISDU 0x0000)...")
+    device_id = master.read_device_id()
 
-    if device_id_data and len(device_id_data) >= 4:
-        device_id = (
-            (device_id_data[0] << 24)
-            | (device_id_data[1] << 16)
-            | (device_id_data[2] << 8)
-            | device_id_data[3]
-        )
-        print(f"✅ Device ID: 0x{device_id:08X}")
+    if device_id is not None:
+        print(f"✅ Device ID: 0x{device_id:06X}")
     else:
         print("❌ ISDU read failed")
         return False

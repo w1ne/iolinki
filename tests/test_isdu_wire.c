@@ -159,7 +159,10 @@ static void test_isdu_wire_read_figure_a20(void** state)
     assert_memory_equal(resp, expected, sizeof(expected));
 }
 
-/* Figure A.20: write Index 0x10 Subindex 0x01 data 0x12 0x34 -> 52 52. */
+/* Figure A.20 frame layout: 8-bit Index + Subindex 0x01 write of 0x12 0x34 -> 52 52.
+ * Corrected target: VendorName 0x0010 is read-only (Table B.8), so a write to
+ * it is now Access denied. The same frame structure addresses the writable
+ * Direct Parameter page 2 (Index 0x0001) to keep the positive write path. */
 static void test_isdu_wire_write_figure_a20(void** state)
 {
     (void) state;
@@ -168,9 +171,7 @@ static void test_isdu_wire_write_figure_a20(void** state)
     iolink_params_init();
     iolink_isdu_init(&ctx);
 
-    /* Write to the writable ApplicationTag (0x0018) to exercise the
-       positive-write response (0x52, Figure A.20). */
-    const uint8_t req[6] = {0x26U, 0x18U, 0x00U, 0x12U, 0x34U, 0x18U};
+    const uint8_t req[6] = {0x26U, 0x01U, 0x01U, 0x12U, 0x34U, 0x00U};
     assert_int_equal(chkpdu(req, 6U), 0U);
     wire_write_request(&ctx, req, sizeof(req));
 

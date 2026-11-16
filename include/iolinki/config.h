@@ -43,35 +43,24 @@
 
 /**
  * @brief Size of the diagnostic Event Queue.
- * Start small for resource constrained devices.
- *
- * Every active Error/Warning occupies one entry for its "appears" and one for
- * its "disappears", so a device that reports many concurrent causes should set
- * this to at least twice IOLINK_EVENT_PENDING_MAX. The Table 58 event memory
- * presents at most min(IOLINK_EVENT_QUEUE_SIZE, 6) entries.
- * Default: 4
- */
-#ifndef IOLINK_EVENT_QUEUE_SIZE
-#define IOLINK_EVENT_QUEUE_SIZE 4U
-#endif
-
-/**
- * @brief Maximum number of simultaneously active (appears/disappears) events.
- *
- * Each active Error/Warning occupies one lifecycle slot. Slots that only wait
- * out the 1 s repeat cooldown are reused first. When every slot holds a live
- * event, a further Error/Warning is dropped and counted by
- * iolink_events_get_dropped_count().
+ * Sized to fill the six Table 58 event memory slots with headroom.
  * Default: 8
  */
-#ifndef IOLINK_EVENT_PENDING_MAX
-#define IOLINK_EVENT_PENDING_MAX 8U
+#ifndef IOLINK_EVENT_QUEUE_SIZE
+#define IOLINK_EVENT_QUEUE_SIZE 8U
 #endif
 
 /**
- * @brief Minimum appearance time for an Error/Warning event (A.6.4).
- *
- * A disappearance is not reported until this long after the appearance.
+ * @brief Tracked appear/disappear conditions and rate-limited single-shot codes.
+ * Bounds the DetailedDeviceStatus list (Table B.14 allows up to 64 entries).
+ * Default: 8
+ */
+#ifndef IOLINK_EVENT_CONDITION_SLOTS
+#define IOLINK_EVENT_CONDITION_SLOTS 8U
+#endif
+
+/**
+ * @brief Minimum time between "appears" and "disappears" (10.10.2, 50 ms).
  */
 #ifndef IOLINK_EVENT_MIN_APPEAR_MS
 #define IOLINK_EVENT_MIN_APPEAR_MS 50U
@@ -79,13 +68,17 @@
 
 /**
  * @brief Minimum repeat interval for the same EventCode and EventQualifier
- * (10.10.2).
- *
- * A deferred appearance is queued by iolink_events_process() once this
- * interval has elapsed; it is never discarded.
+ * (10.10.2, 1 s).
  */
-#ifndef IOLINK_EVENT_MIN_REPEAT_MS
-#define IOLINK_EVENT_MIN_REPEAT_MS 1000U
+#ifndef IOLINK_EVENT_REPEAT_MS
+#define IOLINK_EVENT_REPEAT_MS 1000U
+#endif
+
+#if (IOLINK_EVENT_QUEUE_SIZE < 1) || (IOLINK_EVENT_QUEUE_SIZE > 255)
+#error "IOLINK_EVENT_QUEUE_SIZE must be 1..255"
+#endif
+#if (IOLINK_EVENT_CONDITION_SLOTS < 1) || (IOLINK_EVENT_CONDITION_SLOTS > 64)
+#error "IOLINK_EVENT_CONDITION_SLOTS must be 1..64"
 #endif
 
 /* -------------------------------------------------------------------------

@@ -38,7 +38,6 @@ typedef struct
     const char* product_name;      /**< Product name string (Index 0x0012). */
     const char* product_id;        /**< Product ID string (Index 0x0013). */
     const char* product_text;      /**< Product text string (Index 0x0014). */
-    const char* product_uri;       /**< Product URI string (Index 0x001B, optional). */
     const char* serial_number;     /**< Serial number string (Index 0x0015). */
     const char* hardware_revision; /**< Hardware revision string (Index 0x0016). */
     const char* firmware_revision; /**< Firmware revision string (Index 0x0017). */
@@ -47,18 +46,20 @@ typedef struct
     /* Device IDs (Mandatory Indices) */
     uint16_t vendor_id;              /**< Vendor ID (Direct Parameter page 1, 0x07-0x08). */
     uint32_t device_id;              /**< Device ID (Direct Parameter page 1, 0x09-0x0B). */
-    uint16_t function_id;            /**< Function ID (Direct Parameter page 1, 0x0C-0x0D). */
-    uint16_t profile_characteristic; /**< Profile characteristic (Index 0x000D). */
+    uint16_t function_id;            /**< Function ID (Index 0x001C). */
+    uint16_t profile_characteristic; /**< ProfileIdentifier (Index 0x000D); 0 = no profile. */
 
     /* System Info */
-    uint8_t min_cycle_time;          /**< MinCycleTime in 0.1 ms units (page 1, 0x02); an octet
-                                          caps it at 25.5 ms. */
-    uint16_t revision_id;            /**< RevisionID (Direct Parameter page 1, 0x04). */
-    uint8_t device_status;           /**< DeviceStatus (Index 0x0024). */
-    uint16_t detailed_device_status; /**< DetailedDeviceStatus (Index 0x0025, optional). */
+    uint8_t min_cycle_time;          /**< Minimum cycle time in 100us units (Index 0x0024). */
+    uint16_t revision_id;            /**< Revision ID (Index 0x001E). */
+    uint8_t device_status;           /**< Device status (Index 0x001B). */
+    uint16_t detailed_device_status; /**< Detailed device status (Index 0x001C, optional). */
 
     /* Access Control */
     uint16_t access_locks; /**< Device access locks bitmask (Index 0x000C). */
+
+    /* Profile identification (conditional, Common Profile) */
+    const char* product_uri; /**< ProductURI (Index 0x001B, max 100 octets); NULL = absent. */
 } iolink_device_info_t;
 
 /**
@@ -73,7 +74,6 @@ typedef struct
     iolink_device_info_t defaults;          /**< Factory-default identity snapshot. */
     char application_tag[33];               /**< Runtime application tag (32 bytes + NUL). */
     uint16_t access_locks;                  /**< Runtime device access locks value. */
-    uint16_t default_access_locks;          /**< State-of-delivery access locks (Table 101). */
 } iolink_device_info_ctx_t;
 
 /**
@@ -116,17 +116,15 @@ uint16_t iolink_device_info_ctx_get_access_locks(const iolink_device_info_ctx_t*
 void iolink_device_info_ctx_set_access_locks(iolink_device_info_ctx_t* ctx, uint16_t locks);
 
 /**
- * @brief Get the state-of-delivery access locks of a context (Table 101).
+ * @brief Get the factory-default device access locks of a context.
+ *
+ * Returns the value from the configured identity bound at init (or the built-in
+ * default identity), independent of later runtime changes.
+ *
  * @param ctx Device-info context.
- * @return Access locks value configured at initialization.
+ * @return Factory-default 16-bit access locks value, 0 if @p ctx is NULL.
  */
-uint16_t iolink_device_info_ctx_get_default_access_locks(const iolink_device_info_ctx_t* ctx);
-
-/**
- * @brief Restore the access locks to the state of delivery (Table 101).
- * @param ctx Device-info context.
- */
-void iolink_device_info_ctx_reset_access_locks(iolink_device_info_ctx_t* ctx);
+uint16_t iolink_device_info_ctx_get_factory_access_locks(const iolink_device_info_ctx_t* ctx);
 
 /**
  * @brief Initialize device information
@@ -161,15 +159,10 @@ uint16_t iolink_device_info_get_access_locks(void);
 void iolink_device_info_set_access_locks(uint16_t locks);
 
 /**
- * @brief Restore the legacy Device Access Locks to the state of delivery.
+ * @brief Get the factory-default Device Access Locks of the singleton context.
+ * @return Access locks value of the identity passed to iolink_device_info_init().
  */
-void iolink_device_info_reset_access_locks(void);
-
-/**
- * @brief Get the legacy state-of-delivery access locks (Table 101).
- * @return Access locks value configured at initialization.
- */
-uint16_t iolink_device_info_get_default_access_locks(void);
+uint16_t iolink_device_info_get_factory_access_locks(void);
 
 /** @} */ /* end of iolinki_device_info */
 

@@ -62,6 +62,29 @@ static inline uint8_t iolink_mseq_od_len(uint8_t m_seq_type)
 }
 
 /**
+ * Encode the IO-Link advertised minimum cycle time from units of 100 us.
+ * The Direct Parameter octet has three linear intervals:
+ * 0.1 ms (0.4..6.3 ms), 0.4 ms (6.4..31.6 ms),
+ * and 1.6 ms (32.0..132.8 ms). Round up to a representable period.
+ */
+static inline uint8_t iolink_cycle_time_encode(uint16_t ticks)
+{
+    if (ticks == 0U) return 0U; /* no declared minimum */
+    if (ticks <= 3U) return 4U; /* minimum 0.4 ms */
+    if (ticks <= 63U) return (uint8_t) ticks;
+
+    if (ticks <= 316U) {
+        const uint16_t steps = (uint16_t) ((ticks - 64U + 3U) / 4U);
+        return (uint8_t) (0x40U | steps);
+    }
+
+    const uint32_t later = ticks > 320U ? ticks - 320U : 0U;
+    uint32_t steps = (later + 15U) / 16U;
+    if (steps > 63U) steps = 63U;
+    return (uint8_t) (0x80U | steps);
+}
+
+/**
  * @brief IO-Link stack configuration
  *
  * Holds parameters required to initialize the stack behavior.
@@ -69,8 +92,7 @@ static inline uint8_t iolink_mseq_od_len(uint8_t m_seq_type)
 typedef struct
 {
     iolink_m_seq_type_t m_seq_type; /**< Primary M-sequence type supported by device */
-    uint8_t min_cycle_time;         /**< Minimum cycle time in 0.1 ms units (20 = 2.0 ms),
-                                         encoded per Table B.3 in Direct Parameter page 1 */
+    uint8_t min_cycle_time;         /**< Minimum cycle time in 0.1ms units (e.g. 20 = 2.0ms) */
     uint8_t pd_in_len;              /**< Process Data Input length (Device to Master) in bytes */
     uint8_t pd_out_len;             /**< Process Data Output length (Master to Device) in bytes */
     uint32_t t_pd_us;               /**< Power-on delay (t_pd) in microseconds */
@@ -80,54 +102,34 @@ typedef struct
 } iolink_config_t;
 
 /**
- * @brief Encode a cycle time in 0.1 ms units to a Table B.3 octet.
- *
- * Time base bits 7:6 and multiplier bits 5:0 per Table B.3. A value of 0 is
- * encoded as 0x00, which B.1.3 defines as "no MinCycleTime provided"; values
- * below the 0.4 ms minimum are clamped to 0.4 ms; values above 132.8 ms
- * saturate at 132.8 ms (time base 10, multiplier 63). Values between the
- * representable steps are rounded up, so the encoded minimum never claims a
- * cycle time shorter than the requested one.
- * @param units100us Cycle time in 100 us (0.1 ms) units.
- * @return Table B.3 encoded octet.
- */
-static inline uint8_t iolink_cycle_time_encode(uint16_t units100us)
-{
-    if (units100us == 0U) {
-        return 0x00U; /* B.1.3: no MinCycleTime provided. */
-    }
-    if (units100us < 4U) {
-        units100us = 4U; /* Table B.3 minimum is 0.4 ms. */
-    }
-    if (units100us <= 63U) {
-        return (uint8_t) units100us; /* 0.1 ms x multiplier: 0.4 .. 6.3 ms */
-    }
-    if (units100us <= 316U) {
-        const uint16_t m = (uint16_t) ((units100us - 64U + 3U) / 4U); /* ceil to 0.4 ms steps */
-        return (uint8_t) (0x40U | (uint8_t) m);
-    }
-    /* 32.0 ms + 1.6 ms x multiplier. 317..320 all round up to multiplier 0. */
-    const uint32_t excess = (units100us > 320U) ? ((uint32_t) units100us - 320U) : 0U;
-    uint32_t m = (excess + 15U) / 16U; /* ceil to 1.6 ms steps */
-    if (m > 63U) {
-        m = 63U; /* saturate at 132.8 ms */
-    }
-    return (uint8_t) (0x80U | (uint8_t) m);
-}
-
-/**
  * @brief Reset request type delivered to the application reset handler.
  */
 typedef enum
 {
-    IOLINK_RESET_DEVICE = 0,     /**< System Command 0x80 (Device Reset) */
-    IOLINK_RESET_APPLICATION = 1 /**< System Command 0x81 (Application Reset) */
+    IOLINK_RESET_DEVICE = 0,          /**< System Command 0x80 (Device Reset) */
+    IOLINK_RESET_APPLICATION = 1,     /**< System Command 0x81 (Application Reset) */
+    IOLINK_RESET_RESTORE_FACTORY = 2, /**< System Command 0x82: reset application parameters */
+    IOLINK_RESET_BACK_TO_BOX = 3      /**< System Command 0x83: disable outputs, stop */
 } iolink_reset_type_t;
 
 /**
  * @brief Application callback invoked when the Master requests a reset.
  *
- * @param type IOLINK_RESET_DEVICE or IOLINK_RESET_APPLICATION
+ * - IOLINK_RESET_APPLICATION: called before the ISDU response (10.7.3); set
+ *   the technology specific parameters to their defaults.
+ * - IOLINK_RESET_RESTORE_FACTORY: called before the ISDU response, after the
+ *   stack has restored its own parameters (10.7.4); reset application
+ *   parameters.
+ * - IOLINK_RESET_DEVICE: called after the ISDU response was read and at least
+ *   3 further M-sequences (10.7.2); perform the warm start.
+ * - IOLINK_RESET_BACK_TO_BOX: called after the ISDU response was read and at
+ *   least 3 further M-sequences (10.7.5); disable all output drivers. The
+ *   stack then stops communication until the next power cycle.
+ *
+ * If no handler is registered, SystemCommands 0x80, 0x81 and 0x83 are refused
+ * with FUNC_NOTAVAIL.
+ *
+ * @param type Reset request type
  */
 typedef void (*iolink_reset_handler_t)(iolink_reset_type_t type);
 

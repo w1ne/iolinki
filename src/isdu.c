@@ -62,9 +62,6 @@ void iolink_isdu_init(iolink_isdu_ctx_t* ctx)
 /** @brief Resolve device-local identity, retaining standalone legacy ISDU behavior. */
 static const iolink_device_info_t* isdu_device_info(const iolink_isdu_ctx_t* ctx)
 {
-    if ((ctx != NULL) && (ctx->device_info != NULL)) {
-        return iolink_device_info_ctx_get(ctx->device_info);
-    }
     if ((ctx != NULL) && (ctx->params_ctx != NULL) && (ctx->params_ctx->device_info != NULL)) {
         return iolink_device_info_ctx_get(ctx->params_ctx->device_info);
     }
@@ -91,110 +88,24 @@ static int isdu_params_set(iolink_isdu_ctx_t* ctx, uint16_t index, uint8_t subin
     return iolink_params_set(index, subindex, data, len, persist);
 }
 
-/** @brief Factory-reset the bound parameter context, or the legacy global set. */
-static void isdu_params_factory_reset(iolink_isdu_ctx_t* ctx)
+/** @brief The bound parameter context, or the legacy singleton for standalone use. */
+static iolink_params_ctx_t* isdu_params_ctx(iolink_isdu_ctx_t* ctx)
 {
-    /* Reset the device's own parameter context when one is bound (as device.c
-       does via ctx->params_ctx); otherwise fall back to the legacy global set.
-       Using the bound context is required, else a per-device app tag survives a
-       Restore Factory Settings command. */
-    if ((ctx != NULL) && (ctx->params_ctx != NULL)) {
-        iolink_params_ctx_factory_reset(ctx->params_ctx);
+    if (ctx->params_ctx != NULL) {
+        return ctx->params_ctx;
     }
-    else {
-        iolink_params_factory_reset();
-    }
+    return iolink_params_get_legacy_ctx();
 }
 
-/** @brief Effective DeviceAccessLocks value (index 0x000C). */
+/** @brief DeviceAccessLocks (Index 0x000C) of this device. */
 static uint16_t isdu_access_locks(const iolink_isdu_ctx_t* ctx)
 {
-    if ((ctx != NULL) && (ctx->device_info != NULL)) {
-        return iolink_device_info_ctx_get_access_locks(ctx->device_info);
+    /* Device-local locks when a params context is bound. The standalone
+       (legacy) engine keeps using the process-wide device-info value. */
+    if (ctx->params_ctx != NULL) {
+        return iolink_params_ctx_get_access_locks(ctx->params_ctx);
     }
     return iolink_device_info_get_access_locks();
-}
-
-/** @brief Commit the DeviceAccessLocks value, persisting it through the parameter manager. */
-static int isdu_store_access_locks(iolink_isdu_ctx_t* ctx, uint16_t locks)
-{
-    if ((ctx != NULL) && (ctx->params_ctx != NULL)) {
-        if (iolink_params_ctx_store_access_locks(ctx->params_ctx, locks) != 0) {
-            return -1;
-        }
-        /* The parameter manager applies the value to its own device-info
-           binding; keep the object this engine reads in sync with it. */
-        if (ctx->device_info != NULL) {
-            iolink_device_info_ctx_set_access_locks(ctx->device_info, locks);
-        }
-        return 0;
-    }
-    if ((ctx != NULL) && (ctx->device_info != NULL)) {
-        iolink_device_info_ctx_set_access_locks(ctx->device_info, locks);
-        return 0;
-    }
-    if (iolink_params_store_access_locks(locks) == 0) {
-        iolink_device_info_set_access_locks(locks);
-        return 0;
-    }
-    return -1;
-}
-
-/** @brief Table 101: restore the state-of-delivery DeviceAccessLocks value.
- *
- * @return 0 on success, negative when the non-volatile commit failed. The
- *         runtime value is only changed after a successful commit, so RAM and
- *         NVM cannot diverge.
- */
-static int isdu_reset_access_locks(iolink_isdu_ctx_t* ctx)
-{
-    uint16_t defaults;
-    uint16_t previous;
-
-    if ((ctx != NULL) && (ctx->device_info != NULL)) {
-        defaults = iolink_device_info_ctx_get_default_access_locks(ctx->device_info);
-        previous = iolink_device_info_ctx_get_access_locks(ctx->device_info);
-    }
-    else {
-        defaults = iolink_device_info_get_default_access_locks();
-        previous = iolink_device_info_get_access_locks();
-    }
-
-    if (isdu_store_access_locks(ctx, defaults) != 0) {
-        /* Leave the runtime value untouched on a failed commit. */
-        if ((ctx != NULL) && (ctx->device_info != NULL)) {
-            iolink_device_info_ctx_set_access_locks(ctx->device_info, previous);
-        }
-        else {
-            iolink_device_info_set_access_locks(previous);
-        }
-        return -1;
-    }
-    return 0;
-}
-
-/** @brief Discard an active Data Storage transfer (Table 101 "Discard"). */
-static void isdu_discard_ds(iolink_isdu_ctx_t* ctx)
-{
-    if (ctx->ds_ctx != NULL) {
-        (void) iolink_ds_discard((iolink_ds_ctx_t*) ctx->ds_ctx);
-    }
-}
-
-/** @brief 10.4.2/Table 101: discard any transfer, then request a DS upload. */
-static void isdu_request_ds_upload(iolink_isdu_ctx_t* ctx)
-{
-    if (ctx->ds_ctx == NULL) {
-        return;
-    }
-    isdu_discard_ds(ctx);
-    if (iolink_ds_start_upload((iolink_ds_ctx_t*) ctx->ds_ctx) != 0) {
-        return; /* Busy: the Master must not be told to upload. */
-    }
-    if (ctx->event_ctx != NULL) {
-        iolink_event_trigger((iolink_events_ctx_t*) ctx->event_ctx,
-                             IOLINK_EVENTCODE_DS_UPLOAD_REQUEST, IOLINK_EVENT_TYPE_NOTIFICATION);
-    }
 }
 
 /* handle_standard_commands() is defined below; the transport executes it once a
@@ -586,762 +497,614 @@ void iolink_isdu_od_read(iolink_isdu_ctx_t* ctx, uint8_t flowctrl, uint8_t* od_o
     ctx->read_cache_valid = true;
 }
 
-/** @brief Answer a negative ISDU response (Table C.1). */
-static void isdu_negative_response(iolink_isdu_ctx_t* ctx, uint8_t error)
+/** @brief Terminate the service with a negative response {0x80, AdditionalCode} (Table C.1). */
+static void isdu_reply_error(iolink_isdu_ctx_t* ctx, uint8_t additional_code)
 {
     ctx->response_buf[0] = 0x80U;
-    ctx->response_buf[1] = error;
+    ctx->response_buf[1] = additional_code;
     ctx->response_len = 2U;
     ctx->response_idx = 0U;
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
-/**
- * @brief Object model of one Table B.8 index implemented by this stack.
- *
- * Object access is always possible through subindex 0 (Table B.8 note 1);
- * max_subindex covers the element access this stack also serves.
- */
-typedef struct
+/** @brief Terminate the service with a positive response of len octets in response_buf. */
+static void isdu_reply_data(iolink_isdu_ctx_t* ctx, size_t len)
 {
-    uint8_t max_subindex; /**< Highest valid element subindex */
-    bool dynamic_array;   /**< Subindex range depends on the object content */
-} isdu_object_desc_t;
-
-/** @brief Look up an index implemented by this stack (Table B.8). */
-static bool isdu_object_lookup(uint16_t index, isdu_object_desc_t* desc)
-{
-    switch (index) {
-        case IOLINK_IDX_DIRECT_PARAMETERS_1:
-        case IOLINK_IDX_DIRECT_PARAMETERS_2:
-            /* Page channel: subindex 0 is the whole 16-octet page. */
-            desc->max_subindex = 16U;
-            desc->dynamic_array = false;
-            return true;
-
-        case IOLINK_IDX_SYSTEM_COMMAND:
-        case IOLINK_IDX_DATA_STORAGE:
-        case IOLINK_IDX_DEVICE_ACCESS_LOCKS:
-        case IOLINK_IDX_VENDOR_NAME:
-        case IOLINK_IDX_VENDOR_TEXT:
-        case IOLINK_IDX_PRODUCT_NAME:
-        case IOLINK_IDX_PRODUCT_ID:
-        case IOLINK_IDX_PRODUCT_TEXT:
-        case IOLINK_IDX_SERIAL_NUMBER:
-        case IOLINK_IDX_HARDWARE_REVISION:
-        case IOLINK_IDX_FIRMWARE_REVISION:
-        case IOLINK_IDX_APPLICATION_TAG:
-        case IOLINK_IDX_FUNCTION_TAG:
-        case IOLINK_IDX_LOCATION_TAG:
-        case IOLINK_IDX_PRODUCT_URI:
-        case IOLINK_IDX_ERROR_COUNT:
-        case IOLINK_IDX_DEVICE_STATUS:
-        case IOLINK_IDX_PROCESS_DATA_INPUT:
-        case IOLINK_IDX_PROCESS_DATA_OUTPUT:
-            desc->max_subindex = 0U;
-            desc->dynamic_array = false;
-            return true;
-
-        case IOLINK_IDX_PROFILE_CHARACTERISTIC:
-            /* B.2.5: ArrayT; this stack implements a single array element. */
-            desc->max_subindex = 1U;
-            desc->dynamic_array = false;
-            return true;
-
-        case IOLINK_IDX_DETAILED_DEVICE_STATUS:
-            /* B.2.22/Table B.14: variable-length array of 3-octet entries;
-               Table B.14 explicitly does not support subindex access. */
-            desc->max_subindex = 0U;
-            desc->dynamic_array = false;
-            return true;
-
-        default:
-            return false;
-    }
+    ctx->response_len = len;
+    ctx->response_idx = 0U;
+    ctx->state = ISDU_STATE_RESPONSE_READY;
 }
-
-/** @brief Request validation result (Table C.1). */
-typedef enum
-{
-    ISDU_REQUEST_VALID = 0U,
-    ISDU_REQUEST_INDEX_NOT_AVAIL,
-    ISDU_REQUEST_SUBINDEX_NOT_AVAIL
-} isdu_request_check_t;
 
 /**
- * @brief Validate the requested index/subindex before any handler runs.
+ * @brief Reject a nonzero Subindex or a Write on a read-only object (C.2.4, C.2.8).
  *
- * C.2.3: an index that does not exist answers IDX_NOTAVAIL even when the
- * request also carries a non-zero subindex; C.2.4 only applies to an existing
- * object that has no such subindex.
+ * @return true when a negative response was produced and the service is done.
  */
-static isdu_request_check_t isdu_validate_request(const iolink_isdu_ctx_t* ctx)
+static bool isdu_reject_read_only_access(iolink_isdu_ctx_t* ctx)
 {
-    const uint16_t index = ctx->header.index;
-    const uint8_t subindex = ctx->header.subindex;
-
-    /* B.2.27/B.2.28: Preferred (0x0040-0x00FE) and Extended (0x0100-0x3FFF)
-       indices are device-specific and owned by the application service when
-       one is registered. */
-    if (((index >= 0x0040U) && (index <= 0x00FEU)) || (index >= 0x0100U)) {
-        if (ctx->vendor_service != NULL) {
-            return ISDU_REQUEST_VALID;
-        }
-        if (index == IOLINK_IDX_ERROR_STATS) {
-            /* Vendor error statistics are a single-element object. */
-            return (subindex == 0U) ? ISDU_REQUEST_VALID : ISDU_REQUEST_SUBINDEX_NOT_AVAIL;
-        }
-        return ISDU_REQUEST_INDEX_NOT_AVAIL;
+    if (ctx->header.subindex != 0U) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
+        return true;
     }
-
-    isdu_object_desc_t desc;
-    if (!isdu_object_lookup(index, &desc)) {
-        /* Reserved or unimplemented Table B.8 index. */
-        return ISDU_REQUEST_INDEX_NOT_AVAIL;
+    if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_NOT_ACCESSIBLE);
+        return true;
     }
-    if (!desc.dynamic_array && (subindex > desc.max_subindex)) {
-        return ISDU_REQUEST_SUBINDEX_NOT_AVAIL;
-    }
-    return ISDU_REQUEST_VALID;
+    return false;
 }
 
-/** @brief Whether an SDCI write to @p index is a parameter write (Table B.2.4). */
-static bool isdu_write_is_parameter(uint16_t index)
+/** @brief Length of a NUL-terminated string, bounded by the StringT maximum. */
+static size_t isdu_bounded_strlen(const char* str, size_t max_len)
 {
-    /* SystemCommand is a command object, not a parameter; Data Storage
-       downloads are explicitly excluded from the Parameter access lock, and
-       DeviceAccessLocks must stay writable to release the lock (B.2.4). */
-    if ((index == IOLINK_IDX_SYSTEM_COMMAND) || (index == IOLINK_IDX_DATA_STORAGE) ||
-        (index == IOLINK_IDX_DEVICE_ACCESS_LOCKS)) {
-        return false;
+    size_t n = 0U;
+    while ((n < max_len) && (str[n] != '\0')) {
+        n++;
     }
-    /* Direct Parameter page 1 is read-only; its handler rejects the write. */
-    if (index == IOLINK_IDX_DIRECT_PARAMETERS_1) {
-        return false;
-    }
-    return true;
+    return n;
 }
 
-/** @brief Serve the mandatory identification/status indices (vendor, product, tags, etc.). */
-static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
+/**
+ * @brief Serve a read-only identification StringT object (B.2.8 to B.2.15, B.2.19).
+ *
+ * A mandatory object always exists and reads as an empty string when it is not
+ * configured. An optional or conditional object without a configured value does
+ * not exist: any access is IDX_NOTAVAIL.
+ */
+static void handle_identification_string(iolink_isdu_ctx_t* ctx, const char* str, size_t max_len,
+                                         bool mandatory)
 {
-    const iolink_device_info_t* info = isdu_device_info(ctx);
-    const char* str_data = NULL;
+    if ((str == NULL) && !mandatory) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_INDEX_NOT_AVAIL);
+        return;
+    }
+    if (isdu_reject_read_only_access(ctx)) {
+        return;
+    }
+    size_t len = 0U;
+    if (str != NULL) {
+        len = isdu_bounded_strlen(str, max_len);
+        if (len > IOLINK_ISDU_DATA_MAX_SIZE) {
+            len = IOLINK_ISDU_DATA_MAX_SIZE;
+        }
+        (void) memcpy(ctx->response_buf, str, len);
+    }
+    isdu_reply_data(ctx, len);
+}
 
-    if (info == NULL) {
-        ctx->response_buf[0] = 0x80U;
-        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
-        ctx->response_len = 2U;
-        ctx->response_idx = 0U;
-        ctx->state = ISDU_STATE_RESPONSE_READY;
+/**
+ * @brief Serve ProfileCharacteristic (Index 0x000D, B.2.5).
+ *
+ * ArrayT of UIntegerT16 ProfileIdentifiers. The object exists only when the
+ * Device declares a profile; the configuration holds one identifier, so the
+ * array has one element.
+ */
+static void handle_profile_characteristic(iolink_isdu_ctx_t* ctx, const iolink_device_info_t* info)
+{
+    if (info->profile_characteristic == 0U) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_INDEX_NOT_AVAIL);
+        return;
+    }
+    if (isdu_reject_read_only_access(ctx)) {
+        return;
+    }
+    ctx->response_buf[0] = (uint8_t) (info->profile_characteristic >> 8);
+    ctx->response_buf[1] = (uint8_t) (info->profile_characteristic & 0xFFU);
+    isdu_reply_data(ctx, 2U);
+}
+
+/**
+ * @brief True if the Parameter (write) access lock refuses this write (B.2.4).
+ *
+ * The lock inhibits writes to every read/write parameter except
+ * DeviceAccessLocks, but never blocks a Data Storage download
+ * (DS_DownloadStart .. DS_DownloadEnd). Commands (0x0002) and the
+ * DataStorageIndex (0x0003) are not parameters in this sense.
+ */
+static bool isdu_param_write_locked(const iolink_isdu_ctx_t* ctx)
+{
+    if ((isdu_access_locks(ctx) & IOLINK_LOCK_PARAM) == 0U) {
+        return false;
+    }
+    const iolink_ds_ctx_t* ds = (const iolink_ds_ctx_t*) ctx->ds_ctx;
+    return !((ds != NULL) && iolink_ds_download_open(ds) && ds->ds_command_session);
+}
+
+/** @brief Negative response for a rejected tag value (C.2.12, C.2.9). */
+static void isdu_reply_tag_rejected(iolink_isdu_ctx_t* ctx)
+{
+    if (ctx->buffer_idx > IOLINK_PARAMS_TAG_MAX) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_LENGTH_OVERRUN);
+    }
+    else {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_VALUE_OUT_OF_RANGE);
+    }
+}
+
+/** @brief Read or write a user tag (ApplicationSpecificTag, FunctionTag, LocationTag). */
+static void handle_tag(iolink_isdu_ctx_t* ctx, uint16_t index)
+{
+    if (ctx->header.subindex != 0U) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
+        return;
+    }
+    if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
+        iolink_ds_ctx_t* ds = (iolink_ds_ctx_t*) ctx->ds_ctx;
+        const bool in_download =
+            (ds != NULL) && iolink_ds_download_open(ds) && iolink_ds_is_ds_param(index, 0U);
+
+        if (isdu_param_write_locked(ctx)) {
+            isdu_reply_error(ctx, IOLINK_ISDU_ERROR_NOT_ACCESSIBLE);
+            return;
+        }
+        if (in_download) {
+            /* Table 98 rules 1-3: check and stage only; End/Store commits. */
+            if (iolink_ds_stage_param(ds, index, 0U, ctx->buffer, ctx->buffer_idx) == 0) {
+                isdu_reply_data(ctx, 0U);
+            }
+            else {
+                isdu_reply_tag_rejected(ctx);
+            }
+            return;
+        }
+        if (ctx->buffer_idx > IOLINK_PARAMS_TAG_MAX) {
+            isdu_reply_tag_rejected(ctx);
+            return;
+        }
+        if (isdu_params_set(ctx, index, 0U, ctx->buffer, ctx->buffer_idx, true) == 0) {
+            isdu_reply_data(ctx, 0U);
+        }
+        else {
+            /* The value was valid: the non-volatile write failed. Terminate
+             * with a negative response instead of leaving the master polling
+             * Busy; RAM and readback keep the previous value. */
+            isdu_reply_error(ctx, IOLINK_ISDU_ERROR_APP_DEV);
+        }
+        return;
+    }
+    int res = isdu_params_get(ctx, index, 0U, ctx->response_buf, (size_t) IOLINK_ISDU_BUFFER_SIZE);
+    if (res >= 0) {
+        isdu_reply_data(ctx, (size_t) res);
+    }
+    else {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
+    }
+}
+
+/** @brief Serve ErrorCount (Index 0x0020, B.2.20): read-only UIntegerT16, MSB first. */
+static void handle_error_count(iolink_isdu_ctx_t* ctx)
+{
+    if (isdu_reject_read_only_access(ctx)) {
+        return;
+    }
+    ctx->response_buf[0] = (uint8_t) (ctx->error_count >> 8);
+    ctx->response_buf[1] = (uint8_t) (ctx->error_count & 0xFFU);
+    isdu_reply_data(ctx, 2U);
+}
+
+/** @brief Serve DeviceStatus (Index 0x0024, B.2.21) through the public event API. */
+static void handle_device_status(iolink_isdu_ctx_t* ctx)
+{
+    if (isdu_reject_read_only_access(ctx)) {
+        return;
+    }
+    ctx->response_buf[0] = iolink_events_get_device_status((iolink_events_ctx_t*) ctx->event_ctx);
+    isdu_reply_data(ctx, 1U);
+}
+
+/**
+ * @brief Serve ProcessDataInput/ProcessDataOutput (Index 0x0028/0x0029, B.2.23/B.2.24).
+ *
+ * The response is the last valid Process Data in the same structure as on the
+ * process communication channel. The object does not exist when the Device
+ * has no Process Data in that direction (IDX_NOTAVAIL). Before the first valid
+ * data the service is refused with SERV_NOTAVAIL (C.2.5). PDin is valid when
+ * the application publishes it as valid; PDout is valid after the Master sent
+ * ProcessDataOutputOperate (PDOUTVALID, Table 55). Later invalid data keeps
+ * the last valid snapshot.
+ */
+static void handle_process_data(iolink_isdu_ctx_t* ctx, bool input)
+{
+    const iolink_dll_ctx_t* dll = (const iolink_dll_ctx_t*) ctx->dll_ctx;
+    uint8_t pd_in_len = 0U;
+    uint8_t pd_out_len = 0U;
+
+    if (dll != NULL) {
+        iolink_dll_get_pd_length(dll, &pd_in_len, &pd_out_len);
+    }
+    size_t len = input ? pd_in_len : pd_out_len;
+    if ((dll == NULL) || (len == 0U) || (input && (len > sizeof(dll->pd_in))) ||
+        (!input && (len > sizeof(dll->pd_out)))) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_INDEX_NOT_AVAIL);
+        return;
+    }
+    if (isdu_reject_read_only_access(ctx)) {
         return;
     }
 
-    /* Table C.1: the identification tags are writable here. A known read-only
-       object rejects a WRITE with access denied; an unknown/reserved index
-       falls through to the default IDX_NOTAVAIL response. */
-    if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
-        const uint16_t index = ctx->header.index;
-        const bool writable_tag = (index == IOLINK_IDX_APPLICATION_TAG) ||
-                                  (index == IOLINK_IDX_FUNCTION_TAG) ||
-                                  (index == IOLINK_IDX_LOCATION_TAG);
-        if (!writable_tag) {
-            switch (index) {
-                case IOLINK_IDX_PROFILE_CHARACTERISTIC:
-                case IOLINK_IDX_VENDOR_NAME:
-                case IOLINK_IDX_VENDOR_TEXT:
-                case IOLINK_IDX_PRODUCT_NAME:
-                case IOLINK_IDX_PRODUCT_ID:
-                case IOLINK_IDX_PRODUCT_TEXT:
-                case IOLINK_IDX_PRODUCT_URI:
-                case IOLINK_IDX_SERIAL_NUMBER:
-                case IOLINK_IDX_HARDWARE_REVISION:
-                case IOLINK_IDX_FIRMWARE_REVISION:
-                case IOLINK_IDX_ERROR_COUNT:
-                case IOLINK_IDX_DEVICE_STATUS:
-                    ctx->response_buf[0] = 0x80U;
-                    ctx->response_buf[1] = IOLINK_ISDU_ERROR_WRITE_PROTECTED;
-                    ctx->response_len = 2U;
-                    ctx->response_idx = 0U;
-                    ctx->state = ISDU_STATE_RESPONSE_READY;
-                    return;
-                default:
-                    break; /* unknown index: IDX_NOTAVAIL below */
-            }
-        }
+    iolink_critical_enter();
+    const uint8_t n =
+        input ? iolink_dll_get_last_valid_pd_in(dll, ctx->response_buf, sizeof(ctx->response_buf))
+              : iolink_dll_get_last_valid_pd_out(dll, ctx->response_buf, sizeof(ctx->response_buf));
+    iolink_critical_exit();
+
+    if (n == 0U) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_SERV_TEMP_UNAVAIL);
+        return;
+    }
+    isdu_reply_data(ctx, n);
+}
+
+/** @brief Serve the Table B.8 identification, tag, status and Process Data indices. */
+static void handle_mandatory_indices(iolink_isdu_ctx_t* ctx)
+{
+    const iolink_device_info_t* info = isdu_device_info(ctx);
+
+    if (info == NULL) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_INDEX_NOT_AVAIL);
+        return;
     }
 
-    /* The index/subindex model was validated before dispatch (Table B.8). */
+    /* Indices 0x0004-0x000B are reserved (Table B.8): VendorID and DeviceID
+       are read through Direct Parameter page 1, so they reach the default. */
     switch (ctx->header.index) {
-            /* Table B.8: 0x0004-0x000B are reserved. VendorID/DeviceID live in
-               Direct Parameter Page 1 (0x07-0x0B), not in an ISDU index. */
-
         case IOLINK_IDX_PROFILE_CHARACTERISTIC:
-            /* B.2.5: a read-only ArrayT of UIntegerT16 holding the list of
-             * ProfileIdentifiers, conditional on the associated Profile. This
-             * stack exposes a single element (subindex 0 or 1). */
-            if (info->profile_characteristic == 0U) {
-                ctx->response_buf[0] = 0x80U;
-                ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
-                ctx->response_len = 2U;
-                ctx->response_idx = 0U;
-                ctx->state = ISDU_STATE_RESPONSE_READY;
-                return;
-            }
-            /* A WRITE is already rejected by the read-only guard above (0x80
-               0x23); only the subindex range is specific to the ArrayT. */
-            if (ctx->header.subindex > 1U) {
-                ctx->response_buf[0] = 0x80U;
-                ctx->response_buf[1] = IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL;
-                ctx->response_len = 2U;
-                ctx->response_idx = 0U;
-                ctx->state = ISDU_STATE_RESPONSE_READY;
-                return;
-            }
-            ctx->response_buf[0] = (uint8_t) (info->profile_characteristic >> 8);
-            ctx->response_buf[1] = (uint8_t) (info->profile_characteristic & 0xFF);
-            ctx->response_len = 2U;
-            ctx->response_idx = 0U;
-            ctx->state = ISDU_STATE_RESPONSE_READY;
-            return;
-
-        case IOLINK_IDX_ERROR_COUNT: {
-            /* Table B.8/B.2.20: 2-octet error count since reset (read-only,
-               optional). Sum the DLL error counters; 0 without a bound DLL. */
-            uint32_t total = 0U;
-            if (ctx->dll_ctx != NULL) {
-                iolink_dll_stats_t stats;
-                iolink_dll_get_stats((const iolink_dll_ctx_t*) ctx->dll_ctx, &stats);
-                uint64_t sum = (uint64_t) stats.crc_errors + (uint64_t) stats.framing_errors +
-                               (uint64_t) stats.timeout_errors + (uint64_t) stats.timing_errors;
-                total = (sum > 0xFFFFU) ? 0xFFFFU : (uint32_t) sum;
-            }
-            ctx->response_buf[0] = (uint8_t) (total >> 8);
-            ctx->response_buf[1] = (uint8_t) (total & 0xFFU);
-            ctx->response_len = 2U;
-            ctx->response_idx = 0U;
-            ctx->state = ISDU_STATE_RESPONSE_READY;
-            return;
-        }
-
+            handle_profile_characteristic(ctx, info);
+            break;
         case IOLINK_IDX_VENDOR_NAME:
-            str_data = info->vendor_name;
+            handle_identification_string(ctx, info->vendor_name, IOLINK_STRING_MAX_LEN, true);
             break;
         case IOLINK_IDX_VENDOR_TEXT:
-            str_data = info->vendor_text;
+            handle_identification_string(ctx, info->vendor_text, IOLINK_STRING_MAX_LEN, false);
             break;
         case IOLINK_IDX_PRODUCT_NAME:
-            str_data = info->product_name;
+            handle_identification_string(ctx, info->product_name, IOLINK_STRING_MAX_LEN, true);
             break;
         case IOLINK_IDX_PRODUCT_ID:
-            str_data = info->product_id;
+            handle_identification_string(ctx, info->product_id, IOLINK_STRING_MAX_LEN, false);
             break;
         case IOLINK_IDX_PRODUCT_TEXT:
-            str_data = info->product_text;
+            handle_identification_string(ctx, info->product_text, IOLINK_STRING_MAX_LEN, false);
             break;
         case IOLINK_IDX_SERIAL_NUMBER:
-            str_data = info->serial_number;
+            handle_identification_string(ctx, info->serial_number, IOLINK_SERIAL_NUMBER_MAX_LEN,
+                                         false);
             break;
         case IOLINK_IDX_HARDWARE_REVISION:
-            str_data = info->hardware_revision;
+            handle_identification_string(ctx, info->hardware_revision, IOLINK_STRING_MAX_LEN,
+                                         false);
             break;
         case IOLINK_IDX_FIRMWARE_REVISION:
-            str_data = info->firmware_revision;
+            handle_identification_string(ctx, info->firmware_revision, IOLINK_STRING_MAX_LEN,
+                                         false);
             break;
-
         case IOLINK_IDX_PRODUCT_URI:
-            str_data = info->product_uri;
+            handle_identification_string(ctx, info->product_uri, IOLINK_PRODUCT_URI_MAX_LEN, false);
             break;
-
         case IOLINK_IDX_APPLICATION_TAG:
-            if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
-                if (isdu_params_set(ctx, IOLINK_IDX_APPLICATION_TAG, 0U, ctx->buffer,
-                                    ctx->buffer_idx, true) == 0) {
-                    ctx->response_len = 0U;
-                    ctx->response_idx = 0U;
-                    ctx->state = ISDU_STATE_RESPONSE_READY;
-                    return;
-                }
-                /* Persistent storage rejected the service: terminate with a
-                 * negative response instead of leaving the master polling Busy. */
-                ctx->response_buf[0] = 0x80U;
-                ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
-                ctx->response_len = 2U;
-                ctx->response_idx = 0U;
-                ctx->state = ISDU_STATE_RESPONSE_READY;
-                return;
-            }
-            else {
-                int res = isdu_params_get(ctx, IOLINK_IDX_APPLICATION_TAG, 0U, ctx->response_buf,
-                                          (size_t) IOLINK_ISDU_BUFFER_SIZE);
-                if (res >= 0) {
-                    ctx->response_len = (uint8_t) res;
-                    ctx->response_idx = 0U;
-                    ctx->state = ISDU_STATE_RESPONSE_READY;
-                    return;
-                }
-            }
-            break;
-
         case IOLINK_IDX_FUNCTION_TAG:
-            if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
-                if (isdu_params_set(ctx, IOLINK_IDX_FUNCTION_TAG, 0U, ctx->buffer, ctx->buffer_idx,
-                                    true) == 0) {
-                    ctx->response_len = 0U;
-                    ctx->response_idx = 0U;
-                    ctx->state = ISDU_STATE_RESPONSE_READY;
-                    return;
-                }
-                /* Persistent storage rejected the service: terminate with a
-                 * negative response instead of leaving the master polling Busy. */
-                ctx->response_buf[0] = 0x80U;
-                ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
-                ctx->response_len = 2U;
-                ctx->response_idx = 0U;
-                ctx->state = ISDU_STATE_RESPONSE_READY;
-                return;
-            }
-            else {
-                int res = isdu_params_get(ctx, IOLINK_IDX_FUNCTION_TAG, 0U, ctx->response_buf,
-                                          (size_t) IOLINK_ISDU_BUFFER_SIZE);
-                if (res >= 0) {
-                    ctx->response_len = (uint8_t) res;
-                    ctx->response_idx = 0U;
-                    ctx->state = ISDU_STATE_RESPONSE_READY;
-                    return;
-                }
-            }
-            break;
-
         case IOLINK_IDX_LOCATION_TAG:
-            if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
-                if (isdu_params_set(ctx, IOLINK_IDX_LOCATION_TAG, 0U, ctx->buffer, ctx->buffer_idx,
-                                    true) == 0) {
-                    ctx->response_len = 0U;
-                    ctx->response_idx = 0U;
-                    ctx->state = ISDU_STATE_RESPONSE_READY;
-                    return;
-                }
-                /* Persistent storage rejected the service: terminate with a
-                 * negative response instead of leaving the master polling Busy. */
-                ctx->response_buf[0] = 0x80U;
-                ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
-                ctx->response_len = 2U;
-                ctx->response_idx = 0U;
-                ctx->state = ISDU_STATE_RESPONSE_READY;
-                return;
-            }
-            else {
-                int res = isdu_params_get(ctx, IOLINK_IDX_LOCATION_TAG, 0U, ctx->response_buf,
-                                          (size_t) IOLINK_ISDU_BUFFER_SIZE);
-                if (res >= 0) {
-                    ctx->response_len = (uint8_t) res;
-                    ctx->response_idx = 0U;
-                    ctx->state = ISDU_STATE_RESPONSE_READY;
-                    return;
-                }
-            }
+            handle_tag(ctx, ctx->header.index);
             break;
-
-        case IOLINK_IDX_PROCESS_DATA_INPUT: {
-            /* Table B.8 / B.2.23: ProcessDataInput provides the last *valid*
-               process input data handed to the Device application. The DLL
-               exposes the current PDin validity; while it is flagged invalid
-               the buffer is not "last valid" data, so the object answers
-               IDX_NOTAVAIL instead of returning stale octets. */
-            uint8_t len = 0U;
-            if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
-                ctx->response_buf[0] = 0x80U;
-                ctx->response_buf[1] = IOLINK_ISDU_ERROR_WRITE_PROTECTED;
-                ctx->response_len = 2U;
-                ctx->response_idx = 0U;
-                ctx->state = ISDU_STATE_RESPONSE_READY;
-                return;
-            }
-            if (ctx->header.subindex != 0U) {
-                ctx->response_buf[0] = 0x80U;
-                ctx->response_buf[1] = IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL;
-                ctx->response_len = 2U;
-                ctx->response_idx = 0U;
-                ctx->state = ISDU_STATE_RESPONSE_READY;
-                return;
-            }
-            if (ctx->dll_ctx != NULL) {
-                const iolink_dll_ctx_t* dll = (const iolink_dll_ctx_t*) ctx->dll_ctx;
-                len = dll->pd_in_len_current;
-                if (len > sizeof(dll->pd_in)) {
-                    len = (uint8_t) sizeof(dll->pd_in);
-                }
-                if (len > 0U) {
-                    if (!dll->pd_valid) {
-                        /* B.2.23: the current PDin is flagged invalid, so the
-                           buffer is not "last valid" data. */
-                        ctx->response_buf[0] = 0x80U;
-                        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
-                        ctx->response_len = 2U;
-                        ctx->response_idx = 0U;
-                        ctx->state = ISDU_STATE_RESPONSE_READY;
-                        return;
-                    }
-                    (void) memcpy(ctx->response_buf, dll->pd_in, len);
-                }
-            }
-            ctx->response_len = len;
-            ctx->response_idx = 0U;
-            ctx->state = ISDU_STATE_RESPONSE_READY;
-            return;
-        }
-
-        case IOLINK_IDX_PROCESS_DATA_OUTPUT: {
-            /* Table B.8 / B.2.24: ProcessDataOutput provides the last process
-               output data written to the Device application. Until a PDout
-               frame has been received there is no such value: a configured
-               PDout answers IDX_NOTAVAIL, a zero-length PDout answers empty. */
-            uint8_t len = 0U;
-            if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
-                ctx->response_buf[0] = 0x80U;
-                ctx->response_buf[1] = IOLINK_ISDU_ERROR_WRITE_PROTECTED;
-                ctx->response_len = 2U;
-                ctx->response_idx = 0U;
-                ctx->state = ISDU_STATE_RESPONSE_READY;
-                return;
-            }
-            if (ctx->header.subindex != 0U) {
-                ctx->response_buf[0] = 0x80U;
-                ctx->response_buf[1] = IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL;
-                ctx->response_len = 2U;
-                ctx->response_idx = 0U;
-                ctx->state = ISDU_STATE_RESPONSE_READY;
-                return;
-            }
-            if (ctx->dll_ctx != NULL) {
-                const iolink_dll_ctx_t* dll = (const iolink_dll_ctx_t*) ctx->dll_ctx;
-                len = dll->pd_out_len_current;
-                if (len > sizeof(dll->pd_out)) {
-                    len = (uint8_t) sizeof(dll->pd_out);
-                }
-                if (dll->pd_out_seen) {
-                    if (len > 0U) {
-                        (void) memcpy(ctx->response_buf, dll->pd_out, len);
-                    }
-                }
-                else if (len > 0U) {
-                    ctx->response_buf[0] = 0x80U;
-                    ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
-                    ctx->response_len = 2U;
-                    ctx->response_idx = 0U;
-                    ctx->state = ISDU_STATE_RESPONSE_READY;
-                    return;
-                }
-            }
-            ctx->response_len = len;
-            ctx->response_idx = 0U;
-            ctx->state = ISDU_STATE_RESPONSE_READY;
-            return;
-        }
-
+        case IOLINK_IDX_ERROR_COUNT:
+            handle_error_count(ctx);
+            break;
         case IOLINK_IDX_DEVICE_STATUS:
-            ctx->response_buf[0] =
-                iolink_events_get_highest_severity((iolink_events_ctx_t*) ctx->event_ctx);
-            ctx->response_len = 1U;
-            ctx->response_idx = 0U;
-            ctx->state = ISDU_STATE_RESPONSE_READY;
-            return;
+            handle_device_status(ctx);
+            break;
+        case IOLINK_IDX_PROCESS_DATA_INPUT:
+            handle_process_data(ctx, true);
+            break;
+        case IOLINK_IDX_PROCESS_DATA_OUTPUT:
+            handle_process_data(ctx, false);
+            break;
 
             /* IOLINK_IDX_DETAILED_DEVICE_STATUS (0x0025) is handled earlier in
                handle_standard_commands() via handle_detailed_device_status(). */
 
         default:
-            ctx->response_buf[0] = 0x80U; /* Error: Service not available */
-            ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
-            ctx->response_len = 2U;
-            ctx->response_idx = 0U;
-            ctx->state = ISDU_STATE_RESPONSE_READY;
-            return;
+            isdu_reply_error(ctx, IOLINK_ISDU_ERROR_INDEX_NOT_AVAIL);
+            break;
     }
+}
 
-    if (str_data == NULL) {
-        /* Optional object not implemented by this Device (Table C.1). */
-        ctx->response_buf[0] = 0x80U;
-        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
-        ctx->response_len = 2U;
-        ctx->response_idx = 0U;
-        ctx->state = ISDU_STATE_RESPONSE_READY;
+/** @brief AdditionalCode for a failed download commit (Table 98 rule 7, C.2.17). */
+static uint8_t isdu_ds_commit_error(const iolink_ds_ctx_t* ds)
+{
+    /* A rejected parameter set is 0x8041. A non-volatile write failure is
+       not a parameter check failure: report a Device application error. */
+    if (ds->last_result == IOLINK_DS_ERR_STORAGE) {
+        return IOLINK_ISDU_ERROR_APP_DEV;
+    }
+    return IOLINK_ISDU_ERROR_PARAM_INCONSISTENT;
+}
+
+/** @brief Map a Data Storage command result to the Table 99 ISDU response. */
+static void isdu_reply_ds_result(iolink_isdu_ctx_t* ctx, const iolink_ds_ctx_t* ds, int ret)
+{
+    if (ret == IOLINK_DS_OK) {
+        isdu_reply_data(ctx, 0U);
+    }
+    else if ((ret == IOLINK_DS_CMD_BUSY) || (ret == IOLINK_DS_CMD_DENIED)) {
+        /* The command is supported but the current state does not permit it
+           (Table 99, C.2.15). */
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_FUNC_TEMP_UNAVAIL);
+    }
+    else if (ret == IOLINK_DS_CMD_COMMIT_FAILED) {
+        isdu_reply_error(ctx, isdu_ds_commit_error(ds));
+    }
+    else {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_FUNCTION_NOT_AVAIL);
+    }
+}
+
+/**
+ * @brief Raise the Data Storage upload request (10.4.2, Table 100 T2/T7).
+ *
+ * DS_UPLOAD_FLAG is set in every case. The DS_UPLOAD_REQ Event (single shot
+ * Notification 0xFF91) is suppressed while the Data Storage lock is set.
+ */
+static void isdu_request_ds_upload(iolink_isdu_ctx_t* ctx, iolink_ds_ctx_t* ds, uint16_t locks)
+{
+    if (ds != NULL) {
+        ds->upload_requested = true;
+    }
+    if (((locks & IOLINK_LOCK_DS) == 0U) && (ctx->event_ctx != NULL)) {
+        (void) iolink_event_notify((iolink_events_ctx_t*) ctx->event_ctx,
+                                   IOLINK_EVENTCODE_DS_UPLOAD_REQUEST);
+    }
+}
+
+/**
+ * @brief Execute a Block Parameterization SystemCommand 0x01-0x06 (10.3.5, Table B.9).
+ *
+ * The commands are routed to the Data Storage engine. Without a bound Data
+ * Storage engine the commands are not implemented (FUNC_NOTAVAIL). An End
+ * command without an open block in the same direction is refused with
+ * FUNC_UNAVAILTEMP. A failed End/Store check is refused with 0x8041 and the
+ * previous parameter set stays active (Table 98 rule 7). The Data Storage
+ * access lock does not apply to Block Parameterization (B.2.4 limits it to
+ * the DataStorageIndex); it only suppresses the DS_UPLOAD_REQ Event.
+ */
+static void handle_param_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
+{
+    iolink_ds_ctx_t* ds = (iolink_ds_ctx_t*) ctx->ds_ctx;
+    if (ds == NULL) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_FUNCTION_NOT_AVAIL);
         return;
     }
+    const uint16_t locks = isdu_access_locks(ctx);
+    const uint16_t block_locks = (uint16_t) (locks & (uint16_t) ~IOLINK_LOCK_DS);
 
-    /* Table B.8/B.2.8-B.2.19: per-object StringT fixedLength caps the
-       response. ProductURI allows up to 100 octets; SerialNumber 16. */
-    size_t limit = 64U;
-    if (ctx->header.index == IOLINK_IDX_SERIAL_NUMBER) {
-        limit = 16U;
+    switch (cmd) {
+        case IOLINK_CMD_PARAM_UPLOAD_END:
+            if (!iolink_ds_upload_open(ds)) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_FUNC_TEMP_UNAVAIL);
+                return;
+            }
+            break;
+
+        case IOLINK_CMD_PARAM_DOWNLOAD_END:
+            if (!iolink_ds_download_open(ds)) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_FUNC_TEMP_UNAVAIL);
+                return;
+            }
+            break;
+
+        case IOLINK_CMD_PARAM_DOWNLOAD_STORE: {
+            /* ParamDownloadEnd plus a Data Storage upload request through the
+               DS_UPLOAD_REQ Event (10.3.5, 10.4.2). The command is also valid
+               without an open block, after single parameter writes. */
+            if (ctx->event_ctx == NULL) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_FUNCTION_NOT_AVAIL);
+                return;
+            }
+            if (iolink_ds_upload_open(ds)) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_FUNC_TEMP_UNAVAIL);
+                return;
+            }
+            const int ret =
+                iolink_ds_handle_command(ds, IOLINK_CMD_PARAM_DOWNLOAD_STORE, block_locks);
+            if (ret != IOLINK_DS_OK) {
+                /* Table 98 rule 7: no Data Storage upload request. */
+                isdu_reply_ds_result(ctx, ds, ret);
+                return;
+            }
+            isdu_request_ds_upload(ctx, ds, locks);
+            isdu_reply_data(ctx, 0U);
+            return;
+        }
+
+        case IOLINK_CMD_PARAM_UPLOAD_START:
+        case IOLINK_CMD_PARAM_DOWNLOAD_START:
+        case IOLINK_CMD_PARAM_BREAK:
+        default:
+            break;
     }
-    else if (ctx->header.index == IOLINK_IDX_PRODUCT_URI) {
-        limit = 100U;
-    }
-    size_t len_sz = strlen(str_data);
-    if (len_sz > limit) {
-        len_sz = limit;
-    }
-    if (len_sz > sizeof(ctx->response_buf)) {
-        len_sz = sizeof(ctx->response_buf);
-    }
-    (void) memcpy(ctx->response_buf, str_data, len_sz);
-    ctx->response_len = (uint8_t) len_sz;
-    ctx->response_idx = 0U;
-    ctx->state = ISDU_STATE_RESPONSE_READY;
+
+    isdu_reply_ds_result(ctx, ds, iolink_ds_handle_command(ds, cmd, block_locks));
 }
 
-/** @brief Execute a SystemCommand (reset, factory restore, data-storage commands). */
-/** @brief Table 101: reset the Device diagnosis/status for the "0" reset. */
-static void isdu_reset_diagnostics(iolink_isdu_ctx_t* ctx)
+/** @brief True if the reset service supports @p cmd (query only, no action). */
+static bool isdu_reset_supported(const iolink_isdu_ctx_t* ctx, uint8_t cmd)
 {
-    if (ctx->dll_ctx != NULL) {
-        iolink_dll_reset_diagnostics((iolink_dll_ctx_t*) ctx->dll_ctx);
-    }
+    return (ctx->system_reset != NULL) &&
+           (ctx->system_reset(ctx->system_reset_user, cmd, false) == 0);
 }
 
-/** @brief Table 101: reset ErrorCount for the reset commands that keep Events. */
-static void isdu_reset_error_counters(iolink_isdu_ctx_t* ctx)
+/**
+ * @brief Restore the stack-owned factory state (10.7.4, Table 101).
+ *
+ * Tags and DeviceAccessLocks return to their defaults with one checked NVM
+ * write. Only after that write succeeds: ErrorCount is cleared, active Events
+ * are sent with "disappears", DeviceStatus/DetailedDeviceStatus are cleared,
+ * an open block parameter transfer is discarded and the DS upload request
+ * (DS_UPLOAD_FLAG) is deleted.
+ *
+ * @return true on success; false if the NVM write failed (nothing changed).
+ */
+static bool isdu_restore_factory_state(iolink_isdu_ctx_t* ctx)
 {
-    if (ctx->dll_ctx != NULL) {
-        iolink_dll_reset_error_counters((iolink_dll_ctx_t*) ctx->dll_ctx);
+    if (iolink_params_ctx_factory_reset_checked(isdu_params_ctx(ctx)) != 0) {
+        return false;
     }
+    ctx->error_count = 0U;
+    iolink_events_clear_status((iolink_events_ctx_t*) ctx->event_ctx);
+    iolink_ds_ctx_t* ds = (iolink_ds_ctx_t*) ctx->ds_ctx;
+    if (ds != NULL) {
+        (void) iolink_ds_abort(ds);
+        ds->upload_requested = false;
+        (void) iolink_ds_build_image(ds);
+    }
+    return true;
 }
 
+/**
+ * @brief Execute a SystemCommand (Index 0x0002, Table B.9).
+ *
+ * The response follows the execution of the requested action (10.7). A
+ * command whose action this Device cannot execute is refused with
+ * FUNC_NOTAVAIL and has no effect. A non-volatile write failure is refused
+ * with APP_DEV (0x8000) and leaves the previous state. Reserved, profile and
+ * vendor values are answered with FUNC_NOTAVAIL (Table 99, C.2.14).
+ */
 static void handle_system_command(iolink_isdu_ctx_t* ctx, uint8_t cmd)
 {
+    iolink_ds_ctx_t* ds = (iolink_ds_ctx_t*) ctx->ds_ctx;
+
     switch (cmd) {
-        case IOLINK_CMD_DEVICE_RESET: /* 0x80 */
-            /* Table 101: Device reset sets Diagnosis and status to "0" and
-               discards a block parameter transfer. */
-            isdu_discard_ds(ctx);
-            isdu_reset_diagnostics(ctx);
-            /* Set reset flag for application to handle */
-            ctx->reset_pending = true;
-            break;
-
-        case IOLINK_CMD_APPLICATION_RESET: /* 0x81 */
-            /* Table 101: Access locks return to the state of delivery, the
-               block transfer is discarded and the Data Storage behaviour
-               becomes "upload required" (DS_UPLOAD_REQ). */
-            if (isdu_reset_access_locks(ctx) != 0) {
-                isdu_negative_response(ctx, IOLINK_ISDU_ERROR_APP_DEVICE);
-                return;
-            }
-            isdu_request_ds_upload(ctx);
-            ctx->app_reset_pending = true;
-            break;
-
-        case IOLINK_CMD_RESTORE_FACTORY_SETTINGS: /* 0x82 */
-            /* Table 101 "Clear": active Events are withdrawn with MODE
-               "disappears" while ErrorCount is reset. Access locks fall back to
-               the state of delivery and the block transfer is discarded. */
-            if (isdu_reset_access_locks(ctx) != 0) {
-                isdu_negative_response(ctx, IOLINK_ISDU_ERROR_APP_DEVICE);
-                return;
-            }
-            isdu_params_factory_reset(ctx);
-            /* Discard after the parameter reset so the rebuilt Data Storage
-               image reflects the new (default) parameters. */
-            isdu_discard_ds(ctx);
-            isdu_reset_diagnostics(ctx);
-            break;
-
-        case IOLINK_CMD_BACK_TO_BOX: /* 0x83 */
-            /* Back-to-box sets diagnosis/status to "0" and stops communication
-               after the positive response and three Master cycles. */
-            if (isdu_reset_access_locks(ctx) != 0) {
-                isdu_negative_response(ctx, IOLINK_ISDU_ERROR_APP_DEVICE);
-                return;
-            }
-            isdu_params_factory_reset(ctx);
-            /* Discard after the parameter reset so the rebuilt Data Storage
-               image reflects the new (default) parameters. */
-            isdu_discard_ds(ctx);
-            isdu_reset_error_counters(ctx);
-            if (ctx->event_ctx != NULL) {
-                iolink_events_init((iolink_events_ctx_t*) ctx->event_ctx);
-            }
-            ctx->back_to_box_pending = true;
-            break;
-
-        /* Table B.9: ParamUploadStart/End (0x01/0x02), ParamDownloadStart/End
-           (0x03/0x04) and ParamDownloadStore (0x05). */
         case IOLINK_CMD_PARAM_UPLOAD_START:
         case IOLINK_CMD_PARAM_UPLOAD_END:
         case IOLINK_CMD_PARAM_DOWNLOAD_START:
         case IOLINK_CMD_PARAM_DOWNLOAD_END:
         case IOLINK_CMD_PARAM_DOWNLOAD_STORE:
-            if (ctx->ds_ctx != NULL) {
-                uint16_t locks = isdu_access_locks(ctx);
-                int ret = iolink_ds_handle_command((iolink_ds_ctx_t*) ctx->ds_ctx, cmd, locks);
+        case IOLINK_CMD_PARAM_BREAK:
+            handle_param_command(ctx, cmd);
+            return;
 
-                if (ret != 0) {
-                    ctx->response_buf[0] = 0x80U;
-                    if (ret == -1) {
-                        ctx->response_buf[1] = IOLINK_ISDU_ERROR_FUNCTION_TEMP_UNAVAIL;
-                    }
-                    else if (ret == -2) {
-                        ctx->response_buf[1] =
-                            IOLINK_ISDU_ERROR_WRITE_PROTECTED; /* 0x23, Table C.1 */
-                    }
-                    else if (ret == -4) {
-                        ctx->response_buf[1] = IOLINK_ISDU_ERROR_PARAM_INCONSISTENT;
-                    }
-                    else if (ret == -3) {
-                        ctx->response_buf[1] = IOLINK_ISDU_ERROR_FUNCTION_NOT_AVAIL;
-                    }
-                    else {
-                        ctx->response_buf[1] = IOLINK_ISDU_ERROR_IDX_NOT_AVAIL;
-                    }
-                    ctx->response_len = 2U;
-                    ctx->response_idx = 0U;
-                    ctx->state = ISDU_STATE_RESPONSE_READY;
-                    return;
-                }
-
-                /* 10.3.5/10.4.2: ParamDownloadStore starts the Data Storage
-                   upload; the Master is notified through the DS_UPLOAD_REQ
-                   Event (0xFF91, Table D.1). */
-                if ((cmd == IOLINK_CMD_PARAM_DOWNLOAD_STORE) && (ctx->event_ctx != NULL)) {
-                    iolink_event_trigger((iolink_events_ctx_t*) ctx->event_ctx,
-                                         IOLINK_EVENTCODE_DS_UPLOAD_REQUEST,
-                                         IOLINK_EVENT_TYPE_NOTIFICATION);
-                }
+        case IOLINK_CMD_DEVICE_RESET: /* 0x80, 10.7.2 */
+            /* The warm start interrupts communication, so it runs after the
+               response was read and 3 MasterCycles passed (device layer). */
+            if (!isdu_reset_supported(ctx, cmd)) {
+                break;
             }
-            break;
+            (void) iolink_ds_abort(ds); /* Table 101: block transfer discarded */
+            ctx->reset_pending = true;
+            isdu_reply_data(ctx, 0U);
+            return;
 
-        case IOLINK_CMD_PARAM_BREAK: /* 0x06 */
-            /* Abort current Data Storage operation */
-            if (ctx->ds_ctx != NULL) {
-                (void) iolink_ds_abort((iolink_ds_ctx_t*) ctx->ds_ctx);
+        case IOLINK_CMD_APPLICATION_RESET: /* 0x81, 10.7.3 */
+            if (!isdu_reset_supported(ctx, cmd)) {
+                break;
             }
-            break;
+            /* Table 101: Access locks "Default" (checked NVM write first). */
+            if (iolink_params_ctx_reset_access_locks(isdu_params_ctx(ctx)) != 0) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_APP_DEV);
+                return;
+            }
+            (void) iolink_ds_abort(ds);
+            (void) ctx->system_reset(ctx->system_reset_user, cmd, true);
+            ctx->app_reset_pending = true;
+            /* Table 101: Data Storage "Upload required", DS_UPLOAD_REQ. */
+            isdu_request_ds_upload(ctx, ds, isdu_access_locks(ctx));
+            isdu_reply_data(ctx, 0U);
+            return;
+
+        case IOLINK_CMD_RESTORE_FACTORY_SETTINGS: /* 0x82, 10.7.4 */
+            if (!isdu_restore_factory_state(ctx)) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_APP_DEV);
+                return;
+            }
+            /* Application parameters, if the application registered a reset
+               service. Direct Parameter page 1 is not changed by this reset,
+               so no communication restart is required. */
+            if (isdu_reset_supported(ctx, cmd)) {
+                (void) ctx->system_reset(ctx->system_reset_user, cmd, true);
+            }
+            isdu_reply_data(ctx, 0U);
+            return;
+
+        case IOLINK_CMD_BACK_TO_BOX: /* 0x83, 10.7.5 */
+            /* Requires the application to disable the output drivers. */
+            if (!isdu_reset_supported(ctx, cmd)) {
+                break;
+            }
+            if (!isdu_restore_factory_state(ctx)) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_APP_DEV);
+                return;
+            }
+            ctx->back_to_box_pending = true;
+            isdu_reply_data(ctx, 0U);
+            return;
 
         default:
-            /* Table B.9: 0x84-0x9F are reserved; an unsupported command value is
-               FUNC_NOTAVAIL (Table C.1 / C.2.14). */
-            ctx->response_buf[0] = 0x80U;
-            ctx->response_buf[1] = IOLINK_ISDU_ERROR_FUNCTION_NOT_AVAIL;
-            ctx->response_len = 2U;
-            ctx->response_idx = 0U;
-            ctx->state = ISDU_STATE_RESPONSE_READY;
-            return;
+            break;
     }
 
-    /* Success: empty response */
-    ctx->response_len = 0U;
-    ctx->response_idx = 0U;
-    ctx->state = ISDU_STATE_RESPONSE_READY;
+    isdu_reply_error(ctx, IOLINK_ISDU_ERROR_FUNCTION_NOT_AVAIL);
 }
 
-/** @brief Read or write the DeviceAccessLocks parameter (index 0x000C). */
+/**
+ * @brief Read or write DeviceAccessLocks (Index 0x000C, B.2.4).
+ *
+ * Subindex 0 only; the value is 2 octets, MSB first. Reserved bits 4-15 are
+ * refused with PAR_VALOUTOFRNG. A write is stored in non-volatile memory
+ * first; a failed NVM write is refused with APP_DEV and keeps the old value.
+ */
 static void handle_access_locks(iolink_isdu_ctx_t* ctx)
 {
+    if (ctx->header.subindex != 0U) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
+        return;
+    }
     if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_READ) {
-        uint16_t locks = isdu_access_locks(ctx);
+        const uint16_t locks = isdu_access_locks(ctx);
         ctx->response_buf[0] = (uint8_t) (locks >> 8);
-        ctx->response_buf[1] = (uint8_t) (locks & 0xFF);
-        ctx->response_len = 2U;
+        ctx->response_buf[1] = (uint8_t) (locks & 0xFFU);
+        isdu_reply_data(ctx, 2U);
+        return;
     }
-    else {
-        /* B.2.4/Table B.12: the object is exactly two octets; bits 4-15 are
-           reserved. A wrong length is a length error (C.2.12/C.2.13) and the
-           reserved bits are not stored. */
-        if (ctx->buffer_idx < 2U) {
-            ctx->response_buf[0] = 0x80U;
-            ctx->response_buf[1] = IOLINK_ISDU_ERROR_PARAM_LEN_UNDERRUN;
-            ctx->response_len = 2U;
-        }
-        else if (ctx->buffer_idx > 2U) {
-            ctx->response_buf[0] = 0x80U;
-            ctx->response_buf[1] = IOLINK_ISDU_ERROR_PARAM_LEN_OVERRUN;
-            ctx->response_len = 2U;
-        }
-        else {
-            const uint16_t new_locks =
-                (uint16_t) ((((uint16_t) ctx->buffer[0] << 8) | ctx->buffer[1]) & 0x000FU);
-            if (isdu_store_access_locks(ctx, new_locks) != 0) {
-                ctx->response_buf[0] = 0x80U;
-                ctx->response_buf[1] = IOLINK_ISDU_ERROR_APP_DEVICE;
-                ctx->response_len = 2U;
-            }
-            else {
-                ctx->response_len = 0U;
-            }
-        }
+    if (ctx->buffer_idx < 2U) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_LENGTH_UNDERRUN);
+        return;
     }
-    ctx->response_idx = 0U;
-    ctx->state = ISDU_STATE_RESPONSE_READY;
+    if (ctx->buffer_idx > 2U) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_LENGTH_OVERRUN);
+        return;
+    }
+    const uint16_t new_locks = (uint16_t) (((uint16_t) ctx->buffer[0] << 8) | ctx->buffer[1]);
+    if ((new_locks & (uint16_t) ~IOLINK_PARAMS_ACCESS_LOCKS_DEFINED) != 0U) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_VALUE_OUT_OF_RANGE);
+        return;
+    }
+    /* The standalone engine uses the legacy context, which mirrors the value
+       into the process-wide device info. */
+    if (iolink_params_ctx_set_access_locks(isdu_params_ctx(ctx), new_locks, true) != 0) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_APP_DEV);
+        return;
+    }
+    isdu_reply_data(ctx, 0U);
 }
 
-/** @brief Serve DetailedDeviceStatus: encode up to 8 queued events as qualifier+code triplets. */
+/** @brief Serve DetailedDeviceStatus (Table B.14): one [EventQualifier]
+ *  [EventCode MSB][EventCode LSB] record per pending "appears" Warning/Error. */
 static void handle_detailed_device_status(iolink_isdu_ctx_t* ctx)
 {
-    if (ctx->header.type != IOLINK_ISDU_SERVICE_TYPE_READ) {
-        /* Table B.14/B.2.22: read-only object; answer a WRITE with a full
-           negative confirmation. */
-        isdu_negative_response(ctx, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+    if (isdu_reject_read_only_access(ctx)) {
         return;
     }
 
+    /* The event manager produces bounded entries for active Error/Warning
+       conditions, not a snapshot of acknowledged queue entries. */
     if (ctx->event_ctx == NULL) {
-        /* No event host: answer an empty array instead of dropping the
-           response (which would time out at the Master). */
-        ctx->response_len = 0U;
-        ctx->response_idx = 0U;
-        ctx->state = ISDU_STATE_RESPONSE_READY;
+        isdu_reply_data(ctx, 0U);
         return;
     }
 
-    iolink_critical_enter();
-    iolink_events_ctx_t* event_ctx = (iolink_events_ctx_t*) ctx->event_ctx;
-
-    /* Collect the Error/Warning events whose "Event appears" has been reported.
-       B.2.22: only MODE "Event appears" entries are listed; a disappeared event
-       drops out, and an appearance that is still deferred for the 1 s spacing
-       has not reached the Master yet, so it is not listed either. */
-    uint16_t codes[IOLINK_EVENT_PENDING_MAX];
-    iolink_event_type_t types[IOLINK_EVENT_PENDING_MAX];
-    uint8_t n = 0U;
-    for (uint8_t i = 0U; i < IOLINK_EVENT_PENDING_MAX; i++) {
-        const iolink_event_pending_t* p = &event_ctx->pending[i];
-        if (p->active && p->present && p->reported && (p->type != IOLINK_EVENT_TYPE_NOTIFICATION)) {
-            codes[n] = p->code;
-            types[n] = p->type;
-            n++;
-        }
-    }
-
-    /* B.2.22: the conformant read is subindex 0, which returns the complete
-       list of 3-octet entries ("Subindex access is not supported"). Element
-       access through subindex 1..n is kept as a device extension. */
-    const uint8_t sub = ctx->header.subindex;
-    if ((sub == 0U) || (sub <= n)) {
-        const uint8_t start = (sub == 0U) ? 0U : (uint8_t) (sub - 1U);
-        const uint8_t end = (sub == 0U) ? n : (uint8_t) (start + 1U);
-        uint8_t pos = 0U;
-        for (uint8_t i = start; i < end; i++) {
-            /* Figure A.24: MODE 11 = appears, TYPE 10 = Warning / 11 = Error,
-               INSTANCE 4 = Application. */
-            uint8_t qualifier = 0xC0U;
-            qualifier |= (types[i] == IOLINK_EVENT_TYPE_ERROR) ? (0x03U << 4) : (0x02U << 4);
-            qualifier |= 0x04U;
-            ctx->response_buf[pos++] = qualifier;
-            ctx->response_buf[pos++] = (uint8_t) (codes[i] >> 8);
-            ctx->response_buf[pos++] = (uint8_t) (codes[i] & 0xFFU);
-        }
-        ctx->response_len = pos;
-    }
-    else {
-        ctx->response_buf[0] = 0x80U;
-        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL;
-        ctx->response_len = 2U;
-    }
-    ctx->response_idx = 0U;
-    ctx->state = ISDU_STATE_RESPONSE_READY;
-    iolink_critical_exit();
+    const size_t capacity = sizeof(ctx->response_buf);
+    const uint16_t limit = (capacity > UINT16_MAX) ? UINT16_MAX : (uint16_t) capacity;
+    const size_t count = iolink_events_get_detailed_status((iolink_events_ctx_t*) ctx->event_ctx,
+                                                           ctx->response_buf, limit);
+    isdu_reply_data(ctx, count);
 }
 
 /** @brief Append a 32-bit value to a buffer in big-endian order, advancing the index. */
@@ -1357,17 +1120,23 @@ static void isdu_write_u32_be(uint8_t* buf, size_t* idx, uint32_t value)
 static void handle_error_stats(iolink_isdu_ctx_t* ctx)
 {
     if (ctx->header.type != IOLINK_ISDU_SERVICE_TYPE_READ) {
-        isdu_negative_response(ctx, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
+        ctx->response_buf[0] = 0x80U;
+        ctx->response_buf[1] = IOLINK_ISDU_ERROR_WRITE_PROTECTED;
+        ctx->response_len = 2U;
         return;
     }
 
     if (ctx->header.subindex != 0U) {
-        isdu_negative_response(ctx, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
+        ctx->response_buf[0] = 0x80U;
+        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL;
+        ctx->response_len = 2U;
         return;
     }
 
     if (ctx->dll_ctx == NULL) {
-        isdu_negative_response(ctx, IOLINK_ISDU_ERROR_SERVICE_UNAVAIL);
+        ctx->response_buf[0] = 0x80U;
+        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
+        ctx->response_len = 2U;
         return;
     }
 
@@ -1503,6 +1272,11 @@ static void handle_direct_parameters(iolink_isdu_ctx_t* ctx)
             ctx->response_buf[1] = IOLINK_ISDU_ERROR_WRITE_PROTECTED;
             ctx->response_len = 2U;
         }
+        else if (isdu_param_write_locked(ctx)) {
+            ctx->response_buf[0] = 0x80U;
+            ctx->response_buf[1] = IOLINK_ISDU_ERROR_NOT_ACCESSIBLE;
+            ctx->response_len = 2U;
+        }
         else if (sub == 0U) {
             size_t n = ctx->buffer_idx;
             if (n > 16U) {
@@ -1548,83 +1322,176 @@ static void handle_direct_parameters(iolink_isdu_ctx_t* ctx)
     ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
-/** @brief Serve the Data Storage index: backup (read image) or restore (apply image). */
+/** @brief Write a 32-bit value MSB first into response_buf and reply. */
+static void isdu_reply_u32(iolink_isdu_ctx_t* ctx, uint32_t value)
+{
+    size_t idx = 0U;
+    isdu_write_u32_be(ctx->response_buf, &idx, value);
+    isdu_reply_data(ctx, idx);
+}
+
+/** @brief Write to DataStorageIndex 0x0003 (Table B.10). */
+static void handle_data_storage_write(iolink_isdu_ctx_t* ctx, iolink_ds_ctx_t* ds)
+{
+    /* B.2.4, Table 100 DSLocked_1: writes are refused with "access denied". */
+    if ((isdu_access_locks(ctx) & IOLINK_LOCK_DS) != 0U) {
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_NOT_ACCESSIBLE);
+        return;
+    }
+
+    switch (ctx->header.subindex) {
+        case 0U:
+            /* Device-specific extension: the serialized parameter image. In a
+               download session it is checked and staged only; End/Store
+               commits. Outside a session it is checked and committed with
+               one NVM write. */
+            if (iolink_ds_download_open(ds)) {
+                if (iolink_ds_stage_image(ds, ctx->buffer, ctx->buffer_idx) == IOLINK_DS_OK) {
+                    isdu_reply_data(ctx, 0U);
+                }
+                else {
+                    isdu_reply_error(ctx, IOLINK_ISDU_ERROR_PARAM_INCONSISTENT);
+                }
+                return;
+            }
+            {
+                const int ret = iolink_ds_apply_image(ds, ctx->buffer, ctx->buffer_idx);
+                if (ret == IOLINK_DS_OK) {
+                    isdu_reply_data(ctx, 0U);
+                }
+                else if (ret == IOLINK_DS_ERR_STORAGE) {
+                    isdu_reply_error(ctx, IOLINK_ISDU_ERROR_APP_DEV);
+                }
+                else {
+                    isdu_reply_error(ctx, IOLINK_ISDU_ERROR_PARAM_INCONSISTENT);
+                }
+            }
+            return;
+
+        case IOLINK_DS_SUBIDX_COMMAND: {
+            if (ctx->buffer_idx < 1U) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_LENGTH_UNDERRUN);
+                return;
+            }
+            if (ctx->buffer_idx > 1U) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_LENGTH_OVERRUN);
+                return;
+            }
+            const int ret = iolink_ds_handle_ds_command(ds, ctx->buffer[0]);
+            if (ret == IOLINK_DS_CMD_UNKNOWN) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_VALUE_OUT_OF_RANGE);
+            }
+            else {
+                /* Table 100 DSIdle_2: an unhandled command is 0x8036. */
+                isdu_reply_ds_result(ctx, ds, ret);
+            }
+            return;
+        }
+
+        case IOLINK_DS_SUBIDX_STATE_PROPERTY:
+        case IOLINK_DS_SUBIDX_STORAGE_SIZE:
+        case IOLINK_DS_SUBIDX_PARAM_CHECKSUM:
+        case IOLINK_DS_SUBIDX_INDEX_LIST:
+            isdu_reply_error(ctx, IOLINK_ISDU_ERROR_NOT_ACCESSIBLE);
+            return;
+
+        default:
+            isdu_reply_error(ctx, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
+            return;
+    }
+}
+
+/** @brief Read DataStorageIndex 0x0003 (Table B.10). */
+static void handle_data_storage_read(iolink_isdu_ctx_t* ctx, iolink_ds_ctx_t* ds)
+{
+    switch (ctx->header.subindex) {
+        case 0U: {
+            /* Device-specific extension: the serialized parameter image. */
+            size_t len = 0U;
+            const uint8_t* img = iolink_ds_get_image(ds, &len);
+            if ((img == NULL) || (len > sizeof(ctx->response_buf))) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_APP_DEV);
+                return;
+            }
+            if (len > 0U) {
+                (void) memcpy(ctx->response_buf, img, len);
+            }
+            isdu_reply_data(ctx, len);
+            return;
+        }
+        case IOLINK_DS_SUBIDX_COMMAND:
+            /* Table B.10: a read returns an unspecified value. */
+            ctx->response_buf[0] = 0x00U;
+            isdu_reply_data(ctx, 1U);
+            return;
+        case IOLINK_DS_SUBIDX_STATE_PROPERTY:
+            ctx->response_buf[0] = iolink_ds_state_property(ds, isdu_access_locks(ctx));
+            isdu_reply_data(ctx, 1U);
+            return;
+        case IOLINK_DS_SUBIDX_STORAGE_SIZE:
+            isdu_reply_u32(ctx, iolink_ds_storage_size());
+            return;
+        case IOLINK_DS_SUBIDX_PARAM_CHECKSUM:
+            /* Rebuilt from the actual parameters, never from staged data. */
+            if (iolink_ds_build_image(ds) < 0) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_APP_DEV);
+                return;
+            }
+            isdu_reply_u32(ctx, (uint32_t) ds->current_checksum);
+            return;
+        case IOLINK_DS_SUBIDX_INDEX_LIST: {
+            const size_t len = iolink_ds_index_list(ctx->response_buf, sizeof(ctx->response_buf));
+            if (len == 0U) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_APP_DEV);
+                return;
+            }
+            isdu_reply_data(ctx, len);
+            return;
+        }
+        default:
+            isdu_reply_error(ctx, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
+            return;
+    }
+}
+
+/**
+ * @brief Serve DataStorageIndex 0x0003 (B.2.3, Table B.10).
+ *
+ * Subindices 1-5 follow Table B.10 (DS_Command, State_Property,
+ * Data_Storage_Size, Parameter_Checksum, Index_List). Subindex 0 is a
+ * device-specific extension that carries the serialized parameter image
+ * (see data_storage.h); it is not the Table F.19 record layout.
+ */
 static void handle_data_storage(iolink_isdu_ctx_t* ctx)
 {
     iolink_ds_ctx_t* ds = (iolink_ds_ctx_t*) ctx->ds_ctx;
     if (ds == NULL) {
-        ctx->response_buf[0] = 0x80U;
-        ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
-        ctx->response_len = 2U;
-        ctx->response_idx = 0U;
-        ctx->state = ISDU_STATE_RESPONSE_READY;
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_INDEX_NOT_AVAIL);
         return;
     }
-
     if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
-        /* Restore: apply the parameter image provided by the Master. */
-        if (iolink_ds_apply_image(ds, ctx->buffer, ctx->buffer_idx) != 0) {
-            ctx->response_buf[0] = 0x80U;
-            ctx->response_buf[1] = IOLINK_ISDU_ERROR_PARAM_INCONSISTENT;
-            ctx->response_len = 2U;
-        }
-        else {
-            ctx->response_len = 0U; /* Write acknowledged */
-        }
+        handle_data_storage_write(ctx, ds);
     }
     else {
-        /* Backup: return the serialized parameter image. */
-        size_t len = 0U;
-        const uint8_t* img = iolink_ds_get_image(ds, &len);
-        if ((img == NULL) || (len > IOLINK_ISDU_BUFFER_SIZE)) {
-            ctx->response_len = 0U;
-        }
-        else {
-            if (len > 0U) {
-                (void) memcpy(ctx->response_buf, img, len);
-            }
-            ctx->response_len = len;
-        }
+        handle_data_storage_read(ctx, ds);
     }
-    ctx->response_idx = 0U;
-    ctx->state = ISDU_STATE_RESPONSE_READY;
 }
 
 /** @brief Dispatch an executed ISDU request to the handler for its index. */
 static void handle_standard_commands(iolink_isdu_ctx_t* ctx)
 {
     ctx->vendor_positive = false;
-    const uint16_t index = ctx->header.index;
-
-    /* Table B.8/C.2.3/C.2.4: validate index and subindex before dispatch so a
-       reserved index is IDX_NOTAVAIL even with a non-zero subindex, and every
-       handler starts from a valid object address. */
-    switch (isdu_validate_request(ctx)) {
-        case ISDU_REQUEST_INDEX_NOT_AVAIL:
-            isdu_negative_response(ctx, IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL);
-            return;
-        case ISDU_REQUEST_SUBINDEX_NOT_AVAIL:
-            isdu_negative_response(ctx, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
-            return;
-        default:
-            break;
-    }
-
-    /* Table B.2.4/10.6.5: with the Parameter (write) access lock set, every
-       read/write parameter accessible over SDCI rejects a write with access
-       denied. DeviceAccessLocks, SystemCommand and Data Storage downloads are
-       exempt. */
-    if ((ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) && isdu_write_is_parameter(index) &&
-        ((isdu_access_locks(ctx) & IOLINK_LOCK_PARAM) != 0U)) {
-        isdu_negative_response(ctx, IOLINK_ISDU_ERROR_WRITE_PROTECTED);
-        return;
-    }
-
     /* B.2.27: Preferred Indices 0x0040-0x00FE are device-specific like the
        Extended Index range from 0x0100; both reach the application vendor
        service. 0x00FF itself is reserved. */
+    const uint16_t index = ctx->header.index;
     const bool device_specific = ((index >= 0x0040U) && (index <= 0x00FEU)) || (index >= 0x0100U);
-    if (device_specific && (ctx->vendor_service != NULL)) {
+    if (device_specific && (ctx->vendor_service != NULL) &&
+        (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) && isdu_param_write_locked(ctx)) {
+        /* B.2.4: device-specific parameters are write-locked as well. */
+        isdu_reply_error(ctx, IOLINK_ISDU_ERROR_NOT_ACCESSIBLE);
+    }
+    else if (device_specific && (ctx->vendor_service != NULL)) {
 #if IOLINK_ISDU_BUFFER_SIZE > (IOLINK_ISDU_DATA_MAX_SIZE + 3U)
         size_t length = IOLINK_ISDU_DATA_MAX_SIZE;
 #else
@@ -1652,16 +1519,19 @@ static void handle_standard_commands(iolink_isdu_ctx_t* ctx)
     }
     else if (ctx->header.index == IOLINK_IDX_SYSTEM_COMMAND) {
         if (ctx->header.type == IOLINK_ISDU_SERVICE_TYPE_WRITE) {
-            /* Mandatory System Commands */
-            if (ctx->buffer_idx > 0U) {
-                handle_system_command(ctx, ctx->buffer[0]);
+            /* SystemCommand is one UIntegerT octet without Subindex structure
+               (Table B.8); wrong lengths are VAL_LENUNDRUN/VAL_LENOVRRUN. */
+            if (ctx->header.subindex != 0U) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL);
+            }
+            else if (ctx->buffer_idx == 0U) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_LENGTH_UNDERRUN);
+            }
+            else if (ctx->buffer_idx > 1U) {
+                isdu_reply_error(ctx, IOLINK_ISDU_ERROR_LENGTH_OVERRUN);
             }
             else {
-                ctx->response_buf[0] = 0x80U;
-                ctx->response_buf[1] = IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL;
-                ctx->response_len = 2U;
-                ctx->response_idx = 0U;
-                ctx->state = ISDU_STATE_RESPONSE_READY;
+                handle_system_command(ctx, ctx->buffer[0]);
             }
         }
         else {

@@ -11,9 +11,8 @@
  * @brief IO-Link Event Handling
  * @ingroup iolinki_events
  *
- * Implements the device event queue (enqueue/pop/peek), severity ranking,
- * the A.6.4 appears/disappears lifecycle and the Table 58 event memory used to
- * report diagnostics to the master.
+ * Implements the device event queue (enqueue/pop/peek), severity ranking and
+ * event-code classification used to report diagnostics to the master.
  */
 
 #include "iolinki/events.h"
@@ -22,6 +21,22 @@
 #include "iolinki/utils.h"
 #include <string.h>
 
+/* qflags bits. */
+#define EVQ_PRESENTED 0x01U      /* Shown in the frozen event memory */
+#define EVQ_LIFECYCLE 0x02U      /* Queued by the appear/disappear dispatcher */
+#define EVQ_STATUS_CLEARED 0x04U /* Excluded from DeviceStatus after a factory reset */
+
+/* iolink_event_cond_t state. */
+#define COND_FREE 0U
+#define COND_ACTIVE 1U
+#define COND_RECENT 2U /* Inactive; kept only for the repeat-interval check */
+
+/* iolink_event_cond_t flags. */
+#define COND_APPEAR_SENT 0x01U   /* "appears" queued, "disappears" not yet */
+#define COND_CLEAR_REQ 0x02U     /* Clear requested, "disappears" deferred */
+#define COND_HAS_APPEAR 0x04U    /* appear_ms is valid and within the repeat window */
+#define COND_HAS_DISAPPEAR 0x08U /* disappear_ms is valid and within the repeat window */
+
 void iolink_events_init(iolink_events_ctx_t* ctx)
 {
     if (!iolink_ctx_zero(ctx, sizeof(iolink_events_ctx_t))) {
@@ -29,19 +44,19 @@ void iolink_events_init(iolink_events_ctx_t* ctx)
     }
 }
 
-/** @brief EventQualifier for an event type and MODE (A.6.4, Figure A.24). */
+/** @brief EventQualifier for an event (A.6.4, Figure A.24). */
 static uint8_t event_qualifier(iolink_event_type_t type, iolink_event_mode_t mode)
 {
     uint8_t q;
     switch (mode) {
-        case IOLINK_EVENT_MODE_DISAPPEARS:
-            q = 0x80U; /* MODE = event disappears (0b10) */
-            break;
         case IOLINK_EVENT_MODE_SINGLE_SHOT:
-            q = 0x40U; /* MODE = event single shot (0b01) */
+            q = 0x40U;
+            break;
+        case IOLINK_EVENT_MODE_DISAPPEARS:
+            q = 0x80U;
             break;
         default:
-            q = 0xC0U; /* MODE = event appears (0b11) */
+            q = 0xC0U; /* MODE = event appears (also legacy records) */
             break;
     }
     switch (type) {
@@ -61,213 +76,138 @@ static uint8_t event_qualifier(iolink_event_type_t type, iolink_event_mode_t mod
     return q;
 }
 
-/** @brief Allocate the next queue insertion id (0 marks "no entry"). */
-static uint32_t event_id_alloc(iolink_events_ctx_t* ctx)
+/** @brief Elapsed ms from @p then to @p now; correct across a 32-bit wrap. */
+static uint32_t elapsed_ms(uint32_t now, uint32_t then)
 {
-    ctx->next_id++;
-    if (ctx->next_id == 0U) {
-        ctx->next_id = 1U;
-    }
-    return ctx->next_id;
+    return (uint32_t) (now - then);
 }
 
-/** @brief Rebuild the Table 58 memory from the queue entries in @p ids.
- *
- * The caller holds the critical section. Returns the number of slots written. */
-static uint8_t event_memory_build(iolink_events_ctx_t* ctx, const uint32_t* ids, uint8_t n)
+static void count_dropped(iolink_events_ctx_t* ctx)
 {
-    (void) memset(ctx->memory, 0, sizeof(ctx->memory));
-    uint8_t slots = 0U;
-    for (uint8_t i = 0U; (i < n) && (slots < IOLINK_EVENT_MEMORY_SLOTS); i++) {
-        for (uint8_t q = 0U; q < ctx->count; q++) {
-            if (ctx->queue_id[q] != ids[i]) {
-                continue;
+    if (ctx->dropped < UINT32_MAX) {
+        ctx->dropped++;
+    }
+}
+
+/** @brief Physical queue index of logical position @p i. */
+static uint8_t queue_slot(const iolink_events_ctx_t* ctx, uint8_t i)
+{
+    return (uint8_t) (((uint16_t) ctx->head + i) % IOLINK_EVENT_QUEUE_SIZE);
+}
+
+/** @brief Memory priority of a queued event: errors before warnings (10.10.2). */
+static uint8_t event_priority(iolink_event_type_t type)
+{
+    if (type == IOLINK_EVENT_TYPE_ERROR) {
+        return 0U;
+    }
+    if (type == IOLINK_EVENT_TYPE_WARNING) {
+        return 1U;
+    }
+    return 2U;
+}
+
+/** @brief Select up to six queued events for the memory: by priority, then FIFO.
+ *  Writes physical queue indices to @p sel. The caller holds the lock. */
+static uint8_t event_memory_select(const iolink_events_ctx_t* ctx,
+                                   uint8_t sel[IOLINK_EVENT_MEMORY_SLOTS])
+{
+    uint8_t n = 0U;
+    for (uint8_t prio = 0U; prio < 3U; prio++) {
+        for (uint8_t i = 0U; (i < ctx->count) && (n < IOLINK_EVENT_MEMORY_SLOTS); i++) {
+            uint8_t idx = queue_slot(ctx, i);
+            if (event_priority(ctx->queue[idx].type) == prio) {
+                sel[n] = idx;
+                n++;
             }
-            const iolink_event_t* ev = &ctx->queue[q];
-            ctx->memory[1U + (slots * 3U)] = event_qualifier(ev->type, ev->mode);
-            ctx->memory[2U + (slots * 3U)] = (uint8_t) (ev->code >> 8);
-            ctx->memory[3U + (slots * 3U)] = (uint8_t) (ev->code & 0xFFU);
-            slots++;
-            break;
         }
     }
-    /* StatusCode type 2: Event Details = 1, bits 0-5 = one bit per active slot
-       (Figure A.22/A.23: bit 0 is Event 1, bit 1 is Event 2, ...). */
+    return n;
+}
+
+/** @brief Rebuild the Table 58 event memory from the queue.
+ *
+ * Up to six slots are populated, errors first; the StatusCode carries a bit
+ * per active slot. With @p freeze the selected entries are marked presented,
+ * so the StatusCode confirmation removes exactly those entries.
+ * The caller holds the critical section. */
+static void event_memory_rebuild(iolink_events_ctx_t* ctx, bool freeze)
+{
+    uint8_t sel[IOLINK_EVENT_MEMORY_SLOTS];
+    (void) memset(ctx->memory, 0, sizeof(ctx->memory));
+    uint8_t slots = event_memory_select(ctx, sel);
     uint8_t active = 0U;
     for (uint8_t i = 0U; i < slots; i++) {
+        const iolink_event_t* ev = &ctx->queue[sel[i]];
+        ctx->memory[1U + i * 3U] = event_qualifier(ev->type, ev->mode);
+        ctx->memory[2U + i * 3U] = (uint8_t) (ev->code >> 8);
+        ctx->memory[3U + i * 3U] = (uint8_t) (ev->code & 0xFFU);
+        /* StatusCode type 2 (Figure A.22/A.23): bit 0 is Event 1, ... */
         active |= (uint8_t) (1U << i);
-    }
-    ctx->memory[0] = (uint8_t) (0x80U | active);
-    return slots;
-}
-
-/** @brief Freeze the current queue head as the presented slot set.
- *
- * The exact insertion ids are remembered so that a later confirmation can
- * acknowledge those entries even if the queue is re-ordered while frozen.
- * The caller holds the critical section. */
-static uint8_t event_memory_snapshot(iolink_events_ctx_t* ctx)
-{
-    uint8_t n = ctx->count;
-    if (n > IOLINK_EVENT_MEMORY_SLOTS) {
-        n = IOLINK_EVENT_MEMORY_SLOTS;
-    }
-    for (uint8_t i = 0U; i < n; i++) {
-        ctx->frozen_ids[i] = ctx->queue_id[i];
-    }
-    for (uint8_t i = n; i < IOLINK_EVENT_MEMORY_SLOTS; i++) {
-        ctx->frozen_ids[i] = 0U;
-    }
-    ctx->frozen_slots = n;
-    return event_memory_build(ctx, ctx->frozen_ids, n);
-}
-
-/** @brief Remove one queue entry by position, keeping queue_id in sync. */
-static void event_queue_remove(iolink_events_ctx_t* ctx, uint8_t index)
-{
-    if (index >= ctx->count) {
-        return;
-    }
-    for (uint8_t i = index; (uint8_t) (i + 1U) < ctx->count; i++) {
-        ctx->queue[i] = ctx->queue[i + 1U];
-        ctx->queue_id[i] = ctx->queue_id[i + 1U];
-    }
-    ctx->count--;
-    ctx->queue_id[ctx->count] = 0U;
-}
-
-/** @brief Remove the queue entry with insertion id @p id, if still queued. */
-static bool event_queue_remove_id(iolink_events_ctx_t* ctx, uint32_t id)
-{
-    if (id == 0U) {
-        return false;
-    }
-    for (uint8_t i = 0U; i < ctx->count; i++) {
-        if (ctx->queue_id[i] == id) {
-            event_queue_remove(ctx, i);
-            return true;
+        if (freeze) {
+            ctx->qflags[sel[i]] |= EVQ_PRESENTED;
         }
     }
-    return false;
-}
-
-/** @brief Insert an event into the severity-ordered queue (Errors first). */
-static void event_queue_insert(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_type_t type,
-                               iolink_event_mode_t mode)
-{
-    uint8_t pos = 0U;
-    while ((pos < ctx->count) && (ctx->queue[pos].type >= type)) {
-        pos++;
+    if (slots > 0U) {
+        ctx->memory[0] = (uint8_t) (0x80U | active);
     }
-    if (ctx->count >= IOLINK_EVENT_QUEUE_SIZE) {
-        /* The queue holds more severe events, or the least severe entry is
-           overwritten below. Either way one event is lost, so make it
-           observable like a pending[] overflow. */
-        ctx->dropped_count++;
-        if (pos >= IOLINK_EVENT_QUEUE_SIZE) {
-            return; /* Queue holds more severe events: drop the new one. */
-        }
-        ctx->count = (uint8_t) (IOLINK_EVENT_QUEUE_SIZE - 1U);
-    }
-    for (uint8_t i = ctx->count; i > pos; i--) {
-        ctx->queue[i] = ctx->queue[i - 1U];
-        ctx->queue_id[i] = ctx->queue_id[i - 1U];
-    }
-    ctx->queue[pos].code = code;
-    ctx->queue[pos].type = type;
-    ctx->queue[pos].mode = mode;
-    ctx->queue_id[pos] = event_id_alloc(ctx);
-    ctx->count++;
-}
-
-/** @brief Freeze the memory and raise the flag (Table 60 T3).
- *
- * The flag must never be set while the queue is empty: a set flag tells the
- * Master to read the diagnosis channel, and an empty queue there produces a
- * read/acknowledge loop. */
-static void event_publish(iolink_events_ctx_t* ctx)
-{
-    if (!ctx->frozen && (ctx->count > 0U)) {
-        (void) event_memory_snapshot(ctx);
+    if (freeze) {
         ctx->frozen = true;
     }
-    ctx->flag = (ctx->count > 0U);
 }
 
-/** @brief Whether @p code is already queued (any MODE). */
-static bool event_code_queued(const iolink_events_ctx_t* ctx, uint16_t code)
+/** @brief Remove the oldest entry that is neither presented nor owned by a
+ *  condition. Returns false if every entry is protected. Caller holds lock. */
+static bool queue_evict_oldest(iolink_events_ctx_t* ctx)
 {
     for (uint8_t i = 0U; i < ctx->count; i++) {
-        if (ctx->queue[i].code == code) {
+        uint8_t idx = queue_slot(ctx, i);
+        if ((ctx->qflags[idx] & (EVQ_PRESENTED | EVQ_LIFECYCLE)) == 0U) {
+            /* Shift the newer entries down one position. */
+            for (uint8_t j = i; (uint8_t) (j + 1U) < ctx->count; j++) {
+                uint8_t dst = queue_slot(ctx, j);
+                uint8_t src = queue_slot(ctx, (uint8_t) (j + 1U));
+                ctx->queue[dst] = ctx->queue[src];
+                ctx->qflags[dst] = ctx->qflags[src];
+            }
+            ctx->count--;
+            ctx->tail = queue_slot(ctx, ctx->count);
+            ctx->qflags[ctx->tail] = 0U;
             return true;
         }
     }
     return false;
 }
 
-/** @brief Find the lifecycle slot for @p code (live or repeat cooldown). */
-static iolink_event_pending_t* pending_find(iolink_events_ctx_t* ctx, uint16_t code)
+/** @brief Append an event and raise the Event flag (Table 60 T2/T3).
+ *
+ * A full queue evicts the oldest unprotected legacy entry when @p evict is
+ * set; entries shown in the frozen memory and condition Events are never
+ * evicted. Caller holds the lock. */
+static bool queue_push(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_type_t type,
+                       iolink_event_mode_t mode, uint8_t qflag, bool evict)
 {
-    for (uint8_t i = 0U; i < IOLINK_EVENT_PENDING_MAX; i++) {
-        if (ctx->pending[i].active && (ctx->pending[i].code == code)) {
-            return &ctx->pending[i];
+    if (ctx->count >= IOLINK_EVENT_QUEUE_SIZE) {
+        if (!evict || !queue_evict_oldest(ctx)) {
+            return false;
         }
+        count_dropped(ctx);
     }
-    return NULL;
-}
+    ctx->queue[ctx->tail].code = code;
+    ctx->queue[ctx->tail].type = type;
+    ctx->queue[ctx->tail].mode = mode;
+    ctx->qflags[ctx->tail] = qflag;
+    ctx->tail = (uint8_t) ((ctx->tail + 1U) % IOLINK_EVENT_QUEUE_SIZE);
+    ctx->count++;
 
-/** @brief Allocate a lifecycle slot, reusing a finished repeat cooldown first. */
-static iolink_event_pending_t* pending_alloc(iolink_events_ctx_t* ctx)
-{
-    for (uint8_t i = 0U; i < IOLINK_EVENT_PENDING_MAX; i++) {
-        if (!ctx->pending[i].active) {
-            (void) memset(&ctx->pending[i], 0, sizeof(ctx->pending[i]));
-            ctx->pending[i].active = true;
-            return &ctx->pending[i];
-        }
+    /* The memory is frozen on the first master read so a readout is
+       consistent; events queued after that stay invisible until the
+       StatusCode write confirmation. */
+    if (!ctx->frozen) {
+        event_memory_rebuild(ctx, false);
     }
-    for (uint8_t i = 0U; i < IOLINK_EVENT_PENDING_MAX; i++) {
-        iolink_event_pending_t* p = &ctx->pending[i];
-        if (!p->present && !p->reported) {
-            (void) memset(p, 0, sizeof(*p));
-            p->active = true;
-            return p;
-        }
-    }
-    return NULL;
-}
-
-/** @brief Whether the 1 s spacing allows a new "event appears". */
-static bool event_appears_elapsed(const iolink_event_pending_t* p, uint32_t now)
-{
-    return !p->appears_valid ||
-           ((uint32_t) (now - p->last_appears_ms) >= IOLINK_EVENT_MIN_REPEAT_MS);
-}
-
-/** @brief Whether the 1 s spacing allows a new "event disappears". */
-static bool event_disappears_elapsed(const iolink_event_pending_t* p, uint32_t now)
-{
-    return !p->disappears_valid ||
-           ((uint32_t) (now - p->last_disappears_ms) >= IOLINK_EVENT_MIN_REPEAT_MS);
-}
-
-/** @brief Queue the "event appears" and start the minimum appearance window. */
-static void pending_emit_appears(iolink_events_ctx_t* ctx, iolink_event_pending_t* p, uint32_t now)
-{
-    event_queue_insert(ctx, p->code, p->type, IOLINK_EVENT_MODE_APPEARS);
-    p->last_appears_ms = now;
-    p->appears_valid = true;
-    p->reported = true;
-}
-
-/** @brief Queue the "event disappears" for a reported event. */
-static void pending_emit_disappears(iolink_events_ctx_t* ctx, iolink_event_pending_t* p,
-                                    uint32_t now)
-{
-    event_queue_insert(ctx, p->code, p->type, IOLINK_EVENT_MODE_DISAPPEARS);
-    p->last_disappears_ms = now;
-    p->disappears_valid = true;
-    p->reported = false;
+    ctx->flag = true;
+    return true;
 }
 
 void iolink_event_trigger(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_type_t type)
@@ -277,154 +217,15 @@ void iolink_event_trigger(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_
     }
 
     iolink_critical_enter();
-
-    const uint32_t now = iolink_time_get_ms();
-
-    if (type == IOLINK_EVENT_TYPE_NOTIFICATION) {
-        /* Notifications are single-shot. Do not queue the same code again while
-           the previous instance is still unacknowledged: a retrying Master must
-           not turn repeated requests into an event storm. */
-        if (!event_code_queued(ctx, code)) {
-            event_queue_insert(ctx, code, type, IOLINK_EVENT_MODE_SINGLE_SHOT);
-        }
-        event_publish(ctx);
-        iolink_critical_exit();
-        return;
+    if (!queue_push(ctx, code, type, IOLINK_EVENT_MODE_LEGACY, 0U, true)) {
+        count_dropped(ctx);
     }
-
-    iolink_event_pending_t* p = pending_find(ctx, code);
-    if ((p != NULL) && p->present) {
-        /* Already asserted: 10.10.2 disregards subsequent incidents of the
-           same root cause, so no second "event appears" is queued. */
-        iolink_critical_exit();
-        return;
-    }
-
-    if (p == NULL) {
-        p = pending_alloc(ctx);
-        if (p == NULL) {
-            /* All lifecycle slots hold live events: make the loss observable
-               rather than silently discarding the cause. */
-            ctx->dropped_count++;
-            iolink_critical_exit();
-            return;
-        }
-        p->code = code;
-    }
-
-    p->present = true;
-    p->type = type;
-    ctx->pending_count++;
-
-    if (!p->reported && event_appears_elapsed(p, now)) {
-        /* First appearance, or a new incident more than 1 s after the last
-           "event appears" of this code (10.10.2). */
-        pending_emit_appears(ctx, p, now);
-    }
-    /* Otherwise the appearance is either already on the wire (a withdrawal was
-       pending and is now cancelled) or deferred to iolink_events_process()
-       because the same EventQualifier was reported less than 1 s ago. */
-
-    event_publish(ctx);
-    iolink_critical_exit();
-}
-
-void iolink_event_clear(iolink_events_ctx_t* ctx, uint16_t code)
-{
-    if (ctx == NULL) {
-        return;
-    }
-
-    iolink_critical_enter();
-    iolink_event_pending_t* p = pending_find(ctx, code);
-    if ((p != NULL) && p->present) {
-        p->present = false; /* emitted by iolink_events_process() */
-        if (ctx->pending_count > 0U) {
-            ctx->pending_count--;
-        }
-    }
-    iolink_critical_exit();
-}
-
-void iolink_events_process(iolink_events_ctx_t* ctx)
-{
-    if (ctx == NULL) {
-        return;
-    }
-
-    iolink_critical_enter();
-    uint32_t now = 0U;
-    bool have_now = false;
-    bool queued = false;
-    for (uint8_t i = 0U; i < IOLINK_EVENT_PENDING_MAX; i++) {
-        iolink_event_pending_t* p = &ctx->pending[i];
-        if (!p->active) {
-            continue;
-        }
-        if (!have_now) {
-            now = iolink_time_get_ms();
-            have_now = true;
-        }
-        if (p->present && !p->reported) {
-            /* Deferred appearance: the 1 s spacing has elapsed. */
-            if (event_appears_elapsed(p, now)) {
-                pending_emit_appears(ctx, p, now);
-                queued = true;
-            }
-            continue;
-        }
-        if (!p->present && p->reported) {
-            /* A.6.4: no "disappears" less than 50 ms after the "appears", and
-               10.10.2: no repeated "disappears" inside the 1 s window. */
-            if (((uint32_t) (now - p->last_appears_ms) >= IOLINK_EVENT_MIN_APPEAR_MS) &&
-                event_disappears_elapsed(p, now)) {
-                pending_emit_disappears(ctx, p, now);
-                queued = true;
-            }
-        }
-        if (!p->present && !p->reported && event_appears_elapsed(p, now) &&
-            event_disappears_elapsed(p, now)) {
-            /* Event gone and its 1 s cooldown elapsed: release the slot. */
-            (void) memset(p, 0, sizeof(*p));
-        }
-    }
-    if (queued) {
-        event_publish(ctx);
-    }
-    iolink_critical_exit();
-}
-
-void iolink_events_reset(iolink_events_ctx_t* ctx)
-{
-    if (ctx == NULL) {
-        return;
-    }
-
-    iolink_critical_enter();
-    ctx->count = 0U;
-    ctx->next_id = 0U;
-    (void) memset(ctx->queue_id, 0, sizeof(ctx->queue_id));
-    ctx->pending_count = 0U;
-    ctx->dropped_count = 0U;
-    (void) memset(ctx->pending, 0, sizeof(ctx->pending));
-    (void) memset(ctx->memory, 0, sizeof(ctx->memory));
-    ctx->frozen = false;
-    ctx->flag = false;
-    ctx->frozen_slots = 0U;
-    (void) memset(ctx->frozen_ids, 0, sizeof(ctx->frozen_ids));
     iolink_critical_exit();
 }
 
 bool iolink_events_flag(const iolink_events_ctx_t* ctx)
 {
-    /* Never advertise an Event flag with an empty queue. The setters keep
-       flag == (count > 0); this guard also covers a concurrent ISR read. */
-    return ((ctx != NULL) && ctx->flag && (ctx->count > 0U));
-}
-
-uint32_t iolink_events_get_dropped_count(const iolink_events_ctx_t* ctx)
-{
-    return (ctx != NULL) ? ctx->dropped_count : 0U;
+    return ((ctx != NULL) && ctx->flag);
 }
 
 uint8_t iolink_events_memory_read(iolink_events_ctx_t* ctx, uint8_t addr)
@@ -433,8 +234,10 @@ uint8_t iolink_events_memory_read(iolink_events_ctx_t* ctx, uint8_t addr)
         return 0U;
     }
     iolink_critical_enter();
-    /* The memory was frozen when the Event flag was raised (Table 60 T3), so a
-       readout is always a consistent snapshot. */
+    /* First readout freezes the memory until the StatusCode confirmation. */
+    if (!ctx->frozen && (ctx->count > 0U)) {
+        event_memory_rebuild(ctx, true);
+    }
     const uint8_t value = ctx->memory[addr];
     iolink_critical_exit();
     return value;
@@ -448,33 +251,36 @@ void iolink_events_memory_write(iolink_events_ctx_t* ctx, uint8_t addr, uint8_t 
     }
 
     iolink_critical_enter();
-    /* Table 60 T5: confirmation releases the memory and clears the flag. Only
-       the entries that were actually presented are acknowledged, so an event
-       that became more severe while the memory was frozen cannot be
-       acknowledged unseen. */
+    /* A confirmation without a prior readout acknowledges what the memory
+       shows at this moment. */
+    if (!ctx->frozen && (ctx->count > 0U)) {
+        event_memory_rebuild(ctx, true);
+    }
+    /* Table 60 T5: remove exactly the presented entries, keep events that
+       arrived while the memory was frozen (in queue order). */
+    uint8_t kept = 0U;
+    for (uint8_t i = 0U; i < ctx->count; i++) {
+        uint8_t src = queue_slot(ctx, i);
+        if ((ctx->qflags[src] & EVQ_PRESENTED) == 0U) {
+            uint8_t dst = queue_slot(ctx, kept);
+            if (dst != src) {
+                ctx->queue[dst] = ctx->queue[src];
+                ctx->qflags[dst] = ctx->qflags[src];
+            }
+            kept++;
+        }
+    }
+    for (uint8_t i = kept; i < ctx->count; i++) {
+        ctx->qflags[queue_slot(ctx, i)] = 0U;
+    }
+    ctx->count = kept;
+    ctx->tail = queue_slot(ctx, kept);
     ctx->frozen = false;
     ctx->flag = false;
-    if (ctx->frozen_slots > 0U) {
-        for (uint8_t i = 0U; i < ctx->frozen_slots; i++) {
-            (void) event_queue_remove_id(ctx, ctx->frozen_ids[i]);
-        }
-    }
-    else {
-        /* No frozen snapshot was taken (the master confirmed without reading):
-           acknowledge whatever is currently presented (bounded by the slots). */
-        uint8_t acked = ctx->count;
-        if (acked > IOLINK_EVENT_MEMORY_SLOTS) {
-            acked = IOLINK_EVENT_MEMORY_SLOTS;
-        }
-        for (uint8_t i = 0U; i < acked; i++) {
-            event_queue_remove(ctx, 0U);
-        }
-    }
-    ctx->frozen_slots = 0U;
-    (void) memset(ctx->frozen_ids, 0, sizeof(ctx->frozen_ids));
+
+    /* Release the memory and present the remaining events at once. */
     if (ctx->count > 0U) {
-        (void) event_memory_snapshot(ctx);
-        ctx->frozen = true;
+        event_memory_rebuild(ctx, true);
         ctx->flag = true;
     }
     else {
@@ -499,43 +305,10 @@ bool iolink_events_pop(iolink_events_ctx_t* ctx, iolink_event_t* event)
     iolink_critical_enter();
 
     if (ctx->count > 0U) {
-        *event = ctx->queue[0];
-        const uint32_t popped_id = ctx->queue_id[0];
-        event_queue_remove(ctx, 0U);
-
-        if (ctx->frozen) {
-            /* If the drained entry was part of the presented snapshot, drop it
-               from the snapshot and rebuild the memory from what is left. */
-            bool was_presented = false;
-            uint8_t out = 0U;
-            for (uint8_t i = 0U; i < ctx->frozen_slots; i++) {
-                if (ctx->frozen_ids[i] == popped_id) {
-                    was_presented = true;
-                    continue;
-                }
-                ctx->frozen_ids[out] = ctx->frozen_ids[i];
-                out++;
-            }
-            ctx->frozen_slots = out;
-            if (was_presented) {
-                if (ctx->frozen_slots > 0U) {
-                    (void) event_memory_build(ctx, ctx->frozen_ids, ctx->frozen_slots);
-                }
-                else if (ctx->count > 0U) {
-                    (void) event_memory_snapshot(ctx);
-                }
-            }
-        }
-
-        if (ctx->count == 0U) {
-            /* Keep flag == (count > 0) even when an application drains the
-               queue through pop() instead of acknowledging the event memory. */
-            ctx->flag = false;
-            ctx->frozen = false;
-            ctx->frozen_slots = 0U;
-            (void) memset(ctx->frozen_ids, 0, sizeof(ctx->frozen_ids));
-            (void) memset(ctx->memory, 0, sizeof(ctx->memory));
-        }
+        *event = ctx->queue[ctx->head];
+        ctx->qflags[ctx->head] = 0U;
+        ctx->head = (uint8_t) ((ctx->head + 1U) % IOLINK_EVENT_QUEUE_SIZE);
+        ctx->count--;
         ret = true;
     }
 
@@ -549,57 +322,17 @@ bool iolink_events_peek(const iolink_events_ctx_t* ctx, iolink_event_t* event)
         return false;
     }
 
+    /* Single read is atomic for small structs, but use critical section for safety */
     iolink_critical_enter();
 
     bool ret = false;
     if (ctx->count > 0U) {
-        *event = ctx->queue[0];
+        *event = ctx->queue[ctx->head];
         ret = true;
     }
 
     iolink_critical_exit();
     return ret;
-}
-
-/** @brief DeviceStatus priority per Table B.13 (lowest value dominates). */
-static uint8_t device_status_priority(uint8_t status)
-{
-    switch (status) {
-        case 4U: /* Failure */
-            return 1U;
-        case 3U: /* Functional-Check */
-            return 2U;
-        case 1U: /* Maintenance-Required */
-            return 3U;
-        case 2U: /* Out-of-Specification */
-            return 4U;
-        default: /* 0 = OK */
-            return 5U;
-    }
-}
-
-/** @brief Map an event to its DeviceStatus value (Table B.13), from its
- * EventType and, for the codes whose preferred value differs, its EventCode. */
-static uint8_t event_type_device_status(uint16_t code, iolink_event_type_t type)
-{
-    switch (code) {
-        case IOLINK_EVENTCODE_SIMULATION_ACTIVE:
-            return 3U; /* Functional-Check (Table D.1 preferred value) */
-        case IOLINK_EVENTCODE_MAINTENANCE_CLEANING:
-        case IOLINK_EVENTCODE_MAINTENANCE_REFILL:
-        case IOLINK_EVENTCODE_MAINTENANCE_WEAR:
-            return 1U; /* Maintenance-Required (Table D.1 preferred value) */
-        default:
-            break;
-    }
-    switch (type) {
-        case IOLINK_EVENT_TYPE_NOTIFICATION:
-            return 0U; /* OK */
-        case IOLINK_EVENT_TYPE_WARNING:
-            return 2U; /* Out-of-Specification */
-        default:
-            return 4U; /* Failure */
-    }
 }
 
 uint8_t iolink_events_get_highest_severity(iolink_events_ctx_t* ctx)
@@ -608,20 +341,34 @@ uint8_t iolink_events_get_highest_severity(iolink_events_ctx_t* ctx)
         return 0U; /* OK */
     }
 
-    uint8_t worst = 0U;      /* OK */
-    uint8_t worst_prio = 5U; /* OK priority */
+    uint8_t highest_msp = 0U;
     iolink_critical_enter();
     for (uint8_t i = 0U; i < ctx->count; i++) {
-        const iolink_event_t* ev = &ctx->queue[i];
-        const uint8_t status = event_type_device_status(ev->code, ev->type);
-        const uint8_t prio = device_status_priority(status);
-        if (prio < worst_prio) {
-            worst_prio = prio;
-            worst = status;
+        uint8_t idx = (uint8_t) ((ctx->head + i) % IOLINK_EVENT_QUEUE_SIZE);
+        iolink_event_type_t type = ctx->queue[idx].type;
+
+        uint8_t severity = 0U;
+        switch (type) {
+            case IOLINK_EVENT_TYPE_NOTIFICATION:
+                severity = 1U;
+                break; /* Maintenance */
+            case IOLINK_EVENT_TYPE_WARNING:
+                severity = 2U;
+                break; /* Out of Spec */
+            case IOLINK_EVENT_TYPE_ERROR:
+                severity = 3U;
+                break; /* Failure */
+            default:
+                severity = 0U;
+                break;
+        }
+
+        if (severity > highest_msp) {
+            highest_msp = severity;
         }
     }
     iolink_critical_exit();
-    return worst;
+    return highest_msp;
 }
 
 uint8_t iolink_events_get_all(iolink_events_ctx_t* ctx, iolink_event_t* out_events,
@@ -637,7 +384,8 @@ uint8_t iolink_events_get_all(iolink_events_ctx_t* ctx, iolink_event_t* out_even
     uint8_t to_copy = (count < max_count) ? count : max_count;
 
     for (uint8_t i = 0U; i < to_copy; i++) {
-        out_events[i] = ctx->queue[i];
+        uint8_t idx = (uint8_t) ((ctx->head + i) % IOLINK_EVENT_QUEUE_SIZE);
+        out_events[i] = ctx->queue[idx];
         copied++;
     }
     iolink_critical_exit();
@@ -685,4 +433,410 @@ iolink_event_type_t iolink_event_classify(uint16_t code)
             /* Reserved / vendor-specific / unknown -> safe default. */
             return IOLINK_EVENT_TYPE_ERROR;
     }
+}
+
+/* -------------------------------------------------------------------------
+ * Event Dispatcher: appear/disappear lifecycle (10.10.2)
+ * ------------------------------------------------------------------------- */
+
+static iolink_event_cond_t* cond_find(iolink_events_ctx_t* ctx, uint16_t code)
+{
+    for (uint8_t i = 0U; i < IOLINK_EVENT_CONDITION_SLOTS; i++) {
+        if ((ctx->conds[i].state != COND_FREE) && (ctx->conds[i].code == code)) {
+            return &ctx->conds[i];
+        }
+    }
+    return NULL;
+}
+
+/** @brief Get a free slot; reuse a recent (inactive) slot if none is free. */
+static iolink_event_cond_t* cond_alloc(iolink_events_ctx_t* ctx)
+{
+    iolink_event_cond_t* recent = NULL;
+    for (uint8_t i = 0U; i < IOLINK_EVENT_CONDITION_SLOTS; i++) {
+        if (ctx->conds[i].state == COND_FREE) {
+            return &ctx->conds[i];
+        }
+        if ((recent == NULL) && (ctx->conds[i].state == COND_RECENT)) {
+            recent = &ctx->conds[i];
+        }
+    }
+    if (recent != NULL) {
+        (void) memset(recent, 0, sizeof(*recent));
+    }
+    return recent;
+}
+
+/** @brief True if the timestamp guarded by @p has_flag allows a new report. */
+static bool cond_repeat_ok(const iolink_event_cond_t* c, uint8_t has_flag, uint32_t then,
+                           uint32_t now_ms)
+{
+    return ((c->flags & has_flag) == 0U) ||
+           (elapsed_ms(now_ms, then) >= (uint32_t) IOLINK_EVENT_REPEAT_MS);
+}
+
+/** @brief Queue "appears" for an active condition when allowed. Caller holds lock. */
+static void cond_try_appear(iolink_events_ctx_t* ctx, iolink_event_cond_t* c, uint32_t now_ms)
+{
+    if (!cond_repeat_ok(c, COND_HAS_APPEAR, c->appear_ms, now_ms)) {
+        return;
+    }
+    if (queue_push(ctx, c->code, (iolink_event_type_t) c->type, IOLINK_EVENT_MODE_APPEARS,
+                   EVQ_LIFECYCLE, false)) {
+        c->flags |= (uint8_t) (COND_APPEAR_SENT | COND_HAS_APPEAR);
+        c->appear_ms = now_ms;
+    }
+}
+
+/** @brief Queue "disappears" for a cleared condition when allowed. Caller holds lock. */
+static void cond_try_disappear(iolink_events_ctx_t* ctx, iolink_event_cond_t* c, uint32_t now_ms)
+{
+    if (((c->flags & COND_HAS_APPEAR) != 0U) &&
+        (elapsed_ms(now_ms, c->appear_ms) < (uint32_t) IOLINK_EVENT_MIN_APPEAR_MS)) {
+        return;
+    }
+    if (!cond_repeat_ok(c, COND_HAS_DISAPPEAR, c->disappear_ms, now_ms)) {
+        return;
+    }
+    if (queue_push(ctx, c->code, (iolink_event_type_t) c->type, IOLINK_EVENT_MODE_DISAPPEARS,
+                   EVQ_LIFECYCLE, false)) {
+        c->flags = (uint8_t) ((c->flags & COND_HAS_APPEAR) | COND_HAS_DISAPPEAR);
+        c->disappear_ms = now_ms;
+        c->state = COND_RECENT;
+    }
+}
+
+bool iolink_event_appear_at(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_type_t type,
+                            uint32_t now_ms)
+{
+    if ((ctx == NULL) ||
+        ((type != IOLINK_EVENT_TYPE_WARNING) && (type != IOLINK_EVENT_TYPE_ERROR))) {
+        return false;
+    }
+
+    bool ok = true;
+    iolink_critical_enter();
+    iolink_event_cond_t* c = cond_find(ctx, code);
+    if ((c != NULL) && (c->state == COND_ACTIVE)) {
+        /* Same root cause: disregarded. A pending clear is withdrawn because
+           the condition is present again. */
+        c->flags &= (uint8_t) ~COND_CLEAR_REQ;
+    }
+    else {
+        if (c == NULL) {
+            c = cond_alloc(ctx);
+        }
+        if (c == NULL) {
+            count_dropped(ctx);
+            ok = false;
+        }
+        else {
+            c->code = code;
+            c->type = (uint8_t) type;
+            c->state = COND_ACTIVE;
+            c->flags &= (uint8_t) (COND_HAS_APPEAR | COND_HAS_DISAPPEAR);
+            cond_try_appear(ctx, c, now_ms);
+        }
+    }
+    iolink_critical_exit();
+    return ok;
+}
+
+bool iolink_event_disappear_at(iolink_events_ctx_t* ctx, uint16_t code, uint32_t now_ms)
+{
+    if (ctx == NULL) {
+        return false;
+    }
+
+    bool found = false;
+    iolink_critical_enter();
+    iolink_event_cond_t* c = cond_find(ctx, code);
+    if ((c != NULL) && (c->state == COND_ACTIVE)) {
+        found = true;
+        if ((c->flags & COND_APPEAR_SENT) == 0U) {
+            /* The master never saw "appears": withdraw without an Event. */
+            c->flags &= (uint8_t) (COND_HAS_APPEAR | COND_HAS_DISAPPEAR);
+            c->state = COND_RECENT;
+            count_dropped(ctx);
+        }
+        else {
+            c->flags |= COND_CLEAR_REQ;
+            cond_try_disappear(ctx, c, now_ms);
+        }
+    }
+    iolink_critical_exit();
+    return found;
+}
+
+bool iolink_event_notify_at(iolink_events_ctx_t* ctx, uint16_t code, uint32_t now_ms)
+{
+    if (ctx == NULL) {
+        return false;
+    }
+
+    bool queued = false;
+    iolink_critical_enter();
+    iolink_event_cond_t* c = cond_find(ctx, code);
+    if (c == NULL) {
+        c = cond_alloc(ctx);
+    }
+    if ((c != NULL) && (c->state != COND_ACTIVE) &&
+        cond_repeat_ok(c, COND_HAS_APPEAR, c->appear_ms, now_ms)) {
+        if (queue_push(ctx, code, IOLINK_EVENT_TYPE_NOTIFICATION, IOLINK_EVENT_MODE_SINGLE_SHOT, 0U,
+                       true)) {
+            c->code = code;
+            c->type = (uint8_t) IOLINK_EVENT_TYPE_NOTIFICATION;
+            c->state = COND_RECENT;
+            c->flags = COND_HAS_APPEAR;
+            c->appear_ms = now_ms;
+            queued = true;
+        }
+    }
+    if (!queued) {
+        count_dropped(ctx);
+    }
+    iolink_critical_exit();
+    return queued;
+}
+
+void iolink_events_process_at(iolink_events_ctx_t* ctx, uint32_t now_ms)
+{
+    if (ctx == NULL) {
+        return;
+    }
+
+    iolink_critical_enter();
+    for (uint8_t i = 0U; i < IOLINK_EVENT_CONDITION_SLOTS; i++) {
+        iolink_event_cond_t* c = &ctx->conds[i];
+        if (c->state == COND_ACTIVE) {
+            if ((c->flags & COND_APPEAR_SENT) == 0U) {
+                cond_try_appear(ctx, c, now_ms);
+            }
+            else if ((c->flags & COND_CLEAR_REQ) != 0U) {
+                cond_try_disappear(ctx, c, now_ms);
+            }
+            else {
+                /* Active and reported: nothing to do. */
+            }
+        }
+        /* Forget timestamps once their window has passed (both windows for
+           "appears": repeat and minimum duration), so that a long active
+           period cannot alias after a 32-bit wrap. */
+        if (((c->flags & COND_HAS_APPEAR) != 0U) &&
+            (elapsed_ms(now_ms, c->appear_ms) >= (uint32_t) IOLINK_EVENT_REPEAT_MS) &&
+            (elapsed_ms(now_ms, c->appear_ms) >= (uint32_t) IOLINK_EVENT_MIN_APPEAR_MS)) {
+            c->flags &= (uint8_t) ~COND_HAS_APPEAR;
+        }
+        if (((c->flags & COND_HAS_DISAPPEAR) != 0U) &&
+            (elapsed_ms(now_ms, c->disappear_ms) >= (uint32_t) IOLINK_EVENT_REPEAT_MS)) {
+            c->flags &= (uint8_t) ~COND_HAS_DISAPPEAR;
+        }
+        if ((c->state == COND_RECENT) &&
+            ((c->flags & (COND_HAS_APPEAR | COND_HAS_DISAPPEAR)) == 0U)) {
+            (void) memset(c, 0, sizeof(*c));
+        }
+    }
+    iolink_critical_exit();
+}
+
+bool iolink_event_appear(iolink_events_ctx_t* ctx, uint16_t code, iolink_event_type_t type)
+{
+    return iolink_event_appear_at(ctx, code, type, iolink_time_get_ms());
+}
+
+bool iolink_event_disappear(iolink_events_ctx_t* ctx, uint16_t code)
+{
+    return iolink_event_disappear_at(ctx, code, iolink_time_get_ms());
+}
+
+bool iolink_event_notify(iolink_events_ctx_t* ctx, uint16_t code)
+{
+    return iolink_event_notify_at(ctx, code, iolink_time_get_ms());
+}
+
+void iolink_events_process(iolink_events_ctx_t* ctx)
+{
+    iolink_events_process_at(ctx, iolink_time_get_ms());
+}
+
+void iolink_events_startup_reset(iolink_events_ctx_t* ctx)
+{
+    if (ctx == NULL) {
+        return;
+    }
+
+    iolink_critical_enter();
+    /* 10.10.2: queued Events are discarded when communication is
+       interrupted; the memory and the Event flag are released. */
+    ctx->head = 0U;
+    ctx->tail = 0U;
+    ctx->count = 0U;
+    ctx->frozen = false;
+    ctx->flag = false;
+    (void) memset(ctx->qflags, 0, sizeof(ctx->qflags));
+    (void) memset(ctx->memory, 0, sizeof(ctx->memory));
+    for (uint8_t i = 0U; i < IOLINK_EVENT_CONDITION_SLOTS; i++) {
+        iolink_event_cond_t* c = &ctx->conds[i];
+        if (c->state != COND_ACTIVE) {
+            continue;
+        }
+        if ((c->flags & COND_CLEAR_REQ) != 0U) {
+            /* Cleared while its "disappears" was still deferred: the new
+               session never sees this condition. */
+            c->state = COND_RECENT;
+        }
+        /* Active conditions report "appears" again after communication
+           resumes (subject to the repeat interval). */
+        c->flags &= (uint8_t) ~(COND_APPEAR_SENT | COND_CLEAR_REQ);
+    }
+    iolink_critical_exit();
+}
+
+void iolink_events_clear_status_at(iolink_events_ctx_t* ctx, uint32_t now_ms)
+{
+    if (ctx == NULL) {
+        return;
+    }
+
+    iolink_critical_enter();
+    /* Table 101 "Clear": every active condition is sent with "disappears".
+       The minimum appear duration and repeat interval do not delay this
+       explicit reset. A condition whose "appears" was never queued is
+       withdrawn without an Event. */
+    for (uint8_t i = 0U; i < IOLINK_EVENT_CONDITION_SLOTS; i++) {
+        iolink_event_cond_t* c = &ctx->conds[i];
+        if (c->state != COND_ACTIVE) {
+            continue;
+        }
+        if ((c->flags & COND_APPEAR_SENT) != 0U) {
+            if (queue_push(ctx, c->code, (iolink_event_type_t) c->type,
+                           IOLINK_EVENT_MODE_DISAPPEARS, EVQ_LIFECYCLE, true)) {
+                c->flags = (uint8_t) ((c->flags & COND_HAS_APPEAR) | COND_HAS_DISAPPEAR);
+                c->disappear_ms = now_ms;
+            }
+            else {
+                count_dropped(ctx);
+                c->flags &= (uint8_t) (COND_HAS_APPEAR | COND_HAS_DISAPPEAR);
+            }
+        }
+        else {
+            count_dropped(ctx);
+            c->flags &= (uint8_t) (COND_HAS_APPEAR | COND_HAS_DISAPPEAR);
+        }
+        c->state = COND_RECENT;
+    }
+    /* Queued legacy Warnings/Errors stay deliverable ("pending Events can be
+       resent") but no longer count in DeviceStatus/DetailedDeviceStatus. */
+    for (uint8_t i = 0U; i < ctx->count; i++) {
+        ctx->qflags[queue_slot(ctx, i)] |= EVQ_STATUS_CLEARED;
+    }
+    iolink_critical_exit();
+}
+
+void iolink_events_clear_status(iolink_events_ctx_t* ctx)
+{
+    iolink_events_clear_status_at(ctx, iolink_time_get_ms());
+}
+
+uint8_t iolink_event_device_status(uint16_t code, iolink_event_type_t type)
+{
+    if (type == IOLINK_EVENT_TYPE_ERROR) {
+        return IOLINK_DEVICE_STATUS_FAILURE;
+    }
+    if (type != IOLINK_EVENT_TYPE_WARNING) {
+        return IOLINK_DEVICE_STATUS_OK;
+    }
+    switch (code) {
+        case IOLINK_EVENTCODE_SIMULATION_ACTIVE:
+            return IOLINK_DEVICE_STATUS_FUNCTIONAL_CHECK;
+        case IOLINK_EVENTCODE_MAINTENANCE_CLEANING:
+        case IOLINK_EVENTCODE_MAINTENANCE_REFILL:
+        case IOLINK_EVENTCODE_MAINTENANCE_WEAR:
+            return IOLINK_DEVICE_STATUS_MAINTENANCE;
+        default:
+            return IOLINK_DEVICE_STATUS_OUT_OF_SPEC;
+    }
+}
+
+/** @brief Table B.13 rank of a DeviceStatus value: higher dominates. */
+static uint8_t device_status_rank(uint8_t status)
+{
+    static const uint8_t rank[5] = {0U, 2U, 1U, 3U, 4U};
+    return (status < 5U) ? rank[status] : 0U;
+}
+
+/** @brief True for a queued legacy Warning/Error (not owned by a condition). */
+static bool queue_entry_is_legacy_status(const iolink_events_ctx_t* ctx, uint8_t idx)
+{
+    const iolink_event_t* ev = &ctx->queue[idx];
+    return ((ctx->qflags[idx] & (EVQ_LIFECYCLE | EVQ_STATUS_CLEARED)) == 0U) &&
+           ((ev->mode == IOLINK_EVENT_MODE_LEGACY) || (ev->mode == IOLINK_EVENT_MODE_APPEARS)) &&
+           ((ev->type == IOLINK_EVENT_TYPE_WARNING) || (ev->type == IOLINK_EVENT_TYPE_ERROR));
+}
+
+uint8_t iolink_events_get_device_status(iolink_events_ctx_t* ctx)
+{
+    if (ctx == NULL) {
+        return IOLINK_DEVICE_STATUS_OK;
+    }
+
+    uint8_t best = IOLINK_DEVICE_STATUS_OK;
+    iolink_critical_enter();
+    for (uint8_t i = 0U; i < IOLINK_EVENT_CONDITION_SLOTS; i++) {
+        const iolink_event_cond_t* c = &ctx->conds[i];
+        if (c->state == COND_ACTIVE) {
+            uint8_t st = iolink_event_device_status(c->code, (iolink_event_type_t) c->type);
+            if (device_status_rank(st) > device_status_rank(best)) {
+                best = st;
+            }
+        }
+    }
+    for (uint8_t i = 0U; i < ctx->count; i++) {
+        uint8_t idx = queue_slot(ctx, i);
+        if (queue_entry_is_legacy_status(ctx, idx)) {
+            uint8_t st = iolink_event_device_status(ctx->queue[idx].code, ctx->queue[idx].type);
+            if (device_status_rank(st) > device_status_rank(best)) {
+                best = st;
+            }
+        }
+    }
+    iolink_critical_exit();
+    return best;
+}
+
+uint16_t iolink_events_get_detailed_status(iolink_events_ctx_t* ctx, uint8_t* out,
+                                           uint16_t capacity)
+{
+    if ((ctx == NULL) || (out == NULL)) {
+        return 0U;
+    }
+
+    uint16_t len = 0U;
+    iolink_critical_enter();
+    for (uint8_t i = 0U; i < IOLINK_EVENT_CONDITION_SLOTS; i++) {
+        const iolink_event_cond_t* c = &ctx->conds[i];
+        if ((c->state == COND_ACTIVE) && ((uint16_t) (capacity - len) >= 3U)) {
+            out[len] = event_qualifier((iolink_event_type_t) c->type, IOLINK_EVENT_MODE_APPEARS);
+            out[len + 1U] = (uint8_t) (c->code >> 8);
+            out[len + 2U] = (uint8_t) (c->code & 0xFFU);
+            len = (uint16_t) (len + 3U);
+        }
+    }
+    for (uint8_t i = 0U; i < ctx->count; i++) {
+        uint8_t idx = queue_slot(ctx, i);
+        if (queue_entry_is_legacy_status(ctx, idx) && ((uint16_t) (capacity - len) >= 3U)) {
+            const iolink_event_t* ev = &ctx->queue[idx];
+            out[len] = event_qualifier(ev->type, IOLINK_EVENT_MODE_APPEARS);
+            out[len + 1U] = (uint8_t) (ev->code >> 8);
+            out[len + 2U] = (uint8_t) (ev->code & 0xFFU);
+            len = (uint16_t) (len + 3U);
+        }
+    }
+    iolink_critical_exit();
+    return len;
+}
+
+uint32_t iolink_events_dropped(const iolink_events_ctx_t* ctx)
+{
+    return (ctx != NULL) ? ctx->dropped : 0U;
 }

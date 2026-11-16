@@ -100,9 +100,14 @@ or hostile traffic is *rejected safely* rather than corrupting the device.
     `src/data_storage.c:74`), recomputed on serialization
     (`src/data_storage.c:121`) and used for consistency comparison and
     recovery on mismatch (CR 3.4 — 10.512 §7.4.4).
-  - Data Storage writes respect the Device Access Locks parameter (index
-    0x000C, `include/iolinki/protocol.h:45`): a set DS lock refuses the
-    operation (`src/data_storage.c:301`).
+  - Data Storage writes respect the device-local Device Access Locks
+    parameter (index 0x000C, stored in the device's NVM parameter record):
+    a set DS lock refuses every write to DataStorageIndex 0x0003 with
+    0x8023 (`handle_data_storage_write()` in `src/isdu.c`). A set Parameter
+    lock refuses single parameter writes except inside a DS download.
+  - Block and DS downloads are staged and committed with one checked NVM
+    write; a rejected set or NVM failure leaves the previous set active
+    (`ds_finish_download()` in `src/data_storage.c`).
 
 ### R — Repudiation
 

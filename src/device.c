@@ -51,6 +51,74 @@ static void device_state_cb(void* user, iolink_dll_state_t state)
     }
 }
 
+/** @brief SystemCommand reset service for the ISDU engine (see isdu.h). */
+static int device_system_reset(void* user, uint8_t cmd, bool execute)
+{
+    iolink_device_ctx_t* ctx = (iolink_device_ctx_t*) user;
+
+    if ((ctx == NULL) || (ctx->reset_handler == NULL)) {
+        return -1;
+    }
+    if (execute) {
+        if (cmd == IOLINK_CMD_APPLICATION_RESET) {
+            ctx->reset_handler(IOLINK_RESET_APPLICATION);
+        }
+        else if (cmd == IOLINK_CMD_RESTORE_FACTORY_SETTINGS) {
+            ctx->reset_handler(IOLINK_RESET_RESTORE_FACTORY);
+        }
+        else {
+            /* 0x80 and 0x83 run deferred in device_service_deferred_reset(). */
+        }
+    }
+    return 0;
+}
+
+/**
+ * @brief Run an accepted Device reset (0x80) or Back-to-box (0x83).
+ *
+ * 10.7.2/10.7.5: the response is sent first and the Device waits at least
+ * 3 MasterCycles after the last ISDU response before communication stops.
+ * The ISDU transport is Idle once the Master has read the whole response.
+ */
+static void device_service_deferred_reset(iolink_device_ctx_t* ctx)
+{
+    iolink_isdu_ctx_t* isdu = &ctx->dll.isdu;
+
+    if (!isdu->reset_pending && !isdu->back_to_box_pending) {
+        ctx->deferred_reset_armed = false;
+        return;
+    }
+    const bool link_lost = (ctx->dll.state == IOLINK_DLL_STATE_STARTUP);
+    if (!link_lost) {
+        if (isdu->state != ISDU_STATE_IDLE) {
+            return; /* Response not yet read by the Master */
+        }
+        if (!ctx->deferred_reset_armed) {
+            ctx->deferred_reset_armed = true;
+            ctx->deferred_reset_mseq = ctx->dll.mseq_count;
+            return;
+        }
+        if ((uint32_t) (ctx->dll.mseq_count - ctx->deferred_reset_mseq) < 3U) {
+            return;
+        }
+    }
+
+    ctx->deferred_reset_armed = false;
+    if (isdu->back_to_box_pending) {
+        isdu->back_to_box_pending = false;
+        isdu->reset_pending = false;
+        if (ctx->reset_handler != NULL) {
+            ctx->reset_handler(IOLINK_RESET_BACK_TO_BOX);
+        }
+        iolink_dll_disable_communication(&ctx->dll);
+        return;
+    }
+    isdu->reset_pending = false;
+    if (ctx->reset_handler != NULL) {
+        ctx->reset_handler(IOLINK_RESET_DEVICE);
+    }
+}
+
 /** @brief Copy the user stack configuration into the DLL context and derive lengths/timing. */
 static void device_apply_stack_config(iolink_device_ctx_t* ctx)
 {
@@ -125,20 +193,15 @@ int iolink_device_init(iolink_device_ctx_t* ctx, const iolink_device_config_t* c
         }
     }
 
-    /* Per-device identity context. When the configuration does not supply an
-       identity, keep using the legacy process-wide identity (if the application
-       initialised one) so existing integrations do not silently fall back to
-       the built-in defaults. */
-    iolink_device_info_ctx_init(&ctx->device_info, (config->device_info != NULL)
-                                                       ? config->device_info
-                                                       : iolink_device_info_get());
+    iolink_device_info_ctx_init(&ctx->device_info, config->device_info);
     iolink_params_ctx_init(&ctx->params, &ctx->device_info);
     iolink_dll_init(&ctx->dll, &config->phy);
     ctx->dll.isdu.direct_param_page2 = ctx->direct_param_page2;
     ctx->dll.isdu.params_ctx = &ctx->params;
-    ctx->dll.isdu.device_info = &ctx->device_info;
     ctx->dll.isdu.vendor_service = config->vendor_service;
     ctx->dll.isdu.vendor_user = config->user;
+    ctx->dll.isdu.system_reset = device_system_reset;
+    ctx->dll.isdu.system_reset_user = ctx;
     ctx->dll.state_cb = device_state_cb;
     ctx->dll.state_cb_user = ctx;
     ctx->dll.pd_input_select = config->pd_input_select;
@@ -165,18 +228,9 @@ void iolink_device_process(iolink_device_ctx_t* ctx)
 
     iolink_dll_process(&ctx->dll);
 
-    if (ctx->dll.isdu.reset_pending) {
-        ctx->dll.isdu.reset_pending = false;
-        if (ctx->reset_handler != NULL) {
-            ctx->reset_handler(IOLINK_RESET_DEVICE);
-        }
-    }
-    if (ctx->dll.isdu.app_reset_pending) {
-        ctx->dll.isdu.app_reset_pending = false;
-        if (ctx->reset_handler != NULL) {
-            ctx->reset_handler(IOLINK_RESET_APPLICATION);
-        }
-    }
+    /* Application reset already ran before its ISDU response. */
+    ctx->dll.isdu.app_reset_pending = false;
+    device_service_deferred_reset(ctx);
 
     if ((ctx->config != NULL) && (ctx->config->app_callbacks != NULL) &&
         (ctx->dll.state == IOLINK_DLL_STATE_OPERATE)) {
@@ -192,6 +246,8 @@ void iolink_device_process(iolink_device_ctx_t* ctx)
 int iolink_device_pd_input_update(iolink_device_ctx_t* ctx, const uint8_t* data, size_t len,
                                   bool valid)
 {
+    int ret;
+
     if ((ctx == NULL) || (data == NULL) || (len > sizeof(ctx->dll.pd_in))) {
         return -1;
     }
@@ -203,10 +259,8 @@ int iolink_device_pd_input_update(iolink_device_ctx_t* ctx, const uint8_t* data,
         iolink_critical_enter();
     }
 
-    (void) memcpy(ctx->dll.pd_in, data, len);
-    ctx->dll.pd_in_len = (uint8_t) len;
-    ctx->dll.pd_in_len_current = (uint8_t) len;
-    ctx->dll.pd_valid = valid;
+    /* Valid data also becomes the ProcessDataInput (0x0028) snapshot. */
+    ret = iolink_dll_publish_pd_in(&ctx->dll, data, (uint8_t) len, valid);
 
     if ((ctx->config != NULL) && (ctx->config->unlock != NULL)) {
         ctx->config->unlock(ctx->config->user);
@@ -215,7 +269,7 @@ int iolink_device_pd_input_update(iolink_device_ctx_t* ctx, const uint8_t* data,
         iolink_critical_exit();
     }
 
-    return 0;
+    return ret;
 }
 
 int iolink_device_pd_output_read(iolink_device_ctx_t* ctx, uint8_t* data, size_t len)

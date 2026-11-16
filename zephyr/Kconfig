@@ -70,7 +70,7 @@ config IOLINK_ISDU_BUFFER_SIZE
 
 config IOLINK_EVENT_QUEUE_SIZE
     int "Diagnostic event queue depth"
-    default 4
+    default 8
     help
       Number of diagnostic events that can be queued. Maps to the core
       macro IOLINK_EVENT_QUEUE_SIZE.

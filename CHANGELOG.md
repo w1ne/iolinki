@@ -8,114 +8,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- STM32G0B1RE USART1 transport selection: the existing CMSIS IRQ/polled port,
-  CMSIS circular RX/normal TX DMA, and an optional ST HAL UART/DMA transport.
-  DMA receives bytes without waiting for UART IDLE and keeps TIOL112 EN asserted
-  through USART TC. Added overflow/error recovery, explicit transport counters,
-  a sanitized RX-ring regression and COM2/COM3 GCC artifact matrix. The HAL
-  option preserves the CMSIS clock/GPIO/TIM2 BSP and the synchronous PHY API.
-  `IOLINK_G0_OPTIMIZATION=2` explicitly selects the GCC performance profile for
-  DMA timing evaluation; the reference default remains size-optimized (`s`).
-  TIM2 millisecond reads use an exact epoch/remainder calculation with tested
-  wrap behavior, removing repeated 64-bit division from the polling path.
-- **A.6.4 event lifecycle.** Error and Warning events now follow the
-  appears/disappears pair (Figure A.24): the same EventCode may not appear again
-  before its disappearance has been reported, a disappearance is not issued
-  less than 50 ms after the appearance, and the same EventCode/EventQualifier is
-  not reported more than once per second. A re-trigger inside that second is
-  deferred by `iolink_events_process()` rather than dropped. Notifications stay
-  single shot. New public API: `iolink_event_clear()`,
-  `iolink_events_process()`, `iolink_events_reset()`,
-  `iolink_events_get_dropped_count()` and `iolink_event_classify()`;
-  `iolink_event_t` gained a `mode` field.
-- `IOLINK_EVENT_MIN_APPEAR_MS` (50 ms), `IOLINK_EVENT_MIN_REPEAT_MS` (1 s) and
-  `IOLINK_EVENT_PENDING_MAX` (8) configuration macros.
-- Events lost because the queue or the `IOLINK_EVENT_PENDING_MAX` lifecycle
-  table is full are counted by `iolink_events_get_dropped_count()`, so the loss
-  is observable instead of silent.
+- Event Dispatcher lifecycle (V1.1.5 10.10.2): `iolink_event_appear()`,
+  `iolink_event_disappear()` (explicit clear, deferred until 50 ms after
+  "appears"), single-shot `iolink_event_notify()`, `iolink_events_process()`
+  (called by `iolink_dll_process()`), a 1 s repeat interval per EventCode and
+  EventQualifier, and a saturating `iolink_events_dropped()` counter. `_at`
+  variants take an explicit wrap-safe millisecond time.
+- `iolink_events_startup_reset()`: the DLL discards queued Events and the
+  Event flag on entry to STARTUP; active conditions are reported again.
+- DataStorageIndex 0x0003 Subindex 1-5 (Table B.10): DS_Command,
+  State_Property, Data_Storage_Size, Parameter_Checksum and Index_List.
+  Subindex 0 keeps the device-specific serialized image.
+- Block Parameterization staging: in a download session (ParamDownloadStart
+  or DS_DownloadStart) tag writes and 0x0003 image writes are checked and
+  staged; End/Store commits them with one checked NVM write.
+  New `iolink_ds_stage_param()`, `iolink_ds_handle_ds_command()`,
+  `iolink_ds_download_open()`, `iolink_ds_upload_open()`,
+  `iolink_ds_state_property()`, `iolink_ds_storage_size()`,
+  `iolink_ds_index_list()`.
+- MasterCommand 0x98 (PDOUTVALID) / 0x99 (PDOUTINVALID) handling in OPERATE
+  and last valid Process Data snapshots: `iolink_dll_publish_pd_in()`,
+  `iolink_dll_get_last_valid_pd_in()`, `iolink_dll_get_last_valid_pd_out()`.
+- Back-to-box communication stop: `iolink_dll_disable_communication()`.
+- `iolink_events_clear_status()` for Restore factory settings (Table 101).
+- `iolink_params_ctx_reset_access_locks()`.
+- Reset types `IOLINK_RESET_RESTORE_FACTORY` and `IOLINK_RESET_BACK_TO_BOX`;
+  ISDU reset service hook `iolink_isdu_ctx_t.system_reset`.
+- Device-level integration test `tests/test_integration_ds_reset.c`.
 
 ### Changed
-- **ISDU conformance with Table B.8/B.9 (breaking change).** SystemCommand
-  codes now follow Table B.9 (`ParamUploadStart/End` 0x01/0x02,
-  `ParamDownloadStart/End` 0x03/0x04, `ParamDownloadStore` 0x05,
-  `ParamBreak` 0x06). This remaps the previously used 0x05 (now
-  `ParamDownloadStore`), 0x06 (now `ParamBreak`), 0x07 and 0x08 (now
-  reserved). 0x07-0x09 and the non-standard 0x95-0x97 are rejected with
-  `FUNC_NOTAVAIL` (0x35), and 0x84-0x9F is reserved, so masters and tools that
-  use the old codes must be updated. `IOLINK_CMD_RESTORE_APP_DEFAULTS` is
-  renamed to `IOLINK_CMD_BACK_TO_BOX` (same code 0x83).
-- The non-standard VendorID and DeviceID ISDU indices (0x000A/0x000B, both in
-  the reserved 0x0004-0x000B range of Table B.8) are removed, together with
-  `IOLINK_IDX_VENDOR_ID` and `IOLINK_IDX_DEVICE_ID`; both fields are only
-  available through Direct Parameter Page 1 (0x07-0x0B).
-- ErrorCount (0x0020) and ProductURI (0x001B) are served. A read of an
-  unconfigured optional identification string (for example ProductURI without
-  `product_uri`) returns `0x80 0x11`. Writes to read-only objects return
-  `0x80 0x23`, the Parameter access lock covers tag writes, and a non-zero
-  subindex on single-element objects returns `0x80 0x12`.
-- **ProcessDataInput/ProcessDataOutput and ProfileCharacteristic (breaking
-  change).** ISDU `0x0028`/`0x0029` now return the Process Data content of the
-  PDin/PDout channel as defined by B.2.23/B.2.24 instead of a single PD length
-  octet, so clients that parsed the old length reply must be updated.
-  `0x0028` answers `0x80 0x11` while the DLL flags PDin as invalid, and
-  `0x0029` answers `0x80 0x11` until a PDout frame has been received; a device
-  without PD answers with an empty positive response. `0x000D` is exposed as the ArrayT
-  of UIntegerT16 described in B.2.5, served for subindex 0/1 and answering
-  `0x80 0x11` when no Profile is implemented.
-- `MinCycleTime` in Direct Parameter Page 1 is encoded per Table B.3 instead of
-  carrying the raw value. 0 still encodes as 0x00 ("no MinCycleTime", B.1.3),
-  values below 0.4 ms clamp to 0.4 ms, values between steps round up, and
-  values above 132.8 ms saturate.
-- ErrorCount sums the DLL CRC, framing, timeout and timing counters and
-  saturates at 0xFFFF. B.2.20 makes the content vendor/Device specific and asks
-  for errors since power-on or reset.
-- Device diagnosis and status follow Table 101: Device reset (0x80), Restore
-  factory settings (0x82) and Back-to-box (0x83) clear ErrorCount and the event
-  memory behind DeviceStatus (0x0024) / DetailedDeviceStatus (0x0025), while
-  Application reset (0x81) leaves them untouched.
-- **Event memory freeze point (Table 60 T3).** The Table 58 diagnosis memory is
-  now frozen when the Event flag is raised instead of on the first readout, so
-  every readout returns one consistent snapshot. A StatusCode write
-  acknowledges exactly the queue entries that were presented (tracked by
-  internal insertion ids), not the first N entries of the current queue, so an
-  event that becomes more severe while the memory is frozen is never
-  acknowledged unseen.
-- `iolink_dll_process()` now services `iolink_events_process()`, so a normal
-  application no longer has to call it to get disappearances. Applications that
-  drive the event engine without `iolink_dll_process()` must call it
-  periodically (documented in `include/iolinki/events.h`).
-- Index `0x0024` (DeviceStatus) is mapped per Table B.13 (0 OK, 1
-  Maintenance-Required, 2 Out-of-Specification, 3 Functional-Check, 4 Failure)
-  with the correct dominance order. Index `0x0025` (DetailedDeviceStatus) is
-  built from the active appears set; subindex 0 returns the whole list, while
-  element access through subindex 1..n is a device extension (B.2.22 describes
-  subindex 0 only).
-- Queued events and the lifecycle state are discarded on the transition to
-  STARTUP (10.10.2: the queue is discarded when communication is interrupted or
-  cancelled).
-- **Spec conformance follow-up: device context, access locks, reset and Data
-  Storage.** The ISDU engine reads the identification data and
-  DeviceAccessLocks from the device-local `iolink_device_info_ctx_t` bound by
-  `iolink_device_init()`; the process-wide singleton is only a fallback. The
-  locks are persisted in NVM, restored on startup and returned to the state of
-  delivery by the reset commands; a reset whose NVM commit fails answers
-  `0x80 0x00` instead of reporting a change a power cycle would undo.
-- Every reset discards an active Block Parameter transfer (Table 101
-  "Discard"), Application reset (0x81) requests a Data Storage upload, and
-  Back-to-box (0x83) stops communication after the bounded wait of 10.7.5. The
-  reset commands reset ErrorCount and the diagnosis as required by Table 101.
-- Data Storage downloads are validated completely before any parameter is
-  written; a rejected image is not readable through 0x0003, and the image and
-  checksum are rebuilt from the device's actual parameters after a failed
-  ParamDownloadEnd/ParamDownloadStore. ParamDownloadStore starts the upload and
-  the NVM record layout is published as the `IOLINK_NVM_*` macros.
-- ISDU negative responses are consistent: read-only objects answer
-  `0x80 0x23`, length errors `0x80 0x33`/`0x80 0x34`, an unimplemented index
-  `0x80 0x11` and an unsupported subindex `0x80 0x12`.
-  `IOLINK_ISDU_ERROR_IDX_NOT_AVAIL`, `_SERVICE_UNAVAIL`,
-  `_PARAM_LEN_OVERRUN` and `_APP_DEVICE` are added.
+- **Behavior change:** SystemCommands 0x80, 0x81 and 0x83 answer 0x8035
+  FUNC_NOTAVAIL when no reset handler is registered, instead of a positive
+  response without action. 0x81 runs the handler before the response; 0x80
+  and 0x83 run after the response was read and 3 more M-sequences
+  (10.7.2, 10.7.5).
+- **Behavior change:** `iolink_ds_process()` no longer commits or closes a
+  session; it only moves REQ to the active state. The DLL now calls it every
+  cycle. A communication restart (STARTUP) breaks an open session.
+- **Behavior change:** ProcessDataOutput 0x0029 returns the last PDout
+  received after MasterCommand 0x98, not the current buffer in OPERATE.
+  ProcessDataInput 0x0028 returns the last PDin published as valid.
+- The Data Storage access lock refuses writes to 0x0003 (0x8023) and no
+  longer blocks Block Parameterization (B.2.4). The Parameter (write) lock
+  now refuses single parameter writes except inside a DS download.
+- DeviceAccessLocks 0x000C over ISDU are device-local and non-volatile;
+  reserved bits (0x8030), wrong length (0x8033/0x8034) and NVM failure
+  (0x8000) are refused without change.
+- Python virtual master: `last_isdu_error`, `read_vendor_id()`,
+  `read_device_id()`. Conformance scripts use Table B.9 values and read
+  VendorID/DeviceID from Direct Parameter page 1.
 
 ### Fixed
+- `IOLINK_ISDU_ERROR_PARAM_INCONSISTENT` is 0x41 (PAR_SETINCONSIST, C.2.17);
+  it was 0x40 (PAR_SETINVALID, now `IOLINK_ISDU_ERROR_PARAM_SET_INVALID`).
+- A rejected write in a download session makes End/Store fail with 0x8041
+  and keeps the previous set (Table 98 rules 4 and 7); previously End
+  reported success.
+- ParamDownloadStore passes 0x05 to the DS engine (backend store and
+  DS_UPLOAD_FLAG) and raises DS_UPLOAD_REQ as a single-shot Notification only
+  after a successful commit. A failed commit answers 0x8041 (invalid set) or
+  0x8000 (NVM failure) instead of 0x8035.
+- Restore factory settings uses the checked reset: an NVM failure answers
+  0x8000 and changes nothing; success also clears Events, DeviceStatus,
+  DetailedDeviceStatus, ErrorCount and the DS upload request.
+- A tag write rejected by NVM answers 0x8000 (APP_DEV), not 0x8011.
+- Event memory confirmation removes exactly the Events shown in the frozen
+  memory; Events that arrive while frozen are kept. The memory lists Errors
+  before Warnings. A full queue no longer evicts presented entries.
+- DeviceStatus (0x0024) follows Table B.13: Error reports 4 (Failure), not 3.
+  `IOLINK_DEVICE_STATUS_FAILURE` is now 4 and
+  `IOLINK_DEVICE_STATUS_FUNCTIONAL_CHECK` (3) was added.
+- DetailedDeviceStatus (0x0025) lists active "appears" Warnings/Errors only;
+  cleared conditions and Notifications are not listed.
+- Default `IOLINK_EVENT_QUEUE_SIZE` raised from 4 to 8 so the six event memory
+  slots can be filled.
 - **Streaming M-sequence request framing (wire change).** Read requests now
   carry no On-request Data octets: a typed read is `MC + CKT + PD-out`, while a
   write is `MC + CKT + PD-out + OD`. Type 0 write requests on the page,
@@ -129,13 +95,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `iolinki-master` frames its ISDU and diagnosis read requests without OD and
   uses the same per-type OD widths, so the device/master pair remains
   interoperable.
-
-### Removed
-- The non-standard `IOLINK_EVENT_APP_TEMP_*` and `IOLINK_EVENT_HW_*` macros.
-  Use the standardized `IOLINK_EVENTCODE_*` values (Annex D, Table D.1) instead;
-  `IOLINK_EVENTCODE_TEMPERATURE_OVERRUN`/`_UNDERRUN`, `_HARDWARE_FAULT`,
-  `_NVM_LOSS`, `_COMPONENT_MALFUNCTION` and `_PARAMETER_ERROR` cover the same
-  conditions with the spec-defined EventCodes.
 
 ## [2.2.0] - 2026-10-17
 
