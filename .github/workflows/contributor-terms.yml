@@ -1,0 +1,42 @@
+name: External contribution licensing
+
+# Metadata-only gate: do not check out or run untrusted PR code.
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  contributor-terms:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check affirmative dual-licensing consent
+        run: |
+          python3 - <<'PYCODE'
+          import json
+          import os
+
+          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as handle:
+              event = json.load(handle)
+          request = event["pull_request"]
+          author = request["user"]["login"]
+          if author == "w1ne":
+              print("Repository owner contribution; no third-party consent needed.")
+              raise SystemExit(0)
+
+          body = request.get("body") or ""
+          lines = set(body.splitlines())
+          confirmations = (
+              "- [x] I have the right to submit this contribution and have disclosed any third-party content and licences.",
+              "- [x] I agree to the [iolinki Contributor Terms](https://github.com/w1ne/iolinki/blob/develop/docs/CONTRIBUTOR_TERMS.md), including GPLv3 and commercial sales licensing.",
+          )
+          missing = [line for line in confirmations if line not in lines]
+          if missing:
+              print("External PR requires explicit acceptance of the contributor terms.")
+              for line in missing:
+                  print("Missing checkbox: " + line)
+              raise SystemExit(1)
+          print("Contributor dual-licensing consent is recorded in the PR description.")
+          PYCODE
