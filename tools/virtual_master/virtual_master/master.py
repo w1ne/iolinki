@@ -58,6 +58,7 @@ class VirtualMaster:
         m_seq_type: int = 0,
         pd_in_len: int = 0,
         pd_out_len: int = 0,
+        od_len: Optional[int] = None,
     ):
         """
         Initialize Virtual Master.
@@ -67,9 +68,14 @@ class VirtualMaster:
             m_seq_type: M-sequence type (0, 1, 2, 4, 5, etc.)
             pd_in_len: Process Data Input length (bytes)
             pd_out_len: Process Data Output length (bytes)
+            od_len: Optional OD width override for TYPE_2_V (1 or 2 bytes)
         """
         self.uart = uart or VirtualUART()
         self.m_seq_type = m_seq_type
+        if od_len is not None:
+            if m_seq_type != MSequenceType.TYPE_2_V or od_len not in (1, 2):
+                raise ValueError("OD width override requires TYPE_2_V and 1 or 2 bytes")
+            self.od_len = od_len
         self.pd_in_len = pd_in_len
         self.pd_out_len = pd_out_len
 
