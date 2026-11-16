@@ -29,38 +29,15 @@ static const struct
 {
     uint16_t index;
     uint8_t subindex;
-    uint8_t max_len; /* Table B.8 StringT limit (B.2.16-B.2.18: max 32 octets) */
 } k_ds_params[] = {
-    {IOLINK_IDX_APPLICATION_TAG, 0U, 32U},
-    {IOLINK_IDX_FUNCTION_TAG, 0U, 32U},
-    {IOLINK_IDX_LOCATION_TAG, 0U, 32U},
+    {IOLINK_IDX_APPLICATION_TAG, 0U},
+    {IOLINK_IDX_FUNCTION_TAG, 0U},
+    {IOLINK_IDX_LOCATION_TAG, 0U},
 };
 
 #define DS_PARAM_COUNT (sizeof(k_ds_params) / sizeof(k_ds_params[0]))
 #define DS_RECORD_HEADER 4U /* index(2) + subindex(1) + length(1) */
 #define DS_PARAM_VALUE_MAX 64U
-
-/** @brief Match a DS-set parameter address; -1 when it is outside the set. */
-static int ds_param_find(uint16_t index, uint8_t subindex)
-{
-    for (size_t i = 0U; i < DS_PARAM_COUNT; i++) {
-        if ((k_ds_params[i].index == index) && (k_ds_params[i].subindex == subindex)) {
-            return (int) i;
-        }
-    }
-    return -1;
-}
-
-/** @brief True when @p index belongs to the DS set with a different subindex. */
-static bool ds_param_misaddressed(uint16_t index, uint8_t subindex)
-{
-    for (size_t i = 0U; i < DS_PARAM_COUNT; i++) {
-        if ((k_ds_params[i].index == index) && (k_ds_params[i].subindex != subindex)) {
-            return true;
-        }
-    }
-    return false;
-}
 
 void iolink_ds_init(iolink_ds_ctx_t* ctx, const iolink_ds_storage_api_t* storage)
 {
@@ -155,29 +132,16 @@ int iolink_ds_apply_image(iolink_ds_ctx_t* ctx, const uint8_t* data, size_t len)
         return -1;
     }
 
-    /* Validate the full record structure and every address this Device owns
-       before applying anything, so a rejected image never partially overwrites
-       parameters (Table 98 rule 6). */
+    /* Validate the full record structure before applying anything, so a
+       truncated or corrupt image never partially overwrites parameters. */
     size_t pos = 0U;
     while (pos < len) {
         if ((pos + DS_RECORD_HEADER) > len) {
             return -1; /* Truncated header */
         }
-        const uint16_t index = (uint16_t) (((uint16_t) data[pos] << 8) | data[pos + 1U]);
-        const uint8_t subindex = data[pos + 2U];
-        const size_t rlen = (size_t) data[pos + 3U];
+        size_t rlen = (size_t) data[pos + 3U];
         if ((pos + DS_RECORD_HEADER + rlen) > len) {
             return -1; /* Truncated data */
-        }
-        const int param = ds_param_find(index, subindex);
-        if (param < 0) {
-            if (ds_param_misaddressed(index, subindex)) {
-                return -1; /* Known parameter with a wrong subindex */
-            }
-            /* A replacement Device may omit a backed-up parameter. */
-        }
-        else if (rlen > (size_t) k_ds_params[param].max_len) {
-            return -1; /* Value exceeds the StringT fixedLength (Table B.8) */
         }
         pos += DS_RECORD_HEADER + rlen;
     }
@@ -189,15 +153,7 @@ int iolink_ds_apply_image(iolink_ds_ctx_t* ctx, const uint8_t* data, size_t len)
         uint16_t index = (uint16_t) (((uint16_t) data[pos] << 8) | (uint16_t) data[pos + 1U]);
         uint8_t subindex = data[pos + 2U];
         size_t rlen = (size_t) data[pos + 3U];
-        /* A replacement Device may omit a backed-up parameter; unknown records
-           are intentionally skipped. Known DS parameters must apply cleanly. */
-        if ((ds_param_find(index, subindex) >= 0) &&
-            (ds_params_set(ctx, index, subindex, &data[pos + DS_RECORD_HEADER], rlen, true) != 0)) {
-            /* Persistence failure after the validation pass: the remaining
-               records were not applied, but earlier records may already be in
-               NVM. The parameter manager has no transactional commit. */
-            return -1;
-        }
+        (void) ds_params_set(ctx, index, subindex, &data[pos + DS_RECORD_HEADER], rlen, true);
         pos += DS_RECORD_HEADER + rlen;
     }
 
@@ -281,22 +237,12 @@ void iolink_ds_process(iolink_ds_ctx_t* ctx)
             break;
 
         case IOLINK_DS_STATE_DOWNLOADING:
-            /* Commit a staged image if one was written to DS_Data (0x0003). A
-               rejected image is discarded without touching the active
-               parameters. The checksum is always recomputed from the device's
-               ACTUAL parameters, never copied from the Master: adopting the
-               Master value would mark a rejected/never-staged download as
-               synchronised (Table 98 rule 6). */
+            /* Commit a staged image if one was written to DS_Data (0x0003). */
             if (ctx->image_len > 0U) {
-                if (iolink_ds_apply_image(ctx, ctx->image, ctx->image_len) != 0) {
-                    ctx->image_len = 0U;
-                    (void) iolink_ds_build_image(ctx);
-                    ctx->state = IOLINK_DS_STATE_IDLE;
-                    break;
-                }
+                (void) iolink_ds_apply_image(ctx, ctx->image, ctx->image_len);
             }
             else {
-                (void) iolink_ds_build_image(ctx);
+                ctx->current_checksum = ctx->master_checksum;
             }
             ctx->state = IOLINK_DS_STATE_IDLE;
             break;
@@ -343,24 +289,8 @@ int iolink_ds_abort(iolink_ds_ctx_t* ctx)
         return -1;
     }
 
-    /* 10.3.5: ParamBreak aborts the transfer without changing the parameter
-       settings, so the staged Master image must not stay readable through
-       0x0003. Fall back to the Device's own parameters. */
-    return iolink_ds_discard(ctx);
-}
-
-int iolink_ds_discard(iolink_ds_ctx_t* ctx)
-{
-    if (ctx == NULL) {
-        return -1;
-    }
-
+    /* Abort any active DS operation */
     ctx->state = IOLINK_DS_STATE_IDLE;
-    /* A staged Master image must never be applied after a reset command. Keep
-       the image/checksum pair consistent (verify() true, get_image() serves the
-       device's own parameters). */
-    ctx->image_len = 0U;
-    (void) iolink_ds_build_image(ctx);
     return 0;
 }
 
@@ -371,8 +301,7 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
     }
 
     /* Check Access Locks for Download Commands (Write to Device) */
-    if ((cmd == IOLINK_CMD_PARAM_DOWNLOAD_START) || (cmd == IOLINK_CMD_PARAM_DOWNLOAD_END) ||
-        (cmd == IOLINK_CMD_PARAM_DOWNLOAD_STORE)) {
+    if ((cmd == IOLINK_CMD_PARAM_DOWNLOAD_START) || (cmd == IOLINK_CMD_PARAM_DOWNLOAD_END)) {
         if ((access_locks & IOLINK_LOCK_DS) != 0U) {
             /* DS Logic is locked */
             return -2; /* Signal Access Denied (user should map to ISDU error) */
@@ -380,7 +309,7 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
     }
 
     switch (cmd) {
-        case IOLINK_CMD_PARAM_UPLOAD_START: /* 0x01 */
+        case IOLINK_CMD_PARAM_UPLOAD_START: /* 0x07 */
             /* Master wants to read parameters (Upload) */
             if (ctx->state != IOLINK_DS_STATE_IDLE) {
                 return -1; /* Busy */
@@ -389,14 +318,14 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
             ctx->state = IOLINK_DS_STATE_UPLOAD_REQ;
             break;
 
-        case IOLINK_CMD_PARAM_UPLOAD_END: /* 0x02 */
+        case IOLINK_CMD_PARAM_UPLOAD_END: /* 0x08 */
             /* Finish upload */
             if (ctx->state == IOLINK_DS_STATE_UPLOADING) {
                 ctx->state = IOLINK_DS_STATE_IDLE;
             }
             break;
 
-        case IOLINK_CMD_PARAM_DOWNLOAD_START: /* 0x03 */
+        case IOLINK_CMD_PARAM_DOWNLOAD_START: /* 0x05 */
             /* Master wants to write parameters (Download) */
             if (ctx->state != IOLINK_DS_STATE_IDLE) {
                 return -1; /* Busy */
@@ -405,50 +334,17 @@ int iolink_ds_handle_command(iolink_ds_ctx_t* ctx, uint8_t cmd, uint16_t access_
             ctx->state = IOLINK_DS_STATE_DOWNLOAD_REQ;
             break;
 
-        case IOLINK_CMD_PARAM_DOWNLOAD_END: /* 0x04 */
+        case IOLINK_CMD_PARAM_DOWNLOAD_END: /* 0x06 */
             /* Commit the parameter image staged via DS_Data (0x0003). */
             if (ctx->state == IOLINK_DS_STATE_DOWNLOADING) {
                 if (ctx->image_len > 0U) {
-                    if (iolink_ds_apply_image(ctx, ctx->image, ctx->image_len) != 0) {
-                        /* Table 98 rule 6: the previous parameter set stays
-                           active and the rejected image must not be readable
-                           through DS_Data (0x0003). */
-                        ctx->image_len = 0U;
-                        (void) iolink_ds_build_image(ctx);
-                        return -4;
-                    }
+                    (void) iolink_ds_apply_image(ctx, ctx->image, ctx->image_len);
                 }
                 ctx->state = IOLINK_DS_STATE_IDLE;
             }
             break;
 
-        case IOLINK_CMD_PARAM_DOWNLOAD_STORE: /* 0x05 */
-            /* 10.3.5: terminates the Block Parameter transfer like
-               ParamDownloadEnd and additionally starts the Data Storage upload
-               (DS_UPLOAD_REQ, 10.4.2). It also applies after single-parameter
-               writes, so it is accepted from Idle as well. */
-            if ((ctx->state != IOLINK_DS_STATE_IDLE) &&
-                (ctx->state != IOLINK_DS_STATE_DOWNLOADING)) {
-                return -1; /* Busy */
-            }
-            if (ctx->state == IOLINK_DS_STATE_DOWNLOADING) {
-                if (ctx->image_len > 0U) {
-                    if (iolink_ds_apply_image(ctx, ctx->image, ctx->image_len) != 0) {
-                        /* Same rule as ParamDownloadEnd: discard the rejected
-                           image so 0x0003 cannot serve it. */
-                        ctx->image_len = 0U;
-                        (void) iolink_ds_build_image(ctx);
-                        return -4;
-                    }
-                }
-            }
-            if (iolink_ds_build_image(ctx) < 0) {
-                return -4;
-            }
-            ctx->state = IOLINK_DS_STATE_UPLOAD_REQ;
-            break;
-
-        case IOLINK_CMD_PARAM_BREAK: /* 0x06 */
+        case IOLINK_CMD_PARAM_BREAK: /* 0x97 / Standard Break */
             return iolink_ds_abort(ctx);
 
         default:

@@ -65,13 +65,8 @@
 #define IOLINK_FLOWCTRL_COUNT_MASK 0x0FU /**< COUNT M-sequence counter mask. */
 
 /** @brief MasterCommand value written to Direct Parameter page address 0x00 (Table B.2). */
-#define IOLINK_CMD_FALLBACK 0x5AU             /**< Transition to SIO (T_FBD, Table 43). */
-#define IOLINK_CMD_MASTER_IDENT 0x95U         /**< MasterIdent: master revision > 1.0. */
-#define IOLINK_CMD_DEVICE_IDENT 0x96U         /**< DeviceIdent: check DPP for changed entries. */
-#define IOLINK_CMD_DEVICE_STARTUP 0x97U       /**< DeviceStartup: -> STARTUP. */
-#define IOLINK_CMD_PROCESS_DATA_OPERATE 0x98U /**< ProcessDataOutputOperate: PD valid. */
-#define IOLINK_CMD_DEVICE_OPERATE 0x99U       /**< DeviceOperate: PD invalid, -> OPERATE. */
-#define IOLINK_CMD_DEVICE_PREOPERATE 0x9AU    /**< DevicePreoperate: -> PREOPERATE. */
+#define IOLINK_CMD_FALLBACK 0x5AU       /**< Transition to SIO (T_FBD, Table 43). */
+#define IOLINK_CMD_DEVICE_OPERATE 0x99U /**< Switch to OPERATE. */
 /** @} */
 
 /**
@@ -104,6 +99,8 @@
 #define IOLINK_IDX_DIRECT_PARAMETERS_2 0x0001U    /**< Direct Parameter page 2. */
 #define IOLINK_IDX_SYSTEM_COMMAND 0x0002U         /**< System Command index. */
 #define IOLINK_IDX_DATA_STORAGE 0x0003U           /**< Data Storage object (parameter image). */
+#define IOLINK_IDX_VENDOR_ID 0x000AU              /**< Vendor ID index. */
+#define IOLINK_IDX_DEVICE_ID 0x000BU              /**< Device ID index. */
 #define IOLINK_IDX_DEVICE_ACCESS_LOCKS 0x000CU    /**< Device Access Locks index. */
 #define IOLINK_IDX_PROFILE_CHARACTERISTIC 0x000DU /**< Profile characteristic index. */
 #define IOLINK_IDX_VENDOR_NAME 0x0010U            /**< Vendor name index. */
@@ -117,13 +114,11 @@
 #define IOLINK_IDX_APPLICATION_TAG 0x0018U        /**< Application tag index. */
 #define IOLINK_IDX_FUNCTION_TAG 0x0019U           /**< Function tag index. */
 #define IOLINK_IDX_LOCATION_TAG 0x001AU           /**< Location tag index. */
-#define IOLINK_IDX_PRODUCT_URI 0x001BU            /**< Product URI index (optional). */
 #define IOLINK_IDX_ERROR_COUNT 0x0020U            /**< ErrorCount index (2 octets). */
 #define IOLINK_IDX_DEVICE_STATUS 0x0024U          /**< DeviceStatus index (1 octet). */
 #define IOLINK_IDX_DETAILED_DEVICE_STATUS 0x0025U /**< DetailedDeviceStatus index (Table B.8). */
-#define IOLINK_IDX_PROCESS_DATA_INPUT 0x0028U     /**< ProcessDataInput index (last valid PDin). */
-#define IOLINK_IDX_PROCESS_DATA_OUTPUT 0x0029U /**< ProcessDataOutput index (last valid PDout). */
-#define IOLINK_IDX_ERROR_STATS 0x0040U         /**< Vendor-specific error statistics (0x0040+). */
+#define IOLINK_IDX_PROCESS_DATA_INPUT 0x0028U     /**< ProcessDataInput descriptor index. */
+#define IOLINK_IDX_ERROR_STATS 0x0040U /**< Vendor-specific error statistics (0x0040+). */
 /** @} */
 
 /**
@@ -131,23 +126,26 @@
  * @ingroup iolinki_protocol
  * @{
  */
-#define IOLINK_CMD_PARAM_UPLOAD_START 0x01U   /**< ParamUploadStart (Table B.9). */
-#define IOLINK_CMD_PARAM_UPLOAD_END 0x02U     /**< ParamUploadEnd (Table B.9). */
-#define IOLINK_CMD_PARAM_DOWNLOAD_START 0x03U /**< ParamDownloadStart (Table B.9). */
-#define IOLINK_CMD_PARAM_DOWNLOAD_END 0x04U   /**< ParamDownloadEnd (Table B.9). */
-#define IOLINK_CMD_PARAM_DOWNLOAD_STORE 0x05U /**< ParamDownloadStore (Table B.9). */
-#define IOLINK_CMD_PARAM_BREAK 0x06U          /**< ParamBreak (Table B.9). */
+#define IOLINK_CMD_PARAM_DOWNLOAD_START 0x05U /**< ParamDownloadStart command. */
+#define IOLINK_CMD_PARAM_DOWNLOAD_END 0x06U   /**< ParamDownloadEnd command. */
+#define IOLINK_CMD_PARAM_UPLOAD_START 0x07U   /**< ParamUploadStart command. */
+#define IOLINK_CMD_PARAM_UPLOAD_END 0x08U     /**< ParamUploadEnd command. */
+#define IOLINK_CMD_PARAM_DOWNLOAD_STORE 0x09U /**< ParamDownloadStore (V1.0/optional). */
 /** @} */
 
 /**
- * @defgroup iolinki_protocol_legacy_cmd Reset and Factory Commands (Table B.9)
+ * @defgroup iolinki_protocol_legacy_cmd Legacy / Non-Standard Commands (Deprecating)
  * @ingroup iolinki_protocol
  * @{
  */
-#define IOLINK_CMD_DEVICE_RESET 0x80U             /**< Device reset (Table B.9). */
-#define IOLINK_CMD_APPLICATION_RESET 0x81U        /**< Application reset (Table B.9). */
-#define IOLINK_CMD_RESTORE_FACTORY_SETTINGS 0x82U /**< Restore factory settings (Table B.9). */
-#define IOLINK_CMD_BACK_TO_BOX 0x83U              /**< Back-to-box (Table B.9). */
+#define IOLINK_CMD_DEVICE_RESET 0x80U             /**< Device reset command. */
+#define IOLINK_CMD_APPLICATION_RESET 0x81U        /**< Application reset command. */
+#define IOLINK_CMD_RESTORE_FACTORY_SETTINGS 0x82U /**< Restore factory settings command. */
+#define IOLINK_CMD_RESTORE_APP_DEFAULTS 0x83U     /**< Restore application defaults command. */
+#define IOLINK_CMD_SET_COMM_MODE 0x84U            /**< Set communication mode command. */
+#define IOLINK_CMD_PARAM_UPLOAD 0x95U             /**< Parameter upload command. */
+#define IOLINK_CMD_PARAM_DOWNLOAD 0x96U           /**< Parameter download command. */
+#define IOLINK_CMD_PARAM_BREAK 0x97U              /**< Parameter break command. */
 /** @} */
 
 /**
@@ -166,23 +164,15 @@
  * @ingroup iolinki_protocol
  * @{
  */
-#define IOLINK_ISDU_ERROR_NONE 0x00U          /**< No error. */
-#define IOLINK_ISDU_ERROR_APP_DEVICE 0x00U    /**< Device application error (C.2.2). */
-#define IOLINK_ISDU_ERROR_IDX_NOT_AVAIL 0x11U /**< Requested index not available (C.2.3). */
-#define IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL \
-    IOLINK_ISDU_ERROR_IDX_NOT_AVAIL /**< Deprecated alias of IOLINK_ISDU_ERROR_IDX_NOT_AVAIL. */
+#define IOLINK_ISDU_ERROR_NONE 0x00U               /**< No error. */
+#define IOLINK_ISDU_ERROR_SERVICE_NOT_AVAIL 0x11U  /**< Requested service not available. */
 #define IOLINK_ISDU_ERROR_SUBINDEX_NOT_AVAIL 0x12U /**< Requested subindex not available. */
-#define IOLINK_ISDU_ERROR_SERVICE_UNAVAIL 0x20U    /**< Service not available (C.2.5). */
 #define IOLINK_ISDU_ERROR_NOT_ACCESSIBLE 0x23U     /**< Object access denied (Table C.1). */
 #define IOLINK_ISDU_ERROR_FUNCTION_NOT_AVAIL \
-    0x35U /**< Command function not available (Table C.1). */
-#define IOLINK_ISDU_ERROR_FUNCTION_TEMP_UNAVAIL \
-    0x36U                                         /**< Function temporarily unavailable (C.2.15). */
-#define IOLINK_ISDU_ERROR_WRITE_PROTECTED 0x23U   /**< Access denied, Table C.1. */
-#define IOLINK_ISDU_ERROR_PARAM_LEN_OVERRUN 0x33U /**< Parameter length overrun (C.2.12). */
-#define IOLINK_ISDU_ERROR_PARAM_LEN_UNDERRUN 0x34U /**< Parameter length underrun (C.2.13). */
-#define IOLINK_ISDU_ERROR_PARAM_SET_INVALID 0x40U  /**< Parameter set invalid (C.2.16). */
-#define IOLINK_ISDU_ERROR_PARAM_INCONSISTENT 0x41U /**< Parameter set inconsistent (C.2.17). */
+    0x35U                                       /**< Command function not available (Table C.1). */
+#define IOLINK_ISDU_ERROR_BUSY 0x30U            /**< Device busy. */
+#define IOLINK_ISDU_ERROR_WRITE_PROTECTED 0x23U /**< Access denied, Table C.1. */
+#define IOLINK_ISDU_ERROR_PARAM_INCONSISTENT 0x40U /**< Parameter set inconsistent. */
 #define IOLINK_ISDU_ERROR_SEGMENTATION 0x81U       /**< Segmentation error. */
 /** @} */
 
