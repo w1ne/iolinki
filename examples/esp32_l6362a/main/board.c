@@ -204,8 +204,17 @@ static bool diag(void* u)
     (void) u;
     return gpio_get_level(PIN_DIAG) != 0;
 }
-static const iolink_l6362a_io_t io = {NULL,     initialize, enable,  in2, configure,
-                                      transmit, receive,    consume, ol,  diag};
+static const iolink_l6362a_io_t io = {.user = NULL,
+                                      .init = initialize,
+                                      .set_enable = enable,
+                                      .set_in2 = in2,
+                                      .uart_configure = configure,
+                                      .uart_send_complete = transmit,
+                                      .uart_recv = receive,
+                                      .consume_wakeup = consume,
+                                      .read_ol = ol,
+                                      .read_diag = diag,
+                                      .get_response_timing = NULL};
 const iolink_l6362a_io_t* board_io(void)
 {
     return &io;
