@@ -92,7 +92,7 @@ static void setup(iolink_dll_ctx_t* ctx, iolink_baudrate_t baud, bool type0)
     iolink_dll_init(ctx, &phy);
     ctx->state = IOLINK_DLL_STATE_OPERATE;
     ctx->m_seq_type = type0 ? IOLINK_M_SEQ_TYPE_0 : IOLINK_M_SEQ_TYPE_1_1;
-    ctx->pd_in_len_current = type0 ? 0U : 1U;
+    ctx->pd_in_len_current = (uint8_t) (type0 ? 0U : 1U);
     ctx->pd_out_len_current = 0U;
     ctx->enforce_timing = true;
     ctx->t_byte_limit_us = 100000U;
