@@ -19,6 +19,7 @@ typedef struct
     int (*consume_wakeup)(void*);
     bool (*read_ol)(void*);
     bool (*read_diag)(void*);
+    int (*get_response_timing)(void*, iolink_phy_response_timing_t*);
 } iolink_l6362a_io_t;
 typedef struct
 {
