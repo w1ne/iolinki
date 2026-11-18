@@ -1,4 +1,7 @@
 find_package(PkgConfig QUIET)
+add_executable(test_response_timing test_response_timing.c)
+target_link_libraries(test_response_timing iolinki)
+add_test(NAME test_response_timing COMMAND test_response_timing)
 add_executable(test_switching_sensor test_switching_sensor.c ../examples/switching_sensor/switching_sensor.c)
 target_include_directories(test_switching_sensor PRIVATE ../examples/switching_sensor)
 add_test(NAME test_switching_sensor COMMAND test_switching_sensor)

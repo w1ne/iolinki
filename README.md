@@ -32,6 +32,35 @@ The companion master stack is [iolinki-master](https://github.com/w1ne/iolinki-m
 
 **Shipping a closed-source product?** A commercial license removes the GPLv3 obligations — email **andrii@shylenko.com** for terms (fast, no-friction). See [LICENSE](LICENSE) and [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL).
 
+## Physical response timing
+
+IO-Link Interface and System Specification V1.1.4, Annex A.3.5 defines device
+response time **t_A** from the last master stop bit to the first device start bit.
+The valid interval is **1–10 bit times**. Table 10's **T_REN <= 500 us** instead
+describes receive enable after wake-up. It is independent of reply length.
+
+A PHY can provide get_response_timing with fresh timestamps for the latest
+request/reply. A blocking send must record its **first start**, before waiting
+for UART transmission complete. Return IOLINK_PHY_TIMING_ESTIMATED for software
+observations such as interrupt and register-submission timestamps. Use
+IOLINK_PHY_TIMING_CAPTURED only for captured wire boundaries. The stack reports
+these counts separately. Neither a host test nor a software estimate qualifies
+physical timing.
+
+With timing enforcement enabled, a missing, invalid, reversed, future or
+overflowing sample raises a timing error and increments
+response_timing_unavailable. Every Type-0/1/2 response uses the same timing
+check. The limit uses the actual COM rate without rounding bit times. The
+t_a_violations counter is independent of t_ren_violations. A long blocking
+reply does not consume the response-start or wake-enable budget.
+
+The legacy set_t_ren_limit_us API now controls the measured SIO-to-SDCI
+receive-enable **processing** budget. Zero restores 500 us. PHY detection and
+interrupt latency still require a wire measurement. This setting cannot relax
+the 1–10 bit response-start interval.
+
+Source: [IO-Link Interface and System Specification V1.1.4, Table 10 and Annex A.3.5](https://io-link.com/fileadmin/user_upload/Downloads/Package_2024/IOL-Interface-Spec_10002_V114_Jun24.pdf).
+
 ## Quick Start
 
 For a runnable counter/button/LED software example, see

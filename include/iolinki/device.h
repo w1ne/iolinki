@@ -193,9 +193,9 @@ void iolink_device_get_dll_stats(const iolink_device_ctx_t* ctx, iolink_dll_stat
 void iolink_device_set_timing_enforcement(iolink_device_ctx_t* ctx, bool enable);
 
 /**
- * @brief Set the response-time (t_ren) limit.
+ * @brief Set the wake receive-enable processing limit (T_REN).
  * @param ctx       Device context.
- * @param limit_us  Response-time limit in microseconds.
+ * @param limit_us  Limit in microseconds; zero restores the Table 10 default.
  */
 void iolink_device_set_t_ren_limit_us(iolink_device_ctx_t* ctx, uint32_t limit_us);
 

@@ -90,7 +90,7 @@ static uint8_t dll_expected_req_len(const iolink_dll_ctx_t* ctx, uint8_t type_bi
     return (uint8_t) (IOLINK_M_SEQ_HEADER_LEN + ctx->pd_out_len_current + ctx->od_len);
 }
 
-/** @brief Return the response-time (t_REN) limit in us (C6/Table 10: 500 us). */
+/** @brief Wake receive-enable budget, independent of baudrate (Table 10). */
 static uint32_t dll_get_t_ren_limit_us(const iolink_dll_ctx_t* ctx)
 {
     if (ctx == NULL) {
@@ -101,6 +101,73 @@ static uint32_t dll_get_t_ren_limit_us(const iolink_dll_ctx_t* ctx)
     }
     /* Table 10: a single T_REN value at most 500 us, independent of baudrate. */
     return IOLINK_T_REN_US;
+}
+
+/** @brief Check response START delay (A.3.5), never full UART frame duration. */
+static void dll_check_response_timing(iolink_dll_ctx_t* ctx)
+{
+    iolink_phy_response_timing_t timing = {0};
+    ctx->response_timing_quality = IOLINK_PHY_TIMING_UNAVAILABLE;
+    const int available =
+        ctx->phy->get_response_timing ? ctx->phy->get_response_timing(ctx->phy->user, &timing) : 0;
+    const bool quality_valid = timing.quality == IOLINK_PHY_TIMING_ESTIMATED ||
+                               timing.quality == IOLINK_PHY_TIMING_CAPTURED;
+    if (available != 1 || !quality_valid || timing.tx_start_us < timing.rx_end_us ||
+        timing.tx_start_us - timing.rx_end_us > UINT32_MAX ||
+        timing.tx_start_us > iolink_time_get_us()) {
+        ctx->response_timing_unavailable++;
+        if (ctx->enforce_timing) {
+            ctx->timing_errors++;
+            iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING, IOLINK_EVENT_TYPE_WARNING);
+        }
+        return;
+    }
+    ctx->response_timing_quality = timing.quality;
+    ctx->response_time_us = (uint32_t) (timing.tx_start_us - timing.rx_end_us);
+    if (timing.quality == IOLINK_PHY_TIMING_CAPTURED)
+        ctx->response_timing_captured++;
+    else
+        ctx->response_timing_estimated++;
+
+    uint32_t baud;
+    switch (ctx->baudrate) {
+        case IOLINK_BAUDRATE_COM1:
+            baud = 4800U;
+            break;
+        case IOLINK_BAUDRATE_COM2:
+            baud = 38400U;
+            break;
+        case IOLINK_BAUDRATE_COM3:
+            baud = 230400U;
+            break;
+        default:
+            baud = 0U;
+            break;
+    }
+    /* Integer cross multiplication keeps the fractional bit-time bounds:
+       COM2 accepts integer-us samples 27..260, not a rounded 26..260. */
+    const uint64_t bit_fraction = (uint64_t) ctx->response_time_us * baud;
+    if (ctx->enforce_timing &&
+        (baud == 0U || bit_fraction < 1000000U || bit_fraction > 10000000U)) {
+        ctx->timing_errors++;
+        ctx->t_a_violations++;
+        iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING, IOLINK_EVENT_TYPE_WARNING);
+    }
+}
+
+/** @brief Common path for every Type-0/1/2 response and its timing sample. */
+static void dll_send_response(iolink_dll_ctx_t* ctx, const uint8_t* response, size_t length)
+{
+    if (ctx->phy->send == NULL) return;
+    const int sent = ctx->phy->send(ctx->phy->user, response, length);
+    /* Legacy PHYs return zero on success; positive values count bytes sent. */
+    if (sent < 0 || (sent > 0 && (size_t) sent != length)) {
+        ctx->framing_errors++;
+        ctx->response_timing_quality = IOLINK_PHY_TIMING_UNAVAILABLE;
+        return;
+    }
+    ctx->fallback_count = 0U;
+    dll_check_response_timing(ctx);
 }
 
 /** @brief Return the inter-byte timeout (16 bit-times) in us for the active baudrate. */
@@ -208,9 +275,7 @@ static void dll_handle_fallback_command(iolink_dll_ctx_t* ctx)
     uint8_t resp[1];
     resp[0] = 0x00U;
     resp[0] = iolink_checksum6(resp, 1U);
-    if (ctx->phy->send != NULL) {
-        ctx->phy->send(ctx->phy->user, resp, 1);
-    }
+    dll_send_response(ctx, resp, 1U);
     ctx->last_response_us = iolink_time_get_us();
 }
 
@@ -240,9 +305,7 @@ static void dll_handle_page_channel_read(iolink_dll_ctx_t* ctx, uint8_t mc)
         iolink_isdu_direct_param_page1_octet(&ctx->isdu, (uint8_t) (mc & IOLINK_MC_ADDR_MASK));
     resp[1] = 0x00U;
     resp[1] = iolink_checksum6(resp, 2U);
-    if (ctx->phy->send != NULL) {
-        ctx->phy->send(ctx->phy->user, resp, 2);
-    }
+    dll_send_response(ctx, resp, 2U);
     ctx->last_response_us = iolink_time_get_us();
 }
 
@@ -328,17 +391,13 @@ static void dll_handle_operate_type0(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t 
     if (type0_write) {
         resp[0] = ck_flags;
         resp[0] = (uint8_t) (resp[0] | iolink_checksum6(resp, 1U));
-        if (ctx->phy->send != NULL) {
-            ctx->phy->send(ctx->phy->user, resp, 1);
-        }
+        dll_send_response(ctx, resp, 1U);
     }
     else {
         resp[0] = od_resp;
         resp[1] = ck_flags;
         resp[1] = (uint8_t) (resp[1] | iolink_checksum6(resp, 2U));
-        if (ctx->phy->send != NULL) {
-            ctx->phy->send(ctx->phy->user, resp, 2);
-        }
+        dll_send_response(ctx, resp, 2U);
     }
     ctx->last_response_us = iolink_time_get_us();
 }
@@ -358,13 +417,11 @@ static void dll_handle_type0_od_write(iolink_dll_ctx_t* ctx, uint8_t mc, uint8_t
         resp[0] |= 0x40U;
     }
     resp[0] = (uint8_t) (resp[0] | iolink_checksum6(resp, 1U));
-    if (ctx->phy->send != NULL) {
-        ctx->phy->send(ctx->phy->user, resp, 1);
-    }
+    dll_send_response(ctx, resp, 1U);
     ctx->last_response_us = iolink_time_get_us();
 }
 
-/** @brief Process a Type-1/Type-2 OPERATE frame (PD+OD) and build the response, enforcing t_REN. */
+/** @brief Process a Type-1/Type-2 OPERATE frame (PD+OD) and build the response, checking t_A. */
 static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
 {
     /* Type-1/2 master message: MC | CKT | PD | OD; the checksum is in CKT. */
@@ -414,22 +471,7 @@ static void dll_handle_operate_type1_2(iolink_dll_ctx_t* ctx)
     resp[pos] = (uint8_t) (resp[pos] | iolink_checksum6(resp, pos + 1U));
     pos++;
 
-    if (ctx->phy->send != NULL) {
-        ctx->phy->send(ctx->phy->user, resp, pos);
-        ctx->fallback_count = 0U;
-        uint32_t end_tx_us = (uint32_t) iolink_time_get_us();
-        ctx->response_time_us = end_tx_us - (uint32_t) ctx->last_cycle_start_us;
-
-        if (ctx->enforce_timing) {
-            uint32_t limit = dll_get_t_ren_limit_us(ctx);
-            if ((limit > 0U) && (ctx->response_time_us > limit)) {
-                ctx->timing_errors++;
-                ctx->t_ren_violations++;
-                iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING,
-                                     IOLINK_EVENT_TYPE_WARNING);
-            }
-        }
-    }
+    dll_send_response(ctx, resp, pos);
     ctx->last_response_us = iolink_time_get_us();
 }
 
@@ -602,7 +644,18 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                 /* Table 47 T10: without a valid message the device returns to
                    SIO within T_DSIO (60..300 ms, default 300 ms). */
                 ctx->dsio_deadline_ms = iolink_time_get_us() / 1000U + IOLINK_T_DSIO_MS;
+                const uint64_t receive_enable_start_us = iolink_time_get_us();
                 iolink_dll_set_sdci_mode(ctx);
+                /* Software processing duration is a lower bound on T_REN:
+                   PHY wake-detection/IRQ latency still needs wire qualification. */
+                const uint64_t receive_enable_us = iolink_time_get_us() - receive_enable_start_us;
+                if (ctx->enforce_timing && ctx->t_ren_limit_us > 0U &&
+                    receive_enable_us > ctx->t_ren_limit_us) {
+                    ctx->timing_errors++;
+                    ctx->t_ren_violations++;
+                    iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING,
+                                         IOLINK_EVENT_TYPE_WARNING);
+                }
                 /* A wake-up starts a fresh communication-establishment window.
                    Reset the inactivity timer so a re-wake after a prior exchange
                    is not immediately killed by the stale activity timestamp. */
@@ -795,9 +848,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                         }
                         resp[0] = cks;
                         resp[0] = (uint8_t) (resp[0] | iolink_checksum6(resp, 1U));
-                        if (ctx->phy->send != NULL) {
-                            ctx->phy->send(ctx->phy->user, resp, 1);
-                        }
+                        dll_send_response(ctx, resp, 1U);
                         ctx->last_response_us = iolink_time_get_us();
                     }
                     else if (ctx->req_len == 3U) {
@@ -928,6 +979,10 @@ void iolink_dll_get_stats(const iolink_dll_ctx_t* ctx, iolink_dll_stats_t* out_s
     out_stats->timeout_errors = ctx->timeout_errors;
     out_stats->framing_errors = ctx->framing_errors;
     out_stats->timing_errors = ctx->timing_errors;
+    out_stats->t_a_violations = ctx->t_a_violations;
+    out_stats->response_timing_unavailable = ctx->response_timing_unavailable;
+    out_stats->response_timing_estimated = ctx->response_timing_estimated;
+    out_stats->response_timing_captured = ctx->response_timing_captured;
     out_stats->t_ren_violations = ctx->t_ren_violations;
     out_stats->t_cycle_violations = ctx->t_cycle_violations;
     out_stats->t_byte_violations = ctx->t_byte_violations;
@@ -945,6 +1000,6 @@ void iolink_dll_set_timing_enforcement(iolink_dll_ctx_t* ctx, bool enable)
 void iolink_dll_set_t_ren_limit_us(iolink_dll_ctx_t* ctx, uint32_t limit_us)
 {
     if (ctx == NULL) return;
-    ctx->t_ren_limit_us = limit_us;
     ctx->t_ren_override = (limit_us != 0U);
+    ctx->t_ren_limit_us = ctx->t_ren_override ? limit_us : IOLINK_T_REN_US;
 }
