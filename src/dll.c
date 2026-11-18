@@ -229,10 +229,11 @@ static void dll_enter_fallback(iolink_dll_ctx_t* ctx)
 
     if (ctx->fallback_count >= ctx->sio_fallback_threshold) {
         /* Communication could not be sustained: enter FALLBACK, revert the PHY
-           to SIO at COM1, then settle back to STARTUP to await a new wake-up. */
+           to SIO, then settle back to STARTUP to await a new wake-up.
+           A Device retains its one configured COM rate (7.3.2.2); the Master
+           owns rate discovery. Changing to COM1 here strands COM2/COM3 PHYs. */
         dll_set_state(ctx, IOLINK_DLL_STATE_FALLBACK);
         iolink_dll_set_sio_mode(ctx);
-        iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
         dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
         ctx->fallback_count = 0U;
         ctx->frame_index = 0U;
@@ -240,7 +241,6 @@ static void dll_enter_fallback(iolink_dll_ctx_t* ctx)
                              IOLINK_EVENT_TYPE_WARNING);
     }
     else if (ctx->state != IOLINK_DLL_STATE_OPERATE && ctx->state != IOLINK_DLL_STATE_ESTAB_COM) {
-        iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
         dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
     }
 }
@@ -587,7 +587,6 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
         ctx->last_activity_ms = 0U; /* Prevent repeated resets */
         ctx->timeout_errors++;      /* Link went idle past the inactivity window */
         if (ctx->phy_mode != IOLINK_PHY_MODE_SIO) {
-            iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
             iolink_dll_set_sio_mode(ctx);
         }
         dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
@@ -603,7 +602,6 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             ctx->dsio_deadline_ms = 0U;
             ctx->wakeup_seen = false;
             ctx->timeout_errors++;
-            iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
             iolink_dll_set_sio_mode(ctx);
             dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
             ctx->frame_index = 0U;
@@ -619,7 +617,6 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
          (ctx->state == IOLINK_DLL_STATE_PREOPERATE))) {
         if (now_ms64 >= ctx->fallback_deadline_ms) {
             ctx->fallback_deadline_ms = 0U;
-            iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
             iolink_dll_set_sio_mode(ctx);
             dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
             ctx->frame_index = 0U;

@@ -137,16 +137,15 @@ class TestStateMachineConformance(unittest.TestCase):
         )
         print(f"[PASS] {success_count}/10 consecutive PD exchanges successful")
 
-    def test_04_communication_fallback_behavior(self):
+    def test_04_communication_identity_read(self):
         """
-        Test Case: COM Rate Fallback
-        Requirement: IO-Link V1.1.5 Section 6.2.2 - Baud Rate Negotiation
+        Test Case: Identity read after communication establishment.
 
-        Validates:
-        - Device supports COM1 (4.8 kbaud) as mandatory
-        - Communication works at different baud rates
+        This PTY test does not measure or negotiate physical baud rates.
+        IO-Link v1.1.4 section 7.3.2.2 assigns rate discovery to the Master;
+        each Device supports one configured COM rate.
         """
-        print("\n[TEST] Communication Fallback Behavior")
+        print("\n[TEST] Communication Identity Read")
 
         self.process = subprocess.Popen(
             [self.demo_bin, self.device_tty, "0", "0"],

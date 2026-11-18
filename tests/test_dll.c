@@ -174,7 +174,7 @@ static void test_dll_fallback_on_crc_errors(void** state)
     iolink_device_process(&dev.ctx);
 
     assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_STARTUP);
-    assert_int_equal(iolink_device_get_baudrate(&dev.ctx), IOLINK_BAUDRATE_COM1);
+    assert_int_equal(iolink_device_get_baudrate(&dev.ctx), IOLINK_BAUDRATE_COM2);
 }
 
 static void test_dll_reject_transition_in_operate(void** state)

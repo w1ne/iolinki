@@ -257,3 +257,16 @@ accept the GPLv3 copyleft). Shipping a proprietary product? Email
 ## Contributing
 
 Contributions are welcome! Please see [ROADMAP.md](./docs/ROADMAP.md) for areas where help is needed.
+
+### Device rate during recovery
+
+Each device keeps its configured COM1, COM2, or COM3 rate across CRC fallback,
+inter-byte loss, inactivity, T_DSIO expiry and a FALLBACK MasterCommand. A new
+wake-up reuses that rate. The master discovers the device rate; recovery must
+not force a COM2/COM3 device to COM1. Applications can select a different fixed
+rate through `iolink_dll_set_baudrate()` during initialization. This follows
+[IO-Link v1.1.4 section 7.3.2.2](https://io-link.com/fileadmin/user_upload/Downloads/Package_2024/IOL-Interface-Spec_10002_V114_Jun24.pdf).
+
+`test_baud_recovery` uses a synthetic clock and checks 18 recovery paths across
+all three rates, including a new wake-up, valid startup messages and cyclic
+process data. It does not qualify a physical UART or C/Q waveform.
