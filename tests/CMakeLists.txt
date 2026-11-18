@@ -1,3 +1,6 @@
+add_executable(test_baud_recovery test_baud_recovery.c)
+target_link_libraries(test_baud_recovery iolinki)
+add_test(NAME test_baud_recovery COMMAND test_baud_recovery)
 find_package(PkgConfig QUIET)
 add_executable(test_response_timing test_response_timing.c)
 target_link_libraries(test_response_timing iolinki)
