@@ -141,6 +141,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-candidate-package
+          retention-days: 3
           path: dist/*
           if-no-files-found: error
       - name: Archive test evidence even on failure
@@ -148,6 +149,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-host-test-evidence
+          retention-days: 3
           path: |
             test-results.xml
             test_output.log
@@ -227,6 +229,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: esp32c3-l6362a-espidf
+        retention-days: 3
         if-no-files-found: error
         include-hidden-files: true
         path: 'examples/esp32_l6362a/.pio/build/esp32c3/firmware.elf
@@ -275,6 +278,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: stm32g0-tiol112-gcc
+        retention-days: 3
         path: 'examples/stm32g0_tiol112/build/reference-device.elf
 
           examples/stm32g0_tiol112/build/reference-device.hex
@@ -331,6 +335,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: stm32u5-tiol112-zephyr
+        retention-days: 3
         path: 'build-u5/zephyr/zephyr.elf
 
           build-u5/zephyr/zephyr.hex
@@ -369,6 +374,7 @@ jobs:
         if: always()
         with:
           name: labwired-g0-evidence
+          retention-days: 3
           path: labwired-g0.log
           if-no-files-found: error
 
@@ -402,5 +408,6 @@ jobs:
         if: always()
         with:
           name: labwired-c3-evidence
+          retention-days: 3
           path: labwired-c3.log
           if-no-files-found: error
