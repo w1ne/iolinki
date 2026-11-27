@@ -1015,6 +1015,10 @@ int iolink_dll_set_baudrate(iolink_dll_ctx_t* ctx, iolink_baudrate_t baudrate)
 {
     if (ctx == NULL) return -1;
     ctx->baudrate = baudrate;
+    /* Keep the long-standing setter useful for applications that select their
+       fixed device rate after initialization. Wake-up and recovery restore
+       this value, so changing only the live PHY rate would be lost. */
+    ctx->configured_baudrate = baudrate;
     if (ctx->phy->set_baudrate != NULL) ctx->phy->set_baudrate(ctx->phy->user, baudrate);
     ctx->t_ren_limit_us = dll_get_t_ren_limit_us(ctx);
     ctx->t_byte_limit_us = dll_get_t_byte_limit_us(ctx);

@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Device-level integration test `tests/test_integration_ds_reset.c`.
 
 ### Changed
+- **Behavior change:** `iolink_dll_set_baudrate()` now selects the fixed Device
+  rate as well as updating the live PHY. The selected rate therefore survives
+  wake-up and communication recovery for existing callers of this API.
 - **Behavior change:** SystemCommands 0x80, 0x81 and 0x83 answer 0x8035
   FUNC_NOTAVAIL when no reset handler is registered, instead of a positive
   response without action. 0x81 runs the handler before the response; 0x80

@@ -42,6 +42,10 @@ zero-initialized and older partial aggregate configurations. The Device keeps
 this rate across startup, wake-up and all fallback/recovery paths; it does not
 negotiate a different rate with the Master.
 
+Existing applications may continue to call `iolink_dll_set_baudrate()` after
+initialization. That setter updates the fixed Device rate and the active PHY,
+so wake-up and recovery restore the value selected by the application.
+
 **M-Sequence Types**:
 - `IOLINK_M_SEQ_TYPE_0`: On-request data only.
 - `IOLINK_M_SEQ_TYPE_1_1`: PD (fixed) + OD (1 byte).

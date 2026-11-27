@@ -288,7 +288,11 @@ int iolink_dll_set_sdci_mode(iolink_dll_ctx_t* ctx);
 iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t* ctx);
 
 /**
- * @brief Set the communication baudrate
+ * @brief Set the fixed communication baudrate
+ *
+ * Updates the active PHY rate and the rate restored on wake-up and recovery.
+ * This preserves the behavior expected by applications that configure the
+ * rate after initialization.
  *
  * @param ctx DLL context
  * @param baudrate Desired baudrate (COM1, COM2, or COM3)
@@ -297,7 +301,7 @@ iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t* ctx);
 int iolink_dll_set_baudrate(iolink_dll_ctx_t* ctx, iolink_baudrate_t baudrate);
 
 /**
- * @brief Get current negotiated baudrate
+ * @brief Get current PHY baudrate
  *
  * @param ctx DLL context
  * @return iolink_baudrate_t Current baudrate

@@ -3,6 +3,12 @@ target_include_directories(switching_sensor_app PUBLIC ${CMAKE_CURRENT_SOURCE_DI
 target_link_libraries(switching_sensor_app PUBLIC iolinki)
 add_executable(switching_sensor_demo host_main.c)
 target_link_libraries(switching_sensor_demo switching_sensor_app)
+# This host demo is also a CTest executable and uses libc assert() as checks.
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(switching_sensor_demo PRIVATE -UNDEBUG)
+elseif(MSVC)
+    target_compile_options(switching_sensor_demo PRIVATE /UNDEBUG)
+endif()
 if(BUILD_TESTING)
     add_test(NAME switching_sensor_demo COMMAND switching_sensor_demo)
 endif()
