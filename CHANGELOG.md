@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Device-level integration test `tests/test_integration_ds_reset.c`.
 
 ### Changed
+- **Behavior change:** Communication fallback resets the protocol session and
+  discards queued RX data. PHYs with wake-up detection still return to SIO;
+  UART-only PHYs remain in SDCI and accept a fresh startup sequence.
 - **Behavior change:** `iolink_dll_set_baudrate()` now selects the fixed Device
   rate as well as updating the live PHY. The selected rate therefore survives
   wake-up and communication recovery for existing callers of this API.

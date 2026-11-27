@@ -150,6 +150,7 @@ typedef struct
 
     uint32_t mseq_count; /**< Accepted master M-sequences (wraps at 2^32) */
     bool comm_disabled;  /**< Communication stopped until re-initialization (Back-to-box) */
+    bool rx_discard_pending; /**< Drain uncertain RX data before accepting another frame. */
 } iolink_dll_ctx_t;
 
 /**

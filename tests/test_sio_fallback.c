@@ -174,6 +174,8 @@ static void test_fallback_command_switches_to_sio_after_t_fbd(void** state)
     /* Still in SDCI until T_FBD has elapsed (device waits 3 MasterCycleTimes). */
     assert_int_equal(iolink_device_get_phy_mode(&dev.ctx), IOLINK_PHY_MODE_SDCI);
     usleep(10U * 1000U);
+    /* Fallback reset drains the PHY queue before returning to SIO. */
+    will_return(mock_phy_recv_byte, 0);
     iolink_device_process(&dev.ctx);
     assert_int_equal(iolink_device_get_phy_mode(&dev.ctx), IOLINK_PHY_MODE_SIO);
 }
