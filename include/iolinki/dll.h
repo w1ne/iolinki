@@ -86,7 +86,8 @@ typedef struct
     iolink_phy_mode_t phy_mode; /**< Current operating mode (SDCI vs SIO) */
 
     /* Baudrate Support */
-    iolink_baudrate_t baudrate; /**< Negotiated baudrate (COM1-COM3) */
+    iolink_baudrate_t baudrate;            /**< Current PHY baudrate (COM1-COM3). */
+    iolink_baudrate_t configured_baudrate; /**< Fixed device rate restored on recovery. */
 
     /* Unified Frame Assembly */
     uint8_t frame_buf[48];         /**< Raw frame assembly buffer */
@@ -182,7 +183,9 @@ void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy);
 /**
  * @brief Process DLL logic
  *
- * Handles byte-level processing and state machine transitions.
+ * Handles byte-level processing and state machine transitions. It is not
+ * ISR-safe; call it from the same serialized main-loop/task context as the
+ * other operations on this DLL context.
  *
  * @param ctx DLL context to process
  */

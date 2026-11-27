@@ -244,9 +244,16 @@ int main(void) {
 
 void SysTick_Handler(void) {
     g_tick_ms++;
-    // Could call iolink_process() here instead
+    // Signal the main loop/task; do not call iolink_device_process() or
+    // iolink_dll_process() from this interrupt handler.
 }
 ```
+
+`iolink_device_process()` polls the PHY and may run application, ISDU and
+storage callbacks, so it is not ISR-safe. Run it from one serialized main-loop
+or task context. An interrupt can latch a wake-up or data-ready flag for that
+context to consume. The optional device lock callbacks do not make concurrent
+process calls safe.
 
 ## Memory Requirements
 

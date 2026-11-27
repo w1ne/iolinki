@@ -14,7 +14,7 @@ The stack supports multiple M-Sequence types defined in the IO-Link V1.1.5 speci
 | **Type 1_V** | 8 OD octets, no PD (A.8) | 0 | 0 | 8 bytes | Yes | Supported |
 | **Type 2_1** | 1 PD-in octet + 1 OD (A.9) | 1 | 0 | 1 byte | Yes | Supported |
 | **Type 2_2** | 2 PD-in octets + 1 OD (A.10) | 2 | 0 | 1 byte | Yes | Supported |
-| **Type 2_V** | Variable PD + 1/2 OD (A.14) | 0..32 | 0..32 | 2 bytes | Yes | Supported |
+| **Type 2_V** | Variable PD + OD1 or OD2 (A.14) | 0..32 | 0..32 | 1 or 2 bytes | Yes | Supported |
 
 ### 1.1 Message checksum (A.1.6)
 
@@ -76,5 +76,18 @@ typedef struct {
     uint8_t min_cycle_time;         /**< Encoded per spec */
     uint8_t pd_in_len;              /**< 0-32 bytes */
     uint8_t pd_out_len;             /**< 0-32 bytes */
+    uint32_t t_pd_us;               /**< Power-on delay in microseconds */
+    uint8_t od_len;                 /**< 0 = type default; Type 2_V accepts 1 or 2 */
+    iolink_device_rate_t transmission_rate; /**< Fixed COM1/2/3; 0 = legacy COM2 */
 } iolink_config_t;
 ```
+
+The Device operates at the configured fixed COM rate. The zero-initialized
+`transmission_rate` value preserves COM2; COM1, COM2, and COM3 can be selected
+with `IOLINK_DEVICE_RATE_COM1`, `IOLINK_DEVICE_RATE_COM2`, and
+`IOLINK_DEVICE_RATE_COM3`. Startup, wake-up and communication recovery restore
+the configured rate rather than switching to another COM rate.
+
+Type 2_V supports OD1 (`od_len = 1`) and OD2 (`od_len = 2`). OD1 uses M-sequence
+code 4 and requires at least three PD octets in either direction. With
+`od_len = 0`, Type 2_V retains its default OD2 width.

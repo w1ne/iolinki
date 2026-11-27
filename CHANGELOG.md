@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Configurable fixed Device transmission rate in `iolink_config_t` for COM1,
+  COM2, or COM3. Zero-initialized configurations retain the COM2 default, and
+  startup, wake-up and recovery restore the selected rate.
+- OD1 configuration documentation for Type 2_V, including its three-octet
+  Process Data requirement and code-4 selection.
+- Explicit ISR-safety guidance for `iolink_device_process()` and
+  `iolink_dll_process()`.
 - Event Dispatcher lifecycle (V1.1.5 10.10.2): `iolink_event_appear()`,
   `iolink_event_disappear()` (explicit clear, deferred until 50 ms after
   "appears"), single-shot `iolink_event_notify()`, `iolink_events_process()`

@@ -5,16 +5,18 @@
 ### Initialization
 
 ```c
-#include "iolinki/iolink.h"
+#include "iolinki/device.h"
+#include "iolinki/phy_virtual.h"
 
-int iolink_init(const iolink_phy_api_t *phy, const iolink_config_t *config);
+int iolink_device_init(iolink_device_ctx_t *ctx,
+                       const iolink_device_config_t *config);
 ```
 
-Initialize the IO-Link stack with a PHY implementation and protocol configuration.
+Initialize a Device context with a PHY implementation and protocol configuration.
 
 **Parameters**:
-- `phy`: Pointer to PHY API structure
-- `config`: Pointer to `iolink_config_t` structure (copied internally)
+- `ctx`: Storage for the Device runtime context
+- `config`: Device setup, including its PHY and `iolink_config_t` in `stack`
 
 **Returns**: 0 on success, negative error code otherwise
 
@@ -26,8 +28,19 @@ typedef struct {
     uint8_t min_cycle_time;         /**< Minimum cycle time (encoded per spec) */
     uint8_t pd_in_len;              /**< Process Data Input length (bytes) */
     uint8_t pd_out_len;             /**< Process Data Output length (bytes) */
+    uint32_t t_pd_us;               /**< Power-on delay in microseconds */
+    uint8_t od_len;                 /**< OD width; 0 selects the type default */
+    iolink_device_rate_t transmission_rate; /**< Fixed COM rate; 0 keeps COM2 */
 } iolink_config_t;
 ```
+
+`transmission_rate` configures the Device's fixed rate. Select
+`IOLINK_DEVICE_RATE_COM1`, `IOLINK_DEVICE_RATE_COM2`, or
+`IOLINK_DEVICE_RATE_COM3`. Its zero value,
+`IOLINK_DEVICE_RATE_DEFAULT`, preserves the existing COM2 behavior for
+zero-initialized and older partial aggregate configurations. The Device keeps
+this rate across startup, wake-up and all fallback/recovery paths; it does not
+negotiate a different rate with the Master.
 
 **M-Sequence Types**:
 - `IOLINK_M_SEQ_TYPE_0`: On-request data only.
@@ -38,26 +51,52 @@ typedef struct {
 
 **Example**:
 ```c
-extern const iolink_phy_api_t g_phy_virtual;
-
 int main(void) {
-    iolink_config_t config = {
-        .m_seq_type = IOLINK_M_SEQ_TYPE_1_2,
-        .pd_in_len = 2,
-        .pd_out_len = 2
+    iolink_device_ctx_t device;
+    iolink_device_config_t config = {0};
+    iolink_phy_virtual_set_port("/dev/ttyACM0"); /* Supply the connected UART/PTY. */
+    config.phy = *iolink_phy_virtual_get();
+    config.stack = (iolink_config_t) {
+        .m_seq_type = IOLINK_M_SEQ_TYPE_2_V,
+        .pd_in_len = 3U,
+        .pd_out_len = 0U,
+        .transmission_rate = IOLINK_DEVICE_RATE_COM3
     };
 
-    if (iolink_init(&g_phy_virtual, &config) != 0) {
+    if (iolink_device_init(&device, &config) != 0) {
         // Handle error
         return -1;
     }
 
     while (1) {
-        iolink_process();
+        iolink_device_process(&device);
         // Sleep 1ms
     }
 }
 ```
+
+### OD1 on a Variable M-sequence
+
+For `IOLINK_M_SEQ_TYPE_2_V`, set `od_len` to `1` to use OD1. OD1 uses the
+code-4 variant and requires at least three Process Data octets in either the
+input or output direction. `od_len = 0` keeps the type's default OD2 setting.
+
+```c
+iolink_config_t config = {
+    .m_seq_type = IOLINK_M_SEQ_TYPE_2_V,
+    .pd_in_len = 3,
+    .od_len = 1,
+    .transmission_rate = IOLINK_DEVICE_RATE_COM2
+};
+```
+
+### Migration to Configurable Transmission Rate
+
+No change is needed for configurations that are zero-initialized or omit the
+new trailing field: they continue to start at COM2. To select another fixed
+Device rate, set `transmission_rate` to one of the three `IOLINK_DEVICE_RATE_*`
+values. Rebuild applications and libraries together because `iolink_config_t`
+has gained a field.
 
 ### Main Loop
 
@@ -376,8 +415,13 @@ overridden by defining them before the header is included (each is guarded with
 #define IOLINK_EVENT_QUEUE_SIZE 4    /* Event FIFO depth */
 ```
 
-## Thread Safety
+## Thread and ISR Safety
 
-**Current Status**: Not thread-safe. All API calls must be from the same thread or protected by mutex.
+`iolink_device_process()` and `iolink_dll_process()` are not ISR-safe. Call
+them periodically from a main loop or task, and serialize all operations that
+access the same context. Processing polls the PHY and may invoke application,
+ISDU, and storage callbacks. Interrupt handlers should latch events or data for
+the task to consume; they must not call the process functions.
 
-**Future**: Context-based API will enable multi-instance support.
+The optional device lock callbacks protect the documented public data exchange
+helpers. They do not make concurrent calls to `iolink_device_process()` safe.

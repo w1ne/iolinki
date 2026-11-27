@@ -117,7 +117,9 @@ int iolink_device_init(iolink_device_ctx_t* ctx, const iolink_device_config_t* c
  * application events. Runs an accepted Device reset or Back-to-box after the
  * ISDU response was read and 3 further M-sequences passed (10.7.2, 10.7.5),
  * or at once if communication was lost.
- * Call this periodically from the main loop.
+ * Call this periodically from one main-loop or task context. This function is
+ * not ISR-safe; do not call it from an interrupt handler. Calls that access the
+ * same device context must be serialized.
  * @param ctx Device context.
  */
 void iolink_device_process(iolink_device_ctx_t* ctx);
