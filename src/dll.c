@@ -602,6 +602,22 @@ static void dll_poll_diagnostics(iolink_dll_ctx_t* ctx)
     }
 }
 
+static void dll_check_inactivity_timeout(iolink_dll_ctx_t* ctx)
+{
+    const uint32_t now_ms = iolink_time_get_ms();
+    if ((ctx->last_activity_ms != 0U) &&
+        ((uint32_t) (now_ms - ctx->last_activity_ms) > 1000U)) {
+        ctx->last_activity_ms = 0U; /* Prevent repeated resets */
+        ctx->timeout_errors++;      /* Link went idle past the inactivity window */
+        if (ctx->phy_mode != IOLINK_PHY_MODE_SIO) {
+            iolink_dll_set_baudrate(ctx, ctx->configured_baudrate);
+            iolink_dll_set_sio_mode(ctx);
+        }
+        dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
+        ctx->frame_index = 0U;
+    }
+}
+
 void iolink_dll_init_configured(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy,
                                 iolink_baudrate_t baudrate)
 {
@@ -696,17 +712,6 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     if ((ctx->dsio_deadline_ms != 0U) || (ctx->fallback_deadline_ms != 0U)) {
         now_ms64 = iolink_time_get_us() / 1000U;
     }
-    if ((ctx->last_activity_ms != 0U) && (now_ms - ctx->last_activity_ms > 1000U)) {
-        ctx->last_activity_ms = 0U; /* Prevent repeated resets */
-        ctx->timeout_errors++;      /* Link went idle past the inactivity window */
-        if (ctx->phy_mode != IOLINK_PHY_MODE_SIO) {
-            iolink_dll_set_baudrate(ctx, ctx->configured_baudrate);
-            iolink_dll_set_sio_mode(ctx);
-        }
-        dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
-        ctx->frame_index = 0U;
-    }
-
     /* Table 47 T10: a wake-up without a valid message within T_DSIO returns the
        device to SIO. Only applies while still waiting for the first message. */
     if ((ctx->phy_mode != IOLINK_PHY_MODE_SIO) && (ctx->dsio_deadline_ms != 0U) &&
@@ -745,6 +750,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             ctx->t_pd_violations++;
             iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING, IOLINK_EVENT_TYPE_WARNING);
         }
+        dll_check_inactivity_timeout(ctx);
         return;
     }
 
@@ -765,6 +771,7 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                 ctx->last_activity_ms = iolink_time_get_ms();
             }
         }
+        dll_check_inactivity_timeout(ctx);
         return;
     }
 
@@ -994,6 +1001,11 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             ctx->frame_index = 0U;
         }
     }
+
+    /* Consume any already queued bytes before deciding the line was idle. A
+     * wakeup/process-loop delay must not discard a new request merely because
+     * its first byte is waiting at the inactivity boundary. */
+    dll_check_inactivity_timeout(ctx);
 }
 
 iolink_dll_state_t iolink_dll_get_state(const iolink_dll_ctx_t* ctx)

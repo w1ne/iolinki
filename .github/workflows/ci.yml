@@ -130,6 +130,8 @@ jobs:
         run: |
           cc -std=c99 -Wall -Wextra -Werror -Iexamples/stm32g0_tiol112 examples/stm32g0_tiol112/rx_queue.c examples/stm32g0_tiol112/tests/test_rx_queue.c -o /tmp/rx-queue-test
           /tmp/rx-queue-test
+          cc -std=c99 -Wall -Wextra -Werror -Iexamples/stm32g0_tiol112 examples/stm32g0_tiol112/tests/test_process_latch.c -o /tmp/process-latch-test
+          /tmp/process-latch-test
       - name: Build complete STM32G0 firmware
         env:
           STM32_CMSIS_ROOT: ${{ github.workspace }}/vendor/cmsis-device-g0

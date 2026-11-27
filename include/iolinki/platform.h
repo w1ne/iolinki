@@ -33,13 +33,16 @@ extern "C" {
 /**
  * @brief Enter a critical section (disable interrupts/scheduler).
  *
- * This function must prevent context switches or ISRs that could
- * corrupt shared data structures (Events, ISDU).
+ * This hook protects short shared-state snapshots. Implementations must be
+ * nest-safe and restore the caller's prior interrupt/scheduler state. Do not
+ * keep it held while processing frames, invoking callbacks, or waiting for TX.
+ * The weak default does nothing and is suitable only for a single-context
+ * build.
  */
 void iolink_critical_enter(void);
 
 /**
- * @brief Exit a critical section (restore interrupts/scheduler).
+ * @brief Exit a critical section and restore its prior state.
  */
 void iolink_critical_exit(void);
 

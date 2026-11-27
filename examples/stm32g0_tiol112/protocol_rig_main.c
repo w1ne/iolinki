@@ -140,7 +140,11 @@ int main(void)
     iolink_device_set_timing_enforcement(&protocol_device, IOLINK_RIG_TIMING_ENFORCE != 0);
     rig_timing_enforced = protocol_device.dll.enforce_timing ? 1U : 0U;
     protocol_ready = 1U;
+    board_process_schedule();
     for (;;) {
+#if IOLINK_G0_UART_BACKEND == IOLINK_G0_UART_CMSIS_IRQ
+        board_process_wait();
+#endif
         iolink_device_process(&protocol_device);
         rig_phy_fault = iolink_phy_tiol112_fault(&tiol112);
         board_led((iolink_device_get_state(&protocol_device) == IOLINK_DLL_STATE_OPERATE) &&

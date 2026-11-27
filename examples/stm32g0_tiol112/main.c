@@ -14,7 +14,11 @@ int main(void)
         } /* EN remains low on initialization failure */
     }
     uint64_t next_sample = iolink_time_get_us();
+    board_process_schedule();
     for (;;) {
+#if IOLINK_G0_UART_BACKEND == IOLINK_G0_UART_CMSIS_IRQ
+        board_process_wait();
+#endif
         iolink_device_process(&app.device);
         uint64_t now = iolink_time_get_us();
         if (now >= next_sample) {

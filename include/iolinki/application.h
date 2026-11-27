@@ -32,6 +32,11 @@
  * every processed OPERATE cycle: @ref on_pd_output reports the output Process
  * Data received from the Master (Master -> Device), and @ref on_pd_input reports
  * the input Process Data the Device is currently publishing (Device -> Master).
+ * Lifecycle callbacks may run from initialization or processing, and Process
+ * Data callbacks run synchronously from @ref iolink_device_process. Keep every
+ * callback bounded and nonblocking; they must not call
+ * @ref iolink_device_process or perform slow I/O. Interrupt handlers must not
+ * invoke application callbacks.
  */
 typedef struct
 {

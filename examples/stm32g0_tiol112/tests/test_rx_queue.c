@@ -15,6 +15,10 @@ int main(void)
     }
     for (unsigned i = 0; i < RX_QUEUE_SIZE; ++i) rx_queue_push(&q, (uint8_t) i);
     assert(q.overflows == 1);
+    /* Once data loss is latched, further IRQ bytes are discarded without
+     * inflating one damaged receive window into many overflow reports. */
+    for (unsigned i = 0; i < RX_QUEUE_SIZE; ++i) rx_queue_push(&q, (uint8_t) i);
+    assert(q.overflows == 1);
     assert(rx_queue_pop(&q, &byte) == -1);
     assert(rx_queue_pop(&q, &byte) == 0);
     rx_queue_push(&q, 42);

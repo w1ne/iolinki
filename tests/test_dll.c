@@ -22,6 +22,7 @@
 #include "iolinki/device.h"
 #include "iolinki/dll.h"
 #include "iolinki/crc.h"
+#include "iolinki/time_utils.h"
 #include "test_helpers.h"
 
 static int test_setup(void** state)
@@ -36,6 +37,80 @@ static int test_teardown(void** state)
     (void) state;
     iolink_nvm_mock_cleanup();
     return 0;
+}
+
+typedef struct
+{
+    uint8_t rx[4];
+    unsigned rx_index;
+    size_t tx_length;
+    iolink_phy_mode_t mode;
+} idle_boundary_phy_t;
+
+static int idle_boundary_recv(void* user, uint8_t* byte)
+{
+    idle_boundary_phy_t* phy = (idle_boundary_phy_t*) user;
+    if (phy->rx_index >= sizeof(phy->rx)) return 0;
+    *byte = phy->rx[phy->rx_index++];
+    return 1;
+}
+
+static int idle_boundary_send(void* user, const uint8_t* data, size_t len)
+{
+    idle_boundary_phy_t* phy = (idle_boundary_phy_t*) user;
+    (void) data;
+    phy->tx_length = len;
+    return (int) len;
+}
+
+static void idle_boundary_set_mode(void* user, iolink_phy_mode_t mode)
+{
+    ((idle_boundary_phy_t*) user)->mode = mode;
+}
+
+static void test_queued_cycle_is_serviced_at_inactivity_boundary(void** state)
+{
+    (void) state;
+    idle_boundary_phy_t fake = {0};
+    iolink_device_ctx_t device;
+    iolink_device_config_t config = {
+        .phy =
+            {
+                .user = &fake,
+                .set_mode = idle_boundary_set_mode,
+                .send = idle_boundary_send,
+                .recv_byte = idle_boundary_recv,
+            },
+        .stack =
+            {
+                .m_seq_type = IOLINK_M_SEQ_TYPE_1_1,
+                .min_cycle_time = 10U,
+                .pd_in_len = 1U,
+                .pd_out_len = 1U,
+            },
+    };
+    assert_int_equal(iolink_device_init(&device, &config), 0);
+    device.dll.state = IOLINK_DLL_STATE_OPERATE;
+    device.dll.phy_mode = IOLINK_PHY_MODE_SDCI;
+
+    fake.rx[0] = 0x00U;
+    fake.rx[1] = IOLINK_MSEQ_TYPE_1;
+    fake.rx[2] = 0x5aU;
+    fake.rx[3] = 0x00U;
+    fake.rx[1] = (uint8_t) (fake.rx[1] | iolink_checksum6(fake.rx, sizeof(fake.rx)));
+    device.dll.last_activity_ms = iolink_time_get_ms() - 1001U;
+
+    iolink_device_process(&device);
+
+    assert_int_equal(fake.rx_index, sizeof(fake.rx));
+    assert_int_equal(fake.tx_length, 2U);
+    assert_int_equal(iolink_device_get_state(&device), IOLINK_DLL_STATE_OPERATE);
+
+    /* With no queued request, the same elapsed idle interval still recovers. */
+    device.dll.last_activity_ms = iolink_time_get_ms() - 1001U;
+    iolink_device_process(&device);
+    assert_int_equal(iolink_device_get_state(&device), IOLINK_DLL_STATE_STARTUP);
+    assert_int_equal(fake.mode, IOLINK_PHY_MODE_SIO);
 }
 
 static void test_dll_wakeup_to_preoperate(void** state)
@@ -563,6 +638,8 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_dll_preoperate_type0_od_write_ignores_operate_widths,
                                         test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_type0_write_is_three_octets_with_two_octet_od,
+                                        test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_queued_cycle_is_serviced_at_inactivity_boundary,
                                         test_setup, test_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);

@@ -13,6 +13,39 @@ below predate the current callback signatures and are conceptual illustrations;
 do not copy them unchanged. In particular, a millisecond-derived microsecond
 clock and a one-millisecond polling delay do not establish physical IO-Link timing.
 
+## Foreground processing and interrupt handoff
+
+Run `iolink_device_process()` from exactly one foreground loop or task. It is
+not ISR-safe. It drains the PHY receive interface, advances the DLL and ISDU,
+and calls PHY and application hooks synchronously. Those hooks must be bounded,
+nonblocking, and must not call `iolink_device_process()` recursively. The core
+ignores a nested process call on the same context, but that guard does not make
+other APIs ISR-safe or serialize separate tasks; use a real platform lock for
+multiple task contexts.
+
+An ISR should do only bounded hardware work: read/acknowledge status, move RX
+bytes into a bounded queue or DMA ring, latch errors, and signal foreground
+work. Keep the byte queue separate from its wakeup flag: wakeups may coalesce,
+but queued bytes may not. On queue overrun, DMA ambiguity, or UART framing/parity
+error, discard the incomplete receive history and let the stack resynchronize
+on a later valid frame. Do not process protocol frames or call application
+callbacks in the ISR.
+
+The foreground wait must not lose a wakeup between checking the pending flag
+and sleeping. Use a short critical section to take/clear the latch and a
+platform-appropriate event/WFI handshake; the ISR only sets the latch and wakes
+the CPU. Keep interrupt masking to the queue/latch snapshot. Do not mask
+interrupts around the stack process loop, a callback, or a synchronous UART
+transmit wait. A periodic foreground tick is still needed for protocol
+deadlines and application cadence when no UART traffic arrives, but it does
+not replace immediate UART-driven servicing or pin-level timing measurements.
+
+Implement `iolink_critical_enter()` and `iolink_critical_exit()` as a
+nest-safe, prior-state-preserving pair with the shortest practical masked
+window. The weak defaults provide no protection and are suitable only for a
+single-context build. Do not use the stack's critical hooks as a way to make
+the full processing loop ISR-safe.
+
 iolinki is designed to be portable across different platforms and RTOSes. This guide explains how to port the stack to your target platform.
 
 ## Platform Abstraction Layers

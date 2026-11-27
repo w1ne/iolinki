@@ -256,6 +256,16 @@ void iolink_device_process(iolink_device_ctx_t* ctx)
         return;
     }
 
+    /* Claim the foreground runner in a short critical section. The stack and
+     * synchronous callbacks below must never run with interrupts masked. */
+    iolink_critical_enter();
+    if (ctx->processing) {
+        iolink_critical_exit();
+        return;
+    }
+    ctx->processing = true;
+    iolink_critical_exit();
+
     iolink_dll_process(&ctx->dll);
 
     /* Application reset already ran before its ISDU response. */
@@ -271,6 +281,11 @@ void iolink_device_process(iolink_device_ctx_t* ctx)
             ctx->config->app_callbacks->on_pd_input(ctx->dll.pd_in, ctx->dll.pd_in_len_current);
         }
     }
+
+    /* Release only after every callback has returned. */
+    iolink_critical_enter();
+    ctx->processing = false;
+    iolink_critical_exit();
 }
 
 int iolink_device_pd_input_update(iolink_device_ctx_t* ctx, const uint8_t* data, size_t len,
