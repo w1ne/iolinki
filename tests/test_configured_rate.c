@@ -19,6 +19,9 @@ typedef struct
     size_t baud_count;
     iolink_phy_mode_t mode;
     bool wakeup_pending;
+    bool rx_error_enabled;
+    bool rx_error_sent;
+    size_t rx_error_pos;
     uint8_t rx[8];
     size_t rx_len;
     size_t rx_pos;
@@ -76,6 +79,10 @@ static int test_phy_send(void* user, const uint8_t* data, size_t len)
 static int test_phy_recv_byte(void* user, uint8_t* byte)
 {
     test_phy_t* phy = user;
+    if (phy->rx_error_enabled && !phy->rx_error_sent && (phy->rx_pos == phy->rx_error_pos)) {
+        phy->rx_error_sent = true;
+        return -1;
+    }
     if (phy->rx_pos >= phy->rx_len) {
         return 0;
     }
@@ -126,6 +133,19 @@ static void init_device(test_device_t* device, iolink_device_rate_t rate, bool d
         device->config.stack.transmission_rate = rate;
     }
     assert(iolink_device_init(&device->ctx, &device->config) == 0);
+}
+
+static void init_operate_type1_device(test_device_t* device)
+{
+    (void) memset(device, 0, sizeof(*device));
+    device->config.phy = test_phy_api;
+    device->config.phy.user = &device->phy;
+    device->config.stack.m_seq_type = IOLINK_M_SEQ_TYPE_1_1;
+    device->config.stack.pd_in_len = 1U;
+    device->config.stack.pd_out_len = 1U;
+    assert(iolink_device_init(&device->ctx, &device->config) == 0);
+    device->ctx.dll.state = IOLINK_DLL_STATE_OPERATE;
+    device->ctx.dll.phy_mode = IOLINK_PHY_MODE_SDCI;
 }
 
 static void assert_recorded_rate(const test_phy_t* phy, iolink_baudrate_t rate)
@@ -221,14 +241,98 @@ static void test_inactivity_restores_configured_rate(void)
         test_device_t device;
         g_now_us = 5000000U;
         init_device(&device, config_rates[i], false);
+        device.ctx.dll.state = IOLINK_DLL_STATE_OPERATE;
+        device.ctx.dll.phy_mode = IOLINK_PHY_MODE_SDCI;
         device.ctx.dll.last_activity_ms = 1000U;
         iolink_device_process(&device.ctx);
 
         assert(device.ctx.dll.state == IOLINK_DLL_STATE_STARTUP);
-        assert(device.ctx.dll.phy_mode == IOLINK_PHY_MODE_SIO);
+        assert(device.ctx.dll.phy_mode == IOLINK_PHY_MODE_SDCI);
         assert(device.ctx.dll.timeout_errors == 1U);
         assert_recorded_rate(&device.phy, expected_baudrate(config_rates[i]));
+
+        /* A UART without a wake-up detector stays in its established SDCI
+         * transport and can accept the next fresh startup probe. */
+        uint8_t probe[2];
+        make_type0_frame(probe, 0xA2U, 0U, false);
+        feed_frame(&device, probe, sizeof(probe));
+        assert(device.ctx.dll.state == IOLINK_DLL_STATE_PREOPERATE);
+        assert(device.phy.tx_len > 0U);
     }
+}
+
+static void test_expired_idle_discards_queued_request(void)
+{
+    test_device_t device;
+    g_now_us = 5001000U;
+    init_operate_type1_device(&device);
+
+    uint8_t request[4] = {0x00U, IOLINK_MSEQ_TYPE_1, 0x5AU, 0x00U};
+    request[1] = (uint8_t) (request[1] | iolink_checksum6(request, sizeof(request)));
+    (void) memcpy(device.phy.rx, request, sizeof(request));
+    device.phy.rx_len = sizeof(request);
+    device.ctx.dll.last_activity_ms = 4000U;
+
+    iolink_device_process(&device.ctx);
+
+    assert(device.ctx.dll.timeout_errors == 1U);
+    assert(device.ctx.dll.state == IOLINK_DLL_STATE_STARTUP);
+    assert(device.ctx.dll.phy_mode == IOLINK_PHY_MODE_SIO);
+    assert(device.phy.tx_len == 0U);
+    assert(device.phy.rx_pos == device.phy.rx_len);
+}
+
+static void test_invalid_frame_does_not_refresh_inactivity(void)
+{
+    test_device_t device;
+    g_now_us = 5000999U;
+    init_operate_type1_device(&device);
+
+    uint8_t invalid[4] = {0x00U, IOLINK_MSEQ_TYPE_1, 0x5AU, 0x00U};
+    invalid[1] = (uint8_t) (invalid[1] | (iolink_checksum6(invalid, sizeof(invalid)) ^ 0x01U));
+    (void) memcpy(device.phy.rx, invalid, sizeof(invalid));
+    device.phy.rx_len = sizeof(invalid);
+    device.ctx.dll.last_activity_ms = 4000U;
+
+    iolink_device_process(&device.ctx);
+    assert(device.ctx.dll.last_activity_ms == 4000U);
+    assert(device.phy.tx_len == 0U);
+
+    g_now_us = 5001001U;
+    iolink_device_process(&device.ctx);
+    assert(device.ctx.dll.timeout_errors == 1U);
+    assert(device.ctx.dll.state == IOLINK_DLL_STATE_STARTUP);
+    assert(device.ctx.dll.phy_mode == IOLINK_PHY_MODE_SIO);
+}
+
+static void test_rx_error_discards_partial_and_queued_frame_bytes(void)
+{
+    test_device_t device;
+    g_now_us = 5000000U;
+    init_operate_type1_device(&device);
+
+    uint8_t request[4] = {0x00U, IOLINK_MSEQ_TYPE_1, 0x5AU, 0x00U};
+    request[1] = (uint8_t) (request[1] | iolink_checksum6(request, sizeof(request)));
+    (void) memcpy(device.phy.rx, request, sizeof(request));
+    device.phy.rx_len = sizeof(request);
+    device.phy.rx_error_enabled = true;
+    device.phy.rx_error_pos = 2U;
+    device.ctx.dll.last_activity_ms = 5000U;
+
+    iolink_device_process(&device.ctx);
+
+    assert(device.phy.rx_error_sent);
+    assert(device.phy.rx_pos == device.phy.rx_len);
+    assert(device.ctx.dll.frame_index == 0U);
+    assert(device.ctx.dll.framing_errors == 1U);
+    assert(device.phy.tx_len == 0U);
+
+    device.phy.rx_error_enabled = false;
+    device.phy.rx_len = sizeof(request);
+    device.phy.rx_pos = 0U;
+    iolink_device_process(&device.ctx);
+    assert(device.phy.tx_len > 0U);
+    assert(device.ctx.dll.last_activity_ms == 5000U);
 }
 
 static void test_dsio_timeout_restores_configured_rate(void)
@@ -599,6 +703,9 @@ int main(void)
     test_zero_default_and_configured_startup_wakeup();
     test_error_fallback_restores_configured_rate();
     test_inactivity_restores_configured_rate();
+    test_expired_idle_discards_queued_request();
+    test_invalid_frame_does_not_refresh_inactivity();
+    test_rx_error_discards_partial_and_queued_frame_bytes();
     test_dsio_timeout_restores_configured_rate();
     test_master_fallback_restores_configured_rate();
     test_invalid_configured_rate_is_rejected();

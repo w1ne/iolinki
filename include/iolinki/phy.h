@@ -91,7 +91,10 @@ typedef struct
     /**
      * @brief Non-blocking receive for a single byte
      * @param byte Pointer to store received byte
-     * @return 1 if byte available and read, 0 if nothing received, negative on error
+     * @return 1 if byte available and read, 0 if nothing received, negative on
+     *         a receive discontinuity. A negative result invalidates the
+     *         partially received frame and any remaining queued bytes; the
+     *         stack discards that queue before accepting another frame.
      */
     int (*recv_byte)(void* user, uint8_t* byte);
 

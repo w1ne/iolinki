@@ -93,7 +93,7 @@ typedef struct
     iolink_reset_handler_t reset_handler; /**< Application reset handler (may be NULL). */
     uint8_t direct_param_page2[16];       /**< Direct Parameter Page 2 storage. */
     bool deferred_reset_armed;            /**< Response of 0x80/0x83 read; counting cycles. */
-    bool processing;                       /**< Guards the foreground process entry point. */
+    bool processing;                      /**< Guards the foreground process entry point. */
     uint32_t deferred_reset_mseq;         /**< M-sequence count when the response was read. */
 } iolink_device_ctx_t;
 

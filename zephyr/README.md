@@ -112,6 +112,15 @@ entries are left `NULL`. To support full wake-up and SIO behaviour, implement a
 transceiver-specific PHY against the same `iolink_phy_api_t` vtable
 (`include/iolinki/phy.h`).
 
+RX recovery limitation: the current Zephyr UART adapter logs ring-buffer
+overflow and drops excess bytes, but it does not report that loss to the DLL;
+it also does not propagate UART parity, framing, noise, or overrun flags through
+`recv_byte()`. The DLL can discard a partial frame and queued tail bytes when a
+PHY returns a receive error, but the current Zephyr adapter does not produce
+that error for these conditions. Treat hardware RX-error recovery on this
+adapter as unverified until it reports these losses and a target regression
+covers the resynchronization path.
+
 ## Building the sample
 
 ### Via west (Zephyr SDK installed)

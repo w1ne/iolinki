@@ -61,7 +61,7 @@ typedef struct
 {
     iolink_dll_state_t state;    /**< Current DLL state */
     const iolink_phy_api_t* phy; /**< Bound PHY API implementation */
-    uint32_t last_activity_ms;   /**< Timestamp of last valid frame */
+    uint32_t last_activity_ms;   /**< Timestamp of last wake-up or valid frame */
     bool wakeup_seen;            /**< Wake-up detected (if PHY supports it) */
 
     /* Configuration */

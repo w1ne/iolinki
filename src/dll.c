@@ -605,16 +605,27 @@ static void dll_poll_diagnostics(iolink_dll_ctx_t* ctx)
 static void dll_check_inactivity_timeout(iolink_dll_ctx_t* ctx)
 {
     const uint32_t now_ms = iolink_time_get_ms();
-    if ((ctx->last_activity_ms != 0U) &&
-        ((uint32_t) (now_ms - ctx->last_activity_ms) > 1000U)) {
+    if ((ctx->last_activity_ms != 0U) && ((uint32_t) (now_ms - ctx->last_activity_ms) > 1000U)) {
         ctx->last_activity_ms = 0U; /* Prevent repeated resets */
-        ctx->timeout_errors++;      /* Link went idle past the inactivity window */
+        ctx->timeout_errors++;      /* No wake-up or valid frame within the window */
+        /* There is no arrival timestamp in the PHY API. Discard bytes that
+         * were already queued when the timeout is observed instead of treating
+         * them as a fresh request after the parser has recovered. */
+        ctx->frame_index = 0U;
+        ctx->last_byte_us = 0U;
+        ctx->last_frame_us = 0U;
+        ctx->req_len = 0U;
+        (void) dll_drain_rx(ctx);
         if (ctx->phy_mode != IOLINK_PHY_MODE_SIO) {
             iolink_dll_set_baudrate(ctx, ctx->configured_baudrate);
-            iolink_dll_set_sio_mode(ctx);
+            /* A plain UART has no wake-up detector and is initialized as an
+             * already-established SDCI link. It cannot return to SIO and
+             * detect a later wake-up, so recover its protocol state in place. */
+            if (ctx->phy->detect_wakeup != NULL) {
+                iolink_dll_set_sio_mode(ctx);
+            }
         }
         dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
-        ctx->frame_index = 0U;
     }
 }
 
@@ -712,6 +723,10 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     if ((ctx->dsio_deadline_ms != 0U) || (ctx->fallback_deadline_ms != 0U)) {
         now_ms64 = iolink_time_get_us() / 1000U;
     }
+    /* Check before reading the PHY. Without per-byte arrival timestamps, any
+       bytes queued at this boundary could have arrived before the timeout. */
+    dll_check_inactivity_timeout(ctx);
+
     /* Table 47 T10: a wake-up without a valid message within T_DSIO returns the
        device to SIO. Only applies while still waiting for the first message. */
     if ((ctx->phy_mode != IOLINK_PHY_MODE_SIO) && (ctx->dsio_deadline_ms != 0U) &&
@@ -750,7 +765,6 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             ctx->t_pd_violations++;
             iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING, IOLINK_EVENT_TYPE_WARNING);
         }
-        dll_check_inactivity_timeout(ctx);
         return;
     }
 
@@ -771,7 +785,6 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                 ctx->last_activity_ms = iolink_time_get_ms();
             }
         }
-        dll_check_inactivity_timeout(ctx);
         return;
     }
 
@@ -805,11 +818,12 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                 ctx->frame_index = 0U;
                 ctx->last_byte_us = 0U;
                 ctx->framing_errors++;
+                /* The remaining queue may be the tail of the lost frame. */
+                (void) dll_drain_rx(ctx);
             }
             break;
         }
         uint64_t now_us = iolink_time_get_us();
-        ctx->last_activity_ms = iolink_time_get_ms();
         if ((ctx->frame_index > 0U) && (ctx->enforce_timing) && (ctx->t_byte_limit_us > 0U)) {
             if (ctx->last_byte_us != 0U) {
                 if (now_us - ctx->last_byte_us > (uint64_t) ctx->t_byte_limit_us) {
@@ -868,6 +882,10 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
 
             if (crc_ok && type_ok) {
                 ctx->mseq_count++;
+                /* Only a complete, checksum-valid frame refreshes the idle
+                   timer. Noise and malformed traffic cannot keep the link
+                   active indefinitely. */
+                ctx->last_activity_ms = iolink_time_get_ms();
                 bool was_establishing = (ctx->state == IOLINK_DLL_STATE_AWAITING_COMM) ||
                                         (ctx->state == IOLINK_DLL_STATE_STARTUP);
                 if (was_establishing) {
@@ -1001,11 +1019,6 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             ctx->frame_index = 0U;
         }
     }
-
-    /* Consume any already queued bytes before deciding the line was idle. A
-     * wakeup/process-loop delay must not discard a new request merely because
-     * its first byte is waiting at the inactivity boundary. */
-    dll_check_inactivity_timeout(ctx);
 }
 
 iolink_dll_state_t iolink_dll_get_state(const iolink_dll_ctx_t* ctx)
