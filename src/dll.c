@@ -1013,7 +1013,11 @@ iolink_baudrate_t iolink_dll_get_baudrate(const iolink_dll_ctx_t* ctx)
 
 int iolink_dll_set_baudrate(iolink_dll_ctx_t* ctx, iolink_baudrate_t baudrate)
 {
-    if (ctx == NULL) return -1;
+    if ((ctx == NULL) ||
+        ((baudrate != IOLINK_BAUDRATE_COM1) && (baudrate != IOLINK_BAUDRATE_COM2) &&
+         (baudrate != IOLINK_BAUDRATE_COM3))) {
+        return -1;
+    }
     ctx->baudrate = baudrate;
     /* Keep the long-standing setter useful for applications that select their
        fixed device rate after initialization. Wake-up and recovery restore

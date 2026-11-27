@@ -139,14 +139,14 @@ class TestStateMachineConformance(unittest.TestCase):
 
     def test_04_communication_fallback_behavior(self):
         """
-        Test Case: COM Rate Fallback
-        Requirement: IO-Link V1.1.5 Section 6.2.2 - Baud Rate Negotiation
+        Test Case: Configured COM Rate Communication
+        Requirement: IO-Link V1.1.5 Section 6.2.2 - Communication Rates
 
         Validates:
-        - Device supports COM1 (4.8 kbaud) as mandatory
-        - Communication works at different baud rates
+        - Zero-initialized device config uses COM2
+        - Device communicates successfully at its configured fixed rate
         """
-        print("\n[TEST] Communication Fallback Behavior")
+        print("\n[TEST] Configured COM Rate Communication")
 
         self.process = subprocess.Popen(
             [self.demo_bin, self.device_tty, "0", "0"],

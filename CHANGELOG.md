@@ -47,6 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Behavior change:** `iolink_dll_set_baudrate()` now selects the fixed Device
   rate as well as updating the live PHY. The selected rate therefore survives
   wake-up and communication recovery for existing callers of this API.
+- **Behavior change:** Recovery now restores the configured Device rate. A
+  zero-initialized configuration therefore recovers at COM2 instead of the
+  previous COM1 fallback; select `IOLINK_DEVICE_RATE_COM1` to retain COM1.
 - **Behavior change:** SystemCommands 0x80, 0x81 and 0x83 answer 0x8035
   FUNC_NOTAVAIL when no reset handler is registered, instead of a positive
   response without action. 0x81 runs the handler before the response; 0x80

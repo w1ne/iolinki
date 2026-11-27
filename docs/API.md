@@ -42,9 +42,22 @@ zero-initialized and older partial aggregate configurations. The Device keeps
 this rate across startup, wake-up and all fallback/recovery paths; it does not
 negotiate a different rate with the Master.
 
+Recovery now restores the configured rate. This changes default recovery from
+COM1 to COM2; set `IOLINK_DEVICE_RATE_COM1` explicitly if the Device must
+recover at COM1.
+
+The configuration and PHY enums are distinct. `transmission_rate` uses
+`iolink_device_rate_t` and the `IOLINK_DEVICE_RATE_*` names (DEFAULT = 0,
+COM1 = 1, COM2 = 2, COM3 = 3). The DLL setter and PHY callbacks use
+`iolink_baudrate_t` and `IOLINK_BAUDRATE_*` (COM1 = 0, COM2 = 1, COM3 = 2).
+Match the COM names when translating between them; do not cast one enum to the
+other.
+
 Existing applications may continue to call `iolink_dll_set_baudrate()` after
 initialization. That setter updates the fixed Device rate and the active PHY,
-so wake-up and recovery restore the value selected by the application.
+so wake-up and recovery restore the value selected by the application. It
+returns 0 for COM1, COM2, or COM3 and -1 for a NULL context or invalid baudrate;
+an invalid baudrate leaves the DLL and PHY unchanged.
 
 **M-Sequence Types**:
 - `IOLINK_M_SEQ_TYPE_0`: On-request data only.
@@ -97,10 +110,12 @@ iolink_config_t config = {
 ### Migration to Configurable Transmission Rate
 
 No change is needed for configurations that are zero-initialized or omit the
-new trailing field: they continue to start at COM2. To select another fixed
-Device rate, set `transmission_rate` to one of the three `IOLINK_DEVICE_RATE_*`
-values. Rebuild applications and libraries together because `iolink_config_t`
-has gained a field.
+new trailing field: they continue to start and recover at COM2. The previous
+fallback behavior forced COM1, so this changes the default recovery rate. To
+retain COM1 recovery, set `transmission_rate` to `IOLINK_DEVICE_RATE_COM1`; to
+select another fixed Device rate, use one of the three
+`IOLINK_DEVICE_RATE_*` values. Rebuild applications and libraries together
+because `iolink_config_t` has gained a field.
 
 ### Main Loop
 

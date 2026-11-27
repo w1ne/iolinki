@@ -85,8 +85,12 @@ typedef struct {
 The Device operates at the configured fixed COM rate. The zero-initialized
 `transmission_rate` value preserves COM2; COM1, COM2, and COM3 can be selected
 with `IOLINK_DEVICE_RATE_COM1`, `IOLINK_DEVICE_RATE_COM2`, and
-`IOLINK_DEVICE_RATE_COM3`. Startup, wake-up and communication recovery restore
-the configured rate rather than switching to another COM rate.
+`IOLINK_DEVICE_RATE_COM3`. These are `iolink_device_rate_t` values, distinct
+from the `iolink_baudrate_t` values `IOLINK_BAUDRATE_COM1`,
+`IOLINK_BAUDRATE_COM2`, and `IOLINK_BAUDRATE_COM3`; use matching names rather
+than casting. Startup, wake-up and communication recovery restore the
+configured rate. With the zero/default configuration, recovery is now COM2;
+previously it forced COM1.
 
 Type 2_V supports OD1 (`od_len = 1`) and OD2 (`od_len = 2`). OD1 uses M-sequence
 code 4 and requires at least three PD octets in either direction. With

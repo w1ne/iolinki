@@ -296,7 +296,7 @@ iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t* ctx);
  *
  * @param ctx DLL context
  * @param baudrate Desired baudrate (COM1, COM2, or COM3)
- * @return int 0 on success
+ * @return 0 on success, -1 if @p ctx is NULL or @p baudrate is not COM1, COM2, or COM3.
  */
 int iolink_dll_set_baudrate(iolink_dll_ctx_t* ctx, iolink_baudrate_t baudrate);
 

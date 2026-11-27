@@ -28,12 +28,12 @@ iolinki includes a comprehensive conformance test suite that validates complianc
 | `test_01_startup_to_preoperate_transition` | Wake-up sequence | Wake-up request, M-sequence response, PREOPERATE entry |
 | `test_02_preoperate_to_operate_transition` | PD length negotiation | PD length setup, M-sequence change, cyclic data start |
 | `test_03_operate_state_persistence` | State retention | 10 consecutive PD exchanges without errors |
-| `test_04_communication_fallback_behavior` | Baud rate fallback | COM1 (4.8 kbaud) mandatory support |
+| `test_04_communication_fallback_behavior` | Configured COM-rate communication | Startup and ISDU exchange at the zero-config default COM2 rate |
 | `test_05_invalid_state_transition_rejection` | Error handling | Graceful rejection of invalid transitions |
 | `test_06_isdu_during_operate` | Concurrent operations | ISDU access while PD exchange active |
 | `test_07_estab_com_to_operate_transition` | ESTAB_COM state | Transition command → ESTAB_COM → OPERATE on first valid frame |
 
-**Coverage**: Startup → PREOPERATE → ESTAB_COM → OPERATE transitions, COM rate fallback, concurrent PD/ISDU operations.
+**Coverage**: Startup → PREOPERATE → ESTAB_COM → OPERATE transitions, configured COM-rate communication, concurrent PD/ISDU operations.
 
 ---
 
@@ -90,9 +90,9 @@ iolinki includes a comprehensive conformance test suite that validates complianc
 | `test_05_boundary_condition_max_isdu_size` | Segmentation | 16-byte ISDU write/read |
 | `test_05_error_recovery_sequence` | Full recovery | Functionality restoration after errors |
 | `test_06_bad_crc_handling` | CRC error detection | Device detects and handles CRC errors |
-| `test_07_crc_fallback_recovery` | CRC fallback | Fallback to COM1 after 3 CRC errors, full recovery |
+| `test_07_crc_fallback_recovery` | CRC fallback | Restores configured rate (COM2 by default) after 3 CRC errors, full recovery |
 
-**Coverage**: Communication loss, rapid state changes, invalid parameters, concurrent requests, boundary conditions, CRC fallback to COM1, full recovery sequences.
+**Coverage**: Communication loss, rapid state changes, invalid parameters, concurrent requests, boundary conditions, CRC fallback and configured-rate recovery, full recovery sequences.
 
 ---
 
