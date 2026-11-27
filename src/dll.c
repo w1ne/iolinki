@@ -668,7 +668,11 @@ static void dll_check_inactivity_timeout(iolink_dll_ctx_t* ctx)
         ctx->last_byte_us = 0U;
         ctx->last_frame_us = 0U;
         ctx->req_len = 0U;
-        (void) dll_drain_rx(ctx);
+        if (ctx->phy_mode != IOLINK_PHY_MODE_SIO) {
+            /* No arrival timestamp is available. Preserve the pending state
+             * until the transport gives us an explicit empty boundary. */
+            ctx->rx_discard_pending = !dll_discard_rx_until_empty(ctx);
+        }
         if (ctx->phy_mode != IOLINK_PHY_MODE_SIO) {
             iolink_dll_set_baudrate(ctx, ctx->configured_baudrate);
             /* A plain UART has no wake-up detector and is initialized as an
@@ -678,6 +682,13 @@ static void dll_check_inactivity_timeout(iolink_dll_ctx_t* ctx)
                 iolink_dll_set_sio_mode(ctx);
             }
         }
+        ctx->dsio_deadline_ms = 0U;
+        ctx->fallback_deadline_ms = 0U;
+        ctx->wakeup_deadline_us = 0U;
+        ctx->wakeup_seen = false;
+        ctx->last_operate_start_us = 0U;
+        ctx->have_operate_start = false;
+        ctx->fallback_count = 0U;
         dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
     }
 }
@@ -758,13 +769,6 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     if (ctx->comm_disabled) {
         /* Back-to-box: no response until the next power cycle (10.7.5). */
         (void) dll_drain_rx(ctx);
-        return;
-    }
-
-    if (ctx->rx_discard_pending) {
-        if (dll_discard_rx_until_empty(ctx)) {
-            ctx->rx_discard_pending = false;
-        }
         return;
     }
 
@@ -850,6 +854,16 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
         return;
     }
 
+    /* A transport discontinuity makes the remaining queue ambiguous. Keep
+     * servicing timers and wake detection above, but do not parse any byte
+     * until an empty boundary is observed while UART receive is enabled. */
+    if (ctx->rx_discard_pending) {
+        if (dll_discard_rx_until_empty(ctx)) {
+            ctx->rx_discard_pending = false;
+        }
+        return;
+    }
+
     if ((ctx->frame_index > 0U) && (ctx->enforce_timing) && (ctx->t_byte_limit_us > 0U)) {
         if (ctx->last_byte_us != 0U) {
             uint64_t now_us = iolink_time_get_us();
@@ -882,8 +896,10 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                 ctx->frame_index = 0U;
                 ctx->last_byte_us = 0U;
                 ctx->framing_errors++;
-                /* The remaining queue may be the tail of the lost frame. */
-                (void) dll_drain_rx(ctx);
+                /* The remaining queue may be the tail of the lost frame.
+                 * An error is not an empty boundary, so keep parsing blocked
+                 * until a later call can prove the queue has been drained. */
+                ctx->rx_discard_pending = !dll_discard_rx_until_empty(ctx);
             }
             break;
         }

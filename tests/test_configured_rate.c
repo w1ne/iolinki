@@ -10,6 +10,7 @@
 #include "iolinki/crc.h"
 #include "iolinki/device.h"
 #include "iolinki/frame.h"
+#include "iolinki/phy_tiol112.h"
 #include "iolinki/protocol.h"
 #include "iolinki/time_utils.h"
 
@@ -21,6 +22,7 @@ typedef struct
     bool wakeup_pending;
     bool rx_error_enabled;
     bool rx_error_sent;
+    bool rx_error_persistent;
     size_t rx_error_pos;
     uint8_t rx[8];
     size_t rx_len;
@@ -34,6 +36,7 @@ typedef struct
     test_phy_t phy;
     iolink_device_ctx_t ctx;
     iolink_device_config_t config;
+    iolink_tiol112_ctx_t tiol112;
 } test_device_t;
 
 static uint64_t g_now_us;
@@ -79,8 +82,11 @@ static int test_phy_send(void* user, const uint8_t* data, size_t len)
 static int test_phy_recv_byte(void* user, uint8_t* byte)
 {
     test_phy_t* phy = user;
-    if (phy->rx_error_enabled && !phy->rx_error_sent && (phy->rx_pos == phy->rx_error_pos)) {
-        phy->rx_error_sent = true;
+    if (phy->rx_error_enabled && (phy->rx_pos == phy->rx_error_pos) &&
+        (phy->rx_error_persistent || !phy->rx_error_sent)) {
+        if (!phy->rx_error_persistent) {
+            phy->rx_error_sent = true;
+        }
         return -1;
     }
     if (phy->rx_pos >= phy->rx_len) {
@@ -106,6 +112,46 @@ static const iolink_phy_api_t test_phy_api = {
     .recv_byte = test_phy_recv_byte,
     .detect_wakeup = test_phy_detect_wakeup,
 };
+
+static int test_tiol112_init(void* user)
+{
+    (void) user;
+    return 0;
+}
+
+static void test_tiol112_set_enable(void* user, bool enabled)
+{
+    (void) user;
+    (void) enabled;
+}
+
+static void test_tiol112_set_sio_tx(void* user, bool high)
+{
+    (void) user;
+    (void) high;
+}
+
+static int test_tiol112_uart_configure(void* user, uint32_t baud)
+{
+    (void) user;
+    (void) baud;
+    return 0;
+}
+
+static int test_tiol112_send(void* user, const uint8_t* data, size_t len)
+{
+    return test_phy_send(user, data, len);
+}
+
+static int test_tiol112_recv(void* user, uint8_t* byte)
+{
+    return test_phy_recv_byte(user, byte);
+}
+
+static int test_tiol112_consume_wakeup(void* user)
+{
+    return test_phy_detect_wakeup(user);
+}
 
 static iolink_baudrate_t expected_baudrate(iolink_device_rate_t rate)
 {
@@ -152,6 +198,25 @@ static void init_operate_type1_uart_device(test_device_t* device)
 {
     init_operate_type1_device(device);
     device->config.phy.detect_wakeup = NULL;
+}
+
+static void init_tiol112_device(test_device_t* device)
+{
+    (void) memset(device, 0, sizeof(*device));
+    const iolink_tiol112_io_t io = {
+        .user = &device->phy,
+        .init = test_tiol112_init,
+        .set_enable = test_tiol112_set_enable,
+        .set_sio_tx = test_tiol112_set_sio_tx,
+        .uart_configure = test_tiol112_uart_configure,
+        .uart_send_complete = test_tiol112_send,
+        .uart_recv = test_tiol112_recv,
+        .consume_wakeup = test_tiol112_consume_wakeup,
+    };
+    assert(iolink_phy_tiol112_init(&device->tiol112, &io) == 0);
+    device->config.phy = *iolink_phy_tiol112_get(&device->tiol112);
+    device->config.stack.transmission_rate = IOLINK_DEVICE_RATE_COM2;
+    assert(iolink_device_init(&device->ctx, &device->config) == 0);
 }
 
 static void assert_recorded_rate(const test_phy_t* phy, iolink_baudrate_t rate)
@@ -389,6 +454,116 @@ static void test_inactivity_restores_configured_rate(void)
         assert(device.ctx.dll.state == IOLINK_DLL_STATE_PREOPERATE);
         assert(device.phy.tx_len > 0U);
     }
+}
+
+static void test_inactivity_clears_stale_recovery_state_and_keeps_uart_fail_closed(void)
+{
+    test_device_t device;
+    uint8_t stale_probe[2];
+    g_now_us = 5005000U;
+    init_operate_type1_uart_device(&device);
+    device.ctx.dll.last_activity_ms = 4000U;
+    device.ctx.dll.dsio_deadline_ms = 9000U;
+    device.ctx.dll.fallback_deadline_ms = 5004U;
+    device.ctx.dll.last_operate_start_us = 123U;
+    device.ctx.dll.have_operate_start = true;
+    device.ctx.dll.fallback_count = 2U;
+    device.ctx.dll.rx_discard_pending = true;
+    device.phy.rx_error_enabled = true;
+    device.phy.rx_error_persistent = true;
+    device.phy.rx_error_pos = 0U;
+    make_type0_frame(stale_probe, 0xA2U, 0U, false);
+    (void) memcpy(device.phy.rx, stale_probe, sizeof(stale_probe));
+    device.phy.rx_len = sizeof(stale_probe);
+
+    iolink_device_process(&device.ctx);
+
+    assert(device.ctx.dll.timeout_errors == 1U);
+    assert(device.ctx.dll.state == IOLINK_DLL_STATE_STARTUP);
+    assert(device.ctx.dll.phy_mode == IOLINK_PHY_MODE_SDCI);
+    assert(device.ctx.dll.rx_discard_pending);
+    assert(device.ctx.dll.dsio_deadline_ms == 0U);
+    assert(device.ctx.dll.fallback_deadline_ms == 0U);
+    assert(device.ctx.dll.last_operate_start_us == 0U);
+    assert(!device.ctx.dll.have_operate_start);
+    assert(device.ctx.dll.fallback_count == 0U);
+    assert(device.phy.rx_pos == 0U);
+    assert(device.phy.tx_len == 0U);
+
+    /* Clearing the transport error drains the old valid request but still
+     * returns before parsing it. The next request is accepted normally. */
+    device.phy.rx_error_enabled = false;
+    iolink_device_process(&device.ctx);
+    assert(!device.ctx.dll.rx_discard_pending);
+    assert(device.phy.rx_pos == device.phy.rx_len);
+    assert(device.phy.tx_len == 0U);
+
+    feed_frame(&device, stale_probe, sizeof(stale_probe));
+    assert(device.ctx.dll.state == IOLINK_DLL_STATE_PREOPERATE);
+    assert(device.ctx.dll.fallback_deadline_ms == 0U);
+    iolink_device_process(&device.ctx);
+    assert(device.ctx.dll.state == IOLINK_DLL_STATE_PREOPERATE);
+}
+
+static void test_persistent_tiol112_rx_error_allows_wakeup_and_dsio_recovery(void)
+{
+    test_device_t device;
+    uint8_t stale_probe[2];
+    g_now_us = 5000000U;
+    init_tiol112_device(&device);
+    make_type0_frame(stale_probe, 0xA2U, 0U, false);
+    (void) memcpy(device.phy.rx, stale_probe, sizeof(stale_probe));
+    device.phy.rx_len = sizeof(stale_probe);
+    device.phy.rx_error_enabled = true;
+    device.phy.rx_error_persistent = true;
+    device.phy.rx_error_pos = 0U;
+    device.phy.wakeup_pending = true;
+    device.ctx.dll.state = IOLINK_DLL_STATE_FALLBACK;
+    device.ctx.dll.rx_discard_pending = true;
+    device.ctx.dll.fallback_deadline_ms = 5000U;
+    assert(iolink_dll_set_sdci_mode(&device.ctx.dll) == 0);
+
+    /* Fallback recovery encounters a persistent UART error, then still lets
+     * the TIOL112 enter SIO and consume the next wake-up. */
+    iolink_device_process(&device.ctx);
+    assert(device.ctx.dll.state == IOLINK_DLL_STATE_STARTUP);
+    assert(device.ctx.dll.phy_mode == IOLINK_PHY_MODE_SIO);
+    assert(device.ctx.dll.rx_discard_pending);
+    assert(device.phy.rx_pos == 0U);
+
+    iolink_device_process(&device.ctx);
+    assert(device.ctx.dll.state == IOLINK_DLL_STATE_AWAITING_COMM);
+    assert(device.ctx.dll.phy_mode == IOLINK_PHY_MODE_SDCI);
+    assert(device.ctx.dll.dsio_deadline_ms > 5000U);
+    assert(device.ctx.dll.rx_discard_pending);
+
+    /* A persistent -1 keeps stale bytes blocked without suppressing DSIO. */
+    iolink_device_process(&device.ctx);
+    assert(device.ctx.dll.state == IOLINK_DLL_STATE_AWAITING_COMM);
+    assert(device.ctx.dll.rx_discard_pending);
+    const uint64_t dsio_deadline = device.ctx.dll.dsio_deadline_ms;
+    g_now_us = (dsio_deadline + 1U) * 1000U;
+    iolink_device_process(&device.ctx);
+    assert(device.ctx.dll.state == IOLINK_DLL_STATE_STARTUP);
+    assert(device.ctx.dll.phy_mode == IOLINK_PHY_MODE_SIO);
+    assert(device.ctx.dll.dsio_deadline_ms == 0U);
+    assert(device.ctx.dll.rx_discard_pending);
+
+    /* Re-wake, clear the RX fault, and prove the stale queued frame is drained
+     * before a later fresh startup probe can be handled. */
+    device.phy.wakeup_pending = true;
+    iolink_device_process(&device.ctx);
+    assert(device.ctx.dll.state == IOLINK_DLL_STATE_AWAITING_COMM);
+    device.phy.rx_error_enabled = false;
+    iolink_device_process(&device.ctx);
+    assert(!device.ctx.dll.rx_discard_pending);
+    assert(device.phy.rx_pos == device.phy.rx_len);
+    assert(device.phy.tx_len == 0U);
+
+    g_now_us += 20000U;
+    feed_frame(&device, stale_probe, sizeof(stale_probe));
+    assert(device.ctx.dll.state == IOLINK_DLL_STATE_PREOPERATE);
+    assert(device.phy.tx_len > 0U);
 }
 
 static void test_expired_idle_discards_queued_request(void)
@@ -849,6 +1024,8 @@ int main(void)
     test_crc_fallback_fails_closed_on_rx_discontinuity();
     test_t_byte_fallback_discards_queued_request();
     test_inactivity_restores_configured_rate();
+    test_inactivity_clears_stale_recovery_state_and_keeps_uart_fail_closed();
+    test_persistent_tiol112_rx_error_allows_wakeup_and_dsio_recovery();
     test_expired_idle_discards_queued_request();
     test_invalid_frame_does_not_refresh_inactivity();
     test_rx_error_discards_partial_and_queued_frame_bytes();

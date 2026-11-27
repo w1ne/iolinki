@@ -148,8 +148,8 @@ typedef struct
     uint8_t pd_out_last_valid_len;                     /**< Octets in pd_out_last_valid */
     bool pd_out_valid; /**< PDOUTVALID: MasterCommand 0x98 seen in this OPERATE session */
 
-    uint32_t mseq_count; /**< Accepted master M-sequences (wraps at 2^32) */
-    bool comm_disabled;  /**< Communication stopped until re-initialization (Back-to-box) */
+    uint32_t mseq_count;     /**< Accepted master M-sequences (wraps at 2^32) */
+    bool comm_disabled;      /**< Communication stopped until re-initialization (Back-to-box) */
     bool rx_discard_pending; /**< Drain uncertain RX data before accepting another frame. */
 } iolink_dll_ctx_t;
 
