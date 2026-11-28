@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Missing PHY response timing samples are counted as unavailable without
+  emitting a timing violation event. Invalid fresh samples and measured `t_A`
+  violations remain enforced; the G0 rig no longer applies a stale 20 ms
+  override to the wake receive-enable budget.
+
 ## [3.0.0] - 2026-11-28
 
 ### Migration from 2.2.0

@@ -154,7 +154,9 @@ typedef struct
      * @return 1 for a fresh sample, 0 if unavailable, negative on invalid data.
      * Clear validity before every send and on RX/TX errors. A stale sample from
      * a preceding exchange must not be returned. This optional callback is
-     * required for an evaluated t_A check; missing data is counted explicitly.
+     * required for an evaluated t_A check; missing data is counted as
+     * unavailable, not as a timing violation. Invalid fresh data remains an
+     * enforcement error.
      */
     int (*get_response_timing)(void* user, iolink_phy_response_timing_t* timing);
 } iolink_phy_api_t;

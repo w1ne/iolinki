@@ -167,8 +167,15 @@ static void dll_check_response_timing(iolink_dll_ctx_t* ctx)
 {
     iolink_phy_response_timing_t timing = {0};
     ctx->response_timing_quality = IOLINK_PHY_TIMING_UNAVAILABLE;
-    const int available =
-        ctx->phy->get_response_timing ? ctx->phy->get_response_timing(ctx->phy->user, &timing) : 0;
+    if (ctx->phy->get_response_timing == NULL) {
+        ctx->response_timing_unavailable++;
+        return;
+    }
+    const int available = ctx->phy->get_response_timing(ctx->phy->user, &timing);
+    if (available == 0) {
+        ctx->response_timing_unavailable++;
+        return;
+    }
     const bool quality_valid = timing.quality == IOLINK_PHY_TIMING_ESTIMATED ||
                                timing.quality == IOLINK_PHY_TIMING_CAPTURED;
     if (available != 1 || !quality_valid || timing.tx_start_us < timing.rx_end_us ||

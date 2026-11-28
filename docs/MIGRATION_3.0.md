@@ -29,10 +29,11 @@ do not link objects compiled against different header versions.
 
 Use designated initializers for `iolink_phy_api_t`. The optional
 `get_response_timing` callback returns fresh request-end and response-start
-timestamps. Without valid timestamps, timing enforcement reports the response
-timing as unavailable; it must not be interpreted as a successful timing
-measurement. PHYs can continue communicating without this callback when timing
-enforcement is disabled.
+timestamps. With no callback or no fresh sample, the stack reports response
+timing as unavailable without raising a timing violation; it must not be
+interpreted as a successful timing measurement. Invalid fresh samples and
+measured out-of-range response delays still raise timing violations when
+enforcement is enabled. PHYs can continue communicating without this callback.
 
 ## Configure the fixed COM rate
 

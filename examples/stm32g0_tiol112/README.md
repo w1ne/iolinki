@@ -271,21 +271,20 @@ within that window. The stack uses synchronous application handlers and has no
 general deferred completion/cancellation API, as documented in the protocol
 rig README.
 
-The profile explicitly defaults `IOLINK_RIG_TIMING_ENFORCE=0`. Internal DLL
-timing checks are disabled in that build; setting a response-time limit does
-not enable them. Build a separate image with `IOLINK_RIG_TIMING_ENFORCE=1` to
-evaluate the internal inter-byte, cycle and completion checks. The CI 64MHz
-protocol artifact explicitly selects this enabled option. The exported
-`rig_timing_enforced` symbol records the selected state. The legacy completion
-threshold is 20ms and applies only when internal checks are enabled; it is not
-tA. The external rig must independently measure the actual last-master-stop to
-first-device-start gap and byte gaps in either build. Receive-pop timestamps
-are not pin timestamps, so internal checks need their own integration result.
-An OPERATE LED indicates state, not conformance.
+The profile explicitly defaults `IOLINK_RIG_TIMING_ENFORCE=0`. Build a separate
+image with `IOLINK_RIG_TIMING_ENFORCE=1` to evaluate DLL inter-byte, cycle and
+wake receive-enable checks. The CI 64MHz protocol artifact explicitly selects
+this enabled option. The exported `rig_timing_enforced` symbol records the
+selected state. The TIOL112 PHY currently has no `get_response_timing` callback,
+so each response is counted as timing unavailable and the DLL cannot evaluate
+`t_A`; unavailable samples do not raise `COMM_TIMING`. The external rig must
+measure the actual last-master-stop to first-device-start gap and byte gaps in
+either build. Receive-pop timestamps are not pin timestamps, so internal checks
+need their own integration result. An OPERATE LED indicates state, not
+conformance.
 
 The internal cycle monitor applies MinCycleTime only in OPERATE and compares
-observed first-byte dequeue timestamps, separately from its legacy
-complete-request-to-end-TX duration. STARTUP/PREOPERATE retain their distinct
+observed first-byte dequeue timestamps. STARTUP/PREOPERATE retain their distinct
 recovery rules. Queue observation can jitter, so the external wire oracle is
 still required even when internal checks are enabled.
 

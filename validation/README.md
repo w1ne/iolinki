@@ -45,8 +45,11 @@ ReturningNULL retains cached PDin; the callback can set `*valid=false`.
 
 ## Remaining limits
 
-- The existing `response_time_us` statistic includes synchronous send completion;
-  it is not the last-master-stop to first-device-start tA measurement.
+- `response_time_us` is the measured request-end to response-start `t_A` delay
+  when the PHY supplies fresh boundary timestamps. Without a callback or fresh
+  sample it is unavailable, not a timing violation; the G0 TIOL112 PHY does not
+  currently supply those boundaries, so external C/Q capture remains the timing
+  oracle for that board.
 - The G0 reference defaults to 16 MHz and has an optional 64 MHz profile. It
   uses RX interrupts and polled synchronous TX. An application-owned BSP and
   DMA port require separate verification.

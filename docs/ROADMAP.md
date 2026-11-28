@@ -62,7 +62,7 @@ This roadmap outlines the development path for `iolinki`, enabling a fully compl
     - [x] Mock timer for deterministic unit testing.
     - [x] Checksum calculation and verification (V1.1 CRC).
     - [x] **CRC Frame**: 6-bit CRC for M-sequence Type 2_x.
-    - [x] Legacy `t_ren` send-completion watchdog and counters; this is not wire `t_A`.
+    - [x] `t_ren` wake-to-receive-enable processing measurement and counters.
     - [x] `t_cycle` validation between valid OPERATE request starts.
     - [ ] Physical-target qualification of inter-byte (`t_byte`) and bit timing (`t_bit`).
     - [x] `t_dwu`: Wake-up delay (80μs).
@@ -90,12 +90,15 @@ guarantees the maximum `t_A` under arbitrary application or interrupt load.
 The native LabWired oracle checks both bounds at modeled C/Q on every reply,
 including startup; portable DLL dequeue timestamps cannot replace that check.
 
-The legacy `response_time_us`/`t_ren` metric ends when `phy->send` returns. In the
-G0 adapter that is UART TC, after the entire reply, so its completion threshold
-must not be interpreted as a first-start-bit deadline. The protocol rig uses a
-separate 20 ms completion limit. Manual builds default timing enforcement to 0;
-the CI protocol artifact and recorded images below explicitly use
-`IOLINK_RIG_TIMING_ENFORCE=1`.
+`response_time_us` is the measured request-end to response-start `t_A` interval
+when a PHY provides fresh boundary timestamps. Missing measurements increment
+the unavailable counter without creating a timing violation; invalid fresh
+samples and measured out-of-range delays remain enforceable. The G0 TIOL112 PHY
+does not provide these timestamps, so its portable DLL cannot evaluate `t_A`.
+Manual protocol-rig builds default timing enforcement to 0; the CI protocol
+artifact and recorded images below explicitly use
+`IOLINK_RIG_TIMING_ENFORCE=1`. The external C/Q oracle supplies the G0 `t_A`
+measurement.
 
 Recorded native runs use STM32G0B1RE at a fixed 64 MHz operating point, TIOL112,
 and TYPE_2_V with PDout1/PDin32/OD1:
@@ -261,7 +264,7 @@ synthetic clocks are not wire-timing measurements.
 
 ### 5.3 Robustness & Standards (Medium Priority)
 - [ ] Map Standard Event Codes (0x1xxx-0x8xxx ranges)
-- [x] Implement completion-duration and OPERATE cycle monitors; wire `t_A` has the separate response-time scope above.
+- [x] Implement response-start checks when PHY timing samples are available and OPERATE cycle monitors; wire `t_A` evidence has the separate scope above.
 - [ ] Add frame retry logic for communication errors
 - [x] Implement error counters and reporting
 

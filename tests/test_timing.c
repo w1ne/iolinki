@@ -8,7 +8,7 @@
 
 /**
  * @file test_timing.c
- * @brief Unit tests for time utilities and timing logic placeholders
+ * @brief Unit tests for time utilities and timing enforcement
  */
 
 #include <stdarg.h>
@@ -21,6 +21,7 @@
 
 #include "iolinki/crc.h"
 #include "iolinki/device.h"
+#include "iolinki/events.h"
 #include "iolinki/time_utils.h"
 #include "test_helpers.h"
 
@@ -96,7 +97,7 @@ static void test_t_cycle_violation(void** state)
     assert_true(stats.t_cycle_violations > 0U);
 }
 
-static void test_t_ren_violation(void** state)
+static void test_unavailable_response_timing(void** state)
 {
     (void) state;
     iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_1, .pd_in_len = 1, .pd_out_len = 1};
@@ -106,6 +107,9 @@ static void test_t_ren_violation(void** state)
     iolink_test_device_t dev;
     iolink_test_device_init(&dev, &config, NULL);
     move_to_operate_ctx(&dev.ctx);
+    iolink_dll_stats_t before;
+    iolink_device_get_dll_stats(&dev.ctx, &before);
+    const uint8_t event_count_before = dev.ctx.dll.events.count;
     iolink_device_set_timing_enforcement(&dev.ctx, true);
 
     /* Send a valid frame. Response-start timing requires a fresh PHY boundary
@@ -124,15 +128,15 @@ static void test_t_ren_violation(void** state)
     expect_value(mock_phy_send, len, 3);
     will_return(mock_phy_send, 0);
 
-    /* We need to trick the time. Since we use real time, we just wait a bit in a mock?
-       But DLL calls send() immediately after data collect.
-       To trigger t_ren violation, we'd need device processing to take long.
-    */
     iolink_device_process(&dev.ctx);
 
-    /* No violation expected in normal run.
-       Testing timing enforcement is hard with real system clock in unit tests.
-       But we can at least verify it doesn't crash. */
+    iolink_dll_stats_t stats;
+    iolink_device_get_dll_stats(&dev.ctx, &stats);
+    assert_int_equal(stats.response_timing_unavailable, before.response_timing_unavailable + 1U);
+    assert_int_equal(stats.timing_errors, before.timing_errors);
+    assert_int_equal(stats.t_a_violations, before.t_a_violations);
+    assert_int_equal(stats.t_ren_violations, before.t_ren_violations);
+    assert_int_equal(dev.ctx.dll.events.count, event_count_before);
 }
 
 static void test_t_pd_delay(void** state)
@@ -274,7 +278,7 @@ int main(void)
         cmocka_unit_test(test_time_get_ms),
         cmocka_unit_test(test_time_get_us),
         cmocka_unit_test(test_t_cycle_violation),
-        cmocka_unit_test(test_t_ren_violation),
+        cmocka_unit_test(test_unavailable_response_timing),
         cmocka_unit_test(test_t_pd_delay),
         cmocka_unit_test(test_t_byte_violation),
         cmocka_unit_test(test_timing_constants),

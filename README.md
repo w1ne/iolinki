@@ -47,12 +47,15 @@ IOLINK_PHY_TIMING_CAPTURED only for captured wire boundaries. The stack reports
 these counts separately. Neither a host test nor a software estimate qualifies
 physical timing.
 
-With timing enforcement enabled, a missing, invalid, reversed, future or
-overflowing sample raises a timing error and increments
-response_timing_unavailable. Every Type-0/1/2 response uses the same timing
-check. The limit uses the actual COM rate without rounding bit times. The
-t_a_violations counter is independent of t_ren_violations. A long blocking
-reply does not consume the response-start or wake-enable budget.
+Every Type-0/1/2 response uses the same timing check. If the PHY has no timing
+callback, or returns 0 because a fresh sample is unavailable, the stack only
+increments `response_timing_unavailable`; it does not report a violation.
+With enforcement enabled, invalid fresh samples (a negative callback result,
+bad quality, reversed/future timestamps, or an overflowing interval) raise a
+timing error. Valid samples outside the 1–10 bit-time interval increment
+`t_a_violations`. The limit uses the actual COM rate without rounding bit
+times, and `t_a_violations` is independent of `t_ren_violations`. A long
+blocking reply does not consume the response-start or wake-enable budget.
 
 The legacy set_t_ren_limit_us API now controls the measured SIO-to-SDCI
 receive-enable **processing** budget. Zero restores 500 us. PHY detection and
