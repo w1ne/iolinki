@@ -139,7 +139,6 @@ class TestStateMachineConformance(unittest.TestCase):
 
     def test_04_communication_identity_read(self):
         """
-        """
         Test Case: Identity read after communication establishment.
 
         The PTY exercises the selected host rate and protocol path but does not
