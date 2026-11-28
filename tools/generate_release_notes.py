@@ -1,172 +1,127 @@
 #!/usr/bin/env python3
-import sys
-import subprocess
+"""Generate release notes from the canonical changelog and CI evidence."""
 import json
+import re
+import sys
+from pathlib import Path
+from urllib.parse import quote
+
+ROOT = Path(__file__).resolve().parents[1]
+CHANGELOG = ROOT / "CHANGELOG.md"
+REPO_URL = "https://github.com/w1ne/iolinki"
+VERSION_COMPONENT = r"(?:0|[1-9]\d*)"
+PRERELEASE_ID = r"(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
+SEMVER = re.compile(
+    rf"^{VERSION_COMPONENT}\.{VERSION_COMPONENT}\.{VERSION_COMPONENT}"
+    rf"(?:-{PRERELEASE_ID}(?:\.{PRERELEASE_ID})*)?$"
+)
+COVERAGE_SUMMARY = re.compile(
+    r"^(?P<percent>(?:100|[1-9]?\d)\.\d)% "
+    r"\((?P<hit>0|[1-9]\d*)/(?P<total>0|[1-9]\d*) lines\)$"
+)
 
 
-def get_git_log(from_tag, to_tag):
-    """Get git log messages between two tags."""
-    cmd = ["git", "log", f"{from_tag}..{to_tag}", "--pretty=format:%s"]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        return result.stdout.split("\n")
-    except subprocess.CalledProcessError:
-        return []
+def release_section(changelog: str, version: str) -> str:
+    """Return the Keep a Changelog section for this stable version."""
+    stable_version = version.split("-", 1)[0]
+    header = re.compile(rf"^## \[{re.escape(stable_version)}\](?:\s+- .*)?\s*$")
+    lines = changelog.splitlines()
+    start = next((i for i, line in enumerate(lines) if header.match(line)), None)
+    if start is None:
+        raise ValueError(f"CHANGELOG.md has no [{stable_version}] release entry")
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
+    body = "\n".join(lines[start + 1 : end]).strip()
+    if not body:
+        raise ValueError(f"CHANGELOG.md [{stable_version}] entry is empty")
+    return body
 
 
-def categorize_commits(log_lines):
-    """Categorize commits based on conventional commits."""
-    categories = {
-        "Features": [],
-        "Bug Fixes": [],
-        "Documentation": [],
-        "Refactoring": [],
-        "Testing": [],
-        "Maintenance": [],
-    }
-
-    for line in log_lines:
-        line = line.strip()
-        if not line:
-            continue
-
-        if line.startswith("feat"):
-            categories["Features"].append(line)
-        elif line.startswith("fix"):
-            categories["Bug Fixes"].append(line)
-        elif line.startswith("docs"):
-            categories["Documentation"].append(line)
-        elif line.startswith("refactor") or line.startswith("style"):
-            categories["Refactoring"].append(line)
-        elif line.startswith("test"):
-            categories["Testing"].append(line)
-        else:
-            categories["Maintenance"].append(line)
-
-    return categories
+def read_test_stats(path: Path) -> tuple[int, int]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    total = int(data.get("total", 0))
+    passed = int(data.get("passed", 0))
+    failed = int(data.get("failed", 0))
+    skipped = int(data.get("skipped", 0))
+    if total <= 0 or passed != total or failed or skipped:
+        raise ValueError("release notes require a nonempty, passing, unskipped test summary")
+    return passed, total
 
 
-def parse_test_results(build_dir):
-    """Parse CTest results."""
-    # Assuming ctest --output-on-failure was run and we can get a summary
-    # Or parsing a JUnit XML if available. simpler approach: use ctest -N json
-    try:
-        cmd = ["ctest", "--show-only=json-v1"]
-        result = subprocess.run(
-            cmd, cwd=build_dir, capture_output=True, text=True, check=True
-        )
-        data = json.loads(result.stdout)
-        len(data.get("tests", []))
-        # Note: This only gets available tests, not results.
-        # For results we need LastTest.log or similar, OR passing results in args.
-        # simpler: we'll trust the caller to pass pass/fail counts or parse output text
-        pass
-    except Exception as e:
-        print(f"Error parsing tests: {e}")
-        return 0, 0
-    return 0, 0
+def read_coverage(path: Path) -> str:
+    summary = path.read_text(encoding="utf-8").strip()
+    match = COVERAGE_SUMMARY.fullmatch(summary)
+    if not match:
+        raise ValueError("coverage summary is missing or malformed")
+
+    hit_lines = int(match.group("hit"))
+    total_lines = int(match.group("total"))
+    if total_lines <= 0 or hit_lines > total_lines:
+        raise ValueError("coverage summary has invalid line counts")
+    expected_percent = f"{hit_lines * 100 / total_lines:.1f}"
+    if match.group("percent") != expected_percent:
+        raise ValueError("coverage percentage does not match its line counts")
+    return summary
 
 
-def get_coverage_summary(coverage_file):
-    """Parse lcov summary."""
-    try:
-        with open(coverage_file, "r") as f:
-            f.read()
-            # extract lines/functions coverage
-            # LCOV output usually has "lines......: 85.5% (123 of 145)" in stdout of --summary
-            # If reading info file, it's harder. Let's rely on lcov --summary output captured file
-            pass
-    except Exception:
-        return "N/A"
-    return "N/A"
+def compare_url(prev_tag: str, comparison_ref: str) -> str:
+    prev = quote(prev_tag, safe="/.-")
+    current = quote(comparison_ref, safe="/.-")
+    return f"{REPO_URL}/compare/{prev}...{current}"
 
 
-def generate_markdown(version, date, categories, test_stats, coverage_stats):
-    lines = []
-    lines.append(f"# Release {version}")
-    lines.append(f"**Date:** {date}")
-    lines.append("")
+def generate(version: str, prev_tag: str, stats_path: Path, coverage_path: Path,
+             comparison_ref: str) -> str:
+    if not SEMVER.fullmatch(version):
+        raise ValueError(f"invalid SemVer version: {version}")
+    match = re.match(r"^v?(\d+)\.(\d+)\.(\d+)", prev_tag)
+    section = release_section(CHANGELOG.read_text(encoding="utf-8"), version)
+    if match and int(version.split(".", 1)[0]) > int(match.group(1)):
+        if "### Migration from" not in section:
+            raise ValueError("major release changelog entry must contain a migration section")
 
-    lines.append("## 📊 Quality Report")
-    lines.append("| Metric | Status |")
-    lines.append("| :--- | :--- |")
-    lines.append(
-        f"| **Tests** | ✅ {test_stats['passed']} Passed / {test_stats['total']} Total |"
+    passed, total = read_test_stats(stats_path)
+    coverage = read_coverage(coverage_path)
+
+    major = version.split(".", 1)[0]
+    migration_doc = f"MIGRATION_{major}.0.md"
+    migration_ref = quote(comparison_ref or f"v{version}", safe="/.-")
+    section = section.replace(
+        f"](docs/{migration_doc})",
+        f"]({REPO_URL}/blob/{migration_ref}/docs/{migration_doc})",
     )
-    lines.append(f"| **Coverage** | 📈 {coverage_stats} |")
-    lines.append("")
+    lines = [
+        f"# iolinki v{version}",
+        "",
+        "## Changes",
+        "",
+        section,
+        "",
+        "## CI validation for this source commit",
+        "",
+        f"- Host tests: {passed} passed / {total} total.",
+        f"- Line coverage: {coverage}.",
+    ]
+    if comparison_ref:
+        lines.extend(["", f"[Compare {prev_tag} to this source](" +
+                      f"{compare_url(prev_tag, comparison_ref)})."])
+    return "\n".join(lines) + "\n"
 
-    lines.append("## 🚀 New Features")
-    if categories["Features"]:
-        for item in categories["Features"]:
-            lines.append(f"- {item}")
-    else:
-        lines.append("- _No major features in this release_")
-    lines.append("")
 
-    lines.append("## 🐛 Bug Fixes")
-    if categories["Bug Fixes"]:
-        for item in categories["Bug Fixes"]:
-            lines.append(f"- {item}")
-    else:
-        lines.append("- _No bug fixes in this release_")
-    lines.append("")
-
-    lines.append("<details>")
-    lines.append("<summary>Other Changes (Docs, Refactor, Maint)</summary>")
-    lines.append("")
-    for cat in ["Documentation", "Refactoring", "Testing", "Maintenance"]:
-        if categories[cat]:
-            lines.append(f"### {cat}")
-            for item in categories[cat]:
-                lines.append(f"- {item}")
-            lines.append("")
-    lines.append("</details>")
-
-    return "\n".join(lines)
+def main(argv: list[str]) -> int:
+    if len(argv) != 6:
+        print(
+            "Usage: generate_release_notes.py <version> <prev_tag> "
+            "<test_summary.json> <coverage_summary.txt> <comparison_ref>",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        print(generate(argv[1], argv[2], Path(argv[3]), Path(argv[4]), argv[5]), end="")
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"release notes error: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 5:
-        print(
-            "Usage: generate_release_notes.py <version> <prev_tag> <test_summary_file> <coverage_summary_file>"
-        )
-        sys.exit(1)
-
-    version = sys.argv[1]
-    prev_tag = sys.argv[2]
-    test_json = sys.argv[3]
-    cov_file = sys.argv[4]
-
-    # 1. log
-    log = get_git_log(prev_tag, "HEAD")
-    cats = categorize_commits(log)
-
-    # 2. tests
-    t_passed = 0
-    t_total = 0
-    try:
-        with open(test_json, "r") as f:
-            # Assuming we save a simple json: {"total": X, "passed": Y, "failed": Z}
-            d = json.load(f)
-            t_passed = d.get("passed", 0)
-            t_total = d.get("total", 0)
-    except Exception:
-        pass
-
-    # 3. coverage
-    cov_str = "N/A"
-    try:
-        with open(cov_file, "r") as f:
-            cov_str = f.read().strip()
-    except Exception:
-        pass
-
-    import datetime
-
-    date_str = datetime.date.today().strftime("%Y-%m-%d")
-
-    md = generate_markdown(
-        version, date_str, cats, {"passed": t_passed, "total": t_total}, cov_str
-    )
-    print(md)
+    raise SystemExit(main(sys.argv))

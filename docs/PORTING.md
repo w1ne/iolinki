@@ -13,6 +13,39 @@ below predate the current callback signatures and are conceptual illustrations;
 do not copy them unchanged. In particular, a millisecond-derived microsecond
 clock and a one-millisecond polling delay do not establish physical IO-Link timing.
 
+## Foreground processing and interrupt handoff
+
+Run `iolink_device_process()` from exactly one foreground loop or task. It is
+not ISR-safe. It drains the PHY receive interface, advances the DLL and ISDU,
+and calls PHY and application hooks synchronously. Those hooks must be bounded,
+nonblocking, and must not call `iolink_device_process()` recursively. The core
+ignores a nested process call on the same context, but that guard does not make
+other APIs ISR-safe or serialize separate tasks; use a real platform lock for
+multiple task contexts.
+
+An ISR should do only bounded hardware work: read/acknowledge status, move RX
+bytes into a bounded queue or DMA ring, latch errors, and signal foreground
+work. Keep the byte queue separate from its wakeup flag: wakeups may coalesce,
+but queued bytes may not. On queue overrun, DMA ambiguity, or UART framing/parity
+error, discard the incomplete receive history and let the stack resynchronize
+on a later valid frame. Do not process protocol frames or call application
+callbacks in the ISR.
+
+The foreground wait must not lose a wakeup between checking the pending flag
+and sleeping. Use a short critical section to take/clear the latch and a
+platform-appropriate event/WFI handshake; the ISR only sets the latch and wakes
+the CPU. Keep interrupt masking to the queue/latch snapshot. Do not mask
+interrupts around the stack process loop, a callback, or a synchronous UART
+transmit wait. A periodic foreground tick is still needed for protocol
+deadlines and application cadence when no UART traffic arrives, but it does
+not replace immediate UART-driven servicing or pin-level timing measurements.
+
+Implement `iolink_critical_enter()` and `iolink_critical_exit()` as a
+nest-safe, prior-state-preserving pair with the shortest practical masked
+window. The weak defaults provide no protection and are suitable only for a
+single-context build. Do not use the stack's critical hooks as a way to make
+the full processing loop ISR-safe.
+
 iolinki is designed to be portable across different platforms and RTOSes. This guide explains how to port the stack to your target platform.
 
 ## Platform Abstraction Layers
@@ -102,34 +135,51 @@ uint64_t iolink_time_get_us(void) {
 }
 ```
 
-### 3. Data Storage (Optional)
+### 3. Non-volatile Memory and Data Storage
 
-Implement persistent storage for Device parameters.
+Parameters (tags, DeviceAccessLocks) are stored through the platform NVM
+functions. Implement them for persistent devices:
 
-**Interface**:
 ```c
-typedef struct {
-    int (*load)(uint8_t *data, uint16_t *len);
-    int (*store)(const uint8_t *data, uint16_t len);
-} iolink_ds_storage_api_t;
+int iolink_nvm_read(uint32_t offset, uint8_t *data, size_t len);
+int iolink_nvm_write(uint32_t offset, const uint8_t *data, size_t len); /* 0 = success */
 ```
 
-**Example** (EEPROM):
+A failed `iolink_nvm_write()` is reported to the Master (0x8000) and leaves
+the previous values active. Restore factory settings and Back-to-box need a
+working NVM write.
+
+The Data Storage backend is optional. It keeps an extra copy of the DS image:
+
 ```c
-static int eeprom_load(uint8_t *data, uint16_t *len) {
-    *len = EEPROM_Read(IOLINK_DS_ADDR, data, IOLINK_DS_MAX_SIZE);
-    return 0;
+typedef struct {
+    int (*read)(uint32_t addr, uint8_t *buf, size_t len);
+    int (*write)(uint32_t addr, const uint8_t *buf, size_t len);
+    int (*erase)(uint32_t addr, size_t len); /* optional, may be NULL */
+} iolink_ds_storage_api_t;
+
+static int eeprom_read(uint32_t addr, uint8_t *buf, size_t len) {
+    return EEPROM_Read(IOLINK_DS_ADDR + addr, buf, len) == len ? 0 : -1;
 }
 
-static int eeprom_store(const uint8_t *data, uint16_t len) {
-    return EEPROM_Write(IOLINK_DS_ADDR, data, len);
+static int eeprom_write(uint32_t addr, const uint8_t *buf, size_t len) {
+    return EEPROM_Write(IOLINK_DS_ADDR + addr, buf, len) == len ? 0 : -1;
 }
 
 const iolink_ds_storage_api_t g_storage_eeprom = {
-    .load = eeprom_load,
-    .store = eeprom_store
+    .read = eeprom_read,
+    .write = eeprom_write,
+    .erase = NULL,
 };
 ```
+
+### 4. Reset Handler
+
+Register `iolink_device_set_reset_handler()` if the device supports Device
+reset (0x80), Application reset (0x81) or Back-to-box (0x83). Without a
+handler the stack refuses these commands with 0x8035. For Back-to-box the
+handler must disable all output drivers; the stack then stops communication
+until the next `iolink_device_init()`.
 
 ## CMake Integration
 
@@ -227,9 +277,16 @@ int main(void) {
 
 void SysTick_Handler(void) {
     g_tick_ms++;
-    // Could call iolink_process() here instead
+    // Signal the main loop/task; do not call iolink_device_process() or
+    // iolink_dll_process() from this interrupt handler.
 }
 ```
+
+`iolink_device_process()` polls the PHY and may run application, ISDU and
+storage callbacks, so it is not ISR-safe. Run it from one serialized main-loop
+or task context. An interrupt can latch a wake-up or data-ready flag for that
+context to consume. The optional device lock callbacks do not make concurrent
+process calls safe.
 
 ## Memory Requirements
 
@@ -245,8 +302,10 @@ For detailed RAM/ROM calculations and stack depth analysis, please refer to the 
 The stack can be tuned via `include/iolinki/config.h`. Override the defaults by defining these macros in your build system (e.g., `-DIOLINK_ISDU_BUFFER_SIZE=64`):
 
 - `IOLINK_ISDU_BUFFER_SIZE`: Size of ISDU transfer buffers.
-- `IOLINK_EVENT_QUEUE_SIZE`: Number of events to queue.
+- `IOLINK_EVENT_QUEUE_SIZE`: Number of events to queue (default 8).
+- `IOLINK_EVENT_CONDITION_SLOTS`: Tracked event conditions (default 8).
 - `IOLINK_PD_IN_MAX_SIZE`: Max process data input size.
+- `IOLINK_OD_MAX_SIZE`: Max On-request Data width (default 8 for TYPE_1_V).
 
 ## Hardware Requirements
 

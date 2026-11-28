@@ -11,6 +11,7 @@ See LICENSE for details.
 Device connection test - verify Virtual Master can connect to iolinki device.
 """
 
+import os
 import sys
 import time
 import subprocess
@@ -19,7 +20,11 @@ from virtual_master import VirtualMaster, MSequenceType
 
 
 def find_device_binary():
-    """Find the device binary (host_demo or simple_device)"""
+    """Find the device binary (IOLINK_DEVICE_PATH, host_demo or simple_device)"""
+    env_path = os.environ.get("IOLINK_DEVICE_PATH")
+    if env_path and Path(env_path).exists():
+        return Path(env_path)
+
     build_dir = Path(__file__).parent.parent.parent / "build"
 
     host_demo = build_dir / "examples" / "host_demo" / "host_demo"
@@ -91,8 +96,11 @@ def test_type_1_2_connection():
         print("❌ Device binary not found")
         return False
 
+    # host_demo arguments: <tty> <type> <pd_len>; type 1 = Type 1_2 (must match the Master).
     device_proc = subprocess.Popen(
-        [str(device_bin), device_tty], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        [str(device_bin), device_tty, "1", "2"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
 
     time.sleep(1)
@@ -120,10 +128,11 @@ def test_type_1_2_connection():
                 print(f"  ❌ Cycle {i + 1} failed")
                 return False
 
-        print("\nReading ISDU (Vendor ID)...")
-        vendor_id_data = master.read_isdu(0x000A)
-        if vendor_id_data and len(vendor_id_data) >= 2:
-            vendor_id = (vendor_id_data[0] << 8) | vendor_id_data[1]
+        # V1.1.5 Table B.8: index 0x000A is reserved; VendorID is in Direct
+        # Parameter page 1 (ISDU index 0x0000, octets 0x07-0x08).
+        print("\nReading Vendor ID (Direct Parameter page 1 via ISDU 0x0000)...")
+        vendor_id = master.read_vendor_id()
+        if vendor_id is not None:
             print(f"✅ Vendor ID: 0x{vendor_id:04X}")
             return True
         else:
@@ -150,8 +159,11 @@ def test_type_2_2_connection():
         print("❌ Device binary not found")
         return False
 
+    # host_demo arguments: <tty> <type> <pd_len>; type 2 = Type 2_2 (must match the Master).
     device_proc = subprocess.Popen(
-        [str(device_bin), device_tty], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        [str(device_bin), device_tty, "2", "1"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
 
     time.sleep(1)
@@ -179,16 +191,12 @@ def test_type_2_2_connection():
                 print(f"  ❌ Cycle {i + 1} failed")
                 return False
 
-        print("\nReading ISDU (Device ID)...")
-        device_id_data = master.read_isdu(0x000B)
-        if device_id_data and len(device_id_data) >= 4:
-            device_id = (
-                (device_id_data[0] << 24)
-                | (device_id_data[1] << 16)
-                | (device_id_data[2] << 8)
-                | device_id_data[3]
-            )
-            print(f"✅ Device ID: 0x{device_id:08X}")
+        # V1.1.5 Table B.8: index 0x000B is reserved; DeviceID (24 bit) is in
+        # Direct Parameter page 1 (ISDU index 0x0000, octets 0x09-0x0B).
+        print("\nReading Device ID (Direct Parameter page 1 via ISDU 0x0000)...")
+        device_id = master.read_device_id()
+        if device_id is not None:
+            print(f"✅ Device ID: 0x{device_id:06X}")
             return True
         else:
             print("❌ ISDU read failed")

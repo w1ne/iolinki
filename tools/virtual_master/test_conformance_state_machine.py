@@ -141,9 +141,9 @@ class TestStateMachineConformance(unittest.TestCase):
         """
         Test Case: Identity read after communication establishment.
 
-        This PTY test does not measure or negotiate physical baud rates.
-        IO-Link v1.1.4 section 7.3.2.2 assigns rate discovery to the Master;
-        each Device supports one configured COM rate.
+        The PTY exercises the selected host rate and protocol path but does not
+        measure a physical baud rate or rate negotiation. Deterministic coverage
+        for configured COM1/COM2/COM3 recovery is in test_configured_rate.
         """
         print("\n[TEST] Communication Identity Read")
 

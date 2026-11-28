@@ -6,7 +6,7 @@ The companion master stack is [iolinki-master](https://github.com/w1ne/iolinki-m
 
 ## Overview
 
-`iolinki` is a professional-grade, open-source IO-Link Device Stack (compliant with Spec V1.1.5) designed with complete hardware independence and comprehensive test coverage. Built from the ground up using test-driven development, every component is testable without hardware.
+`iolinki` is a professional-grade, open-source IO-Link Device Stack (implements IO-Link V1.1.5, Package 2025 — the latest published specification package) designed with complete hardware independence and comprehensive test coverage. Built from the ground up using test-driven development, every component is testable without hardware.
 
 ### Key Features
 
@@ -47,12 +47,15 @@ IOLINK_PHY_TIMING_CAPTURED only for captured wire boundaries. The stack reports
 these counts separately. Neither a host test nor a software estimate qualifies
 physical timing.
 
-With timing enforcement enabled, a missing, invalid, reversed, future or
-overflowing sample raises a timing error and increments
-response_timing_unavailable. Every Type-0/1/2 response uses the same timing
-check. The limit uses the actual COM rate without rounding bit times. The
-t_a_violations counter is independent of t_ren_violations. A long blocking
-reply does not consume the response-start or wake-enable budget.
+Every Type-0/1/2 response uses the same timing check. If the PHY has no timing
+callback, or returns 0 because a fresh sample is unavailable, the stack only
+increments `response_timing_unavailable`; it does not report a violation.
+With enforcement enabled, invalid fresh samples (a negative callback result,
+bad quality, reversed/future timestamps, or an overflowing interval) raise a
+timing error. Valid samples outside the 1–10 bit-time interval increment
+`t_a_violations`. The limit uses the actual COM rate without rounding bit
+times, and `t_a_violations` is independent of `t_ren_violations`. A long
+blocking reply does not consume the response-start or wake-enable budget.
 
 The legacy set_t_ren_limit_us API now controls the measured SIO-to-SDCI
 receive-enable **processing** budget. Zero restores 500 us. PHY detection and
@@ -137,12 +140,12 @@ cd build && ctest --output-on-failure
 
 ## IO-Link V1.1.5 Conformance
 
-iolinki includes **49 automated conformance tests** validating compliance with the IO-Link V1.1.5 specification:
+iolinki includes **51 automated conformance tests** validating compliance with the IO-Link V1.1.5 specification. The suite targets Package 2025 (V1.1.5, October 2025), the latest published package. Package 2026 (D1.1.6) is in public review until 17 December 2026 and will be tracked when ratified. Coverage by category:
 
 - ✅ **State Machine**: DLL transitions, ESTAB_COM, fallback behavior (7 tests)
 - ✅ **Timing**: Cycle times, response delays, wake-up timing (5 tests)
 - ✅ **ISDU Protocol**: All mandatory indices + error handling (13 tests)
-- ✅ **System Commands**: Reset, factory restore, Data Storage upload/download (9 tests)
+- ✅ **System Commands**: Table B.9 values, resets, Block Parameterization, DS upload flag (11 tests; re-run 2026-11-16 on the virtual PTY, see docs/CONFORMANCE.md)
 - ✅ **Error Injection**: Recovery, robustness, edge cases (7 tests)
 - ✅ **PD / Events / SIO**: Process Data, event signalling, SIO fallback (3 tests)
 - ✅ **Performance**: Sustained operation, stress testing (5 tests)
@@ -207,6 +210,8 @@ See [ROADMAP.md](./docs/ROADMAP.md) for detailed development phases.
 - **[ROADMAP.md](./docs/ROADMAP.md)** - Development phases and milestones
 - **[VISION.md](./docs/VISION.md)** - Project mission and approach
 - **[RELEASE_STRATEGY.md](./docs/RELEASE_STRATEGY.md)** - Release workflow and versioning
+- **[MIGRATION_3.0.md](./docs/MIGRATION_3.0.md)** - v2.2.0 to v3.0.0 wire, ABI,
+  COM-rate and timing migration notes
 - **[INSTALL.md](./INSTALL.md)** - Detailed installation instructions
 - **[PUPPETEER.md](./docs/PUPPETEER.md)** - Agent task mutex workflow (submodule)
 
@@ -232,16 +237,12 @@ See [ROADMAP.md](./docs/ROADMAP.md) for detailed development phases.
 
 Official releases are available on [GitHub Releases](https://github.com/w1ne/iolinki/releases).
 
-Each release includes:
-- **Test Results**: Complete test suite validation
-- **Build Artifacts**: Pre-compiled examples and test binaries
-- **Documentation**: Updated docs and guides
-
-To create a new release:
-```bash
-git tag -a v0.1.0 -m "Release version 0.1.0"
-git push origin v0.1.0
-```
+The release workflow attaches source and example archives, firmware and host
+demos, IODD packages, the STM32G0 IAR project, LabWired recipes, SBOMs, test
+evidence and checksums. Its notes include the migration guide and validation
+limits. A release preparation PR to `develop` only creates candidate workflow
+artifacts; tagging an RC or stable version publishes a GitHub Release. See the
+[release strategy](./docs/RELEASE_STRATEGY.md) before preparing a release.
 
 ## Development Philosophy
 

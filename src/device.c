@@ -19,6 +19,7 @@
 #include "iolinki/device.h"
 #include "iolinki/platform.h"
 #include "iolinki/time_utils.h"
+#include "dll_internal.h"
 #include <string.h>
 
 /** @brief DLL state-change callback: dispatches to the app startup/preoperate/operate hooks. */
@@ -51,6 +52,74 @@ static void device_state_cb(void* user, iolink_dll_state_t state)
     }
 }
 
+/** @brief SystemCommand reset service for the ISDU engine (see isdu.h). */
+static int device_system_reset(void* user, uint8_t cmd, bool execute)
+{
+    iolink_device_ctx_t* ctx = (iolink_device_ctx_t*) user;
+
+    if ((ctx == NULL) || (ctx->reset_handler == NULL)) {
+        return -1;
+    }
+    if (execute) {
+        if (cmd == IOLINK_CMD_APPLICATION_RESET) {
+            ctx->reset_handler(IOLINK_RESET_APPLICATION);
+        }
+        else if (cmd == IOLINK_CMD_RESTORE_FACTORY_SETTINGS) {
+            ctx->reset_handler(IOLINK_RESET_RESTORE_FACTORY);
+        }
+        else {
+            /* 0x80 and 0x83 run deferred in device_service_deferred_reset(). */
+        }
+    }
+    return 0;
+}
+
+/**
+ * @brief Run an accepted Device reset (0x80) or Back-to-box (0x83).
+ *
+ * 10.7.2/10.7.5: the response is sent first and the Device waits at least
+ * 3 MasterCycles after the last ISDU response before communication stops.
+ * The ISDU transport is Idle once the Master has read the whole response.
+ */
+static void device_service_deferred_reset(iolink_device_ctx_t* ctx)
+{
+    iolink_isdu_ctx_t* isdu = &ctx->dll.isdu;
+
+    if (!isdu->reset_pending && !isdu->back_to_box_pending) {
+        ctx->deferred_reset_armed = false;
+        return;
+    }
+    const bool link_lost = (ctx->dll.state == IOLINK_DLL_STATE_STARTUP);
+    if (!link_lost) {
+        if (isdu->state != ISDU_STATE_IDLE) {
+            return; /* Response not yet read by the Master */
+        }
+        if (!ctx->deferred_reset_armed) {
+            ctx->deferred_reset_armed = true;
+            ctx->deferred_reset_mseq = ctx->dll.mseq_count;
+            return;
+        }
+        if ((uint32_t) (ctx->dll.mseq_count - ctx->deferred_reset_mseq) < 3U) {
+            return;
+        }
+    }
+
+    ctx->deferred_reset_armed = false;
+    if (isdu->back_to_box_pending) {
+        isdu->back_to_box_pending = false;
+        isdu->reset_pending = false;
+        if (ctx->reset_handler != NULL) {
+            ctx->reset_handler(IOLINK_RESET_BACK_TO_BOX);
+        }
+        iolink_dll_disable_communication(&ctx->dll);
+        return;
+    }
+    isdu->reset_pending = false;
+    if (ctx->reset_handler != NULL) {
+        ctx->reset_handler(IOLINK_RESET_DEVICE);
+    }
+}
+
 /** @brief Copy the user stack configuration into the DLL context and derive lengths/timing. */
 static void device_apply_stack_config(iolink_device_ctx_t* ctx)
 {
@@ -58,6 +127,10 @@ static void device_apply_stack_config(iolink_device_ctx_t* ctx)
     ctx->dll.pd_in_len = ctx->stack_config.pd_in_len;
     ctx->dll.pd_out_len = ctx->stack_config.pd_out_len;
     ctx->dll.min_cycle_time_us = (uint32_t) ctx->stack_config.min_cycle_time * 100U;
+    if (ctx->stack_config.min_cycle_time != 0U) {
+        /* Advertise the explicit stack limit through this device's DPP identity. */
+        ctx->device_info.defaults.min_cycle_time = ctx->stack_config.min_cycle_time;
+    }
     ctx->dll.t_pd_delay_us = ctx->stack_config.t_pd_us;
     if (ctx->dll.t_pd_delay_us > 0U) {
         ctx->dll.t_pd_deadline_us = iolink_time_get_us() + (uint64_t) ctx->dll.t_pd_delay_us;
@@ -66,14 +139,38 @@ static void device_apply_stack_config(iolink_device_ctx_t* ctx)
         ctx->dll.t_pd_deadline_us = 0U;
     }
 
-    /* Table A.10: TYPE_2_1/TYPE_2_2 carry one On-request Data octet; TYPE_2_V is
-       the two-octet variant (OPERATE M-sequence code 5). */
-    ctx->dll.od_len = (ctx->dll.m_seq_type == IOLINK_M_SEQ_TYPE_2_V) ? 2U : 1U;
+    /* Table A.10: TYPE_1_2 carries two OD octets, TYPE_1_V eight, and
+       TYPE_2_V the two-octet variant; the remaining types carry one. */
+    const uint8_t configured_od = ctx->stack_config.od_len;
+    ctx->dll.od_len = configured_od != 0U ? configured_od : iolink_mseq_od_len(ctx->dll.m_seq_type);
 
     ctx->dll.pd_in_len_current = ctx->dll.pd_in_len;
     ctx->dll.pd_out_len_current = ctx->dll.pd_out_len;
     ctx->dll.pd_in_len_max = ctx->dll.pd_in_len;
     ctx->dll.pd_out_len_max = ctx->dll.pd_out_len;
+}
+
+/** @brief Translate the source-compatible config rate into a PHY COM enum. */
+static bool device_resolve_transmission_rate(iolink_device_rate_t configured,
+                                             iolink_baudrate_t* baudrate)
+{
+    if (baudrate == NULL) {
+        return false;
+    }
+    switch (configured) {
+        case IOLINK_DEVICE_RATE_DEFAULT:
+        case IOLINK_DEVICE_RATE_COM2:
+            *baudrate = IOLINK_BAUDRATE_COM2;
+            return true;
+        case IOLINK_DEVICE_RATE_COM1:
+            *baudrate = IOLINK_BAUDRATE_COM1;
+            return true;
+        case IOLINK_DEVICE_RATE_COM3:
+            *baudrate = IOLINK_BAUDRATE_COM3;
+            return true;
+        default:
+            return false;
+    }
 }
 
 size_t iolink_device_ctx_size(void)
@@ -83,8 +180,36 @@ size_t iolink_device_ctx_size(void)
 
 int iolink_device_init(iolink_device_ctx_t* ctx, const iolink_device_config_t* config)
 {
+    iolink_baudrate_t baudrate;
+
     if ((ctx == NULL) || (config == NULL)) {
         return -1;
+    }
+
+    if (!device_resolve_transmission_rate(config->stack.transmission_rate, &baudrate)) {
+        return -1;
+    }
+
+    if ((config->stack.pd_in_len > IOLINK_PD_IN_MAX_SIZE) ||
+        (config->stack.pd_out_len > IOLINK_PD_OUT_MAX_SIZE)) {
+        return -1;
+    }
+    if (config->stack.od_len != 0U) {
+        const uint8_t width = config->stack.od_len;
+        if (config->stack.m_seq_type == IOLINK_M_SEQ_TYPE_2_V) {
+            if ((width != 1U) && (width != 2U)) return -1;
+            if ((config->stack.pd_in_len == 0U) && (config->stack.pd_out_len == 0U)) {
+                return -1;
+            }
+            /* This OD1 variant advertises code4, not the short-PD code0 form. */
+            if ((width == 1U) && (config->stack.pd_in_len < 3U) &&
+                (config->stack.pd_out_len < 3U)) {
+                return -1;
+            }
+        }
+        else if (width != iolink_mseq_od_len((uint8_t) config->stack.m_seq_type)) {
+            return -1;
+        }
     }
 
     (void) memset(ctx, 0, sizeof(*ctx));
@@ -100,13 +225,17 @@ int iolink_device_init(iolink_device_ctx_t* ctx, const iolink_device_config_t* c
 
     iolink_device_info_ctx_init(&ctx->device_info, config->device_info);
     iolink_params_ctx_init(&ctx->params, &ctx->device_info);
-    iolink_dll_init(&ctx->dll, &config->phy);
+    iolink_dll_init_configured(&ctx->dll, &config->phy, baudrate);
     ctx->dll.isdu.direct_param_page2 = ctx->direct_param_page2;
     ctx->dll.isdu.params_ctx = &ctx->params;
     ctx->dll.isdu.vendor_service = config->vendor_service;
     ctx->dll.isdu.vendor_user = config->user;
+    ctx->dll.isdu.system_reset = device_system_reset;
+    ctx->dll.isdu.system_reset_user = ctx;
     ctx->dll.state_cb = device_state_cb;
     ctx->dll.state_cb_user = ctx;
+    ctx->dll.pd_input_select = config->pd_input_select;
+    ctx->dll.pd_input_select_user = config->user;
     if (config->ds_storage != NULL) {
         iolink_ds_init(&ctx->dll.ds, config->ds_storage);
         ctx->dll.isdu.ds_ctx = &ctx->dll.ds;
@@ -127,20 +256,21 @@ void iolink_device_process(iolink_device_ctx_t* ctx)
         return;
     }
 
+    /* Claim the foreground runner in a short critical section. The stack and
+     * synchronous callbacks below must never run with interrupts masked. */
+    iolink_critical_enter();
+    if (ctx->processing) {
+        iolink_critical_exit();
+        return;
+    }
+    ctx->processing = true;
+    iolink_critical_exit();
+
     iolink_dll_process(&ctx->dll);
 
-    if (ctx->dll.isdu.reset_pending) {
-        ctx->dll.isdu.reset_pending = false;
-        if (ctx->reset_handler != NULL) {
-            ctx->reset_handler(IOLINK_RESET_DEVICE);
-        }
-    }
-    if (ctx->dll.isdu.app_reset_pending) {
-        ctx->dll.isdu.app_reset_pending = false;
-        if (ctx->reset_handler != NULL) {
-            ctx->reset_handler(IOLINK_RESET_APPLICATION);
-        }
-    }
+    /* Application reset already ran before its ISDU response. */
+    ctx->dll.isdu.app_reset_pending = false;
+    device_service_deferred_reset(ctx);
 
     if ((ctx->config != NULL) && (ctx->config->app_callbacks != NULL) &&
         (ctx->dll.state == IOLINK_DLL_STATE_OPERATE)) {
@@ -151,11 +281,18 @@ void iolink_device_process(iolink_device_ctx_t* ctx)
             ctx->config->app_callbacks->on_pd_input(ctx->dll.pd_in, ctx->dll.pd_in_len_current);
         }
     }
+
+    /* Release only after every callback has returned. */
+    iolink_critical_enter();
+    ctx->processing = false;
+    iolink_critical_exit();
 }
 
 int iolink_device_pd_input_update(iolink_device_ctx_t* ctx, const uint8_t* data, size_t len,
                                   bool valid)
 {
+    int ret;
+
     if ((ctx == NULL) || (data == NULL) || (len > sizeof(ctx->dll.pd_in))) {
         return -1;
     }
@@ -167,10 +304,8 @@ int iolink_device_pd_input_update(iolink_device_ctx_t* ctx, const uint8_t* data,
         iolink_critical_enter();
     }
 
-    (void) memcpy(ctx->dll.pd_in, data, len);
-    ctx->dll.pd_in_len = (uint8_t) len;
-    ctx->dll.pd_in_len_current = (uint8_t) len;
-    ctx->dll.pd_valid = valid;
+    /* Valid data also becomes the ProcessDataInput (0x0028) snapshot. */
+    ret = iolink_dll_publish_pd_in(&ctx->dll, data, (uint8_t) len, valid);
 
     if ((ctx->config != NULL) && (ctx->config->unlock != NULL)) {
         ctx->config->unlock(ctx->config->user);
@@ -179,7 +314,7 @@ int iolink_device_pd_input_update(iolink_device_ctx_t* ctx, const uint8_t* data,
         iolink_critical_exit();
     }
 
-    return 0;
+    return ret;
 }
 
 int iolink_device_pd_output_read(iolink_device_ctx_t* ctx, uint8_t* data, size_t len)

@@ -7,10 +7,13 @@ This document outlines the development workflow, versioning, and release procedu
 We use a simplified **Gitflow** model.
 
 ### Branches
-- **`main`**: Production code. Stable releases. **Protected: All official version tags (`vX.Y.Z`) MUST be pushed from this branch**.
+- **`main`**: Production code and stable releases. Protected; stable `vX.Y.Z`
+  tags are accepted only from commits on this branch.
 - **`develop`**: Integration branch. Source for `feature/*` and destination for verified features.
 - **`feature/*`**: Feature branches. Created from and merged back to `develop` via PR.
-- **`release/*`**: Release preparation. Source for `vX.Y.Z-rcN` tags. Merged to `main` via PR for official release.
+- **`release/*`**: Release preparation branch. Open a PR to `develop`; after
+  approval and checks, promote the reviewed commit to `main` using the protected
+  branch process. An approved RC tag publishes a prerelease.
 - **`bugfix/*`**: Fixes for production bugs. Merged to `develop` and `main` via PRs.
 
 ## 2. Versioning
@@ -19,7 +22,7 @@ We use **Semantic Versioning 2.0.0** (SemVer).
 
 Format: `MAJOR.MINOR.PATCH`
 
-- **MAJOR**: Incompatible API changes or significant protocol version updates.
+- **MAJOR**: Incompatible source/binary API changes or significant wire protocol updates.
 - **MINOR**: Backward-compatible new functionality (e.g., new standard definitions).
 - **PATCH**: Backward-compatible bug fixes.
 
@@ -45,105 +48,87 @@ Automated pipelines run on every push to `main` or `develop`.
 
 ## 4. Release Process
 
-### Automated Release (Main-only)
+### Release preparation PR
 
-Official releases are triggered ONLY from the `main` branch.
+Prepare a release on a dedicated `release/x.y.z` branch based on `develop` and
+submit it to `develop`. This PR is the review and CI gate; it does not merge,
+tag, or publish the release.
 
-Both `main` and `develop` are protected: the required checks are the *real* CI
-jobs (`docker-validation`, `zephyr-validation`, `sbom-tools`) with no admin
-bypass. Because a freshly created merge commit has no check results, release
-promotion works by **fast-forwarding `main` to a develop SHA whose checks are
-already green** — never by merging with a new commit. This keeps `main` an
-exact subset of `develop`, so no back-merge is needed.
-
-1. **Promote + tag**: Fast-forward `main` to the green `develop` SHA and tag it:
+1. Fetch and inspect both histories before branching:
    ```bash
-   git fetch origin
-   git push origin origin/develop:main   # fast-forward; rejected if main diverged
-   git tag -a v1.0.0 -m "Release version 1.0.0" origin/develop
-   git push origin v1.0.0
+   git fetch origin --prune
+   git log --oneline --left-right origin/main...origin/develop
+   git switch -c release/x.y.z origin/develop
    ```
-
-2. **Workflow**: The GitHub Action automatically:
-   - Builds with **Code Coverage**.
-   - Generates **Automated Release Notes**.
-   - Packages binaries, **SBOMs (CycloneDX + SPDX)**, and creates a GitHub Release.
-   - **Back-merge safety net**: if `main` somehow diverged from `develop`, the
-     workflow opens a back-merge PR (it cannot push to the protected branch
-     directly). In the normal fast-forward flow this is a no-op.
-
-### Release Candidates (RC)
-
-RCs are used to verify the release workflow and quality before finalizing on `main`.
-
-1. **RC Tagging**: Push an RC tag from a `release/*` branch:
+2. If `main` has commits missing from `develop`, merge them into the release
+   branch with a merge commit:
    ```bash
-   git checkout release/1.0.0
-   git tag -a v1.0.0-rc1 -m "Release Candidate 1"
-   git push origin v1.0.0-rc1
+   git merge --no-ff origin/main
    ```
-2. **Verification**: RC tags trigger the same build/test pipeline but do NOT update `main` or perform back-merges.
+   Preserve both histories. Do not reset, rebase away commits, force-push, or
+   bypass branch protections. Resolve code conflicts by retaining the behavior
+   and tests from both lines. If a conflict cannot be resolved confidently or
+   the licensing/provenance status is unclear, stop for maintainer/legal review.
+3. Apply SemVer. Incompatible public API/ABI or wire changes require a new
+   major version. Update `CMakeLists.txt`, the dated release entry and compare
+   links in `CHANGELOG.md`, `docs/MIGRATION_<major>.md`, and the matching
+   `ROADMAP.md` preparation entry. The changelog is the canonical source for
+   generated release notes.
+4. Run affected source tools and host checks where local resources permit. The
+   required pull-request CI remains authoritative; do not skip required jobs or
+   replace them with build artifacts from another revision.
+5. Push the release branch and open a PR to `develop`. Review the generated
+   notes, exact-source evidence, migration instructions and model/physical
+   validation limits. Wait for required checks and review. Leave the PR open;
+   merging is a separate maintainer action.
 
-> [!TIP]
-> Use RC tags to "dry-run" the release notes and binary packaging without affecting the production baseline.
+### Candidate workflow and publication
 
-### Manual Release (PR-Based Flow)
+The `release.yml` pull-request workflow builds and packages a short-retention
+candidate artifact and a separate notes artifact for the tested PR merge
+commit. Candidate notes use the checked-in changelog and do not link to
+unpublished release downloads. This is the dry-run path.
 
-1. **Prepare Release Branch**:
-   ```bash
-   git checkout develop
-   git checkout -b release/x.y.z
-   ```
+Pushing a `vX.Y.Z-rcN` tag is different: it runs the release workflow and
+publishes a GitHub prerelease with downloadable artifacts. Do that only after
+the release owner explicitly approves publication. Stable `vX.Y.Z` tags also
+publish a GitHub Release and are accepted only from `main`.
 
-2. **Update Documentation**:
-   - Update version in `CMakeLists.txt`
-   - Update `CHANGELOG.md`
-   - Update `ROADMAP.md` milestones
+After the release preparation PR has merged, promote the reviewed commit to
+protected `main` through the repository's allowed protected-branch process.
+The exact promotion commit must pass the required checks. If branch protection
+rejects the update, stop and use its normal PR/check workflow; do not force-push
+or use an admin bypass. Only then create and push the stable tag from `main`.
+The stable-tag workflow builds coverage, generates notes from the release
+entry, packages source/examples/firmware, host demos, IODDs, the IAR project,
+LabWired recipes, test evidence, and CycloneDX/SPDX SBOMs, then creates the
+GitHub Release. If `main` still has commits absent from `develop`, the workflow
+opens a back-merge PR; it does not push to protected `develop`.
 
-3. **Verify Quality Locally**:
-   ```bash
-   cmake -B build -DCMAKE_BUILD_TYPE=Release
-   cmake --build build
-   cd build && ctest --output-on-failure
-   ```
-
-4. **Open Pull Requests**:
-   - Push the `release/x.y.z` branch to remote.
-   - Open a PR from `release/x.y.z` to **`main`**.
-   - **Wait for CI to pass** and get approval.
-   - Merge the PR (this will update `main`).
-
-5. **Tag the Release**:
-   - On the updated `main` branch locally:
-     ```bash
-     git pull origin main
-     git tag -a vx.y.z -m "Release vx.y.z"
-     git push origin vx.y.z
-     ```
-
-6. **Troubleshooting & Retries**:
-   - **Failed Release**: If the CI fails on a tag, delete the tag on remote and local, fix the issue on `main`, and re-tag:
-     ```bash
-     git tag -d v1.0.0
-     git push origin :v1.0.0
-     # Fix issue on main...
-     git tag v1.0.0
-     git push origin v1.0.0
-     ```
-   - **Pre-commit Blocks**: If hooks (e.g., branch name checks) block release housekeeping commits, use `--no-verify`:
-     ```bash
-     git commit -m "chore(release): bump version" --no-verify
-     ```
+The GitHub source archive is the GPL/public distribution and does not expand
+proprietary rights to GPL-only contributions or third-party material.
+Commercial source delivery remains a separate operation requiring the final
+rights review and agreed path list in
+[`COMMERCIAL_SOURCE_SCOPE.md`](COMMERCIAL_SOURCE_SCOPE.md).
 
 ## 5. Release Artifacts
 
-Each GitHub Release includes:
-- **Test Results**: Test count and pass/fail summary
-- **Build Artifacts**:
-  - `simple_device` - Example executable
-  - `test_init` - Unit test executable
-- **Documentation**: Links to all project docs
-- **Source Code**: Automatic archive by GitHub
+The release workflow attaches the following files to a stable GitHub Release:
+
+- Versioned source and example archives.
+- Firmware archive for the ESP32-C3, STM32G0 and STM32U5 example jobs.
+- Linux host demos, the native STM32G0 IAR project, and counter/switching-sensor
+  IODD packages.
+- LabWired recipes and pinned engine commits.
+- CycloneDX and SPDX SBOMs.
+- JUnit results, test log/statistics, coverage summary, IODD validation log,
+  host compiler version, source commit, and `SHA256SUMS` for the package files.
+- GitHub's automatic source archives for the tagged commit.
+
+On pull requests these are candidate workflow artifacts with three-day
+retention; release-download URLs exist only after a tag publishes a release.
+The notes describe only files produced by the workflow and state their
+validation limits.
 
 ## 6. Distribution
 

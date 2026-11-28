@@ -157,7 +157,17 @@ static void missing_invalid_and_estimated(void)
         assert(ctx.response_timing_unavailable == 1U);
         assert(ctx.response_timing_captured == 0U);
         assert(ctx.response_timing_quality == IOLINK_PHY_TIMING_UNAVAILABLE);
-        assert(ctx.timing_errors == 1U);
+        const bool unavailable_only = (i == 0U) || (i == 1U);
+        assert(ctx.timing_errors == (unavailable_only ? 0U : 1U));
+        if (unavailable_only) {
+            assert(!iolink_events_pending(&ctx.events));
+        }
+        else {
+            iolink_event_t event;
+            assert(iolink_events_pop(&ctx.events, &event));
+            assert(event.code == IOLINK_EVENT_COMM_TIMING);
+            assert(!iolink_events_pending(&ctx.events));
+        }
     }
     iolink_dll_ctx_t ctx;
     setup(&ctx, IOLINK_BAUDRATE_COM2, false);
@@ -171,6 +181,42 @@ static void missing_invalid_and_estimated(void)
     iolink_dll_process(&ctx);
     assert(ctx.framing_errors == 1U && ctx.response_timing_captured == 0U);
 }
+
+static void missing_hook_many_frames_preserves_real_violation(void)
+{
+    iolink_dll_ctx_t ctx;
+    setup(&ctx, IOLINK_BAUDRATE_COM2, false);
+    phy.get_response_timing = NULL;
+
+    for (unsigned i = 0U; i < 32U; ++i) {
+        rx_index = 0U;
+        iolink_dll_process(&ctx);
+    }
+
+    assert(send_count == 32U);
+    assert(ctx.response_timing_unavailable == 32U);
+    assert(ctx.timing_errors == 0U);
+    assert(ctx.t_a_violations == 0U);
+    assert(!iolink_events_pending(&ctx.events));
+    assert(iolink_events_dropped(&ctx.events) == 0U);
+
+    /* A fresh, valid timestamp outside 1..10 bit times is a real violation. */
+    phy.get_response_timing = timing;
+    response_delay = 0U;
+    rx_index = 0U;
+    iolink_dll_process(&ctx);
+
+    assert(send_count == 33U);
+    assert(ctx.response_timing_unavailable == 32U);
+    assert(ctx.timing_errors == 1U);
+    assert(ctx.t_a_violations == 1U);
+    assert(iolink_events_dropped(&ctx.events) == 0U);
+    iolink_event_t event;
+    assert(iolink_events_pop(&ctx.events, &event));
+    assert(event.code == IOLINK_EVENT_COMM_TIMING);
+    assert(!iolink_events_pending(&ctx.events));
+}
+
 static void wake_receive_enable(void)
 {
     for (unsigned slow = 0; slow < 2; ++slow) {
@@ -196,7 +242,8 @@ int main(void)
     boundaries();
     blocking_and_type0();
     missing_invalid_and_estimated();
+    missing_hook_many_frames_preserves_real_violation();
     wake_receive_enable();
-    puts("response timing: 25 deterministic boundary/failure scenarios passed");
+    puts("response timing: deterministic boundary/failure scenarios passed");
     return 0;
 }

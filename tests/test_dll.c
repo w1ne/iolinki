@@ -158,8 +158,8 @@ static void test_dll_fallback_on_crc_errors(void** state)
 
     /* Inject CRC errors to trigger fallback */
     for (int r = 0; r < 3; r++) {
-        uint8_t bad_frame[5] = {0x80, 0x00, 0x00, 0x00, 0xFF};
-        for (int i = 0; i < 5; i++) {
+        uint8_t bad_frame[4] = {0x80, (uint8_t) (IOLINK_MSEQ_TYPE_1 | 0x3FU), 0x00, 0x00};
+        for (int i = 0; i < 4; i++) {
             will_return(mock_phy_recv_byte, 1);
             will_return(mock_phy_recv_byte, bad_frame[i]);
         }
@@ -305,6 +305,32 @@ static void test_dll_isdu_channel_idle(void** state)
     iolink_dll_stats_t after;
     iolink_device_get_dll_stats(&dev.ctx, &after);
     assert_int_equal(after.framing_errors, before.framing_errors);
+    assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_OPERATE);
+}
+
+/* A.1.6: a master message whose checksum does not match is discarded; the
+   device sends nothing (no expect_*(mock_phy_send): any send fails the test). */
+static void test_dll_corrupt_request_checksum_not_answered(void** state)
+{
+    (void) state;
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_0, .pd_in_len = 0, .pd_out_len = 0};
+    setup_mock_phy();
+    will_return(mock_phy_init, 0);
+    iolink_test_device_t dev;
+    iolink_test_device_init(&dev, &config, NULL);
+
+    move_type0_to_operate(&dev.ctx);
+
+    uint8_t mc = (uint8_t) (IOLINK_MC_RW_MASK | IOLINK_MC_CHANNEL_DIAGNOSIS);
+    uint8_t frame[2] = {mc, 0x00};
+    frame[1] = (uint8_t) (iolink_checksum6(frame, 1) ^ 0x01U); /* flip one checksum bit */
+    for (int i = 0; i < 2; i++) {
+        will_return(mock_phy_recv_byte, 1);
+        will_return(mock_phy_recv_byte, frame[i]);
+    }
+    will_return(mock_phy_recv_byte, 0);
+
+    iolink_device_process(&dev.ctx);
     assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_OPERATE);
 }
 
@@ -499,6 +525,7 @@ static void test_dll_receive_error_discards_partial_frame(void** state)
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, 0xA2U);
     will_return(mock_phy_recv_byte, -1);
+    will_return(mock_phy_recv_byte, 0);
     iolink_device_process(&dev.ctx);
     assert_int_equal(dev.ctx.dll.frame_index, 0);
     assert_int_equal(dev.ctx.dll.framing_errors, 1);
@@ -532,6 +559,8 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_dll_isdu_channel_idle, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_diagnosis_channel, test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_event_flag_in_cks, test_setup, test_teardown),
+        cmocka_unit_test_setup_teardown(test_dll_corrupt_request_checksum_not_answered, test_setup,
+                                        test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_preoperate_type0_od_write_ignores_operate_widths,
                                         test_setup, test_teardown),
         cmocka_unit_test_setup_teardown(test_dll_type0_write_is_three_octets_with_two_octet_od,

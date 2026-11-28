@@ -86,8 +86,9 @@ response = master.run_cycle(
 )
 print(f"PD_In: {response.pd.hex()}")
 
-# Read ISDU (Vendor ID)
-vendor_id = master.read_isdu(0x000A)
+# Read Vendor ID from Direct Parameter page 1 (ISDU index 0x0000).
+# V1.1.5 Table B.8 reserves indices 0x0004-0x000B.
+vendor_id = master.read_vendor_id()
 ```
 
 ### Type 2_2 Example (PD + ISDU, 2-byte OD)
@@ -225,6 +226,31 @@ no such byte on the wire; sending it would be spurious data that desynchronises
 M-sequence framing. The Device stack starts a UART PHY (which cannot detect the
 electrical wake-up) directly in SDCI, so it services M-sequences immediately —
 no wake-up byte required.
+
+### COM3 4-byte PDin hardware evaluation (Selcom-style profile)
+
+The Device stack can use `IOLINK_M_SEQ_TYPE_2_V`, `pd_in_len=4`,
+`pd_out_len=0`, `od_len=1`, and `min_cycle_time=20` (2.0 ms).
+To send matching messages over an *already-established logic-level UART*:
+
+```bash
+python3 nucleo_master.py /dev/ttyUSB0 --baud 230400 --parity even \
+    --m-seq-type 2_v --pd-in-len 4 --pd-out-len 0 --od-len 1 \
+    --no-wakeup --cycles 95 --cycle-ms 2
+```
+
+The CLI uses 8E1 framing by default; `--parity none` preserves the previous
+8N1 behavior. The selected PD and OD lengths must match the Device configuration.
+
+**Limits:** A USB-UART dongle is not an IO-Link master PHY. It cannot generate
+the 24 V C/Q signalling or electrical wake-up on its own. A direct logic-level
+UART connection bypasses TIOL112 and must not connect 24 V to MCU pins.
+`--no-wakeup` is suitable only when COM is already established or the board
+starts in a test-only UART mode. A proper IO-Link master/transceiver is required
+to measure physical C/Q tA. The Python scheduler, USB transport and driver do
+not guarantee exact 2 ms cycles; use an external logic analyzer to measure
+wire timing and verify the real-master cycle interval. This tool supports
+functional messages, not timing acceptance or certification.
 
 ## License
 

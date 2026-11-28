@@ -7,6 +7,147 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-28
+
+### Migration from 2.2.0
+- **Update Device and Master together.** This release changes OPERATE request
+  framing: typed reads omit OD, while writes carry OD after PD-out. A mixed
+  2.2.0/3.0.0 pair can parse a different frame length and reject the request.
+  See [Migration to 3.0.0](docs/MIGRATION_3.0.md) and the wire figures there.
+- **Rebuild every consumer.** Public context, configuration, statistics and PHY
+  structs have changed layout. Rebuild the library and application together;
+  do not mix objects or binaries built against different headers. PHYs using
+  timing enforcement should implement `get_response_timing` for evaluated
+  response-start checks; designated initializers should be used for PHY tables.
+- **Review COM configuration and timing.** The zero-valued transmission-rate
+  setting selects COM2. The Device keeps its configured rate through recovery;
+  the Master performs rate discovery. `iolink_dll_set_t_ren_limit_us()` now
+  limits wake-to-receive-enable processing, while response start is checked as
+  `t_A` from fresh PHY timing boundaries.
+- **Recheck memory budgets.** The default Event queue grows from 4 to 8,
+  condition tracking uses 8 slots, and the maximum OD buffer grows to 8 bytes.
+- **Do not treat simulator evidence as certification.** Host, virtual-master,
+  firmware-build and model checks do not establish physical-master
+  interoperability, analog transceiver fault behavior, or IO-Link Safety
+  conformance. Timing marked estimated is not wire qualification.
+
+### Fixed
+- Missing PHY response timing samples are counted as unavailable without
+  emitting a timing violation event. Invalid fresh samples and measured `t_A`
+  violations remain enforced; the G0 rig no longer applies a stale 20 ms
+  override to the wake receive-enable budget.
+
+### Added
+- Configurable fixed Device transmission rate in `iolink_config_t` for COM1,
+  COM2, or COM3. Zero-initialized configurations retain the COM2 default, and
+  startup, wake-up and recovery restore the selected rate.
+- OD1 configuration documentation for Type 2_V, including its three-octet
+  Process Data requirement and code-4 selection.
+- Explicit ISR-safety guidance for `iolink_device_process()` and
+  `iolink_dll_process()`.
+- Event Dispatcher lifecycle (V1.1.5 10.10.2): `iolink_event_appear()`,
+  `iolink_event_disappear()` (explicit clear, deferred until 50 ms after
+  "appears"), single-shot `iolink_event_notify()`, `iolink_events_process()`
+  (called by `iolink_dll_process()`), a 1 s repeat interval per EventCode and
+  EventQualifier, and a saturating `iolink_events_dropped()` counter. `_at`
+  variants take an explicit wrap-safe millisecond time.
+- `iolink_events_startup_reset()`: the DLL discards queued Events and the
+  Event flag on entry to STARTUP; active conditions are reported again.
+- DataStorageIndex 0x0003 Subindex 1-5 (Table B.10): DS_Command,
+  State_Property, Data_Storage_Size, Parameter_Checksum and Index_List.
+  Subindex 0 keeps the device-specific serialized image.
+- Block Parameterization staging: in a download session (ParamDownloadStart
+  or DS_DownloadStart) tag writes and 0x0003 image writes are checked and
+  staged; End/Store commits them with one checked NVM write.
+  New `iolink_ds_stage_param()`, `iolink_ds_handle_ds_command()`,
+  `iolink_ds_download_open()`, `iolink_ds_upload_open()`,
+  `iolink_ds_state_property()`, `iolink_ds_storage_size()`,
+  `iolink_ds_index_list()`.
+- MasterCommand 0x98 (PDOUTVALID) / 0x99 (PDOUTINVALID) handling in OPERATE
+  and last valid Process Data snapshots: `iolink_dll_publish_pd_in()`,
+  `iolink_dll_get_last_valid_pd_in()`, `iolink_dll_get_last_valid_pd_out()`.
+- Back-to-box communication stop: `iolink_dll_disable_communication()`.
+- `iolink_events_clear_status()` for Restore factory settings (Table 101).
+- `iolink_params_ctx_reset_access_locks()`.
+- Reset types `IOLINK_RESET_RESTORE_FACTORY` and `IOLINK_RESET_BACK_TO_BOX`;
+  ISDU reset service hook `iolink_isdu_ctx_t.system_reset`.
+- Device-level integration test `tests/test_integration_ds_reset.c`.
+
+### Changed
+- **Behavior change:** Communication fallback resets the protocol session and
+  discards queued RX data. PHYs with wake-up detection still return to SIO;
+  UART-only PHYs remain in SDCI and accept a fresh startup sequence.
+- **Behavior change:** `iolink_dll_set_baudrate()` now selects the fixed Device
+  rate as well as updating the live PHY. The selected rate therefore survives
+  wake-up and communication recovery for existing callers of this API.
+- **Behavior change:** Recovery now restores the configured Device rate. A
+  zero-initialized configuration therefore recovers at COM2 instead of the
+  previous COM1 fallback; select `IOLINK_DEVICE_RATE_COM1` to retain COM1.
+- Response timing now checks the request-end to response-start interval (`t_A`)
+  using fresh PHY timestamps. A blocking UART send duration is not a substitute
+  for the first response start bit. Wake-to-receive-enable processing is tracked
+  separately as `t_REN`; software estimates are not physical timing evidence.
+- **Behavior change:** SystemCommands 0x80, 0x81 and 0x83 answer 0x8035
+  FUNC_NOTAVAIL when no reset handler is registered, instead of a positive
+  response without action. 0x81 runs the handler before the response; 0x80
+  and 0x83 run after the response was read and 3 more M-sequences
+  (10.7.2, 10.7.5).
+- **Behavior change:** `iolink_ds_process()` no longer commits or closes a
+  session; it only moves REQ to the active state. The DLL now calls it every
+  cycle. A communication restart (STARTUP) breaks an open session.
+- **Behavior change:** ProcessDataOutput 0x0029 returns the last PDout
+  received after MasterCommand 0x98, not the current buffer in OPERATE.
+  ProcessDataInput 0x0028 returns the last PDin published as valid.
+- The Data Storage access lock refuses writes to 0x0003 (0x8023) and no
+  longer blocks Block Parameterization (B.2.4). The Parameter (write) lock
+  now refuses single parameter writes except inside a DS download.
+- DeviceAccessLocks 0x000C over ISDU are device-local and non-volatile;
+  reserved bits (0x8030), wrong length (0x8033/0x8034) and NVM failure
+  (0x8000) are refused without change.
+- Python virtual master: `last_isdu_error`, `read_vendor_id()`,
+  `read_device_id()`. Conformance scripts use Table B.9 values and read
+  VendorID/DeviceID from Direct Parameter page 1.
+
+### Validation scope
+- The release workflow records host test results, firmware builds, and model
+  evidence for the exact source commit. Synthetic timing tests verify software
+  boundary handling only. A PHY must provide fresh captured timestamps before
+  reporting wire-qualified `t_A` behavior.
+- No third-party physical Master report or IO-Link certification is included.
+  Analog transceiver fault behavior, retained embedded flash parameters, and
+  official IODD Checker approval remain separate validation work.
+
+### Fixed
+- `IOLINK_ISDU_ERROR_PARAM_INCONSISTENT` is 0x41 (PAR_SETINCONSIST, C.2.17);
+  it was 0x40 (PAR_SETINVALID, now `IOLINK_ISDU_ERROR_PARAM_SET_INVALID`).
+- A rejected write in a download session makes End/Store fail with 0x8041
+  and keeps the previous set (Table 98 rules 4 and 7); previously End
+  reported success.
+- ParamDownloadStore passes 0x05 to the DS engine (backend store and
+  DS_UPLOAD_FLAG) and raises DS_UPLOAD_REQ as a single-shot Notification only
+  after a successful commit. A failed commit answers 0x8041 (invalid set) or
+  0x8000 (NVM failure) instead of 0x8035.
+- Restore factory settings uses the checked reset: an NVM failure answers
+  0x8000 and changes nothing; success also clears Events, DeviceStatus,
+  DetailedDeviceStatus, ErrorCount and the DS upload request.
+- A tag write rejected by NVM answers 0x8000 (APP_DEV), not 0x8011.
+- Event memory confirmation removes exactly the Events shown in the frozen
+  memory; Events that arrive while frozen are kept. The memory lists Errors
+  before Warnings. A full queue no longer evicts presented entries.
+- DeviceStatus (0x0024) follows Table B.13: Error reports 4 (Failure), not 3.
+  `IOLINK_DEVICE_STATUS_FAILURE` is now 4 and
+  `IOLINK_DEVICE_STATUS_FUNCTIONAL_CHECK` (3) was added.
+- DetailedDeviceStatus (0x0025) lists active "appears" Warnings/Errors only;
+  cleared conditions and Notifications are not listed.
+- Default `IOLINK_EVENT_QUEUE_SIZE` raised from 4 to 8 so the six event memory
+  slots can be filled.
+- **BREAKING wire change: streaming M-sequence request framing.** Typed reads
+  carry `MC + CKT + PD-out` without OD; typed writes carry OD after PD-out.
+  Type-0 page, diagnosis and ISDU writes retain their 3-octet request. OD
+  widths follow Table A.10: TYPE_1_2 and TYPE_2_V use 2 octets, TYPE_1_V uses
+  8, and the remaining types use 1. `IOLINK_OD_MAX_SIZE` is 8. Update the
+  Master with the Device; the repository's `iolinki-master` follows this layout.
+
 ## [2.2.0] - 2026-10-17
 
 ### Changed
@@ -513,7 +654,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Host Demo**: `examples/host_demo` showing stack execution without hardware.
 - **Documentation**: Initial README, ROADMAP, VISION, and RELEASE_STRATEGY.
 
-[Unreleased]: https://github.com/w1ne/iolinki/compare/v2.1.1...HEAD
+[Unreleased]: https://github.com/w1ne/iolinki/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/w1ne/iolinki/compare/v2.2.0...v3.0.0
+[2.2.0]: https://github.com/w1ne/iolinki/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/w1ne/iolinki/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/w1ne/iolinki/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/w1ne/iolinki/compare/v1.2.0...v2.0.0

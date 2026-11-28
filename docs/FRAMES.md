@@ -6,13 +6,15 @@ This document describes the IO-Link M-Sequences and frame structures supported b
 
 The stack supports multiple M-Sequence types defined in the IO-Link V1.1.5 specification. The M-Sequence type determines how Process Data (PD) and On-request Data (OD) are interleaved.
 
-| Type | Description | PD Support | OD Support | ISDU Support | Status |
-| :--- | :--- | :---: | :---: | :---: | :--- |
-| **Type 0** | On-request data only | No | 1 byte | Yes | Supported |
-| **Type 1_1** | Fixed PD only (no ISDU) | Yes | 1 byte | No | Supported |
-| **Type 1_2** | Fixed PD + Interleaved ISDU | Yes | 1 byte | Yes | Supported |
-| **Type 2_1** | Fixed PD + 2-byte OD | Yes | 2 bytes | No | Supported |
-| **Type 2_2** | Fixed PD + 2-byte OD + ISDU | Yes | 2 bytes | Yes | Supported |
+| Type | Description | PD-in | PD-out | OD | ISDU | Status |
+| :--- | :--- | :---: | :---: | :---: | :---: | :--- |
+| **Type 0** | On-request data only | 0 | 0 | 1 byte (write) | Yes | Supported |
+| **Type 1_1** | Legacy interleaved type | configured | configured | 1 byte | No | Legacy |
+| **Type 1_2** | 2 OD octets, no PD (A.7) | 0 | 0 | 2 bytes | Yes | Supported |
+| **Type 1_V** | 8 OD octets, no PD (A.8) | 0 | 0 | 8 bytes | Yes | Supported |
+| **Type 2_1** | 1 PD-in octet + 1 OD (A.9) | 1 | 0 | 1 byte | Yes | Supported |
+| **Type 2_2** | 2 PD-in octets + 1 OD (A.10) | 2 | 0 | 1 byte | Yes | Supported |
+| **Type 2_V** | Variable PD + OD1 or OD2 (A.14) | 0..32 | 0..32 | 1 or 2 bytes | Yes | Supported |
 
 ### 1.1 Message checksum (A.1.6)
 
@@ -35,8 +37,12 @@ one OD octet on a write. FlowCTRL for ISDU lives in `MC & 0x1F`.
 
 ### 1.3 Type 1_x / 2_x (PD + OD)
 
-- **Master -> Device**: `[MC] [CKT] [PD_Out...] [OD...]`
-- **Device -> Master**: `[PD_In...] [OD...] [CKS]`
+Annex A distinguishes the request direction:
+
+- **Master read**: `[MC] [CKT] [PD_Out...]` (no OD in the request)
+- **Master write**: `[MC] [CKT] [PD_Out...] [OD...]`
+- **Device read reply**: `[OD...] [PD_In...] [CKS]`
+- **Device write reply**: `[PD_In...] [CKS]` (no OD)
 
 The CKT carries the M-sequence type in bits 6-7 (`01` for Type 1_x, `10` for
 Type 2_x) plus the 6-bit checksum. There is **no leading status octet and no
@@ -59,7 +65,7 @@ To ensure synchronization and robust parsing in software simulation, the Master-
 ### 3.1 Stack Limits
 - **Max Process Data**: 32 bytes (Input and Output).
 - **ISDU Buffer**: 256 bytes.
-- **Event Queue**: 4 entries (default `IOLINK_EVENT_QUEUE_SIZE`).
+- **Event Queue**: 8 entries (default `IOLINK_EVENT_QUEUE_SIZE`).
 
 ### 3.2 Dynamic Configuration
 The stack is configured during `iolink_init()` via the `iolink_config_t` structure:
@@ -70,5 +76,22 @@ typedef struct {
     uint8_t min_cycle_time;         /**< Encoded per spec */
     uint8_t pd_in_len;              /**< 0-32 bytes */
     uint8_t pd_out_len;             /**< 0-32 bytes */
+    uint32_t t_pd_us;               /**< Power-on delay in microseconds */
+    uint8_t od_len;                 /**< 0 = type default; Type 2_V accepts 1 or 2 */
+    iolink_device_rate_t transmission_rate; /**< Fixed COM1/2/3; 0 = legacy COM2 */
 } iolink_config_t;
 ```
+
+The Device operates at the configured fixed COM rate. The zero-initialized
+`transmission_rate` value preserves COM2; COM1, COM2, and COM3 can be selected
+with `IOLINK_DEVICE_RATE_COM1`, `IOLINK_DEVICE_RATE_COM2`, and
+`IOLINK_DEVICE_RATE_COM3`. These are `iolink_device_rate_t` values, distinct
+from the `iolink_baudrate_t` values `IOLINK_BAUDRATE_COM1`,
+`IOLINK_BAUDRATE_COM2`, and `IOLINK_BAUDRATE_COM3`; use matching names rather
+than casting. Startup, wake-up and communication recovery restore the
+configured rate. With the zero/default configuration, recovery is now COM2;
+previously it forced COM1.
+
+Type 2_V supports OD1 (`od_len = 1`) and OD2 (`od_len = 2`). OD1 uses M-sequence
+code 4 and requires at least three PD octets in either direction. With
+`od_len = 0`, Type 2_V retains its default OD2 width.

@@ -31,20 +31,20 @@ int main(int argc, char* argv[])
     if (argc >= 3) {
         int type = atoi(argv[2]);
         if (type == 1) {
-            config.m_seq_type = IOLINK_M_SEQ_TYPE_1_2; /* Using 1_2 (Interleaved ISDU) */
-            printf("Config: Type 1_2 (PD + OD 1 byte)\n");
+            config.m_seq_type = IOLINK_M_SEQ_TYPE_1_2;
+            printf("Config: Type 1_2 (OD 2 bytes, no PD)\n");
         }
         else if (type == 2) {
             config.m_seq_type = IOLINK_M_SEQ_TYPE_2_2;
-            printf("Config: Type 2_2 (PD + OD 2 bytes)\n");
+            printf("Config: Type 2_2 (PD-in 2 bytes, OD 1 byte)\n");
         }
         else if (type == 3) {
             config.m_seq_type = IOLINK_M_SEQ_TYPE_1_V;
-            printf("Config: Type 1_V (Variable PD + OD 1 byte)\n");
+            printf("Config: Type 1_V (OD 8 bytes, no PD)\n");
         }
         else if (type == 4) {
             config.m_seq_type = IOLINK_M_SEQ_TYPE_2_V;
-            printf("Config: Type 2_V (Variable PD + OD 1 byte + ISDU)\n");
+            printf("Config: Type 2_V (variable PD, OD 2 bytes)\n");
         }
     }
 
@@ -55,7 +55,6 @@ int main(int argc, char* argv[])
         printf("Config: PD Len %d bytes\n", len);
     }
     else if (config.m_seq_type != IOLINK_M_SEQ_TYPE_0) {
-        /* Default PD len if not Type 0 */
         config.pd_in_len = 2;
         config.pd_out_len = 2;
         printf("Config: PD Len 2 bytes (default)\n");

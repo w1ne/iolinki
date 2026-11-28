@@ -48,13 +48,15 @@ int main(void)
         assert(memcmp(result, replacement, 11) == 0);
     }
     /* Real byte transport must produce Write Response (-), not the old 52 52
-     * positive acknowledgement, when persistent tag storage rejects the write. */
+     * positive acknowledgement, when persistent tag storage rejects the write.
+     * Corrected AdditionalCode: the index exists and the value is valid, so
+     * the NVM failure is APP_DEV 0x8000, not IDX_NOTAVAIL 0x8011 (Table C.1). */
     const uint8_t requests[3][4] = {
         {0x14U, 0x18U, 0x78U, 0x74U}, /* ApplicationTag "x" */
         {0x14U, 0x19U, 0x78U, 0x75U}, /* FunctionTag "x" */
         {0x14U, 0x1AU, 0x78U, 0x76U}, /* LocationTag "x" */
     };
-    const uint8_t expected[] = {0x44U, 0x80U, 0x11U, 0xD5U};
+    const uint8_t expected[] = {0x44U, 0x80U, 0x00U, 0xC4U};
     for (unsigned tag = 0; tag < 3; ++tag) {
         iolink_isdu_ctx_t isdu;
         iolink_isdu_init(&isdu);
@@ -77,5 +79,40 @@ int main(void)
         assert(iolink_params_ctx_get(&params, indices[tag], 0, retained, sizeof(retained)) == 11);
         assert(memcmp(retained, "replacement", 11) == 0);
     }
+
+    /* Checked factory reset: a failed NVM write reports failure and keeps RAM. */
+    iolink_device_info_ctx_set_access_locks(&info, IOLINK_LOCK_DS);
+    write_result = -1;
+    int prior_writes = writes;
+    assert(iolink_params_ctx_factory_reset_checked(&params) == -1);
+    assert(writes == prior_writes + 1);
+    uint8_t probe[32];
+    assert(iolink_params_ctx_get(&params, IOLINK_IDX_LOCATION_TAG, 0, probe, sizeof(probe)) == 11);
+    assert(iolink_params_ctx_get_access_locks(&params) == IOLINK_LOCK_DS);
+
+    /* Access locks: a failed persistent write keeps the old value. */
+    assert(iolink_params_ctx_set_access_locks(&params, IOLINK_LOCK_PARAM, true) == -1);
+    assert(iolink_params_ctx_get_access_locks(&params) == IOLINK_LOCK_DS);
+    assert(iolink_params_ctx_set_access_locks(&params, IOLINK_LOCK_PARAM, false) == 0);
+    assert(iolink_params_ctx_get_access_locks(&params) == IOLINK_LOCK_PARAM);
+
+    /* Successful checked factory reset: empty tags, default (unlocked) locks. */
+    write_result = 0;
+    assert(iolink_params_ctx_factory_reset_checked(&params) == 0);
+    assert(iolink_params_ctx_get(&params, IOLINK_IDX_LOCATION_TAG, 0, probe, sizeof(probe)) == 0);
+    assert(iolink_params_ctx_get(&params, IOLINK_IDX_APPLICATION_TAG, 0, probe, sizeof(probe)) ==
+           0);
+    assert(iolink_params_ctx_get_access_locks(&params) == 0U);
+
+    /* Legacy void reset still resets RAM when storage fails (documented). */
+    assert(iolink_params_ctx_set(&params, IOLINK_IDX_FUNCTION_TAG, 0, (const uint8_t*) "original",
+                                 8, false) == 0);
+    write_result = -1;
+    iolink_params_ctx_factory_reset(&params);
+    assert(iolink_params_ctx_get(&params, IOLINK_IDX_FUNCTION_TAG, 0, probe, sizeof(probe)) == 0);
+
+    /* Unreadable NVM: init reports defaults. */
+    iolink_params_ctx_t fresh;
+    assert(iolink_params_ctx_init_at(&fresh, &info, 0U) == 1);
     puts("Persistent tag failures preserve RAM/device info; volatile writes still work");
 }

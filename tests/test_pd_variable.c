@@ -27,7 +27,7 @@
 static void test_pd_variable_lengths(void** state)
 {
     (void) state;
-    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_V, .pd_in_len = 8, .pd_out_len = 8};
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_2_V, .pd_in_len = 8, .pd_out_len = 8};
     iolink_test_device_t dev;
 
     setup_mock_phy();
@@ -35,22 +35,22 @@ static void test_pd_variable_lengths(void** state)
     assert_int_equal(iolink_test_device_init(&dev, &config, NULL), 0);
     move_to_operate_ctx(&dev.ctx);
 
-    /* Type 1_V: Req = MC, CKT, PD(8), OD(1), CK = 12 bytes. */
-    uint8_t frame[11];
-    memset(frame, 0, 11);
+    /* TYPE_2_V read: MC, CKT, PD-out(8); the OD is absent from a read. */
+    uint8_t frame[10];
+    memset(frame, 0, sizeof(frame));
     frame[0] = 0x80;
-    frame[1] = IOLINK_MSEQ_TYPE_1;
-    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 11));
+    frame[1] = IOLINK_MSEQ_TYPE_2;
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, sizeof(frame)));
 
-    for (int i = 0; i < 11; i++) {
+    for (size_t i = 0; i < sizeof(frame); i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
     will_return(mock_phy_recv_byte, 0);
 
-    /* Resp: PD(8), OD(1), CKS(1) = 10 bytes (A.1.5). */
+    /* Resp: OD(2), PD-in(8), CKS(1) = 11 bytes (A.14). */
     expect_any(mock_phy_send, data);
-    expect_value(mock_phy_send, len, 10);
+    expect_value(mock_phy_send, len, 11);
     will_return(mock_phy_send, 0);
 
     iolink_device_process(&dev.ctx);
@@ -95,7 +95,7 @@ static void test_pd_runtime_negotiation(void** state)
 {
     (void) state;
     /* Variable type with a maximum of 8 octets. */
-    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_1_V, .pd_in_len = 8, .pd_out_len = 8};
+    iolink_config_t config = {.m_seq_type = IOLINK_M_SEQ_TYPE_2_V, .pd_in_len = 8, .pd_out_len = 8};
     iolink_test_device_t dev;
 
     setup_mock_phy();

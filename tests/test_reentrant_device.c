@@ -21,6 +21,42 @@ static int noop_user(void* user)
     return 0;
 }
 
+static iolink_device_ctx_t* reentrant_device;
+static unsigned reentrant_callback_count;
+static bool reentrant_callback_active;
+static unsigned critical_depth;
+
+void iolink_critical_enter(void)
+{
+    ++critical_depth;
+}
+
+void iolink_critical_exit(void)
+{
+    assert_true(critical_depth > 0U);
+    --critical_depth;
+}
+
+static int receive_no_data(void* user, uint8_t* byte)
+{
+    (void) user;
+    (void) byte;
+    return 0;
+}
+
+static void process_from_pd_callback(const uint8_t* data, uint8_t len)
+{
+    (void) data;
+    (void) len;
+    assert_int_equal(critical_depth, 0U);
+    ++reentrant_callback_count;
+    if (!reentrant_callback_active) {
+        reentrant_callback_active = true;
+        iolink_device_process(reentrant_device);
+        reentrant_callback_active = false;
+    }
+}
+
 static void test_device_context_api_initializes_two_configs(void** state)
 {
     (void) state;
@@ -92,11 +128,42 @@ static void test_parameter_contexts_keep_writable_tags_isolated(void** state)
     assert_memory_equal(out_b, tag_b, sizeof(tag_b) - 1U);
 }
 
+static void test_process_callback_cannot_reenter_device(void** state)
+{
+    (void) state;
+    iolink_device_ctx_t device;
+    static const iolink_device_phy_t phy = {.init = noop_user, .recv_byte = receive_no_data};
+    static const iolink_app_callbacks_t callbacks = {.on_pd_input = process_from_pd_callback};
+    const iolink_device_config_t config = {
+        .phy = phy,
+        .stack =
+            {
+                .m_seq_type = IOLINK_M_SEQ_TYPE_1_1,
+                .min_cycle_time = 10U,
+                .pd_in_len = 1U,
+                .pd_out_len = 0U,
+            },
+        .app_callbacks = &callbacks,
+    };
+
+    assert_int_equal(iolink_device_init(&device, &config), 0);
+    device.dll.state = IOLINK_DLL_STATE_OPERATE;
+    reentrant_device = &device;
+    reentrant_callback_count = 0U;
+    reentrant_callback_active = false;
+
+    iolink_device_process(&device);
+
+    assert_int_equal(reentrant_callback_count, 1U);
+    reentrant_device = NULL;
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_device_context_api_initializes_two_configs),
         cmocka_unit_test(test_parameter_contexts_keep_writable_tags_isolated),
+        cmocka_unit_test(test_process_callback_cannot_reenter_device),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

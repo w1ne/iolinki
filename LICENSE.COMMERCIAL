@@ -99,6 +99,15 @@ or redistribution rights. Subsidiaries and other separate legal entities require
 agreed additional scope. Transfer rights, upgrade credit and additional renewal
 coverage are recorded in the quote.
 
+## Included source and third-party material
+
+A company licence covers the specified release of the iolinki **runtime source**,
+public headers and expressly listed reference ports under the signed agreement.
+Developer tests, third-party documents and tools or GPL-only contributed files
+are not automatically relicensed for proprietary distribution. They remain
+available under their respective licences. See
+[commercial source scope](docs/COMMERCIAL_SOURCE_SCOPE.md).
+
 ## When do I need this commercial license?
 
 iolinki is dual-licensed. You may always use it **free of charge under the GPLv3**

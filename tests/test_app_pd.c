@@ -32,7 +32,7 @@
 static void test_reply_layout_od_first_no_status_octet(void** state)
 {
     (void) state;
-    iolink_config_t config = {.pd_in_len = 2, .pd_out_len = 2, .m_seq_type = IOLINK_M_SEQ_TYPE_2_2};
+    iolink_config_t config = {.pd_in_len = 2, .pd_out_len = 0, .m_seq_type = IOLINK_M_SEQ_TYPE_2_2};
     iolink_test_device_t dev;
 
     setup_mock_phy();
@@ -40,13 +40,13 @@ static void test_reply_layout_od_first_no_status_octet(void** state)
     assert_int_equal(iolink_test_device_init(&dev, &config, NULL), 0);
     move_to_operate_ctx(&dev.ctx);
 
-    uint8_t frame[5] = {0x80, IOLINK_MSEQ_TYPE_2, 0x00, 0x00, 0x00};
-    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 5));
+    uint8_t frame[2] = {0x80, IOLINK_MSEQ_TYPE_2}; /* read request: no OD */
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 2));
 
     uint8_t input[2] = {0x11, 0x22};
     iolink_device_pd_input_update(&dev.ctx, input, 2, true);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 2; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }
@@ -65,7 +65,7 @@ static void test_reply_layout_od_first_no_status_octet(void** state)
 static void test_reply_flags_pd_invalid(void** state)
 {
     (void) state;
-    iolink_config_t config = {.pd_in_len = 2, .pd_out_len = 2, .m_seq_type = IOLINK_M_SEQ_TYPE_2_2};
+    iolink_config_t config = {.pd_in_len = 2, .pd_out_len = 0, .m_seq_type = IOLINK_M_SEQ_TYPE_2_2};
     iolink_test_device_t dev;
 
     setup_mock_phy();
@@ -73,13 +73,13 @@ static void test_reply_flags_pd_invalid(void** state)
     assert_int_equal(iolink_test_device_init(&dev, &config, NULL), 0);
     move_to_operate_ctx(&dev.ctx);
 
-    uint8_t frame[5] = {0x80, IOLINK_MSEQ_TYPE_2, 0x00, 0x00, 0x00};
-    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 5));
+    uint8_t frame[2] = {0x80, IOLINK_MSEQ_TYPE_2}; /* read request: no OD */
+    frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 2));
 
     /* Mark the input Process Data as invalid; CKS bit 6 must be set. */
     iolink_device_pd_input_update(&dev.ctx, (const uint8_t*) "\x11\x22", 2, false);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 2; i++) {
         will_return(mock_phy_recv_byte, 1);
         will_return(mock_phy_recv_byte, frame[i]);
     }

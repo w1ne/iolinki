@@ -197,6 +197,12 @@
       <name>$PROJ_DIR$\..\rx_queue.c</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\uart_dma.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\dma_rx_ring.c</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\..\reference_device\reference_device.c</name>
     </file>
   </group>

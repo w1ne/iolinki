@@ -60,7 +60,7 @@ Enable the stack with `CONFIG_IOLINKI=y`. The remaining options:
 | `CONFIG_IOLINK_PHY_UART_RX_RING_SIZE` | — | 256 | UART RX ring buffer size (bytes) |
 | `CONFIG_IOLINK_DEMO_MASTER` | — | n | Build as a simple test Master |
 | `CONFIG_IOLINK_ISDU_BUFFER_SIZE` | `IOLINK_ISDU_BUFFER_SIZE` | 256 | Max ISDU transaction size |
-| `CONFIG_IOLINK_EVENT_QUEUE_SIZE` | `IOLINK_EVENT_QUEUE_SIZE` | 4 | Diagnostic event queue depth |
+| `CONFIG_IOLINK_EVENT_QUEUE_SIZE` | `IOLINK_EVENT_QUEUE_SIZE` | 8 | Diagnostic event queue depth |
 | `CONFIG_IOLINK_PD_IN_MAX_SIZE` | `IOLINK_PD_IN_MAX_SIZE` | 32 | Max input PD (Device→Master) |
 | `CONFIG_IOLINK_PD_OUT_MAX_SIZE` | `IOLINK_PD_OUT_MAX_SIZE` | 32 | Max output PD (Master→Device) |
 | `CONFIG_IOLINK_M_SEQ_DEFAULT_TYPE_*` | `IOLINK_M_SEQ_DEFAULT_TYPE` | Type 0 | Default M-sequence type for the sample |
@@ -111,6 +111,15 @@ where COM mode is already established by such a transceiver, and the optional
 entries are left `NULL`. To support full wake-up and SIO behaviour, implement a
 transceiver-specific PHY against the same `iolink_phy_api_t` vtable
 (`include/iolinki/phy.h`).
+
+RX recovery limitation: the current Zephyr UART adapter logs ring-buffer
+overflow and drops excess bytes, but it does not report that loss to the DLL;
+it also does not propagate UART parity, framing, noise, or overrun flags through
+`recv_byte()`. The DLL can discard a partial frame and queued tail bytes when a
+PHY returns a receive error, but the current Zephyr adapter does not produce
+that error for these conditions. Treat hardware RX-error recovery on this
+adapter as unverified until it reports these losses and a target regression
+covers the resynchronization path.
 
 ## Building the sample
 

@@ -239,7 +239,7 @@ class TestErrorInjectionConformance(unittest.TestCase):
 
         Validates:
         - Device tolerates repeated CRC errors
-        - Device falls back to COM1 after max retries (3 consecutive CRC errors)
+        - Device restores its configured rate after max retries (COM2 by default)
         - Device resets to STARTUP state in fallback
         - Device can recover via new startup sequence
         - Full functionality is restored after recovery
@@ -273,7 +273,7 @@ class TestErrorInjectionConformance(unittest.TestCase):
                 self.master.run_cycle_bad_crc(pd_out=b"\xaa\xbb")
                 time.sleep(0.02)
 
-            # Device should now be in FALLBACK state, transitioning to STARTUP with COM1
+            # Device should now be in FALLBACK state, transitioning to STARTUP at its configured rate.
             print("[INFO] Bad CRC frames sent, device should enter FALLBACK → STARTUP")
             time.sleep(15.0)  # Allow fallback state transition (>1s Zephyr)
         else:
@@ -281,7 +281,7 @@ class TestErrorInjectionConformance(unittest.TestCase):
             time.sleep(0.3)
 
         # Step 3: Attempt recovery with fresh startup sequence
-        # Device should now be at COM1 baudrate in STARTUP state
+        # The default host demo recovers at COM2 in STARTUP state.
         print("[INFO] Attempting recovery with new startup sequence...")
 
         # Reset master to Type 0 for recovery

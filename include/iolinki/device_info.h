@@ -44,10 +44,10 @@ typedef struct
     const char* application_tag;   /**< Application tag string (Index 0x0018, optional). */
 
     /* Device IDs (Mandatory Indices) */
-    uint16_t vendor_id;              /**< Vendor ID (Index 0x000A). */
-    uint32_t device_id;              /**< Device ID (Index 0x000B). */
+    uint16_t vendor_id;              /**< Vendor ID (Direct Parameter page 1, 0x07-0x08). */
+    uint32_t device_id;              /**< Device ID (Direct Parameter page 1, 0x09-0x0B). */
     uint16_t function_id;            /**< Function ID (Index 0x001C). */
-    uint16_t profile_characteristic; /**< Profile characteristic (Index 0x000D). */
+    uint16_t profile_characteristic; /**< ProfileIdentifier (Index 0x000D); 0 = no profile. */
 
     /* System Info */
     uint8_t min_cycle_time;          /**< Minimum cycle time in 100us units (Index 0x0024). */
@@ -57,6 +57,9 @@ typedef struct
 
     /* Access Control */
     uint16_t access_locks; /**< Device access locks bitmask (Index 0x000C). */
+
+    /* Profile identification (conditional, Common Profile) */
+    const char* product_uri; /**< ProductURI (Index 0x001B, max 100 octets); NULL = absent. */
 } iolink_device_info_t;
 
 /**
@@ -113,6 +116,17 @@ uint16_t iolink_device_info_ctx_get_access_locks(const iolink_device_info_ctx_t*
 void iolink_device_info_ctx_set_access_locks(iolink_device_info_ctx_t* ctx, uint16_t locks);
 
 /**
+ * @brief Get the factory-default device access locks of a context.
+ *
+ * Returns the value from the configured identity bound at init (or the built-in
+ * default identity), independent of later runtime changes.
+ *
+ * @param ctx Device-info context.
+ * @return Factory-default 16-bit access locks value, 0 if @p ctx is NULL.
+ */
+uint16_t iolink_device_info_ctx_get_factory_access_locks(const iolink_device_info_ctx_t* ctx);
+
+/**
  * @brief Initialize device information
  * @param info Pointer to device info structure
  */
@@ -143,6 +157,12 @@ uint16_t iolink_device_info_get_access_locks(void);
  * @param locks 16-bit access locks value
  */
 void iolink_device_info_set_access_locks(uint16_t locks);
+
+/**
+ * @brief Get the factory-default Device Access Locks of the singleton context.
+ * @return Access locks value of the identity passed to iolink_device_info_init().
+ */
+uint16_t iolink_device_info_get_factory_access_locks(void);
 
 /** @} */ /* end of iolinki_device_info */
 

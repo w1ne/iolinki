@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include "iolinki/phy.h"
 #include "iolinki/config.h"
+#include "iolinki/application.h"
 
 /**
  * @file dll.h
@@ -60,14 +61,14 @@ typedef struct
 {
     iolink_dll_state_t state;    /**< Current DLL state */
     const iolink_phy_api_t* phy; /**< Bound PHY API implementation */
-    uint32_t last_activity_ms;   /**< Timestamp of last valid frame */
+    uint32_t last_activity_ms;   /**< Timestamp of last wake-up or valid frame */
     bool wakeup_seen;            /**< Wake-up detected (if PHY supports it) */
 
     /* Configuration */
     uint8_t m_seq_type;         /**< Supported M-sequence type */
     uint8_t pd_in_len;          /**< Input Process Data length */
     uint8_t pd_out_len;         /**< Output Process Data length */
-    uint8_t od_len;             /**< On-request Data length (1 or 2 bytes) */
+    uint8_t od_len;             /**< On-request Data length (1, 2 or 8 octets) */
     bool pd_valid;              /**< Current PD_In validity status */
     uint32_t min_cycle_time_us; /**< Minimum cycle time in microseconds */
     bool enforce_timing;        /**< Enable timing checks (t_A / t_REN / t_cycle) */
@@ -85,7 +86,8 @@ typedef struct
     iolink_phy_mode_t phy_mode; /**< Current operating mode (SDCI vs SIO) */
 
     /* Baudrate Support */
-    iolink_baudrate_t baudrate; /**< Negotiated baudrate (COM1-COM3) */
+    iolink_baudrate_t baudrate;            /**< Current PHY baudrate (COM1-COM3). */
+    iolink_baudrate_t configured_baudrate; /**< Fixed device rate restored on recovery. */
 
     /* Unified Frame Assembly */
     uint8_t frame_buf[48];         /**< Raw frame assembly buffer */
@@ -93,7 +95,7 @@ typedef struct
     uint8_t req_len;               /**< Expected length of current frame type */
     uint64_t last_frame_us;        /**< Microsecond timestamp of last frame start */
     uint64_t last_byte_us;         /**< Microsecond timestamp of last received byte */
-    uint64_t last_cycle_start_us;  /**< Microsecond timestamp of last cycle start */
+    uint64_t last_cycle_start_us;  /**< Complete-request timestamp for legacy response metric. */
     uint32_t t_byte_limit_us;      /**< Inter-byte timeout limit in microseconds */
     uint64_t wakeup_deadline_us;   /**< Earliest time to accept frames after wake-up */
     uint64_t t_pd_deadline_us;     /**< Earliest time to accept frames after power-on */
@@ -136,8 +138,25 @@ typedef struct
     iolink_isdu_ctx_t isdu;     /**< ISDU Service engine */
     iolink_ds_ctx_t ds;         /**< Data Storage engine */
 
-    iolink_dll_state_cb_t state_cb; /**< Optional state-change hook (set by core) */
-    void* state_cb_user;            /**< User pointer passed to state_cb */
+    iolink_dll_state_cb_t state_cb;              /**< Optional state-change hook (set by core) */
+    void* state_cb_user;                         /**< User pointer passed to state_cb */
+    iolink_pd_input_select_cb_t pd_input_select; /**< Optional current-cycle PD selector. */
+    void* pd_input_select_user;                  /**< Application context for the PD selector. */
+
+    /** First-byte dequeue observation; not a physical pin timestamp. */
+    uint64_t last_operate_start_us;
+    bool have_operate_start;
+
+    /* B.2.23/B.2.24: last valid Process Data (0 length = no valid data yet). */
+    uint8_t pd_in_last_valid[IOLINK_PD_IN_MAX_SIZE];   /**< Last valid PDin from the application */
+    uint8_t pd_out_last_valid[IOLINK_PD_OUT_MAX_SIZE]; /**< Last valid PDout from the Master */
+    uint8_t pd_in_last_valid_len;                      /**< Octets in pd_in_last_valid */
+    uint8_t pd_out_last_valid_len;                     /**< Octets in pd_out_last_valid */
+    bool pd_out_valid; /**< PDOUTVALID: MasterCommand 0x98 seen in this OPERATE session */
+
+    uint32_t mseq_count;     /**< Accepted master M-sequences (wraps at 2^32) */
+    bool comm_disabled;      /**< Communication stopped until re-initialization (Back-to-box) */
+    bool rx_discard_pending; /**< Drain uncertain RX data before accepting another frame. */
 } iolink_dll_ctx_t;
 
 /**
@@ -175,7 +194,9 @@ void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy);
 /**
  * @brief Process DLL logic
  *
- * Handles byte-level processing and state machine transitions.
+ * Handles byte-level processing and state machine transitions. It is not
+ * ISR-safe; call it from the same serialized main-loop/task context as the
+ * other operations on this DLL context.
  *
  * @param ctx DLL context to process
  */
@@ -190,6 +211,59 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx);
  * @return int 0 on success, negative on range error
  */
 int iolink_dll_set_pd_length(iolink_dll_ctx_t* ctx, uint8_t pd_in_len, uint8_t pd_out_len);
+
+/**
+ * @brief Publish input Process Data from the application.
+ *
+ * Copies @p data into the PDin buffer, sets the runtime PDin length and the
+ * PD validity flag. Valid data also becomes the ProcessDataInput snapshot
+ * (Index 0x0028, B.2.23); invalid data of the same length keeps the previous
+ * snapshot. The caller provides mutual exclusion against iolink_dll_process().
+ *
+ * @param ctx DLL context
+ * @param data PDin octets
+ * @param len Number of octets (at most IOLINK_PD_IN_MAX_SIZE)
+ * @param valid PD validity (false sets the CKS "PD invalid" flag)
+ * @return 0 on success, -1 on invalid argument
+ */
+int iolink_dll_publish_pd_in(iolink_dll_ctx_t* ctx, const uint8_t* data, uint8_t len, bool valid);
+
+/**
+ * @brief Copy the last valid input Process Data (Index 0x0028, B.2.23).
+ *
+ * @param ctx DLL context
+ * @param out Output buffer
+ * @param max_len Size of @p out
+ * @return Octets copied; 0 if no valid PDin was published yet or @p out is too small
+ */
+uint8_t iolink_dll_get_last_valid_pd_in(const iolink_dll_ctx_t* ctx, uint8_t* out, size_t max_len);
+
+/**
+ * @brief Copy the last valid output Process Data (Index 0x0029, B.2.24).
+ *
+ * PDout is valid only after the Master sent ProcessDataOutputOperate (0x98,
+ * PDOUTVALID, Table 55) in the current OPERATE session. DeviceOperate (0x99,
+ * PDOUTINVALID) and any exit from OPERATE reset the validity; the snapshot of
+ * the last valid PDout is kept until the PDout length changes.
+ *
+ * @param ctx DLL context
+ * @param out Output buffer
+ * @param max_len Size of @p out
+ * @return Octets copied; 0 if no valid PDout was received yet or @p out is too small
+ */
+uint8_t iolink_dll_get_last_valid_pd_out(const iolink_dll_ctx_t* ctx, uint8_t* out, size_t max_len);
+
+/**
+ * @brief Stop and disable communication until re-initialization (10.7.5).
+ *
+ * Sets the PHY to IOLINK_PHY_MODE_INACTIVE (if the PHY supports set_mode) and
+ * ignores every received octet afterwards. Only iolink_dll_init() (power
+ * cycle) restores communication. Whether the C/Q driver is physically
+ * disabled depends on the PHY driver.
+ *
+ * @param ctx DLL context
+ */
+void iolink_dll_disable_communication(iolink_dll_ctx_t* ctx);
 
 /**
  * @brief Get current PD lengths
@@ -225,16 +299,20 @@ int iolink_dll_set_sdci_mode(iolink_dll_ctx_t* ctx);
 iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t* ctx);
 
 /**
- * @brief Set the communication baudrate
+ * @brief Set the fixed communication baudrate
+ *
+ * Updates the active PHY rate and the rate restored on wake-up and recovery.
+ * This preserves the behavior expected by applications that configure the
+ * rate after initialization.
  *
  * @param ctx DLL context
  * @param baudrate Desired baudrate (COM1, COM2, or COM3)
- * @return int 0 on success
+ * @return 0 on success, -1 if @p ctx is NULL or @p baudrate is not COM1, COM2, or COM3.
  */
 int iolink_dll_set_baudrate(iolink_dll_ctx_t* ctx, iolink_baudrate_t baudrate);
 
 /**
- * @brief Get current negotiated baudrate
+ * @brief Get current PHY baudrate
  *
  * @param ctx DLL context
  * @return iolink_baudrate_t Current baudrate

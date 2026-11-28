@@ -92,6 +92,10 @@ typedef struct
     bool flowctrl_seen;    /**< A FlowCTRL has been received since START */
     bool repeat_pending;   /**< Last FlowCTRL repeated: ignore the payload */
     uint8_t error_code;    /**< IO-Link ISDU Error Code (0x80XX) */
+    uint8_t last_read_od[IOLINK_OD_MAX_SIZE]; /**< Cached response for one COUNT retry. */
+    uint8_t last_read_od_len;                 /**< Width of the cached response segment. */
+    uint8_t last_read_flowctrl;               /**< FlowCTRL that produced the cached segment. */
+    bool read_cache_valid; /**< Cache is usable, including the final response segment. */
 
     /* Pointers to external dependencies */
     /* Optional application service for device-specific indices 0x0040-0x00FE
@@ -109,9 +113,27 @@ typedef struct
     iolink_params_ctx_t* params_ctx; /**< Device-local writable parameter context */
     void* direct_param_page2;        /**< Per-device Direct Parameter page 2 storage */
 
+    /**
+     * Optional SystemCommand reset service (10.7, Table B.9). Called with
+     * @p execute false to ask if @p cmd (0x80, 0x81, 0x82, 0x83) is
+     * supported, and with @p execute true to run 0x81 or the application part
+     * of 0x82 before the ISDU response. Returns 0 if supported/executed,
+     * negative otherwise. Without this service 0x80, 0x81 and 0x83 are refused
+     * with FUNC_NOTAVAIL; 0x82 then resets only the stack-owned parameters.
+     * iolink_device_init() installs a service backed by the reset handler.
+     */
+    int (*system_reset)(void* user, uint8_t cmd, bool execute);
+    void* system_reset_user; /**< User pointer for @ref system_reset */
+
     /* System Command Flags */
-    bool reset_pending;     /**< Device reset requested (0x80) */
-    bool app_reset_pending; /**< Application reset requested (0x81) */
+    bool reset_pending;       /**< Device reset (0x80) accepted, execution deferred */
+    bool app_reset_pending;   /**< Application reset (0x81) executed (informational) */
+    bool back_to_box_pending; /**< Back-to-box (0x83) accepted, communication stop deferred */
+
+    /** ErrorCount (Index 0x0020, B.2.20): application errors since power-on or
+     *  reset. The application maintains the value; Restore factory settings
+     *  clears it (10.7.4). */
+    uint16_t error_count;
 } iolink_isdu_ctx_t;
 
 /**

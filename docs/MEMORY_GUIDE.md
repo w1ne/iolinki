@@ -23,7 +23,8 @@ You can tune these values to fit your MCU.
 | Macro | Default | Bytes Used | Description |
 | :--- | :--- | :--- | :--- |
 | `IOLINK_ISDU_BUFFER_SIZE` | 256 | **512** bytes | Two buffers: Request (256) + Response (256) |
-| `IOLINK_EVENT_QUEUE_SIZE` | 4 | ~12 bytes | Event queue storage (3 bytes per event) |
+| `IOLINK_EVENT_QUEUE_SIZE` | 8 | ~104 bytes | Event queue (13 bytes per event) |
+| `IOLINK_EVENT_CONDITION_SLOTS` | 8 | ~128 bytes | Event conditions and repeat timers |
 | `IOLINK_PD_IN_MAX_SIZE` | 32 | 32 bytes | Input Process Data buffer |
 | `IOLINK_PD_OUT_MAX_SIZE` | 32 | 32 bytes | Output Process Data buffer |
 
