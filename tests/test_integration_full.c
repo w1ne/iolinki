@@ -134,7 +134,10 @@ static void test_full_stack_timing_enforcement(void** state)
 
     iolink_dll_stats_t stats;
     iolink_device_get_dll_stats(&dev.ctx, &stats);
-    assert_true(stats.t_ren_violations > 0U);
+    /* A blocking three-byte transmission is not a wake T_REN violation.
+       This legacy mock has no boundary timestamps: do not claim timing proof. */
+    assert_int_equal(stats.t_ren_violations, 0U);
+    assert_true(stats.response_timing_unavailable >= 2U);
     assert_true(stats.t_cycle_violations > 0U);
 }
 

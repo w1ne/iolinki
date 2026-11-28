@@ -1,5 +1,8 @@
 # API Reference
 
+For the v2.2.0 to v3.0.0 wire, ABI, COM-rate and timing changes, see the
+[v3.0.0 migration guide](MIGRATION_3.0.md).
+
 ## Core API
 
 ### Initialization
@@ -431,7 +434,9 @@ overridden by defining them before the header is included (each is guarded with
 #define IOLINK_PD_IN_MAX_SIZE   32   /* Max input Process Data bytes */
 #define IOLINK_PD_OUT_MAX_SIZE  32   /* Max output Process Data bytes */
 #define IOLINK_ISDU_BUFFER_SIZE 256  /* ISDU request/response buffer */
-#define IOLINK_EVENT_QUEUE_SIZE 4    /* Event FIFO depth */
+#define IOLINK_EVENT_QUEUE_SIZE 8    /* Event FIFO depth */
+#define IOLINK_EVENT_CONDITION_SLOTS 8 /* Tracked appear/disappear conditions */
+#define IOLINK_OD_MAX_SIZE 8         /* Maximum On-request Data width */
 ```
 
 ## Thread and ISR Safety

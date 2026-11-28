@@ -71,8 +71,8 @@ typedef struct
     uint8_t od_len;             /**< On-request Data length (1, 2 or 8 octets) */
     bool pd_valid;              /**< Current PD_In validity status */
     uint32_t min_cycle_time_us; /**< Minimum cycle time in microseconds */
-    bool enforce_timing;        /**< Enable timing checks (t_ren / t_cycle) */
-    uint32_t t_ren_limit_us;    /**< Current t_ren limit in microseconds */
+    bool enforce_timing;        /**< Enable timing checks (t_A / t_REN / t_cycle) */
+    uint32_t t_ren_limit_us;    /**< Wake receive-enable processing limit in microseconds */
     bool t_ren_override;        /**< Use overridden t_ren limit if true */
     uint32_t t_pd_delay_us;     /**< Power-on delay (t_pd) in microseconds */
 
@@ -107,25 +107,31 @@ typedef struct
     uint8_t pd_out[IOLINK_PD_OUT_MAX_SIZE]; /**< Output PD buffer (Master -> Device) */
 
     /* Error Counters & Statistics */
-    uint32_t crc_errors;            /**< Cumulative CRC error count */
-    uint32_t timeout_errors;        /**< Cumulative timeout count */
-    uint32_t framing_errors;        /**< Cumulative framing error count */
-    uint32_t timing_errors;         /**< Cumulative timing violations */
-    uint32_t t_ren_violations;      /**< t_ren violations */
-    uint32_t t_cycle_violations;    /**< t_cycle violations */
-    uint32_t t_byte_violations;     /**< Inter-byte timing violations */
-    uint32_t t_pd_violations;       /**< t_pd violations */
-    uint8_t retry_count;            /**< Retry counter for current exchange */
-    uint32_t total_retries;         /**< Cumulative retry count */
-    uint8_t max_retries;            /**< Configured max retries (default 3) */
-    uint32_t voltage_faults;        /**< Cumulative voltage fault count */
-    uint32_t short_circuits;        /**< Cumulative short circuit count */
-    uint8_t fallback_count;         /**< Consecutive fallback count for SIO transition */
-    uint8_t sio_fallback_threshold; /**< Fallback threshold to enter SIO mode (default 3) */
+    uint32_t crc_errors;                  /**< Cumulative CRC error count */
+    uint32_t timeout_errors;              /**< Cumulative timeout count */
+    uint32_t framing_errors;              /**< Cumulative framing error count */
+    uint32_t timing_errors;               /**< Cumulative timing violations */
+    uint32_t t_a_violations;              /**< Response start outside 1..10 T_BIT */
+    uint32_t response_timing_unavailable; /**< No fresh valid boundary sample */
+    uint32_t response_timing_estimated;   /**< Software-estimated samples */
+    uint32_t response_timing_captured;    /**< Wire-captured samples */
+    uint32_t t_ren_violations;            /**< Wake receive-enable processing violations */
+    uint32_t t_cycle_violations;          /**< t_cycle violations */
+    uint32_t t_byte_violations;           /**< Inter-byte timing violations */
+    uint32_t t_pd_violations;             /**< t_pd violations */
+    uint8_t retry_count;                  /**< Retry counter for current exchange */
+    uint32_t total_retries;               /**< Cumulative retry count */
+    uint8_t max_retries;                  /**< Configured max retries (default 3) */
+    uint32_t voltage_faults;              /**< Cumulative voltage fault count */
+    uint32_t short_circuits;              /**< Cumulative short circuit count */
+    uint8_t fallback_count;               /**< Consecutive fallback count for SIO transition */
+    uint8_t sio_fallback_threshold;       /**< Fallback threshold to enter SIO mode (default 3) */
 
     /* Timing Statistics */
     uint64_t last_response_us; /**< Microsecond timestamp of last response */
-    uint32_t response_time_us; /**< Measured stack response time (t2) */
+    uint32_t response_time_us; /**< Last evaluated response-start delay t_A; see quality */
+
+    iolink_phy_timing_quality_t response_timing_quality; /**< Last sample origin */
 
     /* Sub-modules */
     iolink_events_ctx_t events; /**< Diagnostic Events engine */
@@ -158,17 +164,21 @@ typedef struct
  */
 typedef struct
 {
-    uint32_t crc_errors;         /**< Cumulative CRC error count */
-    uint32_t timeout_errors;     /**< Cumulative timeout count */
-    uint32_t framing_errors;     /**< Cumulative framing error count */
-    uint32_t timing_errors;      /**< Cumulative timing violations */
-    uint32_t t_ren_violations;   /**< t_ren violations */
-    uint32_t t_cycle_violations; /**< t_cycle violations */
-    uint32_t t_byte_violations;  /**< Inter-byte timing violations */
-    uint32_t t_pd_violations;    /**< t_pd violations */
-    uint32_t total_retries;      /**< Cumulative retry count */
-    uint32_t voltage_faults;     /**< Cumulative voltage fault count */
-    uint32_t short_circuits;     /**< Cumulative short circuit count */
+    uint32_t crc_errors;                  /**< Cumulative CRC error count */
+    uint32_t timeout_errors;              /**< Cumulative timeout count */
+    uint32_t framing_errors;              /**< Cumulative framing error count */
+    uint32_t timing_errors;               /**< Cumulative timing violations */
+    uint32_t t_a_violations;              /**< Response start outside 1..10 T_BIT */
+    uint32_t response_timing_unavailable; /**< No fresh valid boundary sample */
+    uint32_t response_timing_estimated;   /**< Software-estimated samples */
+    uint32_t response_timing_captured;    /**< Wire-captured samples */
+    uint32_t t_ren_violations;            /**< Wake receive-enable processing violations */
+    uint32_t t_cycle_violations;          /**< t_cycle violations */
+    uint32_t t_byte_violations;           /**< Inter-byte timing violations */
+    uint32_t t_pd_violations;             /**< t_pd violations */
+    uint32_t total_retries;               /**< Cumulative retry count */
+    uint32_t voltage_faults;              /**< Cumulative voltage fault count */
+    uint32_t short_circuits;              /**< Cumulative short circuit count */
 } iolink_dll_stats_t;
 
 /**
@@ -318,7 +328,7 @@ iolink_baudrate_t iolink_dll_get_baudrate(const iolink_dll_ctx_t* ctx);
 void iolink_dll_get_stats(const iolink_dll_ctx_t* ctx, iolink_dll_stats_t* out_stats);
 
 /**
- * @brief Enable/disable timing enforcement (t_ren / t_cycle)
+ * @brief Enable/disable timing enforcement (t_A / T_REN / t_cycle)
  *
  * @param ctx DLL context
  * @param enable true to enable, false to disable
@@ -326,10 +336,10 @@ void iolink_dll_get_stats(const iolink_dll_ctx_t* ctx, iolink_dll_stats_t* out_s
 void iolink_dll_set_timing_enforcement(iolink_dll_ctx_t* ctx, bool enable);
 
 /**
- * @brief Override t_ren limit (applies to all baudrates)
+ * @brief Override wake receive-enable processing limit (all baudrates)
  *
  * @param ctx DLL context
- * @param limit_us New t_ren limit in microseconds (0 disables enforcement)
+ * @param limit_us Limit in microseconds (0 restores the Table 10 default)
  */
 void iolink_dll_set_t_ren_limit_us(iolink_dll_ctx_t* ctx, uint32_t limit_us);
 

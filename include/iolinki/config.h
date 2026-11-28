@@ -127,7 +127,7 @@
 #endif
 
 /**
- * @brief Response time limit (T_REN) in microseconds.
+ * @brief Wake-up receive-enable time (T_REN) in microseconds.
  *
  * Spec Table 10: a single value of at most 500 us, independent of the baudrate.
  */

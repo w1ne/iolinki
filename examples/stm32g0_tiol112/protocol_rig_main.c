@@ -131,12 +131,6 @@ int main(void)
         }
     }
     (void) iolink_device_pd_input_update(&protocol_device, blocks[0], 32U, true);
-    /* Legacy statistic ends at UART TC. The 20ms limit applies only when
-     * internal timing checks are explicitly enabled; it is NOT a tA limit.
-     * The default profile leaves those checks off. The external oracle always
-     * measures final master stop-end to first CQ start and UART byte gaps.
-     */
-    iolink_device_set_t_ren_limit_us(&protocol_device, 20000U);
     iolink_device_set_timing_enforcement(&protocol_device, IOLINK_RIG_TIMING_ENFORCE != 0);
     rig_timing_enforced = protocol_device.dll.enforce_timing ? 1U : 0U;
     protocol_ready = 1U;

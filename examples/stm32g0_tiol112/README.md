@@ -185,14 +185,18 @@ Compile results and host ring tests do not establish CQ timing, hardware error
 behavior, IAR compilation or physical-master interoperability; each exact ELF
 requires its own runtime evidence.
 
-### Recorded GCC DMA results
+### Historical pre-3.0.0 GCC DMA results
+
+These results are historical evidence for the pre-3.0.0 firmware source. They
+do not validate the current 500 us wake receive-enable processing budget. The
+recorded DLL limit is retained as a raw result from those earlier runs.
 
 The four exact GCC 13.2.1/newlib images built from
 [`0a3f1b0138b815fff610c6e02960eb5ef84e80f9`](https://github.com/w1ne/iolinki/commit/0a3f1b0138b815fff610c6e02960eb5ef84e80f9)
 pass the native LabWired matrix with `-O2`, 64MHz, timing enforcement enabled,
 and the unchanged 6us EN guard. The model source was
 [`055dd261b57292a5c467add05696409c45465b6f`](https://github.com/w1ne/labwired-core/commit/055dd261b57292a5c467add05696409c45465b6f).
-The [compact evidence record](../../validation/stm32g0-dma-gcc-evidence.json)
+The [historical pre-3.0.0 evidence record](../../validation/stm32g0-dma-gcc-evidence.json)
 contains the four ELF, layout, input-manifest and raw-report hashes, compiler
 and vendor pins, counters, and separate COM3 recovery/one-action identities.
 
@@ -271,21 +275,20 @@ within that window. The stack uses synchronous application handlers and has no
 general deferred completion/cancellation API, as documented in the protocol
 rig README.
 
-The profile explicitly defaults `IOLINK_RIG_TIMING_ENFORCE=0`. Internal DLL
-timing checks are disabled in that build; setting a response-time limit does
-not enable them. Build a separate image with `IOLINK_RIG_TIMING_ENFORCE=1` to
-evaluate the internal inter-byte, cycle and completion checks. The CI 64MHz
-protocol artifact explicitly selects this enabled option. The exported
-`rig_timing_enforced` symbol records the selected state. The legacy completion
-threshold is 20ms and applies only when internal checks are enabled; it is not
-tA. The external rig must independently measure the actual last-master-stop to
-first-device-start gap and byte gaps in either build. Receive-pop timestamps
-are not pin timestamps, so internal checks need their own integration result.
-An OPERATE LED indicates state, not conformance.
+The profile explicitly defaults `IOLINK_RIG_TIMING_ENFORCE=0`. Build a separate
+image with `IOLINK_RIG_TIMING_ENFORCE=1` to evaluate DLL inter-byte, cycle and
+wake receive-enable checks. The CI 64MHz protocol artifact explicitly selects
+this enabled option. The exported `rig_timing_enforced` symbol records the
+selected state. The TIOL112 PHY currently has no `get_response_timing` callback,
+so each response is counted as timing unavailable and the DLL cannot evaluate
+`t_A`; unavailable samples do not raise `COMM_TIMING`. The external rig must
+measure the actual last-master-stop to first-device-start gap and byte gaps in
+either build. Receive-pop timestamps are not pin timestamps, so internal checks
+need their own integration result. An OPERATE LED indicates state, not
+conformance.
 
 The internal cycle monitor applies MinCycleTime only in OPERATE and compares
-observed first-byte dequeue timestamps, separately from its legacy
-complete-request-to-end-TX duration. STARTUP/PREOPERATE retain their distinct
+observed first-byte dequeue timestamps. STARTUP/PREOPERATE retain their distinct
 recovery rules. Queue observation can jitter, so the external wire oracle is
 still required even when internal checks are enabled.
 

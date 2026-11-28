@@ -32,6 +32,38 @@ The companion master stack is [iolinki-master](https://github.com/w1ne/iolinki-m
 
 **Shipping a closed-source product?** A commercial license removes the GPLv3 obligations — email **andrii@shylenko.com** for terms (fast, no-friction). See [LICENSE](LICENSE) and [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL).
 
+## Physical response timing
+
+IO-Link Interface and System Specification V1.1.4, Annex A.3.5 defines device
+response time **t_A** from the last master stop bit to the first device start bit.
+The valid interval is **1–10 bit times**. Table 10's **T_REN <= 500 us** instead
+describes receive enable after wake-up. It is independent of reply length.
+
+A PHY can provide get_response_timing with fresh timestamps for the latest
+request/reply. A blocking send must record its **first start**, before waiting
+for UART transmission complete. Return IOLINK_PHY_TIMING_ESTIMATED for software
+observations such as interrupt and register-submission timestamps. Use
+IOLINK_PHY_TIMING_CAPTURED only for captured wire boundaries. The stack reports
+these counts separately. Neither a host test nor a software estimate qualifies
+physical timing.
+
+Every Type-0/1/2 response uses the same timing check. If the PHY has no timing
+callback, or returns 0 because a fresh sample is unavailable, the stack only
+increments `response_timing_unavailable`; it does not report a violation.
+With enforcement enabled, invalid fresh samples (a negative callback result,
+bad quality, reversed/future timestamps, or an overflowing interval) raise a
+timing error. Valid samples outside the 1–10 bit-time interval increment
+`t_a_violations`. The limit uses the actual COM rate without rounding bit
+times, and `t_a_violations` is independent of `t_ren_violations`. A long
+blocking reply does not consume the response-start or wake-enable budget.
+
+The legacy set_t_ren_limit_us API now controls the measured SIO-to-SDCI
+receive-enable **processing** budget. Zero restores 500 us. PHY detection and
+interrupt latency still require a wire measurement. This setting cannot relax
+the 1–10 bit response-start interval.
+
+Source: [IO-Link Interface and System Specification V1.1.4, Table 10 and Annex A.3.5](https://io-link.com/fileadmin/user_upload/Downloads/Package_2024/IOL-Interface-Spec_10002_V114_Jun24.pdf).
+
 ## Quick Start
 
 For a runnable counter/button/LED software example, see
@@ -108,7 +140,7 @@ cd build && ctest --output-on-failure
 
 ## IO-Link V1.1.5 Conformance
 
-iolinki includes **51 automated conformance tests** validating compliance with the IO-Link V1.1.5 specification. The suite targets Package 2025 (V1.1.5, October 2025), the latest published package; the wire was re-verified against the V1.1.5 figures (A.9/A.10/A.13/A.14) in v2.2.0. Package 2026 (D1.1.6) is in public review until 17 December 2026 and will be tracked when ratified. Coverage by category:
+iolinki includes **51 automated conformance tests** validating compliance with the IO-Link V1.1.5 specification. The suite targets Package 2025 (V1.1.5, October 2025), the latest published package. Package 2026 (D1.1.6) is in public review until 17 December 2026 and will be tracked when ratified. Coverage by category:
 
 - ✅ **State Machine**: DLL transitions, ESTAB_COM, fallback behavior (7 tests)
 - ✅ **Timing**: Cycle times, response delays, wake-up timing (5 tests)
@@ -178,6 +210,8 @@ See [ROADMAP.md](./docs/ROADMAP.md) for detailed development phases.
 - **[ROADMAP.md](./docs/ROADMAP.md)** - Development phases and milestones
 - **[VISION.md](./docs/VISION.md)** - Project mission and approach
 - **[RELEASE_STRATEGY.md](./docs/RELEASE_STRATEGY.md)** - Release workflow and versioning
+- **[MIGRATION_3.0.md](./docs/MIGRATION_3.0.md)** - v2.2.0 to v3.0.0 wire, ABI,
+  COM-rate and timing migration notes
 - **[INSTALL.md](./INSTALL.md)** - Detailed installation instructions
 - **[PUPPETEER.md](./docs/PUPPETEER.md)** - Agent task mutex workflow (submodule)
 
@@ -203,16 +237,12 @@ See [ROADMAP.md](./docs/ROADMAP.md) for detailed development phases.
 
 Official releases are available on [GitHub Releases](https://github.com/w1ne/iolinki/releases).
 
-Each release includes:
-- **Test Results**: Complete test suite validation
-- **Build Artifacts**: Pre-compiled examples and test binaries
-- **Documentation**: Updated docs and guides
-
-To create a new release:
-```bash
-git tag -a v0.1.0 -m "Release version 0.1.0"
-git push origin v0.1.0
-```
+The release workflow attaches source and example archives, firmware and host
+demos, IODD packages, the STM32G0 IAR project, LabWired recipes, SBOMs, test
+evidence and checksums. Its notes include the migration guide and validation
+limits. A release preparation PR to `develop` only creates candidate workflow
+artifacts; tagging an RC or stable version publishes a GitHub Release. See the
+[release strategy](./docs/RELEASE_STRATEGY.md) before preparing a release.
 
 ## Development Philosophy
 
@@ -228,3 +258,16 @@ accept the GPLv3 copyleft). Shipping a proprietary product? Email
 ## Contributing
 
 Contributions are welcome! Please see [ROADMAP.md](./docs/ROADMAP.md) for areas where help is needed.
+
+### Device rate during recovery
+
+Each device keeps its configured COM1, COM2, or COM3 rate across CRC fallback,
+inter-byte loss, inactivity, T_DSIO expiry and a FALLBACK MasterCommand. A new
+wake-up reuses that rate. The master discovers the device rate; recovery must
+not force a COM2/COM3 device to COM1. Applications can select a different fixed
+rate through `iolink_dll_set_baudrate()` during initialization. This follows
+[IO-Link v1.1.4 section 7.3.2.2](https://io-link.com/fileadmin/user_upload/Downloads/Package_2024/IOL-Interface-Spec_10002_V114_Jun24.pdf).
+
+`test_baud_recovery` uses a synthetic clock and checks 18 recovery paths across
+all three rates, including a new wake-up, valid startup messages and cyclic
+process data. It does not qualify a physical UART or C/Q waveform.

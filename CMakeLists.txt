@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
-# Version 2.2.0
-project(iolinki VERSION 2.2.0 LANGUAGES C)
+# Version 3.0.0
+project(iolinki VERSION 3.0.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
@@ -99,6 +99,8 @@ endif()
 
 if(BUILD_TESTING AND Python3_FOUND)
     add_test(NAME release_test_stats COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/test_release_test_stats.py)
+    add_test(NAME release_notes_tool COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/test_generate_release_notes.py)
+    add_test(NAME lcov_coverage_tool COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/test_lcov_coverage.py)
     add_test(NAME iar_project_paths COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/test_check_iar_project.py)
     add_test(NAME iodd_cli COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/test_iodd_cli.py)
 endif()

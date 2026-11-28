@@ -63,8 +63,17 @@ static bool read_diag(void* u)
 int main(void)
 {
     iolink_l6362a_ctx_t d;
-    iolink_l6362a_io_t io = {NULL,       start,     enable, level,   config,
-                             send_bytes, recv_byte, wake,   read_ol, read_diag};
+    iolink_l6362a_io_t io = {.user = NULL,
+                             .init = start,
+                             .set_enable = enable,
+                             .set_in2 = level,
+                             .uart_configure = config,
+                             .uart_send_complete = send_bytes,
+                             .uart_recv = recv_byte,
+                             .consume_wakeup = wake,
+                             .read_ol = read_ol,
+                             .read_diag = read_diag,
+                             .get_response_timing = NULL};
     assert(iolink_phy_l6362a_init(&d, &io) == 0);
     const iolink_phy_api_t* p = iolink_phy_l6362a_get(&d);
     assert(p->init(p->user) == 0 && !en);
