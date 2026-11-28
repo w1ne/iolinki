@@ -104,6 +104,48 @@ global DMA flags are cleared only after disabling the channel. Active circular
 RX uses individual HT/TC flag clears. No DMAMUX synchronization or request
 generator is enabled.
 
+### Foreground scheduling and ISR rules
+
+With the default CMSIS IRQ backend, USART RX/error IRQs and the WAKE EXTI only
+enqueue/latch transport state and call `board_process_schedule()`. SysTick adds
+a 1ms housekeeping wake so DLL deadlines and the reference application's 10ms
+sample cadence continue when the line is idle. `board_process_wait()` uses a
+coalescing one-byte latch plus the Cortex-M event register handshake; the main
+loop then runs `iolink_device_process()` once in foreground. Multiple wakeups
+can coalesce because the RX queue, not the wake flag, preserves each byte. The
+queue drops further bytes after its first latched overrun/error until foreground
+discards the damaged frame history. The process guard in the generic core rejects
+a nested call on the same context. No ISR calls core APIs, performs TX, or runs
+application callbacks, and the stack is never run with interrupts masked.
+
+DMA backends deliberately keep the existing foreground polling loop. Their
+half/full-transfer IRQs report ring progress rather than every UART byte, so
+they are not a safe event-only wake source for the COM3 response path. The
+short critical sections protect queue/latch snapshots and DMA bookkeeping;
+they do not span protocol processing or UART completion waits. This scheduling
+choice does not prove a response deadline: measure request-stop to response
+start on the actual board/transceiver and qualify the exact compiler, clock,
+UART backend and board configuration.
+
+For Catalin's 64MHz STM32G0B1RE / TIOL112 COM3 Type 2_V profile (PDin 32,
+PDout 1, OD1/code4), build the IRQ backend with:
+
+```sh
+IOLINK_G0_SYSCLK_HZ=64000000 IOLINK_G0_UART_BACKEND=0 \
+  IOLINK_G0_PROTOCOL_PROFILE=1 IOLINK_RIG_COM=3 \
+  IOLINK_RIG_TIMING_ENFORCE=1 \
+  BUILD_DIR="$PWD/examples/stm32g0_tiol112/build-catalin-com3" \
+  bash examples/stm32g0_tiol112/build.sh
+```
+
+This selects the actual `protocol_rig_main.c` device configuration and real
+board UART/TIOL112 callbacks. Cross-build and host state-machine tests verify
+configuration and software behavior; only an instrumented hardware run can
+establish the physical response gap, TIOL112 EN delay, UART error recovery and
+master interoperability. Use `IOLINK_G0_UART_BACKEND=1` or `2` only after
+independently qualifying those DMA transport images; they retain polling for
+receive service.
+
 For the HAL UART/DMA option, supply ST's unmodified
 [HAL v1.4.7](https://github.com/STMicroelectronics/stm32g0xx-hal-driver/tree/a0cf8a8b96183fdcc2e3b1cf0bcf0825f27bd0c9):
 

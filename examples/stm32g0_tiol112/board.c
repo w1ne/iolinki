@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "board.h"
+#include "process_latch.h"
 #include "timebase.h"
 #include "stm32g0xx.h"
 #include "iolinki/platform.h"
@@ -21,6 +22,10 @@ static volatile uint32_t timer_high;
 static volatile uint32_t timer_epoch_ms;
 static volatile uint32_t timer_epoch_remainder_us;
 static volatile uint8_t wake_pending;
+static board_process_latch_t process_latch;
+#if IOLINK_G0_UART_BACKEND == IOLINK_G0_UART_CMSIS_IRQ
+static bool periodic_scheduler_ready;
+#endif
 static uint32_t critical_depth, saved_primask;
 static uint32_t tx_octet_timeout_us;
 static uint32_t response_start_floor_us;
@@ -37,6 +42,50 @@ void iolink_critical_exit(void)
 {
     if (critical_depth != 0U && --critical_depth == 0U) __set_PRIMASK(saved_primask);
 }
+
+void board_process_schedule(void)
+{
+    board_process_latch_signal(&process_latch);
+    __DMB();
+    __SEV();
+}
+
+static bool board_process_take(void)
+{
+    iolink_critical_enter();
+    bool pending = board_process_latch_take(&process_latch);
+    iolink_critical_exit();
+    return pending;
+}
+
+void board_process_wait(void)
+{
+#if IOLINK_G0_UART_BACKEND == IOLINK_G0_UART_CMSIS_IRQ
+    if (!periodic_scheduler_ready) return; /* Fail to polling if SysTick setup fails. */
+    for (;;) {
+        if (board_process_take()) return;
+        /* Clear a stale event, then recheck before sleeping. A signal after
+         * that check sets the event register and makes the final WFE return. */
+        __SEV();
+        __WFE();
+        if (board_process_take()) return;
+        __WFE();
+    }
+#else
+    /* DMA backends retain foreground polling: their RX IRQs report ring
+     * progress, not every received byte, which is not a sufficient wake
+     * guarantee for COM3 response timing. */
+    (void) board_process_take();
+#endif
+}
+
+void SysTick_Handler(void)
+{
+#if IOLINK_G0_UART_BACKEND == IOLINK_G0_UART_CMSIS_IRQ
+    board_process_schedule();
+#endif
+}
+
 void TIM2_IRQHandler(void)
 {
     /* Keep all epoch fields coherent even for a higher-priority reader. */
@@ -152,6 +201,9 @@ void board_init(void)
     NVIC_SetPriority(TIM2_IRQn, 2);
     NVIC_EnableIRQ(TIM2_IRQn);
     TIM2->CR1 = TIM_CR1_CEN;
+#if IOLINK_G0_UART_BACKEND == IOLINK_G0_UART_CMSIS_IRQ
+    periodic_scheduler_ready = (SysTick_Config(SystemCoreClock / 1000UL) == 0U);
+#endif
     GPIOA->BSRR = (1UL << (8U + 16U)) | (1UL << (5U + 16U));
     mode(GPIOA, 8, 1);
     mode(GPIOA, 5, 1);
@@ -206,6 +258,7 @@ void EXTI0_1_IRQHandler(void)
     if (EXTI->FPR1 & 1U) {
         EXTI->FPR1 = 1U;
         wake_pending = 1;
+        board_process_schedule();
     }
 }
 static int wake(void* user)
@@ -281,6 +334,7 @@ void USART1_IRQHandler(void)
         }
     }
 #endif
+    board_process_schedule();
 }
 static int recv_byte(void* user, uint8_t* byte)
 {

@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Configurable fixed Device transmission rate in `iolink_config_t` for COM1,
+  COM2, or COM3. Zero-initialized configurations retain the COM2 default, and
+  startup, wake-up and recovery restore the selected rate.
+- OD1 configuration documentation for Type 2_V, including its three-octet
+  Process Data requirement and code-4 selection.
+- Explicit ISR-safety guidance for `iolink_device_process()` and
+  `iolink_dll_process()`.
 - Event Dispatcher lifecycle (V1.1.5 10.10.2): `iolink_event_appear()`,
   `iolink_event_disappear()` (explicit clear, deferred until 50 ms after
   "appears"), single-shot `iolink_event_notify()`, `iolink_events_process()`
@@ -37,6 +44,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Device-level integration test `tests/test_integration_ds_reset.c`.
 
 ### Changed
+- **Behavior change:** Communication fallback resets the protocol session and
+  discards queued RX data. PHYs with wake-up detection still return to SIO;
+  UART-only PHYs remain in SDCI and accept a fresh startup sequence.
+- **Behavior change:** `iolink_dll_set_baudrate()` now selects the fixed Device
+  rate as well as updating the live PHY. The selected rate therefore survives
+  wake-up and communication recovery for existing callers of this API.
+- **Behavior change:** Recovery now restores the configured Device rate. A
+  zero-initialized configuration therefore recovers at COM2 instead of the
+  previous COM1 fallback; select `IOLINK_DEVICE_RATE_COM1` to retain COM1.
 - **Behavior change:** SystemCommands 0x80, 0x81 and 0x83 answer 0x8035
   FUNC_NOTAVAIL when no reset handler is registered, instead of a positive
   response without action. 0x81 runs the handler before the response; 0x80

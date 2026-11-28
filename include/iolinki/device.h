@@ -93,6 +93,7 @@ typedef struct
     iolink_reset_handler_t reset_handler; /**< Application reset handler (may be NULL). */
     uint8_t direct_param_page2[16];       /**< Direct Parameter Page 2 storage. */
     bool deferred_reset_armed;            /**< Response of 0x80/0x83 read; counting cycles. */
+    bool processing;                      /**< Guards the foreground process entry point. */
     uint32_t deferred_reset_mseq;         /**< M-sequence count when the response was read. */
 } iolink_device_ctx_t;
 
@@ -117,7 +118,12 @@ int iolink_device_init(iolink_device_ctx_t* ctx, const iolink_device_config_t* c
  * application events. Runs an accepted Device reset or Back-to-box after the
  * ISDU response was read and 3 further M-sequences passed (10.7.2, 10.7.5),
  * or at once if communication was lost.
- * Call this periodically from the main loop.
+ * Call this periodically from one main-loop or task context. This function is
+ * not ISR-safe; do not call it from an interrupt handler. A nested call on the
+ * same context is ignored. Calls from multiple tasks still require external
+ * serialization. Stack and application callbacks run synchronously here and
+ * must be bounded, nonblocking, and must not re-enter this function. An ISR
+ * should only record/wake foreground work; it must not call stack APIs.
  * @param ctx Device context.
  */
 void iolink_device_process(iolink_device_ctx_t* ctx);

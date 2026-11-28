@@ -19,9 +19,10 @@ import os
 sys.path.insert(0, ".")
 
 from virtual_master.master import VirtualMaster
+from virtual_master.protocol import MSequenceType
 
 
-def run_device_in_background(tty_path, m_seq_type=1, pd_len=2):
+def run_device_in_background(tty_path, m_seq_type=int(MSequenceType.TYPE_1_2), pd_len=2):
     """Start Device process in background with Type 1 config."""
     device_path = os.environ.get(
         "IOLINK_DEVICE_PATH", "build/examples/host_demo/host_demo"
@@ -56,10 +57,17 @@ def test_type1_communication():
     pd_len = 2
 
     try:
-        master = VirtualMaster(m_seq_type=1, pd_in_len=pd_len, pd_out_len=pd_len)
+        # The Zephyr app consumes the library enum directly: TYPE_1_2 is 2.
+        # Keep the Master and Device on the same M-sequence profile.
+        device_m_seq_type = int(MSequenceType.TYPE_1_2)
+        master = VirtualMaster(
+            m_seq_type=MSequenceType(device_m_seq_type), pd_in_len=pd_len, pd_out_len=pd_len
+        )
         device_tty = master.get_device_tty()
 
-        device_proc = run_device_in_background(device_tty, m_seq_type=1, pd_len=pd_len)
+        device_proc = run_device_in_background(
+            device_tty, m_seq_type=device_m_seq_type, pd_len=pd_len
+        )
         if not device_proc:
             return 1
 

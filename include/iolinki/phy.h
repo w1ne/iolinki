@@ -49,6 +49,10 @@ typedef enum
  *
  * This interface defines the contract between the stack and the hardware-specific
  * transceiver driver (e.g. for MAX14827, L6362, or a Virtual TTY).
+ * PHY callbacks are invoked synchronously from foreground stack APIs (the
+ * initializer calls @c init; runtime callbacks are called by the process API).
+ * They are not ISR entry points. Keep them bounded, keep @c recv_byte
+ * nonblocking, and do not call stack processing recursively from a PHY callback.
  */
 typedef struct
 {
@@ -74,6 +78,10 @@ typedef struct
 
     /**
      * @brief Send a buffer of data over the line
+     *
+     * The caller waits synchronously for this function to return. A hardware
+     * driver may wait for bounded TX completion, but must leave interrupts
+     * enabled when its UART/DMA completion depends on them.
      * @param data Pointer to source buffer
      * @param len Number of bytes to transmit
      * @return Number of bytes actually sent, or negative on error
@@ -83,7 +91,10 @@ typedef struct
     /**
      * @brief Non-blocking receive for a single byte
      * @param byte Pointer to store received byte
-     * @return 1 if byte available and read, 0 if nothing received, negative on error
+     * @return 1 if byte available and read, 0 if nothing received, negative on
+     *         a receive discontinuity. A negative result invalidates the
+     *         partially received frame and any remaining queued bytes; the
+     *         stack discards that queue before accepting another frame.
      */
     int (*recv_byte)(void* user, uint8_t* byte);
 

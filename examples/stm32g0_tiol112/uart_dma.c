@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "uart_dma.h"
+#include "board.h"
 
 volatile uint32_t board_uart_backend;
 board_dma_stats_t board_dma_stats;
@@ -87,6 +88,7 @@ static void rx_service_flags(void)
 void DMA1_Channel1_IRQHandler(void)
 {
     rx_service_flags();
+    board_process_schedule();
 }
 
 void DMA1_Channel2_3_IRQHandler(void)

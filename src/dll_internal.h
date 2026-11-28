@@ -39,4 +39,8 @@ typedef struct
     uint8_t valid;   /**< Non-zero when @ref od_data holds a valid value. */
 } iolink_od_req_t;
 
+/* Internal device initializer; the public DLL initializer retains COM2 default. */
+void iolink_dll_init_configured(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy,
+                                iolink_baudrate_t baudrate);
+
 #endif  // IOLINK_DLL_INTERNAL_H

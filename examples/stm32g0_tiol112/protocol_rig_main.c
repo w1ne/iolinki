@@ -18,10 +18,10 @@
 #define IOLINK_RIG_COM 3
 #endif
 #if IOLINK_RIG_COM == 3
-#define RIG_BAUD IOLINK_BAUDRATE_COM3
+#define RIG_DEVICE_RATE IOLINK_DEVICE_RATE_COM3
 #define RIG_MIN_CYCLE 30U
 #elif IOLINK_RIG_COM == 2
-#define RIG_BAUD IOLINK_BAUDRATE_COM2
+#define RIG_DEVICE_RATE IOLINK_DEVICE_RATE_COM2
 #define RIG_MIN_CYCLE 150U
 #else
 #error "The evaluation profile supports IOLINK_RIG_COM=2 or 3"
@@ -121,6 +121,7 @@ int main(void)
     config.stack.pd_in_len = 32U;
     config.stack.pd_out_len = 1U;
     config.stack.od_len = 1U;
+    config.stack.transmission_rate = RIG_DEVICE_RATE;
     config.stack.min_cycle_time = RIG_MIN_CYCLE;
     config.pd_input_select = select_block;
     config.vendor_service = image_service;
@@ -138,18 +139,13 @@ int main(void)
     iolink_device_set_t_ren_limit_us(&protocol_device, 20000U);
     iolink_device_set_timing_enforcement(&protocol_device, IOLINK_RIG_TIMING_ENFORCE != 0);
     rig_timing_enforced = protocol_device.dll.enforce_timing ? 1U : 0U;
-    protocol_init_error = iolink_dll_set_baudrate(&protocol_device.dll, RIG_BAUD);
-    if (protocol_init_error != 0) {
-        for (;;) {
-        }
-    }
     protocol_ready = 1U;
+    board_process_schedule();
     for (;;) {
+#if IOLINK_G0_UART_BACKEND == IOLINK_G0_UART_CMSIS_IRQ
+        board_process_wait();
+#endif
         iolink_device_process(&protocol_device);
-        if ((iolink_device_get_phy_mode(&protocol_device) == IOLINK_PHY_MODE_SIO) &&
-            (iolink_device_get_baudrate(&protocol_device) != RIG_BAUD)) {
-            (void) iolink_dll_set_baudrate(&protocol_device.dll, RIG_BAUD);
-        }
         rig_phy_fault = iolink_phy_tiol112_fault(&tiol112);
         board_led((iolink_device_get_state(&protocol_device) == IOLINK_DLL_STATE_OPERATE) &&
                   (rig_phy_fault == 0));

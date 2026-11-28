@@ -19,6 +19,7 @@
 #include "iolinki/device.h"
 #include "iolinki/platform.h"
 #include "iolinki/time_utils.h"
+#include "dll_internal.h"
 #include <string.h>
 
 /** @brief DLL state-change callback: dispatches to the app startup/preoperate/operate hooks. */
@@ -149,6 +150,29 @@ static void device_apply_stack_config(iolink_device_ctx_t* ctx)
     ctx->dll.pd_out_len_max = ctx->dll.pd_out_len;
 }
 
+/** @brief Translate the source-compatible config rate into a PHY COM enum. */
+static bool device_resolve_transmission_rate(iolink_device_rate_t configured,
+                                             iolink_baudrate_t* baudrate)
+{
+    if (baudrate == NULL) {
+        return false;
+    }
+    switch (configured) {
+        case IOLINK_DEVICE_RATE_DEFAULT:
+        case IOLINK_DEVICE_RATE_COM2:
+            *baudrate = IOLINK_BAUDRATE_COM2;
+            return true;
+        case IOLINK_DEVICE_RATE_COM1:
+            *baudrate = IOLINK_BAUDRATE_COM1;
+            return true;
+        case IOLINK_DEVICE_RATE_COM3:
+            *baudrate = IOLINK_BAUDRATE_COM3;
+            return true;
+        default:
+            return false;
+    }
+}
+
 size_t iolink_device_ctx_size(void)
 {
     return sizeof(iolink_device_ctx_t);
@@ -156,7 +180,13 @@ size_t iolink_device_ctx_size(void)
 
 int iolink_device_init(iolink_device_ctx_t* ctx, const iolink_device_config_t* config)
 {
+    iolink_baudrate_t baudrate;
+
     if ((ctx == NULL) || (config == NULL)) {
+        return -1;
+    }
+
+    if (!device_resolve_transmission_rate(config->stack.transmission_rate, &baudrate)) {
         return -1;
     }
 
@@ -195,7 +225,7 @@ int iolink_device_init(iolink_device_ctx_t* ctx, const iolink_device_config_t* c
 
     iolink_device_info_ctx_init(&ctx->device_info, config->device_info);
     iolink_params_ctx_init(&ctx->params, &ctx->device_info);
-    iolink_dll_init(&ctx->dll, &config->phy);
+    iolink_dll_init_configured(&ctx->dll, &config->phy, baudrate);
     ctx->dll.isdu.direct_param_page2 = ctx->direct_param_page2;
     ctx->dll.isdu.params_ctx = &ctx->params;
     ctx->dll.isdu.vendor_service = config->vendor_service;
@@ -226,6 +256,16 @@ void iolink_device_process(iolink_device_ctx_t* ctx)
         return;
     }
 
+    /* Claim the foreground runner in a short critical section. The stack and
+     * synchronous callbacks below must never run with interrupts masked. */
+    iolink_critical_enter();
+    if (ctx->processing) {
+        iolink_critical_exit();
+        return;
+    }
+    ctx->processing = true;
+    iolink_critical_exit();
+
     iolink_dll_process(&ctx->dll);
 
     /* Application reset already ran before its ISDU response. */
@@ -241,6 +281,11 @@ void iolink_device_process(iolink_device_ctx_t* ctx)
             ctx->config->app_callbacks->on_pd_input(ctx->dll.pd_in, ctx->dll.pd_in_len_current);
         }
     }
+
+    /* Release only after every callback has returned. */
+    iolink_critical_enter();
+    ctx->processing = false;
+    iolink_critical_exit();
 }
 
 int iolink_device_pd_input_update(iolink_device_ctx_t* ctx, const uint8_t* data, size_t len,

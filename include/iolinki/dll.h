@@ -61,7 +61,7 @@ typedef struct
 {
     iolink_dll_state_t state;    /**< Current DLL state */
     const iolink_phy_api_t* phy; /**< Bound PHY API implementation */
-    uint32_t last_activity_ms;   /**< Timestamp of last valid frame */
+    uint32_t last_activity_ms;   /**< Timestamp of last wake-up or valid frame */
     bool wakeup_seen;            /**< Wake-up detected (if PHY supports it) */
 
     /* Configuration */
@@ -86,7 +86,8 @@ typedef struct
     iolink_phy_mode_t phy_mode; /**< Current operating mode (SDCI vs SIO) */
 
     /* Baudrate Support */
-    iolink_baudrate_t baudrate; /**< Negotiated baudrate (COM1-COM3) */
+    iolink_baudrate_t baudrate;            /**< Current PHY baudrate (COM1-COM3). */
+    iolink_baudrate_t configured_baudrate; /**< Fixed device rate restored on recovery. */
 
     /* Unified Frame Assembly */
     uint8_t frame_buf[48];         /**< Raw frame assembly buffer */
@@ -147,8 +148,9 @@ typedef struct
     uint8_t pd_out_last_valid_len;                     /**< Octets in pd_out_last_valid */
     bool pd_out_valid; /**< PDOUTVALID: MasterCommand 0x98 seen in this OPERATE session */
 
-    uint32_t mseq_count; /**< Accepted master M-sequences (wraps at 2^32) */
-    bool comm_disabled;  /**< Communication stopped until re-initialization (Back-to-box) */
+    uint32_t mseq_count;     /**< Accepted master M-sequences (wraps at 2^32) */
+    bool comm_disabled;      /**< Communication stopped until re-initialization (Back-to-box) */
+    bool rx_discard_pending; /**< Drain uncertain RX data before accepting another frame. */
 } iolink_dll_ctx_t;
 
 /**
@@ -182,7 +184,9 @@ void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy);
 /**
  * @brief Process DLL logic
  *
- * Handles byte-level processing and state machine transitions.
+ * Handles byte-level processing and state machine transitions. It is not
+ * ISR-safe; call it from the same serialized main-loop/task context as the
+ * other operations on this DLL context.
  *
  * @param ctx DLL context to process
  */
@@ -285,16 +289,20 @@ int iolink_dll_set_sdci_mode(iolink_dll_ctx_t* ctx);
 iolink_phy_mode_t iolink_dll_get_phy_mode(const iolink_dll_ctx_t* ctx);
 
 /**
- * @brief Set the communication baudrate
+ * @brief Set the fixed communication baudrate
+ *
+ * Updates the active PHY rate and the rate restored on wake-up and recovery.
+ * This preserves the behavior expected by applications that configure the
+ * rate after initialization.
  *
  * @param ctx DLL context
  * @param baudrate Desired baudrate (COM1, COM2, or COM3)
- * @return int 0 on success
+ * @return 0 on success, -1 if @p ctx is NULL or @p baudrate is not COM1, COM2, or COM3.
  */
 int iolink_dll_set_baudrate(iolink_dll_ctx_t* ctx, iolink_baudrate_t baudrate);
 
 /**
- * @brief Get current negotiated baudrate
+ * @brief Get current PHY baudrate
  *
  * @param ctx DLL context
  * @return iolink_baudrate_t Current baudrate

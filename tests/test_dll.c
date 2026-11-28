@@ -174,7 +174,7 @@ static void test_dll_fallback_on_crc_errors(void** state)
     iolink_device_process(&dev.ctx);
 
     assert_int_equal(iolink_device_get_state(&dev.ctx), IOLINK_DLL_STATE_STARTUP);
-    assert_int_equal(iolink_device_get_baudrate(&dev.ctx), IOLINK_BAUDRATE_COM1);
+    assert_int_equal(iolink_device_get_baudrate(&dev.ctx), IOLINK_BAUDRATE_COM2);
 }
 
 static void test_dll_reject_transition_in_operate(void** state)
@@ -525,6 +525,7 @@ static void test_dll_receive_error_discards_partial_frame(void** state)
     will_return(mock_phy_recv_byte, 1);
     will_return(mock_phy_recv_byte, 0xA2U);
     will_return(mock_phy_recv_byte, -1);
+    will_return(mock_phy_recv_byte, 0);
     iolink_device_process(&dev.ctx);
     assert_int_equal(dev.ctx.dll.frame_index, 0);
     assert_int_equal(dev.ctx.dll.framing_errors, 1);

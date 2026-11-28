@@ -40,6 +40,20 @@ typedef enum
 } iolink_m_seq_type_t;
 
 /**
+ * @brief Fixed IO-Link transmission rate configured for a device.
+ *
+ * The zero value preserves the historical zero-initialized configuration:
+ * COM2. Use the explicit COM1/COM2/COM3 values to select a device rate.
+ */
+typedef enum
+{
+    IOLINK_DEVICE_RATE_DEFAULT = 0U, /**< Existing default: COM2 (38.4 kbit/s). */
+    IOLINK_DEVICE_RATE_COM1 = 1U,    /**< 4.8 kbit/s. */
+    IOLINK_DEVICE_RATE_COM2 = 2U,    /**< 38.4 kbit/s. */
+    IOLINK_DEVICE_RATE_COM3 = 3U     /**< 230.4 kbit/s. */
+} iolink_device_rate_t;
+
+/**
  * @brief Return the On-request Data octet count for an M-sequence type.
  *
  * Table A.10: TYPE_1_2 carries two OD octets, TYPE_1_V eight, TYPE_2_V the
@@ -99,6 +113,7 @@ typedef struct
     /** OD width: 0 keeps the type default. TYPE_2_V accepts 1 or 2 with nonzero PD.
      * OD1 advertises code4 and requires at least 3 PD octets in one direction. */
     uint8_t od_len;
+    iolink_device_rate_t transmission_rate; /**< Fixed COM rate; zero keeps legacy COM2. */
 } iolink_config_t;
 
 /**

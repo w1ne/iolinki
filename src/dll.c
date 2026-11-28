@@ -12,6 +12,7 @@
 #include "iolinki/protocol.h"
 #include "iolinki/time_utils.h"
 #include "iolinki/utils.h"
+#include "dll_internal.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -208,32 +209,84 @@ static bool dll_drain_rx(iolink_dll_ctx_t* ctx)
     return saw_byte;
 }
 
-/** @brief Handle a communication failure: count retries and revert toward SIO/STARTUP. */
-static void dll_enter_fallback(iolink_dll_ctx_t* ctx)
+/** @brief Discard queued RX data through an observed empty boundary. */
+static bool dll_discard_rx_until_empty(iolink_dll_ctx_t* ctx)
+{
+    if ((ctx == NULL) || (ctx->phy == NULL) || (ctx->phy->recv_byte == NULL)) {
+        return true;
+    }
+
+    uint8_t byte = 0U;
+    for (;;) {
+        const int received = ctx->phy->recv_byte(ctx->phy->user, &byte);
+        if (received > 0) {
+            continue;
+        }
+        return received == 0;
+    }
+}
+
+/**
+ * @brief Clear the old protocol session and restart in the PHY's viable mode.
+ *
+ * A PHY with wake-up detection can return to SIO and wait for another pulse.
+ * A plain UART has no way to observe that pulse, so it must remain in SDCI and
+ * accept the next fresh startup M-sequence in place. Bytes already queued at
+ * this boundary belong to the old session and are discarded before returning.
+ */
+static void dll_recover_after_fallback(iolink_dll_ctx_t* ctx)
+{
+    ctx->frame_index = 0U;
+    ctx->req_len = 0U;
+    ctx->last_byte_us = 0U;
+    ctx->last_frame_us = 0U;
+    ctx->last_cycle_start_us = 0U;
+    ctx->wakeup_seen = false;
+    ctx->wakeup_deadline_us = 0U;
+    ctx->dsio_deadline_ms = 0U;
+    ctx->fallback_deadline_ms = 0U;
+    ctx->have_operate_start = false;
+
+    /* Do this while the old SDCI receive path is still available. If the
+     * transport reports a discontinuity mid-drain, remain fail-closed and
+     * finish discarding on a later process call before accepting any frame. */
+    ctx->rx_discard_pending = !dll_discard_rx_until_empty(ctx);
+    iolink_dll_set_baudrate(ctx, ctx->configured_baudrate);
+    if (ctx->phy->detect_wakeup != NULL) {
+        iolink_dll_set_sio_mode(ctx);
+    }
+    else if (ctx->phy_mode != IOLINK_PHY_MODE_SDCI) {
+        iolink_dll_set_sdci_mode(ctx);
+    }
+    dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
+}
+
+/** @brief Handle a communication failure; true means a full fallback reset occurred. */
+static bool dll_enter_fallback(iolink_dll_ctx_t* ctx)
 {
     if (ctx == NULL) {
-        return;
+        return false;
     }
 
     ctx->fallback_count++;
     ctx->total_retries++;
 
     if (ctx->fallback_count >= ctx->sio_fallback_threshold) {
-        /* Communication could not be sustained: enter FALLBACK, revert the PHY
-           to SIO at COM1, then settle back to STARTUP to await a new wake-up. */
+        /* Communication could not be sustained. Reset the session, then wait
+         * for a physical wake-up when supported or a fresh SDCI startup frame
+         * on a UART-only PHY. */
         dll_set_state(ctx, IOLINK_DLL_STATE_FALLBACK);
-        iolink_dll_set_sio_mode(ctx);
-        iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
-        dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
         ctx->fallback_count = 0U;
-        ctx->frame_index = 0U;
+        dll_recover_after_fallback(ctx);
         iolink_event_trigger(&ctx->events, IOLINK_EVENT_CODE_COMM_ERR_FRAMING,
                              IOLINK_EVENT_TYPE_WARNING);
+        return true;
     }
     else if (ctx->state != IOLINK_DLL_STATE_OPERATE && ctx->state != IOLINK_DLL_STATE_ESTAB_COM) {
-        iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
+        iolink_dll_set_baudrate(ctx, ctx->configured_baudrate);
         dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
     }
+    return false;
 }
 
 /** @brief True for a page-channel Type-0 WRITE of MasterCommand FALLBACK (Table B.2). */
@@ -265,9 +318,10 @@ static void dll_monitor_operate_cycle(iolink_dll_ctx_t* ctx)
 /**
  * @brief Handle a FALLBACK MasterCommand (0x5A, Table B.2) from the master.
  *
- * The device shall switch to SIO after 3 MasterCycleTimes and within at most
- * 500 ms (T_FBD, Table 43). The deadline is armed here and enforced in
- * iolink_dll_process(); the reply is a Type-0 write CKS-only response. */
+ * The device shall complete fallback after 3 MasterCycleTimes and within at
+ * most 500 ms (T_FBD, Table 43). The deadline is armed here and enforced in
+ * iolink_dll_process(); the reply is a Type-0 write CKS-only response. A PHY
+ * with wake detection enters SIO; a UART-only PHY restarts in SDCI. */
 static void dll_handle_fallback_command(iolink_dll_ctx_t* ctx)
 {
     dll_monitor_operate_cycle(ctx);
@@ -601,9 +655,51 @@ static void dll_poll_diagnostics(iolink_dll_ctx_t* ctx)
     }
 }
 
-void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy)
+static void dll_check_inactivity_timeout(iolink_dll_ctx_t* ctx)
 {
-    if ((phy == NULL) || (!iolink_ctx_zero(ctx, sizeof(iolink_dll_ctx_t)))) {
+    const uint32_t now_ms = iolink_time_get_ms();
+    if ((ctx->last_activity_ms != 0U) && ((uint32_t) (now_ms - ctx->last_activity_ms) > 1000U)) {
+        ctx->last_activity_ms = 0U; /* Prevent repeated resets */
+        ctx->timeout_errors++;      /* No wake-up or valid frame within the window */
+        /* There is no arrival timestamp in the PHY API. Discard bytes that
+         * were already queued when the timeout is observed instead of treating
+         * them as a fresh request after the parser has recovered. */
+        ctx->frame_index = 0U;
+        ctx->last_byte_us = 0U;
+        ctx->last_frame_us = 0U;
+        ctx->req_len = 0U;
+        if (ctx->phy_mode != IOLINK_PHY_MODE_SIO) {
+            /* No arrival timestamp is available. Preserve the pending state
+             * until the transport gives us an explicit empty boundary. */
+            ctx->rx_discard_pending = !dll_discard_rx_until_empty(ctx);
+        }
+        if (ctx->phy_mode != IOLINK_PHY_MODE_SIO) {
+            iolink_dll_set_baudrate(ctx, ctx->configured_baudrate);
+            /* A plain UART has no wake-up detector and is initialized as an
+             * already-established SDCI link. It cannot return to SIO and
+             * detect a later wake-up, so recover its protocol state in place. */
+            if (ctx->phy->detect_wakeup != NULL) {
+                iolink_dll_set_sio_mode(ctx);
+            }
+        }
+        ctx->dsio_deadline_ms = 0U;
+        ctx->fallback_deadline_ms = 0U;
+        ctx->wakeup_deadline_us = 0U;
+        ctx->wakeup_seen = false;
+        ctx->last_operate_start_us = 0U;
+        ctx->have_operate_start = false;
+        ctx->fallback_count = 0U;
+        dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
+    }
+}
+
+void iolink_dll_init_configured(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy,
+                                iolink_baudrate_t baudrate)
+{
+    if ((phy == NULL) ||
+        ((baudrate != IOLINK_BAUDRATE_COM1) && (baudrate != IOLINK_BAUDRATE_COM2) &&
+         (baudrate != IOLINK_BAUDRATE_COM3)) ||
+        (!iolink_ctx_zero(ctx, sizeof(iolink_dll_ctx_t)))) {
         return;
     }
     dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
@@ -621,9 +717,10 @@ void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy)
     ctx->pd_out_len_max = ctx->pd_out_len;
     ctx->pd_valid = true;
 
-    ctx->baudrate = IOLINK_BAUDRATE_COM2;
+    ctx->baudrate = baudrate;
+    ctx->configured_baudrate = baudrate;
     if (ctx->phy->set_baudrate != NULL) {
-        ctx->phy->set_baudrate(ctx->phy->user, IOLINK_BAUDRATE_COM2);
+        ctx->phy->set_baudrate(ctx->phy->user, baudrate);
     }
 
     iolink_events_init(&ctx->events);
@@ -658,6 +755,11 @@ void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy)
     }
 }
 
+void iolink_dll_init(iolink_dll_ctx_t* ctx, const iolink_phy_api_t* phy)
+{
+    iolink_dll_init_configured(ctx, phy, IOLINK_BAUDRATE_COM2);
+}
+
 void iolink_dll_process(iolink_dll_ctx_t* ctx)
 {
     if ((ctx == NULL) || (ctx->phy == NULL)) {
@@ -685,16 +787,9 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
     if ((ctx->dsio_deadline_ms != 0U) || (ctx->fallback_deadline_ms != 0U)) {
         now_ms64 = iolink_time_get_us() / 1000U;
     }
-    if ((ctx->last_activity_ms != 0U) && (now_ms - ctx->last_activity_ms > 1000U)) {
-        ctx->last_activity_ms = 0U; /* Prevent repeated resets */
-        ctx->timeout_errors++;      /* Link went idle past the inactivity window */
-        if (ctx->phy_mode != IOLINK_PHY_MODE_SIO) {
-            iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
-            iolink_dll_set_sio_mode(ctx);
-        }
-        dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
-        ctx->frame_index = 0U;
-    }
+    /* Check before reading the PHY. Without per-byte arrival timestamps, any
+       bytes queued at this boundary could have arrived before the timeout. */
+    dll_check_inactivity_timeout(ctx);
 
     /* Table 47 T10: a wake-up without a valid message within T_DSIO returns the
        device to SIO. Only applies while still waiting for the first message. */
@@ -705,26 +800,28 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             ctx->dsio_deadline_ms = 0U;
             ctx->wakeup_seen = false;
             ctx->timeout_errors++;
-            iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
+            iolink_dll_set_baudrate(ctx, ctx->configured_baudrate);
             iolink_dll_set_sio_mode(ctx);
             dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
             ctx->frame_index = 0U;
         }
     }
 
-    /* Table 47 T8/T9 + Table 43: after a FALLBACK MasterCommand the device
-       switches to SIO after T_FBD (3 MasterCycleTimes, at most 500 ms) at the
-       latest. The reply was already sent when the command was handled. */
+    /* Table 47 T8/T9 + Table 43: complete the FALLBACK transition after
+       T_FBD (3 MasterCycleTimes, at most 500 ms) at the latest. A PHY with
+       wake detection enters SIO; a UART-only PHY restarts in SDCI. The reply
+       was already sent when the command was handled. */
     if ((ctx->fallback_deadline_ms != 0U) &&
         ((ctx->state == IOLINK_DLL_STATE_FALLBACK) || (ctx->state == IOLINK_DLL_STATE_OPERATE) ||
          (ctx->state == IOLINK_DLL_STATE_ESTAB_COM) ||
          (ctx->state == IOLINK_DLL_STATE_PREOPERATE))) {
         if (now_ms64 >= ctx->fallback_deadline_ms) {
-            ctx->fallback_deadline_ms = 0U;
-            iolink_dll_set_baudrate(ctx, IOLINK_BAUDRATE_COM1);
-            iolink_dll_set_sio_mode(ctx);
-            dll_set_state(ctx, IOLINK_DLL_STATE_STARTUP);
-            ctx->frame_index = 0U;
+            dll_recover_after_fallback(ctx);
+            /* A UART-only PHY remains in SDCI. Return now so any byte arriving
+             * at the reset boundary cannot be interpreted as a new request. */
+            if ((ctx->phy->detect_wakeup == NULL) || ctx->rx_discard_pending) {
+                return;
+            }
         }
     }
 
@@ -746,12 +843,23 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                 /* Table 47 T10: without a valid message the device returns to
                    SIO within T_DSIO (60..300 ms, default 300 ms). */
                 ctx->dsio_deadline_ms = iolink_time_get_us() / 1000U + IOLINK_T_DSIO_MS;
+                iolink_dll_set_baudrate(ctx, ctx->configured_baudrate);
                 iolink_dll_set_sdci_mode(ctx);
                 /* A wake-up starts a fresh communication-establishment window.
                    Reset the inactivity timer so a re-wake after a prior exchange
                    is not immediately killed by the stale activity timestamp. */
                 ctx->last_activity_ms = iolink_time_get_ms();
             }
+        }
+        return;
+    }
+
+    /* A transport discontinuity makes the remaining queue ambiguous. Keep
+     * servicing timers and wake detection above, but do not parse any byte
+     * until an empty boundary is observed while UART receive is enabled. */
+    if (ctx->rx_discard_pending) {
+        if (dll_discard_rx_until_empty(ctx)) {
+            ctx->rx_discard_pending = false;
         }
         return;
     }
@@ -766,7 +874,9 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                 iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING,
                                      IOLINK_EVENT_TYPE_WARNING);
                 ctx->frame_index = 0U;
-                dll_enter_fallback(ctx);
+                if (dll_enter_fallback(ctx)) {
+                    return;
+                }
             }
         }
     }
@@ -786,11 +896,14 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                 ctx->frame_index = 0U;
                 ctx->last_byte_us = 0U;
                 ctx->framing_errors++;
+                /* The remaining queue may be the tail of the lost frame.
+                 * An error is not an empty boundary, so keep parsing blocked
+                 * until a later call can prove the queue has been drained. */
+                ctx->rx_discard_pending = !dll_discard_rx_until_empty(ctx);
             }
             break;
         }
         uint64_t now_us = iolink_time_get_us();
-        ctx->last_activity_ms = iolink_time_get_ms();
         if ((ctx->frame_index > 0U) && (ctx->enforce_timing) && (ctx->t_byte_limit_us > 0U)) {
             if (ctx->last_byte_us != 0U) {
                 if (now_us - ctx->last_byte_us > (uint64_t) ctx->t_byte_limit_us) {
@@ -800,6 +913,9 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                     iolink_event_trigger(&ctx->events, IOLINK_EVENT_COMM_TIMING,
                                          IOLINK_EVENT_TYPE_WARNING);
                     ctx->frame_index = 0U;
+                    if (dll_enter_fallback(ctx)) {
+                        return;
+                    }
                 }
             }
         }
@@ -849,6 +965,10 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
 
             if (crc_ok && type_ok) {
                 ctx->mseq_count++;
+                /* Only a complete, checksum-valid frame refreshes the idle
+                   timer. Noise and malformed traffic cannot keep the link
+                   active indefinitely. */
+                ctx->last_activity_ms = iolink_time_get_ms();
                 bool was_establishing = (ctx->state == IOLINK_DLL_STATE_AWAITING_COMM) ||
                                         (ctx->state == IOLINK_DLL_STATE_STARTUP);
                 if (was_establishing) {
@@ -952,7 +1072,9 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
                     }
                     else if (mc == IOLINK_MC_TRANSITION_COMMAND) {
                         ctx->framing_errors++;
-                        dll_enter_fallback(ctx);
+                        if (dll_enter_fallback(ctx)) {
+                            return;
+                        }
                     }
                     else if (type0 && (ctx->req_len == 2U)) {
                         dll_handle_operate_type0(ctx, mc, ctx->frame_buf[1]);
@@ -977,7 +1099,11 @@ void iolink_dll_process(iolink_dll_ctx_t* ctx)
             else {
                 ctx->crc_errors++;
                 ctx->framing_errors++;
-                dll_enter_fallback(ctx);
+                const bool recovered = dll_enter_fallback(ctx);
+                ctx->frame_index = 0U;
+                if (recovered) {
+                    return;
+                }
             }
             ctx->frame_index = 0U;
         }
@@ -1001,8 +1127,16 @@ iolink_baudrate_t iolink_dll_get_baudrate(const iolink_dll_ctx_t* ctx)
 
 int iolink_dll_set_baudrate(iolink_dll_ctx_t* ctx, iolink_baudrate_t baudrate)
 {
-    if (ctx == NULL) return -1;
+    if ((ctx == NULL) ||
+        ((baudrate != IOLINK_BAUDRATE_COM1) && (baudrate != IOLINK_BAUDRATE_COM2) &&
+         (baudrate != IOLINK_BAUDRATE_COM3))) {
+        return -1;
+    }
     ctx->baudrate = baudrate;
+    /* Keep the long-standing setter useful for applications that select their
+       fixed device rate after initialization. Wake-up and recovery restore
+       this value, so changing only the live PHY rate would be lost. */
+    ctx->configured_baudrate = baudrate;
     if (ctx->phy->set_baudrate != NULL) ctx->phy->set_baudrate(ctx->phy->user, baudrate);
     ctx->t_ren_limit_us = dll_get_t_ren_limit_us(ctx);
     ctx->t_byte_limit_us = dll_get_t_byte_limit_us(ctx);

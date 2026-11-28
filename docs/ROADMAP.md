@@ -205,9 +205,8 @@ synthetic clocks are not wire-timing measurements.
 - [ ] **SIO Mode**: Fallback to standard digital I/O when validation fails.
 - [ ] **Mode Switching**: Dynamic SIO ↔ SDCI transitions.
 - [ ] **AutoComm**: Automatic communication startup.
-- [x] Baudrate negotiation with Master.
-- [x] Runtime baudrate switching.
-- [x] Fallback to COM1 on errors.
+- [x] Configurable fixed Device transmission rate (COM1/COM2/COM3).
+- [x] Restore the configured rate on wake-up and communication recovery.
 
 ### 2.5 Error Handling & Robustness
 - [ ] **Error Events**: Trigger events on CRC, timeout, framing errors.
@@ -337,9 +336,6 @@ Completed in this release (see CHANGELOG for the authoritative list):
 
 Follow-ups split out of this work:
 
-- Decide the operating-baudrate source for recovery; five sites still hard-code
-  COM1 in `src/dll.c` (Figure 31 allows one supported rate, but no clause names
-  the recovery rate) — maintainer decision needed before changing behavior.
 - Remaining legacy event macros in `include/iolinki/events.h` (`APP_TEMP_*`,
   `HW_*`) still carry non-standard or reserved values; audit in a later task.
 - Physical-master re-validation of the corrected reply layout.

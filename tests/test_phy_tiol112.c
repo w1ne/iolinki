@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <setjmp.h>
 #include <cmocka.h>
+#include "iolinki/device.h"
 #include "iolinki/phy_tiol112.h"
 
 typedef struct
@@ -123,11 +124,47 @@ static void test_driver_rejects_incomplete_port(void** state)
     assert_null(iolink_phy_tiol112_get(NULL));
 }
 
+static void test_device_configures_selected_uart_rate_on_wakeup(void** state)
+{
+    (void) state;
+    const iolink_device_rate_t configured[] = {IOLINK_DEVICE_RATE_COM1, IOLINK_DEVICE_RATE_COM2,
+                                               IOLINK_DEVICE_RATE_COM3};
+    const uint32_t expected_baud[] = {4800U, 38400U, 230400U};
+
+    for (size_t i = 0U; i < sizeof(configured) / sizeof(configured[0]); ++i) {
+        board_t board = {.fault_high = true};
+        const iolink_tiol112_io_t io = {
+            .user = &board,
+            .init = init_board,
+            .set_enable = enable,
+            .set_sio_tx = sio_tx,
+            .uart_configure = configure,
+            .uart_send_complete = transmit,
+            .uart_recv = receive,
+            .consume_wakeup = consume_wake,
+            .read_nfault = fault_high,
+        };
+        iolink_tiol112_ctx_t driver;
+        iolink_device_ctx_t device;
+        iolink_device_config_t config = {0};
+        assert_int_equal(iolink_phy_tiol112_init(&driver, &io), 0);
+        config.phy = *iolink_phy_tiol112_get(&driver);
+        config.stack.transmission_rate = configured[i];
+
+        assert_int_equal(iolink_device_init(&device, &config), 0);
+        assert_int_equal(board.baud, 0U); /* SIO does not configure the UART. */
+        board.wake = true;
+        iolink_device_process(&device);
+        assert_int_equal(board.baud, expected_baud[i]);
+    }
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_driver_modes_and_turnaround),
         cmocka_unit_test(test_driver_rejects_incomplete_port),
+        cmocka_unit_test(test_device_configures_selected_uart_rate_on_wakeup),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
