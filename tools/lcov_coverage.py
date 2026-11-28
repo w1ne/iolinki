@@ -8,8 +8,9 @@ from pathlib import Path
 
 INTEGER = re.compile(r"^[0-9]+$")
 ANCILLARY_RECORDS = {
-    "TN", "VER", "FN", "FNDA", "FNF", "FNH", "BRDA", "BRF", "BRH",
-    "MCDC", "MCDCF", "MCDCH", "KEY", "TESTNAME",
+    "TN", "VER", "FN", "FNL", "FNA", "FNDA", "FNF", "FNH",
+    "BRDA", "BRF", "BRH", "MCDC", "MCF", "MCH", "MRF", "MRH",
+    "MCDCF", "MCDCH", "KEY", "TESTNAME",
 }
 
 
@@ -37,8 +38,10 @@ def parse_lcov(text: str) -> tuple[int, int]:
         line = raw_line.strip()
         if not line:
             continue
+        if line.startswith("#"):
+            continue
 
-        if line.startswith("SF:"):
+        if line.startswith(("SF:", "KF:")):
             if current is not None:
                 raise ValueError(
                     f"line {line_number}: nested SF record before end_of_record"
