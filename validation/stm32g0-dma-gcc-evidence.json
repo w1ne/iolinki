@@ -1,6 +1,7 @@
 {
   "schema": "iolinki.stm32g0.uart-dma-recorded-evidence.v1",
-  "scope": "Recorded native digital simulation of exact GCC images; not a hardware, IAR or IO-Link certification result.",
+  "scope": "Historical pre-3.0.0 recorded native digital simulation of exact GCC images; not a hardware, IAR or IO-Link certification result, and does not validate the current 500 us wake receive-enable processing budget.",
+  "historical_status": "pre-3.0.0; recorded DLL T_REN limits and all raw test results below are preserved from those runs",
   "firmware": {
     "source_commit": "0a3f1b0138b815fff610c6e02960eb5ef84e80f9",
     "source_tree": "db316a4fbca832033b0b429ff2cefb92384288b9",

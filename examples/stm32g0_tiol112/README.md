@@ -185,14 +185,18 @@ Compile results and host ring tests do not establish CQ timing, hardware error
 behavior, IAR compilation or physical-master interoperability; each exact ELF
 requires its own runtime evidence.
 
-### Recorded GCC DMA results
+### Historical pre-3.0.0 GCC DMA results
+
+These results are historical evidence for the pre-3.0.0 firmware source. They
+do not validate the current 500 us wake receive-enable processing budget. The
+recorded DLL limit is retained as a raw result from those earlier runs.
 
 The four exact GCC 13.2.1/newlib images built from
 [`0a3f1b0138b815fff610c6e02960eb5ef84e80f9`](https://github.com/w1ne/iolinki/commit/0a3f1b0138b815fff610c6e02960eb5ef84e80f9)
 pass the native LabWired matrix with `-O2`, 64MHz, timing enforcement enabled,
 and the unchanged 6us EN guard. The model source was
 [`055dd261b57292a5c467add05696409c45465b6f`](https://github.com/w1ne/labwired-core/commit/055dd261b57292a5c467add05696409c45465b6f).
-The [compact evidence record](../../validation/stm32g0-dma-gcc-evidence.json)
+The [historical pre-3.0.0 evidence record](../../validation/stm32g0-dma-gcc-evidence.json)
 contains the four ELF, layout, input-manifest and raw-report hashes, compiler
 and vendor pins, counters, and separate COM3 recovery/one-action identities.
 

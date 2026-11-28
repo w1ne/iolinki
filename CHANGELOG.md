@@ -7,12 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- Missing PHY response timing samples are counted as unavailable without
-  emitting a timing violation event. Invalid fresh samples and measured `t_A`
-  violations remain enforced; the G0 rig no longer applies a stale 20 ms
-  override to the wake receive-enable budget.
-
 ## [3.0.0] - 2026-11-28
 
 ### Migration from 2.2.0
@@ -36,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   firmware-build and model checks do not establish physical-master
   interoperability, analog transceiver fault behavior, or IO-Link Safety
   conformance. Timing marked estimated is not wire qualification.
+
+### Fixed
+- Missing PHY response timing samples are counted as unavailable without
+  emitting a timing violation event. Invalid fresh samples and measured `t_A`
+  violations remain enforced; the G0 rig no longer applies a stale 20 ms
+  override to the wake receive-enable budget.
 
 ### Added
 - Configurable fixed Device transmission rate in `iolink_config_t` for COM1,

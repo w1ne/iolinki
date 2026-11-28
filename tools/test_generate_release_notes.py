@@ -26,6 +26,8 @@ class ReleaseNotesTests(unittest.TestCase):
         self.assertIn("typed reads omit OD", notes)
         self.assertIn("get_response_timing", notes)
         self.assertIn("do not establish physical-master", notes)
+        self.assertIn("Missing PHY response timing samples are counted as unavailable", notes)
+        self.assertIn("wake receive-enable budget", notes)
         self.assertIn("3 passed / 3 total", notes)
         self.assertIn("87.5%", notes)
         self.assertIn("/compare/v2.2.0...release/3.0.0", notes)
