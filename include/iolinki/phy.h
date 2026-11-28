@@ -45,6 +45,31 @@ typedef enum
 } iolink_baudrate_t;
 
 /**
+ * @brief Origin of a response boundary timestamp.
+ *
+ * Software estimates (for example UART RX interrupt / TX register submission)
+ * can detect scheduling errors. They are not wire timing qualification.
+ */
+typedef enum
+{
+    IOLINK_PHY_TIMING_UNAVAILABLE = 0U,
+    IOLINK_PHY_TIMING_ESTIMATED = 1U,
+    IOLINK_PHY_TIMING_CAPTURED = 2U
+} iolink_phy_timing_quality_t;
+
+/** @brief Boundaries of the request/reply associated with the latest send().
+ * Both timestamps use the same monotonic microsecond clock. rx_end_us is the
+ * end of the last master stop bit; tx_start_us is the first device start bit.
+ * Completion of a blocking send() must never be substituted for tx_start_us.
+ */
+typedef struct
+{
+    uint64_t rx_end_us;
+    uint64_t tx_start_us;
+    iolink_phy_timing_quality_t quality;
+} iolink_phy_response_timing_t;
+
+/**
  * @brief Physical Layer (PHY) API Structure
  *
  * This interface defines the contract between the stack and the hardware-specific
@@ -123,6 +148,15 @@ typedef struct
      * @return true if short circuit or overtemperature detected
      */
     bool (*is_short_circuit)(void* user);
+
+    /**
+     * @brief Read fresh request/reply boundary timestamps for the latest send.
+     * @return 1 for a fresh sample, 0 if unavailable, negative on invalid data.
+     * Clear validity before every send and on RX/TX errors. A stale sample from
+     * a preceding exchange must not be returned. This optional callback is
+     * required for an evaluated t_A check; missing data is counted explicitly.
+     */
+    int (*get_response_timing)(void* user, iolink_phy_response_timing_t* timing);
 } iolink_phy_api_t;
 
 /** @} */ /* end of iolinki_phy */

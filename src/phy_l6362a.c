@@ -87,6 +87,12 @@ static void cq(void* u, uint8_t b)
         enable(d, true);
     }
 }
+static int response_timing(void* u, iolink_phy_response_timing_t* timing)
+{
+    iolink_l6362a_ctx_t* d = u;
+    if (!d->initialized || d->error || !d->io.get_response_timing || !timing) return 0;
+    return d->io.get_response_timing(d->io.user, timing);
+}
 int iolink_phy_l6362a_init(iolink_l6362a_ctx_t* d, const iolink_l6362a_io_t* io)
 {
     if (!d || !io || !io->init || !io->set_enable || !io->set_in2 || !io->uart_configure ||
@@ -103,6 +109,7 @@ int iolink_phy_l6362a_init(iolink_l6362a_ctx_t* d, const iolink_l6362a_io_t* io)
     d->phy.recv_byte = receive;
     d->phy.detect_wakeup = wake;
     d->phy.set_cq_line = cq;
+    d->phy.get_response_timing = response_timing;
     return 0;
 }
 const iolink_phy_api_t* iolink_phy_l6362a_get(iolink_l6362a_ctx_t* d)

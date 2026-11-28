@@ -137,16 +137,16 @@ class TestStateMachineConformance(unittest.TestCase):
         )
         print(f"[PASS] {success_count}/10 consecutive PD exchanges successful")
 
-    def test_04_communication_fallback_behavior(self):
+    def test_04_communication_identity_read(self):
         """
-        Test Case: Configured COM Rate Communication
-        Requirement: IO-Link V1.1.5 Section 6.2.2 - Communication Rates
+        """
+        Test Case: Identity read after communication establishment.
 
-        Validates:
-        - Zero-initialized device config uses COM2
-        - Device communicates successfully at its configured fixed rate
+        The PTY exercises the selected host rate and protocol path but does not
+        measure a physical baud rate or rate negotiation. Deterministic coverage
+        for configured COM1/COM2/COM3 recovery is in test_configured_rate.
         """
-        print("\n[TEST] Configured COM Rate Communication")
+        print("\n[TEST] Communication Identity Read")
 
         self.process = subprocess.Popen(
             [self.demo_bin, self.device_tty, "0", "0"],
