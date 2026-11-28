@@ -22,6 +22,7 @@ typedef struct
     uint8_t request[4];
     size_t count, pos, reply_len;
     uint64_t first_byte_us;
+    iolink_phy_response_timing_t timing;
 } link_t;
 
 static int receive(void* user, uint8_t* byte)
@@ -30,6 +31,7 @@ static int receive(void* user, uint8_t* byte)
     if (link->pos >= link->count) return 0;
     now_us = link->first_byte_us + link->pos * 48U;
     *byte = link->request[link->pos++];
+    if (link->pos == link->count) link->timing.rx_end_us = now_us + 48U;
     return 1;
 }
 static int send_reply(void* user, const uint8_t* data, size_t length)
@@ -37,8 +39,16 @@ static int send_reply(void* user, const uint8_t* data, size_t length)
     link_t* link = user;
     (void) data;
     link->reply_len = length;
-    now_us += length * 48U; /* Distinct completion duration, independent of cycle start. */
+    link->timing.tx_start_us = link->timing.rx_end_us + 10U;
+    link->timing.quality = IOLINK_PHY_TIMING_ESTIMATED;
+    now_us = link->timing.tx_start_us + length * 48U;
     return (int) length;
+}
+static int response_timing(void* user, iolink_phy_response_timing_t* timing)
+{
+    link_t* link = user;
+    *timing = link->timing;
+    return 1;
 }
 static void exchange(iolink_device_ctx_t* device, link_t* link, const uint8_t* request,
                      size_t count, uint64_t first_byte_us)
@@ -59,6 +69,7 @@ static void scenario(uint64_t base)
     config.phy.user = &link;
     config.phy.recv_byte = receive;
     config.phy.send = send_reply;
+    config.phy.get_response_timing = response_timing;
     config.stack.m_seq_type = IOLINK_M_SEQ_TYPE_2_V;
     config.stack.pd_in_len = 32U;
     config.stack.pd_out_len = 1U;
@@ -91,9 +102,10 @@ static void scenario(uint64_t base)
     assert(link.reply_len == 33U);
     exchange(&device, &link, read, 3U, start + 3000U);
     assert(link.reply_len == 34U);
-    assert(device.dll.response_time_us == 34U * 48U);
+    assert(device.dll.response_time_us == 10U);
+    assert(device.dll.response_timing_quality == IOLINK_PHY_TIMING_ESTIMATED);
     exchange(&device, &link, write, 4U, start + 6000U);
-    assert(device.dll.response_time_us == 33U * 48U);
+    assert(device.dll.response_time_us == 10U);
     assert(device.dll.t_cycle_violations == 0U);
     exchange(&device, &link, read, 3U, start + 8999U); /* genuinely 1us too early */
     assert(device.dll.t_cycle_violations == 1U);
@@ -110,6 +122,6 @@ int main(void)
 {
     scenario(1000000U);
     scenario((uint64_t) UINT32_MAX - 1000U); /* cross the 32-bit microsecond boundary */
-    puts("Cycle phase, early cycle, CRC isolation, completion reference and timer wrap: PASS");
+    puts("Cycle phase, response-start timing, CRC isolation and timer wrap: PASS");
     return 0;
 }

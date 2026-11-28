@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-28
+
+### Migration from 2.2.0
+- **Update Device and Master together.** This release changes OPERATE request
+  framing: typed reads omit OD, while writes carry OD after PD-out. A mixed
+  2.2.0/3.0.0 pair can parse a different frame length and reject the request.
+  See [Migration to 3.0.0](docs/MIGRATION_3.0.md) and the wire figures there.
+- **Rebuild every consumer.** Public context, configuration, statistics and PHY
+  structs have changed layout. Rebuild the library and application together;
+  do not mix objects or binaries built against different headers. PHYs using
+  timing enforcement should implement `get_response_timing` for evaluated
+  response-start checks; designated initializers should be used for PHY tables.
+- **Review COM configuration and timing.** The zero-valued transmission-rate
+  setting selects COM2. The Device keeps its configured rate through recovery;
+  the Master performs rate discovery. `iolink_dll_set_t_ren_limit_us()` now
+  limits wake-to-receive-enable processing, while response start is checked as
+  `t_A` from fresh PHY timing boundaries.
+- **Recheck memory budgets.** The default Event queue grows from 4 to 8,
+  condition tracking uses 8 slots, and the maximum OD buffer grows to 8 bytes.
+- **Do not treat simulator evidence as certification.** Host, virtual-master,
+  firmware-build and model checks do not establish physical-master
+  interoperability, analog transceiver fault behavior, or IO-Link Safety
+  conformance. Timing marked estimated is not wire qualification.
+
 ### Added
 - Configurable fixed Device transmission rate in `iolink_config_t` for COM1,
   COM2, or COM3. Zero-initialized configurations retain the COM2 default, and
@@ -53,6 +77,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Behavior change:** Recovery now restores the configured Device rate. A
   zero-initialized configuration therefore recovers at COM2 instead of the
   previous COM1 fallback; select `IOLINK_DEVICE_RATE_COM1` to retain COM1.
+- Response timing now checks the request-end to response-start interval (`t_A`)
+  using fresh PHY timestamps. A blocking UART send duration is not a substitute
+  for the first response start bit. Wake-to-receive-enable processing is tracked
+  separately as `t_REN`; software estimates are not physical timing evidence.
 - **Behavior change:** SystemCommands 0x80, 0x81 and 0x83 answer 0x8035
   FUNC_NOTAVAIL when no reset handler is registered, instead of a positive
   response without action. 0x81 runs the handler before the response; 0x80
@@ -73,6 +101,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Python virtual master: `last_isdu_error`, `read_vendor_id()`,
   `read_device_id()`. Conformance scripts use Table B.9 values and read
   VendorID/DeviceID from Direct Parameter page 1.
+
+### Validation scope
+- The release workflow records host test results, firmware builds, and model
+  evidence for the exact source commit. Synthetic timing tests verify software
+  boundary handling only. A PHY must provide fresh captured timestamps before
+  reporting wire-qualified `t_A` behavior.
+- No third-party physical Master report or IO-Link certification is included.
+  Analog transceiver fault behavior, retained embedded flash parameters, and
+  official IODD Checker approval remain separate validation work.
 
 ### Fixed
 - `IOLINK_ISDU_ERROR_PARAM_INCONSISTENT` is 0x41 (PAR_SETINCONSIST, C.2.17);
@@ -98,19 +135,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cleared conditions and Notifications are not listed.
 - Default `IOLINK_EVENT_QUEUE_SIZE` raised from 4 to 8 so the six event memory
   slots can be filled.
-- **Streaming M-sequence request framing (wire change).** Read requests now
-  carry no On-request Data octets: a typed read is `MC + CKT + PD-out`, while a
-  write is `MC + CKT + PD-out + OD`. Type 0 write requests on the page,
-  diagnosis and ISDU channels remain 3 octets. This fixes the default streaming
-  transport never completing a conformant read request, and Type-0 page
-  writes/MasterCommands (including Fallback) in OPERATE. The reply layout is
-  unchanged.
-- OD width now follows Table A.10: TYPE_1_2 uses 2 OD octets, TYPE_1_V uses 8,
-  TYPE_2_V uses 2, and the remaining types use 1. `IOLINK_OD_MAX_SIZE` was
-  raised to 8.
-- `iolinki-master` frames its ISDU and diagnosis read requests without OD and
-  uses the same per-type OD widths, so the device/master pair remains
-  interoperable.
+- **BREAKING wire change: streaming M-sequence request framing.** Typed reads
+  carry `MC + CKT + PD-out` without OD; typed writes carry OD after PD-out.
+  Type-0 page, diagnosis and ISDU writes retain their 3-octet request. OD
+  widths follow Table A.10: TYPE_1_2 and TYPE_2_V use 2 octets, TYPE_1_V uses
+  8, and the remaining types use 1. `IOLINK_OD_MAX_SIZE` is 8. Update the
+  Master with the Device; the repository's `iolinki-master` follows this layout.
 
 ## [2.2.0] - 2026-10-17
 
@@ -618,7 +648,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Host Demo**: `examples/host_demo` showing stack execution without hardware.
 - **Documentation**: Initial README, ROADMAP, VISION, and RELEASE_STRATEGY.
 
-[Unreleased]: https://github.com/w1ne/iolinki/compare/v2.1.1...HEAD
+[Unreleased]: https://github.com/w1ne/iolinki/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/w1ne/iolinki/compare/v2.2.0...v3.0.0
+[2.2.0]: https://github.com/w1ne/iolinki/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/w1ne/iolinki/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/w1ne/iolinki/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/w1ne/iolinki/compare/v1.2.0...v2.0.0

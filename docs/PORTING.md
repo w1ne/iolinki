@@ -302,8 +302,10 @@ For detailed RAM/ROM calculations and stack depth analysis, please refer to the 
 The stack can be tuned via `include/iolinki/config.h`. Override the defaults by defining these macros in your build system (e.g., `-DIOLINK_ISDU_BUFFER_SIZE=64`):
 
 - `IOLINK_ISDU_BUFFER_SIZE`: Size of ISDU transfer buffers.
-- `IOLINK_EVENT_QUEUE_SIZE`: Number of events to queue.
+- `IOLINK_EVENT_QUEUE_SIZE`: Number of events to queue (default 8).
+- `IOLINK_EVENT_CONDITION_SLOTS`: Tracked event conditions (default 8).
 - `IOLINK_PD_IN_MAX_SIZE`: Max process data input size.
+- `IOLINK_OD_MAX_SIZE`: Max On-request Data width (default 8 for TYPE_1_V).
 
 ## Hardware Requirements
 

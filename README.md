@@ -207,6 +207,8 @@ See [ROADMAP.md](./docs/ROADMAP.md) for detailed development phases.
 - **[ROADMAP.md](./docs/ROADMAP.md)** - Development phases and milestones
 - **[VISION.md](./docs/VISION.md)** - Project mission and approach
 - **[RELEASE_STRATEGY.md](./docs/RELEASE_STRATEGY.md)** - Release workflow and versioning
+- **[MIGRATION_3.0.md](./docs/MIGRATION_3.0.md)** - v2.2.0 to v3.0.0 wire, ABI,
+  COM-rate and timing migration notes
 - **[INSTALL.md](./INSTALL.md)** - Detailed installation instructions
 - **[PUPPETEER.md](./docs/PUPPETEER.md)** - Agent task mutex workflow (submodule)
 
@@ -232,16 +234,12 @@ See [ROADMAP.md](./docs/ROADMAP.md) for detailed development phases.
 
 Official releases are available on [GitHub Releases](https://github.com/w1ne/iolinki/releases).
 
-Each release includes:
-- **Test Results**: Complete test suite validation
-- **Build Artifacts**: Pre-compiled examples and test binaries
-- **Documentation**: Updated docs and guides
-
-To create a new release:
-```bash
-git tag -a v0.1.0 -m "Release version 0.1.0"
-git push origin v0.1.0
-```
+The release workflow attaches source and example archives, firmware and host
+demos, IODD packages, the STM32G0 IAR project, LabWired recipes, SBOMs, test
+evidence and checksums. Its notes include the migration guide and validation
+limits. A release preparation PR to `develop` only creates candidate workflow
+artifacts; tagging an RC or stable version publishes a GitHub Release. See the
+[release strategy](./docs/RELEASE_STRATEGY.md) before preparing a release.
 
 ## Development Philosophy
 

@@ -108,8 +108,8 @@ static void test_t_ren_violation(void** state)
     move_to_operate_ctx(&dev.ctx);
     iolink_device_set_timing_enforcement(&dev.ctx, true);
 
-    /* Send a valid frame, but mock PHY send will be too slow?
-       Actually t_ren is checked against DLL processing time. */
+    /* Send a valid frame. Response-start timing requires a fresh PHY boundary
+       sample; this mock deliberately supplies none. */
     uint8_t frame[4] = {0x80, IOLINK_MSEQ_TYPE_1, 0x00, 0x00};
     frame[1] = (uint8_t) (frame[1] | iolink_checksum6(frame, 4));
 
@@ -119,7 +119,7 @@ static void test_t_ren_violation(void** state)
     }
     will_return(mock_phy_recv_byte, 0);
 
-    /* Mock a slow response */
+    /* The mock send succeeds but does not report response-start timestamps. */
     expect_any(mock_phy_send, data);
     expect_value(mock_phy_send, len, 3);
     will_return(mock_phy_send, 0);

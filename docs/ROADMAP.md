@@ -319,6 +319,19 @@ synthetic clocks are not wire-timing measurements.
 
 ## Release Retrospective
 
+### v3.0.0 — release preparation (2026-11-28)
+
+This major release preparation combines the post-v2.2.0 develop work with the
+production recovery and response-timing fixes from main. Its release checklist
+and migration constraints are recorded in [MIGRATION_3.0.md](MIGRATION_3.0.md)
+and [CHANGELOG.md](../CHANGELOG.md). The release remains subject to the required
+PR checks; this entry does not assert a tag, publication, or physical
+certification.
+
+Follow-up evidence remains required for third-party physical-Master
+interoperability, complete analog transceiver fault behavior, and retained
+embedded flash parameters on ports that do not provide a validated NVM backend.
+
 ### v2.2.0 — 2026-10-17
 
 Completed in this release (see CHANGELOG for the authoritative list):
