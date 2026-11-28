@@ -136,10 +136,8 @@ jobs:
           cd build
           lcov --capture --directory . --output-file coverage.info
           lcov --remove coverage.info '/usr/*' '*/tests/*' '*/examples/*' --output-file coverage.filtered.info --ignore-errors unused
-          lcov --list coverage.filtered.info > ../coverage_summary.txt || echo "Coverage: N/A" > ../coverage_summary.txt
-
-          # Extract percentage for summary file (e.g. "lines......: 85.5%")
-          grep "lines......:" ../coverage_summary.txt | awk '{print $2}' > ../coverage_percent.txt || echo "N/A" > ../coverage_percent.txt
+          python3 ../tools/lcov_coverage.py coverage.filtered.info > ../coverage_percent.txt
+          cp ../coverage_percent.txt ../coverage_summary.txt
 
       - name: Generate Release Notes
         id: notes

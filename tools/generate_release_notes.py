@@ -15,6 +15,10 @@ SEMVER = re.compile(
     rf"^{VERSION_COMPONENT}\.{VERSION_COMPONENT}\.{VERSION_COMPONENT}"
     rf"(?:-{PRERELEASE_ID}(?:\.{PRERELEASE_ID})*)?$"
 )
+COVERAGE_SUMMARY = re.compile(
+    r"^(?P<percent>(?:100|[1-9]?\d)\.\d)% "
+    r"\((?P<hit>0|[1-9]\d*)/(?P<total>0|[1-9]\d*) lines\)$"
+)
 
 
 def release_section(changelog: str, version: str) -> str:
@@ -43,6 +47,22 @@ def read_test_stats(path: Path) -> tuple[int, int]:
     return passed, total
 
 
+def read_coverage(path: Path) -> str:
+    summary = path.read_text(encoding="utf-8").strip()
+    match = COVERAGE_SUMMARY.fullmatch(summary)
+    if not match:
+        raise ValueError("coverage summary is missing or malformed")
+
+    hit_lines = int(match.group("hit"))
+    total_lines = int(match.group("total"))
+    if total_lines <= 0 or hit_lines > total_lines:
+        raise ValueError("coverage summary has invalid line counts")
+    expected_percent = f"{hit_lines * 100 / total_lines:.1f}"
+    if match.group("percent") != expected_percent:
+        raise ValueError("coverage percentage does not match its line counts")
+    return summary
+
+
 def compare_url(prev_tag: str, comparison_ref: str) -> str:
     prev = quote(prev_tag, safe="/.-")
     current = quote(comparison_ref, safe="/.-")
@@ -60,9 +80,7 @@ def generate(version: str, prev_tag: str, stats_path: Path, coverage_path: Path,
             raise ValueError("major release changelog entry must contain a migration section")
 
     passed, total = read_test_stats(stats_path)
-    coverage = coverage_path.read_text(encoding="utf-8").strip()
-    if not coverage:
-        raise ValueError("coverage summary is empty")
+    coverage = read_coverage(coverage_path)
 
     major = version.split(".", 1)[0]
     migration_doc = f"MIGRATION_{major}.0.md"
